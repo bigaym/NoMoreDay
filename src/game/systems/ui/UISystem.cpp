@@ -1,5 +1,4 @@
 #include "game/systems/ui/UISystem.hpp"
-#include "app/Game.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/render/GameplayRenderAdapter.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"

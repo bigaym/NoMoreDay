@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"

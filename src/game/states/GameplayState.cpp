@@ -1,5 +1,5 @@
 #include "game/states/GameplayState.hpp"
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "engine/render/RenderContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -79,7 +79,7 @@
 #include "game/systems/world/MapAffixRegistry.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include "game/vfx/VFXSequencerSystem.hpp"
-#include "systems/SerializationSystem.hpp"
+#include "game/systems/SerializationSystem.hpp"
 
 #include <filesystem>
 

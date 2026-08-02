@@ -1,5 +1,5 @@
 #include "game/systems/combat/HazardSystem.hpp"
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/render/GPUParticleSystem.hpp"

@@ -1,5 +1,5 @@
 #include "game/systems/combat/CombatSystem.hpp"
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/systems/physics/PhysicsUtils.hpp"
 #include "core/utils/Branchless.hpp"

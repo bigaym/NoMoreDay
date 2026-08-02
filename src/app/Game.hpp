@@ -1,5 +1,5 @@
 #pragma once
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/RenderContext.hpp"

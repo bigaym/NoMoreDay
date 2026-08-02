@@ -16,7 +16,7 @@
 
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"

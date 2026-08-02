@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 
 namespace NoMoreDay {
 

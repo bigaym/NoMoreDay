@@ -217,4 +217,24 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 
 ## MS-6 里程碑总结
 
-MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196（死 include）+ c3f97e7（gameplay adapter）+ 5c5ca0c（DTO render input + pass rewire）+ 1874266（粒子常量）+ a5cc909（occluder 去重）+ bf5ff63（light adapter）+ a4fd6c2（heightfield adapter）+ 9aece25（loot/skill-vfx/vfx-sequencer）+ Batch E（emissive stamp）。ledger 现 5 条（全 MS-7 pch）。`REQUIRED_P0_SOURCES` 空集。剩余 MS-7（显式 target 图/PCH）/MS-8（目录收敛）/DOD-2（实机 gate）。
+MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196（死 include）+ c3f97e7（gameplay adapter）+ 5c5ca0c（DTO render input + pass rewire）+ 1874266（粒子常量）+ a5cc909（occluder 去重）+ bf5ff63（light adapter）+ a4fd6c2（heightfield adapter）+ 9aece25（loot/skill-vfx/vfx-sequencer）+ a046a94（emissive stamp）。ledger 现 5 条（全 MS-7 pch）。`REQUIRED_P0_SOURCES` 空集。
+
+---
+
+# MS-7 Batch 1（SharedContext 下移 + Game→App 依赖清除）— `提交`
+
+**审查目标**：核验 SharedContext/Settings/SerializationSystem 下移 game 与 Game→App 反向依赖清除（无 CMake/pch 改动，为显式 target 图铺路）。
+
+**变更边界**：3 个 rename（`app/Settings.hpp→game/Settings.hpp` 100%、`app/SharedContext.hpp→game/SharedContext.hpp` 97%[仅内部 include 修正]、`systems/SerializationSystem.hpp→game/systems/SerializationSystem.hpp` 100%）+ 14 个 include 修正 + 1 个 include 删除；settings.json 为用户指示既有残留（排除）；受保护设计文档排除。
+
+**发现**：无阻断项。2 条非阻断提示：多处 LF/CRLF 归一警告（git 工作区行尾提示，diff --check 通过）；settings.json 未暂存改动（提交时只 stage 目标文件防误带）。
+
+**已复核通过**：目标路径全部存在、旧路径零残留（git grep `systems/SerializationSystem` 仅新路径 1 条）；8+1 处 include 修正完整（8 处 `app/SharedContext` + GameplayState.cpp:82 SerializationSystem）；UISystem.cpp 删 `app/Game.hpp` 安全（class Game 零引用，现存 Game 匹配为 GameplayRenderAdapter::VisibleItemCache 来自仍在 include 的 adapter 头）；测试 4 文件（GameplayRuntimeHarness.hpp:22-23 双改、MDIRenderTest:4、MDIRenderBenchmark:5、RenderingBenchmark:5）；`git grep "app/" -- src tests` 仅 4 处合法命中（app 层自引用 Game.hpp、RenderFrameInput.hpp:4 注释、ModuleBoundaryCheckerTest.py:30 夹具字符串）；无 CMake/pch/ledger/checker 改动。
+
+**独立重跑（审查员）**：checker 5/5 PASS（files 1）、git diff --check exit 0、git grep "app/" src/game 零命中。
+
+**验证（主代理）**：25 python tests OK、build.bat 双标记 0 error、ctest ci 640/641（UITests.cpp:414 SkillUI 锁签名既有 flaky，与本次无关）。
+
+**剩余风险**：低。Game→App 依赖已清零；SharedContext 现属 game 层，B2 target 图无阻塞边。
+
+**提交**：`refactor(game): move shared context below game layer`（待提交）。

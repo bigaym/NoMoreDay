@@ -1,5 +1,5 @@
 #pragma once
-#include "app/SharedContext.hpp"
+#include "game/SharedContext.hpp"
 #include "engine/physics/SIMDSpatialGrid.hpp"
 #include "engine/render/GameplayRenderHooks.hpp"
 #include <entt/entt.hpp>

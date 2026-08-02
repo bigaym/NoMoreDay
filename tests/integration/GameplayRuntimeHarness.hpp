@@ -19,8 +19,8 @@
 
 #include "engine/render/validation/FixtureRenderDriver.hpp"
 
-#include "app/SharedContext.hpp"
-#include "app/Settings.hpp"
+#include "game/SharedContext.hpp"
+#include "game/Settings.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
