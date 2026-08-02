@@ -19,6 +19,7 @@ option(ENABLE_RUNTIME_OPT "Enable additional runtime optimization flags for MSVC
 option(COMBAT_DEFENSE_DEBUG "Enable detailed defense-chain debug logs" OFF)
 option(COMBAT_TELEMETRY_ENABLED "Enable combat telemetry instrumentation" ON)
 option(NMD_ENABLE_COMPILER_CACHE "Enable compiler cache launcher auto-detection" ON)
+option(ENABLE_LTO "Enable interprocedural optimization (LTO) for first-party Release builds" OFF)
 set(NMD_COMPILER_CACHE_TOOL "AUTO" CACHE STRING "Compiler cache tool: AUTO/SCCACHE/CCACHE/CLCACHE")
 set_property(CACHE NMD_COMPILER_CACHE_TOOL PROPERTY STRINGS AUTO SCCACHE CCACHE CLCACHE)
 set(NMD_CCACHE_DEFAULT_PATH "" CACHE FILEPATH "Fallback path to ccache executable when PATH lookup fails")
@@ -105,15 +106,19 @@ endif()
 
 
 
-# Global LTO (IPO) check - needs to be before target definitions
+# --- Release LTO (IPO) support probe ---
+# ENABLE_LTO is declared OFF by default (see Project Options above). Only the
+# isolated release-lto verification configuration turns it on; ordinary
+# developer builds (build.bat default) pass -DENABLE_LTO=OFF explicitly. The
+# support probe must run before target definitions. IPO is applied to required
+# first-party targets for Release only in the "Release IPO Scope" section
+# below; RelWithDebInfo/Debug/MinSizeRel never receive IPO, so a prior cache
+# value cannot leak LTO into default developer builds.
 if(ENABLE_LTO)
     include(CheckIPOSupported)
-    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
+    check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error LANGUAGES C CXX)
     if(ipo_supported)
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
-        set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
-        message(STATUS "[Optimization] LTO (IPO) enabled globally")
-        
+        message(STATUS "[Optimization] LTO (IPO) supported; Release-only IPO will be applied to required first-party targets")
     else()
         message(WARNING "[Optimization] LTO not supported: ${ipo_error}")
     endif()
@@ -352,6 +357,65 @@ if(BUILD_TESTING)
     # Ensure tests also output to bin or their own directory if preferred, 
     # but the user asked for "bin" in root.
 endif()
+
+# --- Release IPO Scope (required first-party deliverables, Release only) ---
+# Required deliverable targets: the layered first-party chain (NoMoreDayCore ->
+# NoMoreDayEngine -> NoMoreDayGame -> NoMoreDayApp), the main executable
+# NoMoreDay, the skill behavior OBJECT library, and (when tests are enabled)
+# the NoMoreDayTests binary. Only the per-config
+# INTERPROCEDURAL_OPTIMIZATION_RELEASE property is touched, so RelWithDebInfo
+# never receives IPO; third-party libraries keep their default (no IPO) state.
+# check_ipo_supported alone is not proof: the report/assertion below pins the
+# exact Release IPO state per target on every configure. This section runs
+# after add_subdirectory(tests) so every required target already exists.
+set(_NMD_IPO_REQUIRED_TARGETS
+    NoMoreDay
+    NoMoreDayApp
+    NoMoreDayGame
+    NoMoreDayEngine
+    NoMoreDayCore
+    SkillBehaviors
+)
+if(BUILD_TESTING)
+    list(APPEND _NMD_IPO_REQUIRED_TARGETS NoMoreDayTests)
+endif()
+if(ENABLE_LTO AND ipo_supported)
+    foreach(_nmd_ipo_tgt IN LISTS _NMD_IPO_REQUIRED_TARGETS)
+        set_target_properties(${_nmd_ipo_tgt} PROPERTIES
+            INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE
+        )
+    endforeach()
+else()
+    foreach(_nmd_ipo_tgt IN LISTS _NMD_IPO_REQUIRED_TARGETS)
+        set_target_properties(${_nmd_ipo_tgt} PROPERTIES
+            INTERPROCEDURAL_OPTIMIZATION_RELEASE FALSE
+        )
+    endforeach()
+endif()
+
+foreach(_nmd_ipo_tgt IN LISTS _NMD_IPO_REQUIRED_TARGETS)
+    get_target_property(_nmd_ipo_release ${_nmd_ipo_tgt} INTERPROCEDURAL_OPTIMIZATION_RELEASE)
+    if(_nmd_ipo_release STREQUAL "INTERPROCEDURAL_OPTIMIZATION_RELEASE-NOTFOUND")
+        set(_nmd_ipo_release FALSE)
+    endif()
+    if(ENABLE_LTO AND ipo_supported)
+        if(NOT _nmd_ipo_release STREQUAL "TRUE")
+            message(FATAL_ERROR
+                "[Optimization] ${_nmd_ipo_tgt} must have Release IPO enabled when ENABLE_LTO=ON"
+            )
+        endif()
+        message(STATUS "[Optimization] Release IPO [${_nmd_ipo_tgt}] = TRUE")
+    else()
+        if(NOT _nmd_ipo_release STREQUAL "FALSE")
+            message(FATAL_ERROR
+                "[Optimization] ${_nmd_ipo_tgt} must not retain Release IPO when ENABLE_LTO is OFF"
+            )
+        endif()
+        message(STATUS "[Optimization] Release IPO [${_nmd_ipo_tgt}] = disabled")
+    endif()
+endforeach()
+unset(_nmd_ipo_tgt)
+unset(_nmd_ipo_release)
 
 # Set compile output encoding to UTF-8
 if(MSVC)
