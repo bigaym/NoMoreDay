@@ -4,6 +4,7 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/PersistentBuffer.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
@@ -27,11 +28,16 @@ public:
   GPUEntitySystem() = default;
   ~GPUEntitySystem() = default;
 
-  // Disable copy, allow move
+  // Disable copy and move. This type owns raw GL handles (Shader, VAO/VBO) and
+  // delegates the five compute shaders to ResourceManager; a compiler-generated
+  // move would duplicate those raw handles and leave the source with live
+  // pointers (double unregister / double release risk). No call site needs
+  // move semantics (Game holds this system as a member), so move is deleted to
+  // make any future misuse a compile error.
   GPUEntitySystem(const GPUEntitySystem &) = delete;
   GPUEntitySystem &operator=(const GPUEntitySystem &) = delete;
-  GPUEntitySystem(GPUEntitySystem &&) = default;
-  GPUEntitySystem &operator=(GPUEntitySystem &&) = default;
+  GPUEntitySystem(GPUEntitySystem &&) = delete;
+  GPUEntitySystem &operator=(GPUEntitySystem &&) = delete;
 
   void Init(ResourceManager &rm, int maxEntities = 200000);
 
@@ -92,7 +98,10 @@ private:
   Shader m_renderShader = {0};
   unsigned int m_quadVAO = 0;
   unsigned int m_quadVBO = 0;
-  void InitRender(ResourceManager &rm);
+  // Returns false (and releases whatever was acquired) when render resource
+  // acquisition fails midway; callers must then treat the system as
+  // uninitialized.
+  bool InitRender(ResourceManager &rm);
 };
 
 } // namespace NoMoreDay::systems

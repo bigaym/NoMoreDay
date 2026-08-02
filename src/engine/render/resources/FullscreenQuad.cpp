@@ -2,6 +2,7 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 
 namespace NoMoreDay::render::resources {
@@ -25,6 +26,12 @@ void FullscreenQuad::EnsureInitialized() {
     return;
   }
 
+  // W5 (RG-3): restore observer registration for the shared fullscreen VAO.
+  // The registry only observes; FullscreenQuad remains the sole releaser.
+  GPUResourceRegistry::Get().RegisterResource(
+      s_vao, graph::ResourceKind::VertexArray, graph::RenderOwnerTag::Unknown,
+      0u, "FullscreenQuadVAO");
+
   s_initialized = true;
 }
 
@@ -42,6 +49,9 @@ void FullscreenQuad::Draw() {
 
 void FullscreenQuad::Shutdown() {
   if (s_vao != 0) {
+    // W5 (RG-3): unregister before the actual VAO release.
+    GPUResourceRegistry::Get().UnregisterResource(
+        s_vao, graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(s_vao);
     s_vao = 0;
   }

@@ -123,7 +123,7 @@ Execute(plan):
 
 - [x] R1: 用 typed stable resource ID 跟踪前序 access/stage，在 immutable `CompiledRenderPlan` 生成并保存 transition records；执行器只执行计划声明的 consumer-before barrier。当前已生成并由执行器消费 compiled transition；string-based access 已默认拒绝并全部收敛（见 `legacy-access-inventory.md`，2026-07-31 S5）。
 - [x] R2: 拒绝 descriptor/access 的名称漂移，修复 `SceneHdrColor`/`SceneColor` 等资源身份不一致；每个 access 必须解析到一个 descriptor。当前已拒绝 typed identity drift/tag mismatch，且 string-based access 由 `Build` 无条件拒绝（`isStringBasedAccess` fail-closed，不受 NDEBUG/validation 开关影响），生产 0 个 string-based 调用点、测试 2 处为 deny 负例夹具（见 `legacy-access-inventory.md`）。
-- [~] R3: 使 registry observer 覆盖 buffer、VAO、query 与 persistent mapping，并在每 rendered frame 调用 `AdvanceFrame`；实际 owner 继续负责 RAII destroy。当前已接入 FBO、公共 `FullscreenQuad` VAO、Distortion/JFA SSBO、PersistentBuffer、timer query，且 RenderGraph 每帧推进；专用 VAO、其余 buffer owner 仍待覆盖。
+- [~] R3: 使 registry observer 覆盖 buffer、VAO、query 与 persistent mapping，并在每 rendered frame 调用 `AdvanceFrame`；实际 owner 继续负责 RAII destroy。**2026-08-02 调和（W5，MS-8）**：早期记录称「FullscreenQuad VAO 已接入、RenderGraph 每帧推进」与当前源码不符（S5 重构丢失）；现状为 FBO/color texture 已登记（FramebufferManager），FullscreenQuad 与 RenderGraph 均无登记/推进，硬件 gate stress 循环手动 advance。W5 契约见 spec §3：duplicate 拒绝、observer-only、exact-one advance 在 `RenderSystem::render` 的 `graph.Execute` 成功后、gate 移除手动 advance；`VertexArray`/`ShaderProgram` kind 纳入。专项 VAO/VBO（GPUEntitySystem）与 ComputeBuffer/PersistentBuffer 由 W5 补齐登记。
 - [~] R4: 合并 production hot reload、capability matrix 和 GL diagnostics 到单一 governance 路径；登记旧 executor sync 依赖与 ABI/pass migration debt（见 `debt_register.md`）。当前 graph pass 边界已统一 flush 契约，且 RenderGraph 是唯一 GPU timer owner（RenderProfiler 在 graph 内仅采 CPU）；reload/capability 合并与 executor 迁移仍待完成。
 - [~] R5: 添加同资源 read/write、write/read、跨 stage、条件 pass 顺序、registry lifecycle、reload retry 与 capability fallback 合同测试。当前已有 transition、typed drift、registry accounting 和 RenderGraph 合同测试，硬件生命周期/reload fallback 覆盖未闭合。
 
@@ -160,3 +160,9 @@ Execute(plan):
 - **M1 修复**：string-deny 从「仅 `s_validationEnabled` 时校验 + 非 NDEBUG throw」改为「`Build` 无条件抛」（`RejectLegacyStringAccess` 不受 NDEBUG、`s_validationEnabled` 影响），发布构建（RelWithDebInfo/NDEBUG）也无法执行 string access；deny 测试改为无条件断言 `Build` 抛 `std::logic_error`。
 - 文档修正：inventory §8 改为无条件 fail-closed/拒绝执行；§5「收敛后调用点」改为生产 0、测试 2 处 deny 负例夹具（`RenderGraphValidationTest.cpp:120/124`）；§1 集成测试路径笔误改平铺。
 - 验证（`s5fix`）：`check_module_boundaries.py` 71/71；`build.bat check` 通过；`build.bat` 双成功标记（日志 `%TEMP%\opencode\s5fix-build.log`）；`*RenderGraph*` focused 测试通过；ctest unit|integration 除既有 GIStability/HeavenlySword 失败外通过；`git diff --check` 干净。
+
+## W5 RG-3 生命周期调和（2026-08-02，MS-8）
+
+- 文档调和：spec §3 新增 registry 记账与帧推进契约（observer-only、duplicate 拒绝、记账一致、尺寸更新防下溢、注销先于 GL 删除、handle 复用须先注销、PersistentMapping 先于 backing buffer 移除、exact-one advance、gate 不手动 advance）；debt_register RG-3 关闭条件按 2026-08-02 契约改写。
+- 现状修正：早期「FullscreenQuad 已登记、RenderGraph 每帧推进」记录与源码不符，S5 重构丢失；W5 恢复并补齐（见 validation W5 记录）。
+- 契约决定：`ResourceKind` 增加 `VertexArray` 与 `ShaderProgram`（raw 非 ResourceManager shader 纳入观察）；duplicate registration 采用 reject + diagnostic（不更新、不计入）；`RenderOwnerTag` 保持既有集合，GPUEntitySystem 资源用 `Unknown` 观察（不新增 tag，避免扩大 switch 面）。

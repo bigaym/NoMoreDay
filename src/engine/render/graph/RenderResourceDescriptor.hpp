@@ -18,6 +18,8 @@ enum class ResourceKind : uint8_t {
   QueryRing,
   PersistentMapping,
   ExternalTarget,
+  VertexArray,
+  ShaderProgram,
 };
 
 enum class ResourceFormat : uint8_t {
@@ -129,6 +131,8 @@ constexpr const char *ToResourceKindName(ResourceKind kind) {
   case ResourceKind::QueryRing: return "QueryRing";
   case ResourceKind::PersistentMapping: return "PersistentMapping";
   case ResourceKind::ExternalTarget: return "ExternalTarget";
+  case ResourceKind::VertexArray: return "VertexArray";
+  case ResourceKind::ShaderProgram: return "ShaderProgram";
   default: return "Unknown";
   }
 }

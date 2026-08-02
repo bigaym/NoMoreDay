@@ -1,6 +1,7 @@
 #include "engine/render/PersistentBuffer.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include <algorithm>
 #include <cstring>
 #include <iostream>
@@ -31,10 +32,9 @@ PersistentBuffer &PersistentBuffer::operator=(PersistentBuffer &&other) noexcept
     m_fences = std::move(other.m_fences);
     m_stagingBuffer = std::move(other.m_stagingBuffer);
 
-    other.m_bufferId = 0;
-    other.m_mappedPtr = nullptr;
-    other.m_writeSlot = 0;
-    other.m_bufferCount = 0;
+    // The moved-from object must return to its default state so Persistent-mode
+    // accessors (fence/slot arithmetic) can never touch a cleared buffer.
+    other.ResetState();
   }
   return *this;
 }
@@ -68,6 +68,23 @@ void PersistentBuffer::Create(size_t slotSize, int bufferCount,
     LOG_INFO("PersistentBuffer: Creating in COMPAT mode. SlotSize={}",
              m_slotSize);
     CreateCompat(m_slotSize);
+  }
+
+  // W5.4 (RG-3 contract): observe only after a successful allocation. The
+  // wrapper remains the sole releaser; the registry never owns the handle.
+  if (m_bufferId != 0) {
+    auto &registry = resources::GPUResourceRegistry::Get();
+    registry.RegisterResource(
+        m_bufferId, graph::ResourceKind::StorageBuffer,
+        graph::RenderOwnerTag::Unknown,
+        m_mode == Mode::Persistent ? m_totalSize : m_slotSize,
+        "PersistentBuffer");
+    if (m_mode == Mode::Persistent && m_mappedPtr != nullptr) {
+      // Explicit mapping record, removed before the backing buffer record.
+      registry.RegisterResource(m_bufferId, graph::ResourceKind::PersistentMapping,
+                                graph::RenderOwnerTag::Unknown, m_totalSize,
+                                "PersistentBufferMapping");
+    }
   }
 }
 
@@ -118,6 +135,15 @@ void PersistentBuffer::CreateCompat(size_t size) {
 
 void PersistentBuffer::Destroy() {
   if (m_bufferId != 0) {
+    // W5.4 (RG-3 contract): unregister observer records before any GL release.
+    // Persistent mapping record is removed before its backing buffer record.
+    auto &registry = resources::GPUResourceRegistry::Get();
+    if (m_mode == Mode::Persistent && m_mappedPtr != nullptr) {
+      registry.UnregisterResource(m_bufferId,
+                                  graph::ResourceKind::PersistentMapping);
+    }
+    registry.UnregisterResource(m_bufferId, graph::ResourceKind::StorageBuffer);
+
     for (size_t i = 0; i < m_fences.size(); i++) {
       if (m_fences[i]) {
         utils::GPUUtils::DeleteSync(m_fences[i]);
@@ -136,6 +162,20 @@ void PersistentBuffer::Destroy() {
     utils::GPUUtils::DeleteBuffers(1, &m_bufferId);
     m_bufferId = 0;
   }
+  // Reset the full state (without further GL calls) so a destroyed object
+  // reports itself as a default Compat buffer with no live handles.
+  ResetState();
+}
+
+void PersistentBuffer::ResetState() {
+  m_bufferId = 0;
+  m_slotSize = 0;
+  m_totalSize = 0;
+  m_mappedPtr = nullptr;
+  m_writeSlot = 0;
+  m_bufferCount = 2;
+  m_mode = Mode::Compat;
+  m_fences.clear();
   m_stagingBuffer.clear();
 }
 

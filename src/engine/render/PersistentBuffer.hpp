@@ -103,6 +103,12 @@ private:
 
   void WaitForFence(void *&fence);
 
+  // Restores the default (Compat, zeroed-handle) state WITHOUT issuing any GL
+  // calls. Called at the end of Destroy() and on the source object of a move so
+  // a destroyed/moved-from object can never access Persistent-mode state
+  // (fences/slot arithmetic) through an empty buffer.
+  void ResetState();
+
   // Common
   unsigned int m_bufferId = 0;
   size_t m_slotSize = 0;

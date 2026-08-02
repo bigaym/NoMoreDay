@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
 #include <cstddef>
@@ -40,6 +41,14 @@ public:
       Release();
     m_size = size;
     m_id = rlLoadShaderBuffer(size, data, usage);
+    // W5.4 (RG-3 contract): observe the freshly allocated buffer. The registry
+    // only records ownership; the wrapper remains the sole releaser.
+    if (m_id != 0) {
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+          m_id, NoMoreDay::render::graph::ResourceKind::StorageBuffer,
+          NoMoreDay::render::graph::RenderOwnerTag::Unknown, m_size,
+          "ComputeBuffer");
+    }
   }
 
   void Update(const void *data, size_t size, size_t offset = 0) {
@@ -63,6 +72,16 @@ public:
     // Orphan (Reallocate storage, driver discards old sync requirements)
     utils::GPUUtils::BufferData(target, size, nullptr, (uint32_t)usage);
     utils::GPUUtils::BufferSubData(target, 0, size, data);
+
+    // W5.4 (RG-3 contract): the orphan reallocated the GL backing store, so the
+    // size ledger and the observer record must stay in sync with the new
+    // capacity. UpdateResourceSize is a no-op on an equal size and saturated on
+    // inconsistency, so this can never corrupt the aggregate counters.
+    if (size != m_size) {
+      m_size = size;
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().UpdateResourceSize(
+          m_id, NoMoreDay::render::graph::ResourceKind::StorageBuffer, m_size);
+    }
   }
 
   void BindBase(unsigned int index) const {
@@ -87,6 +106,10 @@ public:
 
   void Release() {
     if (m_id != 0) {
+      // W5.4 (RG-3 contract): unregister before the actual GL release so the
+      // observer record never outlives its backing object.
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+          m_id, NoMoreDay::render::graph::ResourceKind::StorageBuffer);
       rlUnloadShaderBuffer(m_id);
       m_id = 0;
       m_size = 0;

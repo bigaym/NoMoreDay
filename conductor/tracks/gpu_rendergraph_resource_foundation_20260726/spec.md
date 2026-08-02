@@ -46,6 +46,17 @@
 
 registry 只接收 create/recreate/destroy observer 事件，实际释放仍由现有 RAII wrapper/pass owner 执行。报告必须含 current/peak bytes、owner/type 分类、创建/释放计数和预算；驱动 VRAM extension 数据与引擎估算严格分列。
 
+#### registry 记账与帧推进契约（2026-08-02，W5 调和）
+
+- **Observer-only**：registry 不持有、不删除任何 GL 对象，不作为 fallback 清理路径。owner 在成功创建后注册、在自身 GL 释放前注销。
+- **重复注册**：同一 `(handle, kind)` key 已存在时，`RegisterResource` 拒绝并发出诊断（validation 构建断言、常规构建 `LOG_ERROR`），不更新记录、不改变任何计数器。`(kind<<32)|handle` 为唯一键，不同 kind 下同一数字 handle 合法。
+- **记账一致**：active/created/destroyed 计数与 current/peak bytes、`bytesByKind`/`bytesByOwner` 在每个注册/注销/尺寸更新操作中保持一致，绝不允许重复 key 或 missing record 造成膨胀。
+- **尺寸更新**：`UpdateResourceSize` 仅对已存在记录生效；对 `(handle, kind)` 缺失时 no-op 并诊断。内部以记录内的旧尺寸为唯一减项，禁止下溢；validation 构建对账本不一致 fail-closed。
+- **注销与 handle 复用**：注销在 GL 删除之前调用；数字 handle 复用只允许在先前注销之后（复用前未注销视为重复注册/契约失败）。
+- **Persistent mapping**：持久映射（`PersistentMapping`）有独立 observer 记录，且先于 backing `StorageBuffer` 记录移除。
+- **ResourceKind 覆盖**：`VertexArray` 与 `ShaderProgram`（raw 非 ResourceManager shader）纳入 kind 枚举，供 VAO 与 raw shader owner 观察；新增枚举值不改 `bytesByKind` 数据结构。
+- **帧推进**：`GPUResourceRegistry::AdvanceFrame()` 在正常渲染路径中每成功完成一帧恰好调用一次——紧接 `RenderSystem::render` 内 `graph.Execute()` 成功后、下游 snapshot 消费者读取之前。不允许 per-pass 调用、不允许在失败/中止的 execute 后调用。硬件 gate 的 stress 循环不得手动 advance，避免 double-age pending 记录。
+
 ### 计时、ABI、设备
 
 每个 pass 使用多槽 query ring，在 N 帧后只读取 ready query。未就绪保持 Pending，绝不写 `0ms`。HUD、统计和 auto-degrade 分别显示有效 GPU、CPU 提交和无样本。
