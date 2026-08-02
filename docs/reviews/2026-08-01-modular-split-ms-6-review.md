@@ -260,3 +260,23 @@ MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196
 **剩余风险**：**Release+LTO 未实证**（RelWithDebInfo + ENABLE_LTO=OFF，/LTCG 下系统库解析理论安全未构建验证，B4/后续需补验）；glfw/raylib 升级可能改变系统库 PRIVATE 传递；B4 落地时需回归链接。
 
 **提交**：`build(cmake): split monolith into layered target graph`（待提交）。
+
+---
+
+# MS-7 Batch 3（per-target PCH，ledger 5→0）— `提交`
+
+**审查目标**：核验 `src/pch.hpp` 删 5 条 game include 成 Engine+Core 共享下层 PCH、新建 `src/game/pch.hpp`、Game/SkillBehaviors 共用同一 game pch（ledger 5→0，module boundary 全清零）。
+
+**变更边界**：`src/pch.hpp`（删 5 条 game include L69-75）+ 新建 `src/game/pch.hpp` + `src/game/CMakeLists.txt`（PCH→game pch）+ 根 `CMakeLists.txt`（SkillBehaviors PCH→game pch）+ ledger（entries 5→0）+ core-candidate-contract.json（direct_game_includes→[]）+ CoreCandidateContractCheckerTest fixture 同步；settings.json 为用户指示既有残留（排除）；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。2 Low 非阻塞：`src/game/pch.hpp:51` `<raylib.h>` 尾空格（原样继承旧 pch，非本批引入）；game→app 反向 include 不在 module boundary checker 扫描范围（既有盲区，本批未扩大）。
+
+**已复核通过**：engine/core 对 game5 符号零消费（grep TagRegistry/PrimaryStats/CombatStats/StatModifier/DamageEvent/SkillComponent/SpriteComponent/ColliderComponent/SkillTreeDefinition/ActiveSkillsComponent/DamagePool/TalentNode/AttackState/TagInfo 全 0 命中）；game pch = 改造前旧 pch 逐行等价零丢失（STL38+三方+core4+game5+engine2，ItemFactory 消费 EquipmentAssetRegistry/RuneAssetRegistry 按需保留）；Game（src/game/CMakeLists.txt:145）与 SkillBehaviors（CMakeLists.txt:204）解析同一 `<root>/src/game/pch.hpp`，MSVC 生成同名 pch 无 C2850；ledger 精确删 5 边且 scope（candidate_roots/pch_files/forbidden）完整保留；checker `EXPECTED_PCH_FILES` 保持 `("src/pch.hpp",)` 正确（加 game pch 会误报其合法 game include）；contract JSON+checker+fixture 三方一致（checker 动态读契约核对 src/pch.hpp 实际 includes==direct_game+direct_engine 2 条）；Core 无 PCH 符合契约（future_NoMoreDayCore.approved_pch=null）；NoMoreDayTypes/DEFER guard/CMake 静态策略零违规；ResourceManager SKIP 保留。
+
+**独立重跑（审查员）**：checker 0/0 PASS、contract PASS、25 python tests OK、git diff --check exit 0。
+
+**验证（主代理）**：build.bat check OK、完整构建双标记 0 error C/LNK/C2850、.pch 产物 Game/SkillBehaviors ~460MB vs Engine/App ~398MB（瘦身实证）、ctest -L "unit|integration" 13/15（2 失败均为既有 HeavenlySword hasFreeze flaky）、git grep game/ src/pch.hpp 0 命中。
+
+**剩余风险**：低。Core 目录残留 pre-B2 孤儿 `cmake_pch.pch`（未参与编译）；game→app 反向 include 属既有 checker 盲区建议后续独立审计；Release+LTO 仍未实证（沿用 Batch 2 风险）。
+
+**提交**：`build(cmake): split per-target precompiled headers`（待提交）。

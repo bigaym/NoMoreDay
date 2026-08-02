@@ -201,7 +201,7 @@ target_link_libraries(SkillBehaviors PRIVATE
     xsimd
     NoMoreDayAnalyzeFlags
 )
-target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
+target_precompile_headers(SkillBehaviors PRIVATE src/game/pch.hpp)
 
 # Enable Unity Build for Skills
 set_target_properties(SkillBehaviors PROPERTIES UNITY_BUILD ON)

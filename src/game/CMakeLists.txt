@@ -142,7 +142,7 @@ add_library(NoMoreDayGame STATIC
 
 add_dependencies(NoMoreDayGame GenerateTags)
 
-target_precompile_headers(NoMoreDayGame PRIVATE ${CMAKE_SOURCE_DIR}/src/pch.hpp)
+target_precompile_headers(NoMoreDayGame PRIVATE ${CMAKE_SOURCE_DIR}/src/game/pch.hpp)
 
 target_link_libraries(NoMoreDayGame PUBLIC NoMoreDayEngine)
 target_link_libraries(NoMoreDayGame PUBLIC SkillBehaviors)

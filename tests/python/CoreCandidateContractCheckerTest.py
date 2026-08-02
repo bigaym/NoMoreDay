@@ -104,7 +104,7 @@ def make_contract() -> dict[str, object]:
             "current_aggregate_NoMoreDayCore": {
                 "path": "src/pch.hpp",
                 "status": "aggregate-only",
-                "direct_game_includes": ["game/Common.hpp"],
+                "direct_game_includes": [],
                 "direct_engine_includes": ["engine/Resource.hpp"],
             },
         },
@@ -204,7 +204,7 @@ class CoreCandidateContractCheckerTest(unittest.TestCase):
             encoding="utf-8",
         )
         (root / "src" / "pch.hpp").write_text(
-            '#include "game/Common.hpp"\n#include "engine/Resource.hpp"\n',
+            '#include "engine/Resource.hpp"\n',
             encoding="utf-8",
         )
         (root / "tests").mkdir()
