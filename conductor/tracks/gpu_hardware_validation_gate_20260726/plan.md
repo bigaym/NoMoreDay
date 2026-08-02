@@ -137,3 +137,11 @@ DecideGate(report):
   - [x] R6.4: schema validator 可作 CI 后置校验：`python scripts/gpu_hardware_validation_gate.py --validate-schema artifacts/gpu-gate/<revision>/gpu_hardware_validation_artifact.json`；runner 归档时自动校验并写入 `gate_report_schema_errors`。
 
 **退出标准**：R0-R6、`./build.bat`、相关 CTest、gate runner 和目标 GPU nightly 全部通过。任一 MUST PASS 失败或 artifact 缺失即为 `NO-GO`。
+
+## DOD-2 实机 Gate（RTX 4070S，2026-08-02）
+
+- **状态**：`environment_limited`（fail-closed `NO_GO`；判定边界经用户批准记录）。
+- 有效项：GL 诊断清零（修复 commit `5c257e2` 后 debug 256→0 / dropped 3,593,483→0 / severe 0）、capability/preflight、压力/泄漏、lambda passes 预算、toggle stress 全部通过。
+- 无效项（环境局限，不计入）：矩阵 ROI/SDF/GI readback 三项——测试二进制未调用 `RenderSystem::Initialize()`（g_* null → 7 pass 不入 graph）+ harness 无 hooks/renderContext（零绘制）+ viewport 1×1（ROI 全黑）。判定逻辑无 bug。
+- **后续**：真实 readback 判定需移至游戏二进制上下文（`--gate` 模式：`RenderSystem::Initialize()` + 真实 hooks + 正确 viewport + 游戏侧 FixtureRenderDriver），属 S6 契约范围外，另行立项。
+- evidence：`docs/reports/gpu-gate-dod2/evidence.md`；validation.md §16。

@@ -159,3 +159,11 @@ R3 只覆盖诊断采集和 fail-closed 判定；它不替代真实 Gameplay fix
   - 修复：C++ 测试在报告 `GPU_HARDWARE_GATE_REPORT_END` 后 `std::flush`，消除后续用例日志与 JSON 尾部交错损坏（全量 suite 运行下 payload 曾含交错日志行导致 `json.loads` 失败）。
 - evidence：`docs/reports/gpu-s8-artifact-archive/evidence.md`。
 - 该验证闭环 R6 归档/接线/waiver/schema-validator 合同；实机 RTX 4070 `GO` 采集仍属 DOD-2，生产姿态不变。
+
+## 16. DOD-2 实机 Gate 判定边界（RTX 4070S，2026-08-02）
+
+- **执行**：`python scripts/gpu_hardware_validation_gate.py --revision dod2-20260801`（samples=120, toggle=100, stress=true），RTX 4070 SUPER 实机；修复复跑 `--revision glfix-20260801`。
+- **暴露并修复真实生产 bug（commit `5c257e2`）**：`RenderSystem::CaptureCompositeTargetState()` 每帧 3 次 `glGetFramebufferAttachmentParameteriv` 传入核心 GL 不存在的 pname（0x8D24/0x8D25/0x825D）→ 实机热路径 `GL_INVALID_ENUM` 洪泛（dropped 3,593,483）。删除无效查询改 viewport 回退后：debug 256→0、dropped→0、severe 0、global_failures 空。
+- **判定边界（用户批准 A：接受局限如实记录）**：矩阵 ROI/SDF/GI readback 三项因测试二进制管线上下文不完整无效（`RenderSystem::Initialize()` 未调用→g_* null→7 pass 不入 graph；harness 无 hooks/renderContext→零绘制；viewport 1×1→HDR buffer 1×1→ROI 全黑），不计入硬件判定。有效项：GL 诊断清零、capability/preflight、压力/泄漏、lambda passes 预算、toggle stress 均通过。
+- **gate_status = NO_GO（environment_limited）**：fail-closed 保持；真实 readback 判定需移至游戏二进制上下文（`--gate` 模式），属 S6 契约范围外，另行立项。
+- **evidence**：`docs/reports/gpu-gate-dod2/evidence.md`。
