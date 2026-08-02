@@ -1,24 +1,45 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "scope": {
     "candidate_roots": [
       {
-        "path": "src/engine",
-        "candidate_target": "NoMoreDayEngine",
-        "candidate_layer": "Engine"
-      },
-      {
         "path": "src/core",
         "candidate_target": "NoMoreDayCore",
-        "candidate_layer": "Core"
+        "candidate_layer": "Core",
+        "forbidden_include_prefixes": [
+          "engine/",
+          "game/",
+          "app/"
+        ]
+      },
+      {
+        "path": "src/engine",
+        "candidate_target": "NoMoreDayEngine",
+        "candidate_layer": "Engine",
+        "forbidden_include_prefixes": [
+          "game/",
+          "app/"
+        ]
+      },
+      {
+        "path": "src/game",
+        "candidate_target": "NoMoreDayGame",
+        "candidate_layer": "Game",
+        "forbidden_include_prefixes": [
+          "app/"
+        ]
       }
     ],
     "pch_files": [
-      "src/pch.hpp"
-    ],
-    "forbidden_include_prefixes": [
-      "game/",
-      "app/"
+      {
+        "path": "src/pch.hpp",
+        "candidate_target": "EngineOwnedPch",
+        "candidate_layer": "Engine-owned PCH",
+        "forbidden_include_prefixes": [
+          "game/",
+          "app/"
+        ]
+      }
     ]
   },
   "entries": []

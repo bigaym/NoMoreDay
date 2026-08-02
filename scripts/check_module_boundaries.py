@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Check the MS-0 lower-layer reverse-dependency ownership ledger."""
+"""Check the four-layer module-boundary ownership ledger.
+
+Each candidate root and the PCH carries its own declarative policy of
+forbidden direct project include prefixes.  The checker scans only direct
+project includes (both quote and angle forms) and never follows transitive
+includes, so no CMake target topology is consulted.
+"""
 
 from __future__ import annotations
 
@@ -12,22 +18,52 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "2.0"
+
+
+@dataclass(frozen=True)
+class CandidatePolicy:
+    """One declarative scanning policy for a candidate root or the PCH."""
+
+    path: str
+    candidate_target: str
+    candidate_layer: str
+    current_owner: str
+    forbidden_include_prefixes: tuple[str, ...]
+
+    def scope_dict(self) -> dict[str, object]:
+        """Return the ledger scope representation of this policy."""
+        return {
+            "path": self.path,
+            "candidate_target": self.candidate_target,
+            "candidate_layer": self.candidate_layer,
+            "forbidden_include_prefixes": list(self.forbidden_include_prefixes),
+        }
+
+
 EXPECTED_CANDIDATE_ROOTS = (
-    ("src/engine", "NoMoreDayEngine", "Engine"),
-    ("src/core", "NoMoreDayCore", "Core"),
+    CandidatePolicy(
+        "src/core", "NoMoreDayCore", "Core", "core_layer",
+        ("engine/", "game/", "app/"),
+    ),
+    CandidatePolicy(
+        "src/engine", "NoMoreDayEngine", "Engine", "engine_layer",
+        ("game/", "app/"),
+    ),
+    CandidatePolicy(
+        "src/game", "NoMoreDayGame", "Game", "game_layer",
+        ("app/",),
+    ),
 )
-EXPECTED_PCH_FILES = ("src/pch.hpp",)
-FORBIDDEN_INCLUDE_PREFIXES = ("game/", "app/")
+EXPECTED_PCH_FILES = (
+    CandidatePolicy(
+        "src/pch.hpp", "EngineOwnedPch", "Engine-owned PCH",
+        "engine_owned_pch", ("game/", "app/"),
+    ),
+)
+# First-party header prefixes; anything else is treated as an external header.
+PROJECT_INCLUDE_PREFIXES = ("app/", "core/", "engine/", "game/")
 FUTURE_OWNER_LAYERS = {"Game", "App"}
-P0_BLOCKER = "gpu_rendergraph_resource_foundation_20260726"
-P0_DISPOSITION = "split_engine_primitive_and_game_adapter"
-P0_MILESTONE = "MS-6"
-# All MS-6 P0-blocked sources have been migrated (last resolved in Batch E);
-# an empty set is valid: `source in frozenset()` is always False, so no
-# required-source assertion fires, and `source not in frozenset()` is always
-# True, so any entry still carrying p0_blocking is rejected as outside policy.
-REQUIRED_P0_SOURCES = frozenset()
 ENTRY_FIELDS = {
     "id",
     "source",
@@ -36,10 +72,10 @@ ENTRY_FIELDS = {
     "candidate_target",
     "candidate_layer",
     "current_owner",
+    "forbidden_include_prefixes",
     "future_owner_layer",
     "disposition",
     "milestone",
-    "p0_blocking",
 }
 DISPOSITIONS = {
     "move_to_game",
@@ -54,7 +90,21 @@ SOURCE_EXTENSIONS = {
     ".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx",
     ".inl", ".ipp",
 }
-INCLUDE_PATTERN = re.compile(r'^\s*#include\s+"([^"]+)"')
+# The C preprocessor permits whitespace between '#' and the directive name and
+# between the directive name and the header token (e.g. `# include <app/x.hpp>`
+# or `#\tinclude\t"app/x.hpp"`), so both are matched.
+INCLUDE_PATTERN = re.compile(r'^\s*#\s*include\s+(?:"([^"]+)"|<([^>]+)>)')
+
+
+def _casefolded_startswith(value: str, prefixes: tuple[str, ...]) -> bool:
+    """Return whether value starts with any prefix, compared case-insensitively.
+
+    Windows include paths are case-insensitive, so the project-prefix policy
+    judgment is made on the casefolded spelling.  Callers preserve the
+    original include_path spelling for ledger evidence.
+    """
+    folded = value.casefold()
+    return any(folded.startswith(prefix.casefold()) for prefix in prefixes)
 
 
 class BoundaryInputError(ValueError):
@@ -63,7 +113,7 @@ class BoundaryInputError(ValueError):
 
 @dataclass(frozen=True)
 class ObservedInclude:
-    """One directly observed quoted reverse include."""
+    """One directly observed project include that violates a candidate policy."""
 
     source: str
     line: int
@@ -71,6 +121,7 @@ class ObservedInclude:
     candidate_target: str
     candidate_layer: str
     current_owner: str
+    forbidden_include_prefixes: tuple[str, ...]
 
     @property
     def evidence_key(self) -> tuple[str, int, str]:
@@ -85,7 +136,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Check lower-layer game/app includes against the MS-0 ledger"
+        description=(
+            "Check direct project includes against the per-root "
+            "module-boundary ledger"
+        )
     )
     parser.add_argument(
         "--repo-root",
@@ -151,25 +205,18 @@ def load_ledger(ledger_path: Path) -> dict[str, Any]:
     scope = loaded.get("scope")
     if not isinstance(scope, dict):
         raise BoundaryInputError("ledger scope must be a JSON object")
+    if set(scope) != {"candidate_roots", "pch_files"}:
+        raise BoundaryInputError(
+            "ledger scope must contain exactly candidate_roots and pch_files"
+        )
     roots = scope.get("candidate_roots")
     pch_files = scope.get("pch_files")
-    prefixes = scope.get("forbidden_include_prefixes")
-    expected_roots = [
-        {
-            "path": path,
-            "candidate_target": target,
-            "candidate_layer": layer,
-        }
-        for path, target, layer in EXPECTED_CANDIDATE_ROOTS
-    ]
+    expected_roots = [policy.scope_dict() for policy in EXPECTED_CANDIDATE_ROOTS]
+    expected_pch = [policy.scope_dict() for policy in EXPECTED_PCH_FILES]
     if roots != expected_roots:
         raise BoundaryInputError("scope.candidate_roots do not match checker policy")
-    if pch_files != list(EXPECTED_PCH_FILES):
+    if pch_files != expected_pch:
         raise BoundaryInputError("scope.pch_files do not match checker policy")
-    if prefixes != list(FORBIDDEN_INCLUDE_PREFIXES):
-        raise BoundaryInputError(
-            "scope.forbidden_include_prefixes must be exactly [\"game/\", \"app/\"]"
-        )
 
     entries = loaded.get("entries")
     if not isinstance(entries, list):
@@ -194,7 +241,13 @@ def load_ledger(ledger_path: Path) -> dict[str, Any]:
         if entry_id in seen_ids:
             raise BoundaryInputError(f"duplicate entry id: {entry_id}")
         seen_ids.add(entry_id)
-        if not isinstance(entry["line"], int) or entry["line"] < 1:
+        # bool is a subclass of int in Python, so reject it explicitly to
+        # keep JSON `line` strictly an integer (never true/false).
+        if (
+            isinstance(entry["line"], bool)
+            or not isinstance(entry["line"], int)
+            or entry["line"] < 1
+        ):
             raise BoundaryInputError(f"entries[{index}].line must be a positive integer")
         key = (source, entry["line"], include_path)
         if key in seen_keys:
@@ -204,22 +257,32 @@ def load_ledger(ledger_path: Path) -> dict[str, Any]:
             raise BoundaryInputError(f"entries[{index}].id does not match evidence key")
         for field in (
             "candidate_target", "candidate_layer", "current_owner",
-            "future_owner_layer", "milestone",
+            "future_owner_layer", "disposition", "milestone",
         ):
             _as_non_empty_string(entry[field], f"entries[{index}].{field}")
-        expected_candidate = _candidate_for_source(source)
-        if expected_candidate is None:
+        policy = _candidate_for_source(source)
+        if policy is None:
             raise BoundaryInputError(
                 f"entries[{index}].source is outside checker policy: {source}"
             )
         for field, expected_value in zip(
             ("candidate_target", "candidate_layer", "current_owner"),
-            expected_candidate,
+            (
+                policy.candidate_target,
+                policy.candidate_layer,
+                policy.current_owner,
+            ),
         ):
             if entry[field] != expected_value:
                 raise BoundaryInputError(
                     f"entries[{index}].{field} must be {expected_value!r}"
                 )
+        prefixes = entry["forbidden_include_prefixes"]
+        if prefixes != list(policy.forbidden_include_prefixes):
+            raise BoundaryInputError(
+                f"entries[{index}].forbidden_include_prefixes must match "
+                f"candidate policy: {list(policy.forbidden_include_prefixes)!r}"
+            )
         if entry["future_owner_layer"] not in FUTURE_OWNER_LAYERS:
             raise BoundaryInputError(
                 f"entries[{index}].future_owner_layer must be Game or App"
@@ -233,42 +296,21 @@ def load_ledger(ledger_path: Path) -> dict[str, Any]:
             raise BoundaryInputError(
                 f"entries[{index}].milestone is not one of MS-0..MS-8"
             )
-        p0_blocking = entry["p0_blocking"]
-        if p0_blocking not in (None, P0_BLOCKER):
-            raise BoundaryInputError(
-                f"entries[{index}].p0_blocking must be null or {P0_BLOCKER!r}"
-            )
-        if source in REQUIRED_P0_SOURCES and p0_blocking != P0_BLOCKER:
-            raise BoundaryInputError(
-                f"entries[{index}] source requires {P0_BLOCKER!r}"
-            )
-        if source not in REQUIRED_P0_SOURCES and p0_blocking == P0_BLOCKER:
-            raise BoundaryInputError(
-                f"entries[{index}] P0 blocker source is outside checker policy"
-            )
-        if p0_blocking == P0_BLOCKER and (
-                entry["disposition"] != P0_DISPOSITION
-                or entry["milestone"] != P0_MILESTONE):
-            raise BoundaryInputError(
-                f"entries[{index}] P0-blocked entries must use "
-                f"{P0_DISPOSITION!r} and {P0_MILESTONE!r}"
-            )
     return loaded
 
 
-def _candidate_for_source(source: str) -> tuple[str, str, str] | None:
-    if source in EXPECTED_PCH_FILES:
-        return "EngineOwnedPch", "engine-owned PCH", "engine_owned_pch"
-    for root_path, target, layer in EXPECTED_CANDIDATE_ROOTS:
-        if source == root_path or source.startswith(f"{root_path}/"):
-            return (
-                target, layer, f"{layer.lower()}_layer",
-            )
+def _candidate_for_source(source: str) -> CandidatePolicy | None:
+    for policy in EXPECTED_PCH_FILES:
+        if source == policy.path:
+            return policy
+    for policy in EXPECTED_CANDIDATE_ROOTS:
+        if source == policy.path or source.startswith(f"{policy.path}/"):
+            return policy
     return None
 
 
 def scan_sources(repo_root: Path) -> list[ObservedInclude]:
-    """Scan configured lower roots and PCH files for direct quoted edges.
+    """Scan configured roots and PCH files for direct project includes.
 
     Args:
         repo_root: Repository root to scan.
@@ -280,9 +322,9 @@ def scan_sources(repo_root: Path) -> list[ObservedInclude]:
         BoundaryInputError: If a configured source root or PCH is missing.
     """
     source_paths: set[Path] = set()
-    for root_path, _, _ in EXPECTED_CANDIDATE_ROOTS:
+    for policy in EXPECTED_CANDIDATE_ROOTS:
         root_path = _resolve_relative(
-            repo_root, root_path, "checker candidate root"
+            repo_root, policy.path, "checker candidate root"
         )
         if not root_path.is_dir():
             raise BoundaryInputError(f"candidate source root not found: {root_path}")
@@ -290,8 +332,8 @@ def scan_sources(repo_root: Path) -> list[ObservedInclude]:
             path for path in root_path.rglob("*")
             if path.is_file() and path.suffix.lower() in SOURCE_EXTENSIONS
         )
-    for pch_file in EXPECTED_PCH_FILES:
-        pch_path = _resolve_relative(repo_root, pch_file, "checker PCH")
+    for policy in EXPECTED_PCH_FILES:
+        pch_path = _resolve_relative(repo_root, policy.path, "checker PCH")
         if not pch_path.is_file():
             raise BoundaryInputError(f"candidate PCH not found: {pch_path}")
         source_paths.add(pch_path)
@@ -299,12 +341,11 @@ def scan_sources(repo_root: Path) -> list[ObservedInclude]:
     observed: list[ObservedInclude] = []
     for source_path in sorted(source_paths):
         source = source_path.relative_to(repo_root).as_posix()
-        candidate = _candidate_for_source(source)
-        if candidate is None:
+        policy = _candidate_for_source(source)
+        if policy is None:
             raise BoundaryInputError(
                 f"scanned source is outside configured scope: {source}"
             )
-        candidate_target, candidate_layer, current_owner = candidate
         try:
             lines = source_path.read_text(encoding="utf-8-sig").splitlines()
         except (OSError, UnicodeError) as exc:
@@ -313,11 +354,19 @@ def scan_sources(repo_root: Path) -> list[ObservedInclude]:
             ) from exc
         for line_number, line in enumerate(lines, start=1):
             match = INCLUDE_PATTERN.match(line)
-            if match and match.group(1).startswith(FORBIDDEN_INCLUDE_PREFIXES):
+            if not match:
+                continue
+            include_path = match.group(1) or match.group(2)
+            # Policy judgments are case-insensitive (Windows paths); the raw
+            # include_path spelling is retained as ledger evidence below.
+            if not _casefolded_startswith(include_path, PROJECT_INCLUDE_PREFIXES):
+                continue
+            if _casefolded_startswith(include_path, policy.forbidden_include_prefixes):
                 observed.append(
                     ObservedInclude(
-                        source, line_number, match.group(1), candidate_target,
-                        candidate_layer, current_owner,
+                        source, line_number, include_path,
+                        policy.candidate_target, policy.candidate_layer,
+                        policy.current_owner, policy.forbidden_include_prefixes,
                     )
                 )
     return sorted(observed, key=lambda item: item.evidence_key)
@@ -346,6 +395,7 @@ def compare_ledger(
             "candidate_target": item.candidate_target,
             "candidate_layer": item.candidate_layer,
             "current_owner": item.current_owner,
+            "forbidden_include_prefixes": list(item.forbidden_include_prefixes),
         }
         for field, expected_value in expected.items():
             if entry[field] != expected_value:
