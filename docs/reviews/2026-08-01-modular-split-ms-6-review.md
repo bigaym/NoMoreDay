@@ -280,3 +280,29 @@ MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196
 **剩余风险**：低。Core 目录残留 pre-B2 孤儿 `cmake_pch.pch`（未参与编译）；game→app 反向 include 属既有 checker 盲区建议后续独立审计；Release+LTO 仍未实证（沿用 Batch 2 风险）。
 
 **提交**：`build(cmake): split per-target precompiled headers`（待提交）。
+
+---
+
+# MS-7 Batch 4（测试显式链四层 target）— `提交`
+
+**审查目标**：核验 tests 链接从单层 NoMoreDayApp 改为显式四层（最后一批，MS-7 完成）。
+
+**变更边界**：`tests/CMakeLists.txt:45` 单处——`target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayApp)` → `target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayCore NoMoreDayEngine NoMoreDayGame NoMoreDayApp)`；settings.json 为用户指示既有残留（排除）；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium/Low。无代码风险（显式链冗余但语义等价；静态库链接顺序无关紧要，依赖经 PUBLIC 传递）。
+
+**已复核通过**：GLOB（L4）、SKIP_UNITY 21 文件列表（L15-37）、UNITY_BUILD ON（L48-49）、输出路径 bin/NoMoreDayTests.exe（L50-54）、CTest 21 项注册（L71-233）、compile defs/options（L57-69）、include dirs（L39-43）全部零改动；依赖图为严格 DAG 无环（Types←Core←Engine←Game←App←exe/Tests，各层 PUBLIC 传播正确）；四层顺序低→高与 PUBLIC 方向一致；git diff 仅含本文件。
+
+**独立重跑（审查员）**：git diff --check exit 0、checker 0/0 PASS（files 0）。
+
+**验证（主代理）**：完整构建双标记 0 error、定向 `*RenderGraphV5*,*GPU ABI*` 7/7 105 断言 SUCCESS。
+
+**剩余风险**：低。Release+LTO 未实证（B2 遗留，建议后续补验）；构建证据依赖主代理（只读审查未重跑构建）。
+
+**提交**：`build(cmake): link tests to explicit layered targets`（待提交）。
+
+---
+
+# MS-7 里程碑总结
+
+MS-7 全部完成：96ce289（SharedContext 下移 game）+ 8648a58（四层 target 图 + checker 分层升级）+ 761d9f9（per-target PCH，ledger 5→0）+ B4（测试显式四层链接）。显式 target 图 `NoMoreDay(exe)→App STATIC→Game STATIC→Engine STATIC→Core STATIC→Types INTERFACE` 落地；ledger 0 条（module boundary 全清零）。剩余：MS-8（目录收敛）→ DOD-2 实机 gate（RTX 4070S）。

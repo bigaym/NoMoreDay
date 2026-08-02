@@ -42,7 +42,7 @@ target_include_directories(NoMoreDayTests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/entt
 )
 
-target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayApp)
+target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayCore NoMoreDayEngine NoMoreDayGame NoMoreDayApp)
 
 # Enable Unity Build for Tests
 set_target_properties(NoMoreDayTests PROPERTIES
