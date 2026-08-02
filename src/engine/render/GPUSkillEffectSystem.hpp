@@ -25,6 +25,9 @@ public:
     // Call this every frame to add an effect to be rendered
     void Submit(const components::GPUSkillEffect& effect);
 
+    // Normalize at the event queue boundary so recipe and legacy paths consume
+    // the same scalar and emit at most one invalid-value diagnostic.
+    static SkillVfxEvent NormalizeSkillVfxEvent(const SkillVfxEvent& event);
     void SubmitSkillEvent(const SkillVfxEvent& event);
 
     struct DistortionRequest {

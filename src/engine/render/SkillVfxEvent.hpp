@@ -44,18 +44,21 @@ inline constexpr uint32_t Any =
     Keystone | Trigger | Synergy | Transmuter;
 } // namespace SkillVfxNodeRoleMask
 
-namespace SkillVfxElementTagMask {
-inline constexpr uint32_t None = 0u;
-inline constexpr uint32_t Physical = 1u << 0;
-inline constexpr uint32_t Fire = 1u << 1;
-inline constexpr uint32_t Cold = 1u << 2;
-inline constexpr uint32_t Lightning = 1u << 3;
-inline constexpr uint32_t Void = 1u << 6;
-} // namespace SkillVfxElementTagMask
-
 inline constexpr bool HasSkillVfxNodeRole(const uint32_t mask,
                                           const uint32_t roleBit) {
   return (mask & roleBit) == roleBit;
+}
+
+// Engine-boundary normalization for the scalar element contract. Game is the
+// sole owner of the Tag -> element scalar translation; the Engine only ever
+// sees the scalar carried by SkillVfxEvent::elementType. Values outside the
+// documented scalar ABI (Physical..Void = 0..4) are unsafe and fall back to
+// Physical; consumers that observe a change emit a diagnosable warning.
+inline constexpr uint8_t NormalizeSkillVfxElementType(const uint8_t elementType) {
+  if (elementType <= static_cast<uint8_t>(SkillVfxElementType::Void)) {
+    return elementType;
+  }
+  return static_cast<uint8_t>(SkillVfxElementType::Physical);
 }
 
 struct SkillVfxEvent {
@@ -64,7 +67,6 @@ struct SkillVfxEvent {
   SkillVfxEventType type = SkillVfxEventType::CastStart;
   Vector2 origin = {0.0f, 0.0f};
   Vector2 target = {0.0f, 0.0f};
-  uint32_t effectiveTagMask = SkillVfxElementTagMask::None;
   uint32_t nodeRoleMask = SkillVfxNodeRoleMask::None;
   uint8_t qualityTier = 1;
   float intensity = 1.0f;

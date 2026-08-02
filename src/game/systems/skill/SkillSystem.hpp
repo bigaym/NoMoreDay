@@ -141,6 +141,10 @@ public:
      * @return Tag The combined tag mask with talent modifications applied
      */
     static Tag GetEffectiveSkillTags(entt::registry& registry, entt::entity entity, uint32_t skill_id);
+    // Converts gameplay tags into the renderer-owned scalar element contract.
+    static uint8_t EncodeSkillVfxElementType(Tag tags);
+    static uint8_t ResolveSkillVfxElementTypeFromTags(Tag effectiveTags,
+                                                      Tag transmuterTags);
     static uint32_t GetActiveTransmuterNode(const entt::registry& registry,
                                             entt::entity entity,
                                             uint32_t skill_id);

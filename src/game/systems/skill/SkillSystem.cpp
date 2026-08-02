@@ -92,22 +92,6 @@ const SpecializedSkill *FindSpecializedSkillContext(
   return nullptr;
 }
 
-uint8_t EncodeElementTypeFromTags(const Tag tags) {
-  if (HasTag(tags, Tag::Void)) {
-    return static_cast<uint8_t>(SkillVfxElementType::Void);
-  }
-  if (HasTag(tags, Tag::Lightning)) {
-    return static_cast<uint8_t>(SkillVfxElementType::Lightning);
-  }
-  if (HasTag(tags, Tag::Cold)) {
-    return static_cast<uint8_t>(SkillVfxElementType::Cold);
-  }
-  if (HasTag(tags, Tag::Fire)) {
-    return static_cast<uint8_t>(SkillVfxElementType::Fire);
-  }
-  return static_cast<uint8_t>(SkillVfxElementType::Physical);
-}
-
 uint8_t EncodeResistDebuffType(const ResistModel model) {
   switch (model) {
   case ResistModel::TypeA_Penetration:
@@ -178,7 +162,7 @@ uint8_t ResolveSkillVfxElementType(const entt::registry &registry,
                                    const uint32_t skill_id,
                                    const Tag effective_tags) {
   if (!registry.valid(caster)) {
-    return EncodeElementTypeFromTags(effective_tags);
+    return SkillSystem::EncodeSkillVfxElementType(effective_tags);
   }
 
   const uint32_t activeTransmuter =
@@ -187,14 +171,16 @@ uint8_t ResolveSkillVfxElementType(const entt::registry &registry,
     const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id);
     if (tree) {
       if (auto it = tree->nodes.find(activeTransmuter); it != tree->nodes.end()) {
-        const uint8_t nodeElement = EncodeElementTypeFromTags(it->second.add_tags);
+        const uint8_t nodeElement =
+            SkillSystem::ResolveSkillVfxElementTypeFromTags(
+                effective_tags, it->second.add_tags);
         if (nodeElement != static_cast<uint8_t>(SkillVfxElementType::Physical)) {
           return nodeElement;
         }
       }
     }
   }
-  return EncodeElementTypeFromTags(effective_tags);
+  return SkillSystem::EncodeSkillVfxElementType(effective_tags);
 }
 
 uint8_t ResolveSkillVfxResistDebuffType(const entt::registry &registry,
@@ -307,7 +293,6 @@ void EmitSkillVfxEvent(const SkillExecutionContext &context,
   event.type = type;
   event.origin = context.origin;
   event.target = context.target;
-  event.effectiveTagMask = static_cast<uint32_t>(context.effective_tags);
   event.nodeRoleMask = context.node_role_mask | nodeRoleMask;
   event.qualityTier = ResolveCurrentQualityTier();
   event.intensity = std::clamp(intensity, 0.25f, 3.0f);
@@ -430,6 +415,32 @@ void TickTriggerCooldowns(SkillContractRuntimeComponent &runtime, float dt) {
 }
 
 } // namespace
+
+uint8_t SkillSystem::EncodeSkillVfxElementType(const Tag tags) {
+  if (HasTag(tags, Tag::Void)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Void);
+  }
+  if (HasTag(tags, Tag::Lightning)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Lightning);
+  }
+  if (HasTag(tags, Tag::Cold)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Cold);
+  }
+  if (HasTag(tags, Tag::Fire)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Fire);
+  }
+  return static_cast<uint8_t>(SkillVfxElementType::Physical);
+}
+
+uint8_t SkillSystem::ResolveSkillVfxElementTypeFromTags(
+    const Tag effectiveTags, const Tag transmuterTags) {
+  const uint8_t transmuterElement = EncodeSkillVfxElementType(transmuterTags);
+  if (transmuterElement !=
+      static_cast<uint8_t>(SkillVfxElementType::Physical)) {
+    return transmuterElement;
+  }
+  return EncodeSkillVfxElementType(effectiveTags);
+}
 
 struct SkillSystem::CastTrackingContext {
   mutable std::shared_mutex mutex;
@@ -1273,7 +1284,8 @@ void SkillSystem::Update(entt::registry &registry,
       if (chan.conversion_tag != Tag::None) {
         effectiveTags = (effectiveTags & ~Tag::Physical) | chan.conversion_tag;
       }
-      const uint8_t elementType = EncodeElementTypeFromTags(effectiveTags);
+      const uint8_t elementType =
+          SkillSystem::EncodeSkillVfxElementType(effectiveTags);
       const bool hasVoidRift = (chan.conversion_tag == Tag::Void);
       const bool isCold = HasTag(effectiveTags, Tag::Cold);
       const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
@@ -1486,7 +1498,8 @@ void SkillSystem::Update(entt::registry &registry,
         }
 
         const Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
-        const uint8_t elementType = EncodeElementTypeFromTags(effectiveTags);
+      const uint8_t elementType =
+          SkillSystem::EncodeSkillVfxElementType(effectiveTags);
         const bool isCold = HasTag(effectiveTags, Tag::Cold);
         const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
         const bool isEmpowered = chan.is_empowered;

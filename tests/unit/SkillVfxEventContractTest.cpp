@@ -1,6 +1,9 @@
 #include "doctest.h"
 
+#include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
+#include "game/data/TagRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -40,7 +43,6 @@ TEST_CASE("[Unit] SkillVfxEvent - Default Compatibility Values") {
   CHECK(event.skillId == 0u);
   CHECK(event.castId == 0u);
   CHECK(event.type == NoMoreDay::SkillVfxEventType::CastStart);
-  CHECK(event.effectiveTagMask == NoMoreDay::SkillVfxElementTagMask::None);
   CHECK(event.nodeRoleMask == NoMoreDay::SkillVfxNodeRoleMask::None);
   CHECK(event.qualityTier == 1u);
   CHECK(event.intensity == doctest::Approx(1.0f));
@@ -48,6 +50,188 @@ TEST_CASE("[Unit] SkillVfxEvent - Default Compatibility Values") {
         static_cast<uint8_t>(NoMoreDay::SkillVfxElementType::Physical));
   CHECK(event.resistDebuffType ==
         static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::None));
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Scalar Element Contract Field") {
+  const NoMoreDay::SkillVfxEvent event = {};
+  CHECK(sizeof(event.elementType) == 1u); // uint8_t scalar ABI
+
+  NoMoreDay::SkillVfxEvent carrier = {};
+  const std::array<std::pair<NoMoreDay::SkillVfxElementType, uint8_t>, 5>
+      elementScalars = {{
+          {NoMoreDay::SkillVfxElementType::Physical, 0u},
+          {NoMoreDay::SkillVfxElementType::Fire, 1u},
+          {NoMoreDay::SkillVfxElementType::Cold, 2u},
+          {NoMoreDay::SkillVfxElementType::Lightning, 3u},
+          {NoMoreDay::SkillVfxElementType::Void, 4u},
+      }};
+  for (const auto &[element, scalar] : elementScalars) {
+    carrier.elementType = static_cast<uint8_t>(element);
+    INFO("round-trip scalar=" << static_cast<uint32_t>(scalar));
+    CHECK(carrier.elementType == scalar);
+  }
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Element Scalar Normalization At Engine "
+          "Boundary") {
+  using NoMoreDay::NormalizeSkillVfxElementType;
+  using E = NoMoreDay::SkillVfxElementType;
+  // In-range scalars pass through unchanged.
+  CHECK(NormalizeSkillVfxElementType(0u) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NormalizeSkillVfxElementType(1u) == static_cast<uint8_t>(E::Fire));
+  CHECK(NormalizeSkillVfxElementType(2u) == static_cast<uint8_t>(E::Cold));
+  CHECK(NormalizeSkillVfxElementType(3u) ==
+        static_cast<uint8_t>(E::Lightning));
+  CHECK(NormalizeSkillVfxElementType(4u) == static_cast<uint8_t>(E::Void));
+  // Out-of-range scalars fall back to Physical (never clamped to Void, never
+  // reinterpreted as a tag bit mask).
+  CHECK(NormalizeSkillVfxElementType(5u) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NormalizeSkillVfxElementType(200u) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NormalizeSkillVfxElementType(0xFFu) ==
+        static_cast<uint8_t>(E::Physical));
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Submission Boundary Normalizes Once") {
+  NoMoreDay::SkillVfxEvent invalid = {};
+  invalid.skillId = 1u;
+  invalid.elementType = 0xFFu;
+
+  const NoMoreDay::SkillVfxEvent normalized =
+      NoMoreDay::systems::GPUSkillEffectSystem::NormalizeSkillVfxEvent(invalid);
+
+  CHECK(invalid.elementType == 0xFFu);
+  CHECK(normalized.elementType ==
+        static_cast<uint8_t>(NoMoreDay::SkillVfxElementType::Physical));
+  CHECK(normalized.skillId == invalid.skillId);
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Game Tag To Element Priority Contract") {
+  using NoMoreDay::Tag;
+  using E = NoMoreDay::SkillVfxElementType;
+
+  // Single-element mapping.
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Physical) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Fire) ==
+        static_cast<uint8_t>(E::Fire));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Cold) ==
+        static_cast<uint8_t>(E::Cold));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Lightning) ==
+        static_cast<uint8_t>(E::Lightning));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Void) ==
+        static_cast<uint8_t>(E::Void));
+
+  // Multi-element priority: Void > Lightning > Cold > Fire > Physical.
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Void | Tag::Fire) ==
+        static_cast<uint8_t>(E::Void));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Lightning | Tag::Cold) ==
+        static_cast<uint8_t>(E::Lightning));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Cold | Tag::Fire) ==
+        static_cast<uint8_t>(E::Cold));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Fire | Tag::Physical) ==
+        static_cast<uint8_t>(E::Fire));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(
+            Tag::Void | Tag::Lightning | Tag::Cold | Tag::Fire |
+            Tag::Physical) == static_cast<uint8_t>(E::Void));
+
+  // Non-element and high-bit state tags never produce an element.
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Melee | Tag::Attack) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Hit | Tag::Critical) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Boss) ==
+        static_cast<uint8_t>(E::Physical)); // bit 55
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Stunned | Tag::Elite) ==
+        static_cast<uint8_t>(E::Physical)); // bits 52/54
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Void | Tag::Boss) ==
+        static_cast<uint8_t>(E::Void));
+
+  // Shadow/Poison have no dedicated VFX recipe -> Physical fallback; an
+  // explicit element tag still wins when combined with them.
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Shadow) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Poison) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Shadow | Tag::Poison) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Shadow | Tag::Fire) ==
+        static_cast<uint8_t>(E::Fire));
+
+  // Transmuter override: a non-Physical transmuter element beats the effective
+  // tags; a Physical transmuter does not override.
+  CHECK(NoMoreDay::SkillSystem::ResolveSkillVfxElementTypeFromTags(Tag::Fire,
+                                                                    Tag::Cold) ==
+        static_cast<uint8_t>(E::Cold));
+  CHECK(NoMoreDay::SkillSystem::ResolveSkillVfxElementTypeFromTags(Tag::Void,
+                                                                    Tag::Cold) ==
+        static_cast<uint8_t>(E::Cold));
+  CHECK(NoMoreDay::SkillSystem::ResolveSkillVfxElementTypeFromTags(
+                Tag::Fire, Tag::Physical) ==
+        static_cast<uint8_t>(E::Fire));
+  CHECK(NoMoreDay::SkillSystem::ResolveSkillVfxElementTypeFromTags(Tag::Fire,
+                                                                    Tag::Shadow) ==
+        static_cast<uint8_t>(E::Fire));
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Scalar Is Independent Of Tag Bit Positions") {
+  using NoMoreDay::Tag;
+  using E = NoMoreDay::SkillVfxElementType;
+
+  // The scalar element ABI is 0..4 and is not a projection of the Tag layout.
+  CHECK(static_cast<uint8_t>(E::Void) == 4u);
+
+  // Mixing high-bit state/mechanism tags (bits 32-55) never changes the
+  // resolved scalar: the mapping consults named tags semantically.
+  const Tag noisy = Tag::Hit | Tag::Boss | Tag::Stunned | Tag::Elite;
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(noisy) ==
+        static_cast<uint8_t>(E::Physical));
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(noisy | Tag::Cold) ==
+        static_cast<uint8_t>(E::Cold));
+
+  // Shadow/Poison resolve by named tag membership, never by bit adjacency.
+  CHECK(NoMoreDay::SkillSystem::EncodeSkillVfxElementType(Tag::Shadow | Tag::Poison) ==
+        static_cast<uint8_t>(E::Physical));
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Recipe Element Selectors Use Scalar ABI") {
+  const std::filesystem::path recipePath =
+      std::filesystem::path("assets") / "data" / "vfx" / "blade_ascendant_v3.json";
+  std::ifstream input(recipePath);
+  REQUIRE(input.good());
+
+  const nlohmann::json root = nlohmann::json::parse(input);
+  REQUIRE(root.contains("recipes"));
+  REQUIRE(root["recipes"].is_array());
+
+  int numericSelectors = 0;
+  for (const auto &recipe : root["recipes"]) {
+    if (!recipe.is_object() || !recipe.contains("selector")) {
+      continue;
+    }
+    const auto &selector = recipe["selector"];
+    if (!selector.is_object() || !selector.contains("elementType")) {
+      continue;
+    }
+    const auto &elementType = selector["elementType"];
+    if (elementType.is_string()) {
+      // Wildcard selector is element-agnostic (Physical-safe).
+      CHECK(elementType.get<std::string>() == "*");
+      continue;
+    }
+    REQUIRE(elementType.is_number_integer());
+    const int value = elementType.get<int>();
+    ++numericSelectors;
+    INFO("numeric elementType=" << value);
+    CHECK(value >= static_cast<int>(NoMoreDay::SkillVfxElementType::Physical));
+    CHECK(value <= static_cast<int>(NoMoreDay::SkillVfxElementType::Void));
+    CHECK(NoMoreDay::NormalizeSkillVfxElementType(
+              static_cast<uint8_t>(value)) == static_cast<uint8_t>(value));
+  }
+  // Fire (1) and Cold (2) transmutation selectors are covered separately.
+  CHECK(numericSelectors > 0);
 }
 
 TEST_CASE("[Unit] SkillVfxEvent - Role Mask Bits") {

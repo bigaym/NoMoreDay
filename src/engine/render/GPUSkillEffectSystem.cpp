@@ -327,23 +327,19 @@ GPUSkillEffectSystem::RecipeActionKind ParseActionKind(
   return GPUSkillEffectSystem::RecipeActionKind::Overlay;
 }
 
-uint8_t ResolveLegacyElementType(const SkillVfxEvent &event) {
-  if (event.elementType != static_cast<uint8_t>(SkillVfxElementType::Physical)) {
-    return event.elementType;
+// Validates the scalar element contract at the Engine boundary before recipe
+// selection. Game owns the Tag -> scalar translation; here an out-of-range
+// scalar is unsafe and falls back to Physical with an observable diagnostic.
+uint8_t SanitizeSkillVfxElementType(const SkillVfxEvent &event) {
+  const uint8_t normalized = NormalizeSkillVfxElementType(event.elementType);
+  if (normalized != event.elementType) {
+    LOG_LIMITED_WARN(1.0f,
+                     "GPUSkillEffectSystem: invalid elementType={} for "
+                     "skillId={} event={}; falling back to Physical",
+                     static_cast<uint32_t>(event.elementType), event.skillId,
+                     static_cast<int>(event.type));
   }
-  if ((event.effectiveTagMask & SkillVfxElementTagMask::Void) != 0u) {
-    return static_cast<uint8_t>(SkillVfxElementType::Void);
-  }
-  if ((event.effectiveTagMask & SkillVfxElementTagMask::Lightning) != 0u) {
-    return static_cast<uint8_t>(SkillVfxElementType::Lightning);
-  }
-  if ((event.effectiveTagMask & SkillVfxElementTagMask::Cold) != 0u) {
-    return static_cast<uint8_t>(SkillVfxElementType::Cold);
-  }
-  if ((event.effectiveTagMask & SkillVfxElementTagMask::Fire) != 0u) {
-    return static_cast<uint8_t>(SkillVfxElementType::Fire);
-  }
-  return static_cast<uint8_t>(SkillVfxElementType::Physical);
+  return normalized;
 }
 
 int ResolveRoleMaskPriority(const uint32_t mask) {
@@ -421,6 +417,13 @@ void GPUSkillEffectSystem::Submit(const components::GPUSkillEffect &effect) {
   }
 }
 
+SkillVfxEvent GPUSkillEffectSystem::NormalizeSkillVfxEvent(
+    const SkillVfxEvent &event) {
+  SkillVfxEvent normalized = event;
+  normalized.elementType = SanitizeSkillVfxElementType(event);
+  return normalized;
+}
+
 void GPUSkillEffectSystem::SubmitSkillEvent(const SkillVfxEvent &event) {
   if (event.skillId == 0u) {
     return;
@@ -428,7 +431,7 @@ void GPUSkillEffectSystem::SubmitSkillEvent(const SkillVfxEvent &event) {
   if (m_pendingEvents.size() >= kMaxQueuedSkillEvents) {
     return;
   }
-  m_pendingEvents.push_back(event);
+  m_pendingEvents.push_back(NormalizeSkillVfxEvent(event));
 }
 
 void GPUSkillEffectSystem::DrainDistortionRequests(
@@ -788,7 +791,6 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
   }
 
   SkillVfxEvent normalized = event;
-  normalized.elementType = ResolveLegacyElementType(event);
   if (normalized.resistDebuffType >
       static_cast<uint8_t>(SkillVfxResistDebuffType::TypeE)) {
     normalized.resistDebuffType =
@@ -1094,7 +1096,7 @@ void GPUSkillEffectSystem::EmitLegacySkillEventVisual(
     }
   }
 
-  const uint8_t elementType = ResolveLegacyElementType(event);
+  const uint8_t elementType = event.elementType;
   const Color baseColor =
       ResolveElementColor(elementType, ResolveSkillColor(event.skillId));
   const Vector2 direction = NormalizedDirection(event.origin, event.target);
