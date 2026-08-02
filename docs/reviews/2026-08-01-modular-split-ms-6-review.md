@@ -332,3 +332,21 @@ MS-7 全部完成：96ce289（SharedContext 下移 game）+ 8648a58（四层 tar
 **根因（explore 定位，证据闭合）**：`RenderSystem.cpp:251-253` `CaptureCompositeTargetState()` 三个手写 pname 常量全部非法——`0x8D24`/`0x8D25`（声称 attachment width/height）在核心 GL 不存在（glad.h 668-687 无 OBJECT_WIDTH/HEIGHT）；`0x825D`（声称 COMPONENT_TYPE）真值应为 `0x8211`。全仓唯一 `glGetFramebufferAttachmentParameteriv` 调用点（:263-268）。每 render() 3 条 GL_INVALID_ENUM（type=0x824C、severity=0x9146 HIGH）；gate 全流程数百万 → 256 捕获 + 3,593,483 dropped。S3 fail-closed 下 severeGlErrorCount>0 → allMatrixPassed=false + globalFailure → **DOD-2 必 NoGo**。附带：3 次查询自引入以来从未取得有效数据（width/height 恒 0 走 viewport 回退、internalFormat=0），纯错误产生器；2026-07-26 review 声称的"✅ glGetFramebufferAttachmentParameteriv 查询"与代码不符。
 
 **修复方案 A（推荐）**：`RenderSystem.cpp:248-283` 删除 3 次无效查询，直接用 viewport 回退值、internalFormat 保持 0（行为与现状等价，消灭全部错误）。若确需真实尺寸/格式：OBJECT_TYPE(0x8CD0) 分支 + glGetTexLevelParameteriv(GL_TEXTURE_WIDTH=0x1000/HEIGHT=0x1001) 或 glGetRenderbufferParameteriv(RENDERBUFFER_WIDTH=0x8D42/HEIGHT=0x8D43) + GL_TEXTURE_INTERNAL_FORMAT(0x1003)/RENDERBUFFER_INTERNAL_FORMAT(0x8D81)。核心 GL 无"attachment 尺寸"直接 pname。修复后重跑 DOD-2。
+
+---
+
+# GL_INVALID_ENUM 修复（方案 A 落地）— `提交`
+
+**审查目标**：核验 `CaptureCompositeTargetState()` 删除 3 次无效 `glGetFramebufferAttachmentParameteriv` 查询（RenderSystem.cpp +2/-29）。
+
+**变更边界**：`src/engine/render/RenderSystem.cpp` 单函数体——删除 3 次无效查询 + 手写常量（0x8D24/0x8D25/0x825D）+ typedef + 缓存 PFN；`framebuffer!=0` 分支直接 viewport 回退（width/height 从 viewport、internalFormat=0、flipY 不变）；仅触碰此函数；ScopedTargetStateGuard 保存/恢复逻辑原样；无新增 GL 调用。
+
+**发现**：无 Blocker/High/Medium。2 项非阻塞：任务描述"+3/-31"与实测 numstat"+2/-29"仅数字口径差异；`framebuffer!=0` 与 else 两分支现仅 flipY 不同（可上提去重，但超出最小改动范围，保持现状可接受）。
+
+**已复核通过**：删除 pname 全为非法（0x8D24/0x8D25 核心 GL 不存在、0x825D≠COMPONENT_TYPE 真值 0x8211）；剩余 pname（0x8CA6/0x0BA2/0x0C11/0x0C10）全部合法；0x8CE0 是合法 GL_COLOR_ATTACHMENT0（FramebufferManager.cpp:15 无关）；src 下 0 残留 `glGetFramebufferAttachmentParameteriv`/0x8D24/0x8D25/0x825D/pfnGetParam/compType；行为等价（旧查询恒返回 0 走 viewport 回退，新代码一致且消灭错误源）。
+
+**验证（主代理实机 RTX 4070S）**：checker 0/0 PASS、25 tests OK、build 双标记 0 error、gate 集成 4/4 133 断言（dropped 0、severe 0）、**实机 gate 重跑 glfix-20260801：debug_message_count 256→0、dropped 3,593,483→0、severe 0、global_failures 空**；gate_status NO_GO（矩阵 9 格 ROI/SDF readback 失败，不再 GL 短路）；diff exit 0。
+
+**剩余风险**：矩阵 ROI/SDF readback 全失败为独立问题——根因 = 测试二进制管线上下文不完整（①RenderSystem::Initialize() 从未在测试二进制调用 → g_* pass 全 null → 7 个 pass 不入 graph，仅 4 个 lambda pass 入；②harness RenderInput() resources/renderContext=nullptr 且 render 不传 hooks → Scene/VFX/UIWorldPass 实际零绘制；③InitWindow(1,1) → viewport 1×1 → s_hdrSceneBuffer 1×1 → composite blit 只覆盖左上角 1 像素 → ROI 全黑 → nonBlackRoi/SDF/GI-on 判定全失败）。判定逻辑本身无 bug。处置待用户决策（A 接受局限记录 DOD-2 判定边界 / B 移到游戏二进制上下文 / C 采样小修）。
+
+**提交**：`fix(render): drop invalid framebuffer attachment queries`（待提交）。

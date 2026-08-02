@@ -246,35 +246,8 @@ CompositeTargetState CaptureCompositeTargetState() {
   state.viewportHeight = viewport[3];
 
   if (state.framebuffer != 0u) {
-    constexpr uint32_t kGLFramebuffer = 0x8D40;
-    constexpr uint32_t kGLColorAttachment0 = 0x8CE0;
-    constexpr uint32_t kGLFramebufferAttachmentObjectWidth = 0x8D24;
-    constexpr uint32_t kGLFramebufferAttachmentObjectHeight = 0x8D25;
-    constexpr uint32_t kGLFramebufferAttachmentComponentType = 0x825D;
-    typedef void (APIENTRY * PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIV)(uint32_t target, uint32_t attachment, uint32_t pname, int *params);
-    static PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIV pfnGetParam = nullptr;
-    if (!pfnGetParam) {
-      pfnGetParam = reinterpret_cast<PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIV>(
-          glfwGetProcAddress("glGetFramebufferAttachmentParameteriv"));
-    }
-
-    GLint width = 0, height = 0, compType = 0;
-    if (pfnGetParam) {
-      pfnGetParam(kGLFramebuffer, kGLColorAttachment0,
-                  kGLFramebufferAttachmentObjectWidth, &width);
-      pfnGetParam(kGLFramebuffer, kGLColorAttachment0,
-                  kGLFramebufferAttachmentObjectHeight, &height);
-      pfnGetParam(kGLFramebuffer, kGLColorAttachment0,
-                  kGLFramebufferAttachmentComponentType, &compType);
-    }
-    if (width > 0 && height > 0) {
-      state.renderExtentWidth = width;
-      state.renderExtentHeight = height;
-    } else {
-      state.renderExtentWidth = state.viewportWidth;
-      state.renderExtentHeight = state.viewportHeight;
-    }
-    state.internalFormat = static_cast<uint32_t>(compType);
+    state.renderExtentWidth = state.viewportWidth;
+    state.renderExtentHeight = state.viewportHeight;
     state.flipY = true;
   } else {
     state.renderExtentWidth = state.viewportWidth;
