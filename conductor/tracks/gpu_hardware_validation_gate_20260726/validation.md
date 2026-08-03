@@ -244,3 +244,31 @@ R3 只覆盖诊断采集和 fail-closed 判定；它不替代真实 Gameplay fix
 - **非穷尽样本**（samples=3）不能 GO：完整 120 样本/100 循环/60s 压测的 `gpu-hardware` job 需在修复 leak-candidates 后复测。
 - **rlgl.h 修改为 waivered**：vendored 第三方改动，需主代理评审确认并入；raylib 升级时需重新应用。
 - 本地验证通过 ≠ 生产 GO：完整矩阵仍需实机采样。
+
+---
+
+## §20 2026-08-02（MS-8 后续）：矩阵 GI 状态显式化 + 预算判定修正 + leak 基线修正 + 压力限速（完整矩阵 local-full-20260802h）
+
+### 修复内容（GPUHardwareValidationGate.cpp）
+1. **矩阵 cell GI runtime override 显式化**：每个矩阵 cell 在 ForceTier 之后创建 `GiEnabledOverrideGuard giGuard(giOn)`（IsOwned 失败则 cell fail-closed）。此前矩阵渲染从未显式设置 giEnabled，有效配置依赖陈旧 tier 默认与上一 cell paired capture 的 override 残留——首个 GI-on cell 的 GI 链（OccluderExtract/JFA/VFXEmissionSnapshot/Radiance/GIComposite）未加入真实 graph，产生 valid=0 伪失败；修复后全部 GI 链真实执行，gi-off cell 正确不执行。
+2. **预算判定 not-applicable**：`notApplicable = (validSampleCount == 0)`；`passed = notApplicable || (valid >= 120 && p95 <= budget)`。未执行 pass（如 HeightShadowPass，fixture 无 heightfield 输入恒 valid=0）不再拉低 cell verdict；已执行但样本不足/超预算仍失败。
+3. **leak 基线采集点后移**：`baselineLiveKeys` 从压力窗口开始移置 toggle 循环之后（gate-end 判定前）。原采集点在 toggle（每 4 帧 1920x1080↔1280x720 尺寸切换 + GI/tier 切换，FramebufferManager 对称 Create/Destroy）之前，导致全部持久 pass target 换代被误判为 22 个泄漏候选（结构性误报，非真泄漏）。累积泄漏判定保留（gate-end > post-toggle baseline），压力窗口泄漏由 sliding-window 覆盖。
+4. **压力循环 60fps 限速**：`kStressFrameTimeSeconds = 1.0/60.0` + steady_clock 帧率控制。此前 1000+fps 下 GPU timer 查询延迟超过 3 槽 ring（kRingDepth=3，kPendingOverageFrames=9），产生 pending_overage 误报。
+
+### 完整矩阵实测（local-full-20260802h，120 样本/100 切换/60s 压力，本地 RTX 4070 SUPER）
+- `gate_status=NO_GO`、`global_failures=[]`
+- **stress_1min_passed=True**；snapshot pending_overage violations=0、net growth violations=0、stress leak=0
+- resources: active=158、leak_candidates=0
+- occupancy: status=present、blocks_go=false、texture_present=true、1280x720、reset_count=1170、last_reset_reason=emissive
+- gl_diagnostics: debug_message_count=0、dropped=0、severe=0
+- 5/9 cells passed；4 个失败 cell 全部为 gi=True 且全部为真实 GPU 计时 p95 超预算：
+  - cell3 (combat High): JFAPass p95=0.85ms > 0.8
+  - cell4 (combat Ultra): JFAPass p95=1.23ms > 0.8
+  - cell6 (outdoor High): LightingPass 1.61ms > 0.8、OccluderExtract 0.41ms > 0.3
+  - cell7 (outdoor Ultra): ScenePass 1.76ms > 1.0、LightingPass 1.19ms > 0.8、JFAPass 2.81ms > 0.8
+- 预算来源：gate `GetPassBudgets` 硬编码单值（Scene 1.0/Lighting 0.8/HeightShadow 0.5/Occluder 0.3/JFA 0.8/Radiance 1.5/GIComposite 0.5/VFX 0.8/PostProcess 0.6/UIWorld 0.4/Composite 0.5，不随档位变化）。
+
+### 预算契约偏差与决策点（未决，阻塞最终 GO）
+- **V5 master spec §7 预算表**（低 270FPS/中 180FPS/高 144FPS）：OccluderExtract 0.10/0.15/0.20ms、JFA 0.40/0.60/0.80ms、RadianceCascades 1.20/1.80/2.50ms、GIComposite 0.05/0.08/0.10ms、SPH 0.30/0.60/0.80ms、总预算 2.05/3.23/4.40ms。
+- gate 与 V5 §7 偏差：Radiance 1.5（严于 2.5）、GIComposite 0.5（宽于 0.1）、Occluder 0.3（宽于 0.2）；Scene/Lighting/VFX/PostProcess/UIWorld/Composite/HeightShadow 不在 §7 表内（V5 帧预算挪移表 HeightShadow 0.30 vs gate 0.5）。
+- 决策选项：①GetPassBudgets 对齐 V5 §7 档位表（High=中档/Ultra=高档）；②非表 pass 预算来源定义（V5 帧预算表/总预算推导/Track 校准）；③压力 fixture（outdoor 220 灯/48 occluder）是否必须满足正常预算（压力=生产上限 → JFA 2.81ms 属 M0-A 性能调优 backlog；压力=超预算测试 → gate 需区分判定）；④JFA 2.81ms@1280x720 vs V5 参考 1.5ms@1080p 超 1.9 倍，归 M0-A 性能调优。
