@@ -116,3 +116,10 @@ runner（`scripts/gpu_hardware_validation_gate.py`）把 CLI 参数经环境变�
 - CI 可能无显示 GPU；允许独立 runner，但运行环境和 artifact path 必须版本化。
 - 截图会有 driver 细微差异；采用固定 seed/ROI/允许误差，而不是未校准全图像素比较。
 - 驱动 VRAM extension 非通用；registry 覆盖率和释放检查是强制证据。
+
+
+## 6. Gate 收尾验收补充（2026-08-03）
+
+- 本地最小样本（samples=3）验收标准更新：`debug_message_count==0`、每 cell `roi_mean_brightness>0.02`、GI-on cell `sdf_readback_status=passed`、`occupancy.status=present && occupancy.blocks_go==false`、7-pass 真实 pass trace、恰 1 个报告块。以上全部实测通过。
+- **完整生产 GO 仍被 18 个资源泄漏候选阻塞**（门禁 fail-closed watchdog 现有行为；GI 持久 pass 资源在 baseline 后创建未释放）。本地验证通过 ≠ 生产 GO。
+- `third_party/raylib/src/rlgl.h` 空批次 flush 杀 program 修复为 waivered deviation（不在本 Track 允许文件清单），待主代理评审并入或回退。

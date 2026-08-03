@@ -78,6 +78,46 @@ struct PassTimingReport {
   bool passed{false};
 };
 
+// M0-B: external target contract. The gate captures the REAL state of the
+// external composite target (owned by the fixture driver/harness, never by the
+// gate) with legal GL 4.3 pnames - glGetFramebufferAttachmentParameteriv
+// (OBJECT_TYPE/OBJECT_NAME/COLOR_ENCODING/COMPONENT_TYPE/*_SIZE) plus
+// texture-level / renderbuffer parameter queries for extent and internal
+// format. The bind/viewport/scissor snapshot is captured alongside the
+// attachment identity so a later reader can verify what was actually rendered
+// into. Fail-closed: a missing entry point is "unavailable", an invalid FBO /
+// absent attachment / contract mismatch is "failed"; only a fully verified
+// capture yields status "passed". Nothing is default-filled.
+struct TargetAttachmentState {
+  bool captured{false};
+  std::string status;                  // "passed" | "failed" | "unavailable"
+  std::string reason;                  // fail-closed reason (empty when passed)
+  uint32_t expectedInternalFormat{0};  // contract format the target must have
+  uint32_t framebufferBinding{0};      // GL_FRAMEBUFFER_BINDING at capture time
+  int viewportX{0};
+  int viewportY{0};
+  int viewportWidth{0};
+  int viewportHeight{0};
+  bool scissorTestEnabled{false};
+  int scissorX{0};
+  int scissorY{0};
+  int scissorWidth{0};
+  int scissorHeight{0};
+  uint32_t attachmentObjectType{0};    // GL_NONE/GL_TEXTURE/GL_RENDERBUFFER
+  uint32_t attachmentObjectName{0};    // texture/renderbuffer name (0 if none)
+  int attachmentWidth{0};
+  int attachmentHeight{0};
+  uint32_t attachmentInternalFormat{0};
+  uint32_t colorEncoding{0};
+  uint32_t componentType{0};
+  int redSize{0};
+  int greenSize{0};
+  int blueSize{0};
+  int alphaSize{0};
+  int depthSize{0};
+  int stencilSize{0};
+};
+
 struct FixtureExecutionResult {
   std::string fixtureName;
   std::string qualityTier;
@@ -128,6 +168,10 @@ struct FixtureExecutionResult {
   uint64_t sceneInputHash{0};
   std::string fixtureVersion;
   std::string sceneSource;
+  // M0-B: the external composite target state captured for this matrix cell
+  // (attachment identity/extent/format + bind/viewport/scissor). Cells that
+  // never ran a target keep this defaulted (absent from the JSON artifact).
+  TargetAttachmentState targetState;
   std::vector<std::string> failureReasons;
 };
 
@@ -149,6 +193,20 @@ struct StressResourceSnapshot {
   int64_t countNetGrowth{0};
   bool netGrowthViolation{false};
   bool pendingOverageViolation{false};
+};
+
+// Leak-candidate detail record (diagnostics). Captured at gate end for every
+// live resource whose (handle, kind) was not part of the pre-pressure
+// baseline. The artifact serializes these so a NO_GO caused by the leak
+// watchdog carries the exact (kind/name/bytes/owner) evidence instead of an
+// opaque count.
+struct LeakCandidateRecord {
+  uint32_t handle{0};
+  graph::ResourceKind kind{graph::ResourceKind::Texture2D};
+  graph::RenderOwnerTag ownerTag{graph::RenderOwnerTag::Unknown};
+  size_t sizeBytes{0};
+  std::string name;
+  uint64_t creationFrame{0};
 };
 
 struct StressTestReport {
@@ -196,6 +254,37 @@ struct PairedGiDeltaResult {
   std::vector<std::string> failureReasons;
 };
 
+// W6 (M0-C) occupancy evidence probe (M0-A R3). The REAL GI composite occupancy
+// history (R8 ping-pong) is read back with glGetTexImage (GL_RED/GL_FLOAT) and
+// classified by the pure-CPU ClassifyOccupancyProbe: every texel finite, sane
+// min/max/mean, and a 5-point probe (4 corners + center) sitting within epsilon
+// of {0,1} (occupancy is a 0/1 mask). No synthetic proxy is ever used.
+struct OccupancyProbeResult {
+  bool texturePresent{false}; // readback succeeded (resource existed)
+  bool maskValid{false};      // 0/1-mask classification passed
+  float minValue{0.0f};
+  float maxValue{0.0f};
+  float meanValue{0.0f};
+  std::vector<float> probeSamples; // 5: corners + center of the mask channel
+  std::string reason;
+};
+
+// W6 (M0-C) occupancy evidence verdict (fail-closed). "present" requires: a
+// real history texture exposed by the GI composite pass, a valid 0/1 mask
+// probe, and a positive history reset count (proving temporal rejection
+// actually occurred). Anything else yields status "failed" with blocksGo=true.
+struct OccupancyEvidenceResult {
+  std::string status; // "present" | "failed"
+  std::string reason;
+  bool blocksGo{true};
+  bool texturePresent{false};
+  int width{0};
+  int height{0};
+  OccupancyProbeResult probe;
+  uint64_t historyResetCount{0};
+  std::string lastResetReason;
+};
+
 struct GateReport {
   std::string revision;
   std::string timestamp;
@@ -211,11 +300,22 @@ struct GateReport {
   int requestedToggleLoops{0};
   int actualToggleLoops{0};
   bool nonExhaustive{false};
-  // W6 (M0-C) Blocker-1: occupancy/disocclusion probes (M0-A R3) are not
-  // implemented; the gate records status "missing_pending_m0a" and is
-  // fail-closed (can never GO) until they land.
+  // W6 (M0-C) Blocker-1: occupancy/disocclusion probes (M0-A R3). Status is
+  // "present" only when the real history texture was probed, classified as a
+  // valid 0/1 mask, and a positive history reset count was observed; anything
+  // else stays fail-closed (can never GO). Detail fields serialize under
+  // occupancy.* in the artifact.
   std::string occupancyStatus;
   std::string occupancyReason;
+  bool occupancyTexturePresent{false};
+  int occupancyProbeWidth{0};
+  int occupancyProbeHeight{0};
+  float occupancyMinValue{0.0f};
+  float occupancyMaxValue{0.0f};
+  float occupancyMeanValue{0.0f};
+  std::vector<float> occupancyProbePoints;
+  uint64_t occupancyHistoryResetCount{0};
+  std::string occupancyLastResetReason;
   std::vector<FixtureExecutionResult> matrixResults;
   std::vector<PairedGiDeltaResult> pairedGiDeltas;
   StressTestReport stressReport;
@@ -223,6 +323,9 @@ struct GateReport {
   uint64_t peakTrackedBytes{0};
   size_t activeResourceCount{0};
   size_t leakCandidateCount{0};
+  // S4 (M0-C R5.2): per-resource leak-candidate evidence (handle/kind/owner/
+  // bytes/name/creation frame). Serialized under resources.leak_candidates.
+  std::vector<LeakCandidateRecord> leakCandidates;
   int debugMessageCount{0};
   int severeGlErrorCount{0};
   size_t glDiagnosticsDroppedCount{0};
@@ -239,6 +342,17 @@ class GPUHardwareValidationGate {
 public:
   [[nodiscard]] static HardwareCapabilityReport QueryCapabilities();
   [[nodiscard]] static std::vector<FixtureConfig> GetStandardFixtures();
+
+  // M0-B: captures the real state of the external composite target (owned by
+  // the fixture driver) with glGetFramebufferAttachmentParameteriv +
+  // texture-level/renderbuffer parameter queries. Records bind/viewport/scissor
+  // plus attachment identity/extent/format. Fail-closed: missing entry points,
+  // an invalid FBO, or a contract mismatch (extent/internalFormat) yield
+  // "unavailable"/"failed" and are never default-filled. expectedInternalFormat
+  // defaults to the RGBA16F (0x881A) external-target contract.
+  [[nodiscard]] static TargetAttachmentState CaptureTargetState(
+      uint32_t framebuffer, int expectedWidth, int expectedHeight,
+      uint32_t expectedInternalFormat = 0x881A);
 
   // W6 (M0-C) High-2: pure CPU ROI crop/mean helper. Crops [roiX,roiY,w,h] out
   // of a full RGBA8 frame and returns the mean normalized RGB brightness. It
@@ -257,6 +371,21 @@ public:
   [[nodiscard]] static PairedGiDeltaResult RunPairedGiDeltaCapture(
       FixtureRenderDriver &driver, const FixtureConfig &fixture,
       const std::string &qualityTier = "High");
+
+  // W6 (M0-C) occupancy evidence (M0-A R3). Pure-CPU classifier over the raw
+  // occupancy mask texels (GL_RED/GL_FLOAT readback of the R8 history):
+  // dimension check, every texel finite, min/max/mean, and a 5-point probe
+  // (4 corners + center) within epsilon of {0,1}. GPU-free so the 0/1-mask
+  // contract is unit-testable; the GPU readback path delegates here.
+  [[nodiscard]] static OccupancyProbeResult ClassifyOccupancyProbe(
+      const float *texels, size_t texelCount, int width, int height);
+
+  // W6 (M0-C) occupancy evidence verdict (fail-closed). "present" requires a
+  // real texture + a valid 0/1 mask probe + a positive history reset count
+  // (proof temporal rejection occurred); otherwise "failed" and blocksGo=true.
+  [[nodiscard]] static OccupancyEvidenceResult EvaluateOccupancyEvidence(
+      uint32_t texture, int width, int height, const OccupancyProbeResult &probe,
+      uint64_t historyResetCount, const std::string &lastResetReason);
 
   [[nodiscard]] static GateReport RunGate(const std::string &revision = "HEAD",
                                           int sampleFramesPerFixture = 120,

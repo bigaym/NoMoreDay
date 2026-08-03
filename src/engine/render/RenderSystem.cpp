@@ -894,6 +894,7 @@ void RenderSystem::Initialize() {
       std::make_shared<NoMoreDay::render::passes::RadianceCascadesPass>();
   g_giCompositePass = std::make_shared<NoMoreDay::render::passes::GICompositePass>();
   g_giCompositePass->SetOccluderExtractPass(g_occluderExtractPass.get());
+  g_giCompositePass->SetRadianceCascadesPass(g_radianceCascadesPass.get());
   g_fluidSimulationPass =
       std::make_shared<NoMoreDay::render::passes::FluidSimulationPass>();
   g_fluidSimulationPass->SetOccluderExtractPass(g_occluderExtractPass.get());
@@ -1770,6 +1771,25 @@ RenderSystem::GiDistanceFieldInfo RenderSystem::GetGiDistanceField() {
     info.texture = g_jfaPass->GetDistanceFieldTexture();
     info.width = g_jfaPass->GetDistanceFieldWidth();
     info.height = g_jfaPass->GetDistanceFieldHeight();
+  }
+  return info;
+}
+
+// M0-A R3: occupancy history evidence (GICompositePass R8 ping-pong). Returns
+// the current read history texture + its extent plus the temporal-rejection
+// instrumentation. The hardware gate reads this to prove the REAL occupancy
+// history exists and was reset at least once; the diagnostic path (no
+// RenderSystem::Initialize) leaves the info defaulted and the gate fails
+// closed on the missing texture.
+RenderSystem::GiOccupancyInfo RenderSystem::GetGiOccupancy() {
+  GiOccupancyInfo info;
+  if (g_giCompositePass != nullptr && g_giCompositePass->HasOccupancyHistory()) {
+    info.historyValid = true;
+    info.texture = g_giCompositePass->GetOccupancyHistoryTexture();
+    info.width = g_giCompositePass->GetOccupancyHistoryWidth();
+    info.height = g_giCompositePass->GetOccupancyHistoryHeight();
+    info.historyResetCount = g_giCompositePass->GetHistoryResetCount();
+    info.lastResetReason = g_giCompositePass->GetLastResetReason();
   }
   return info;
 }

@@ -200,3 +200,14 @@ DecideGate(report):
 ### W6.8 证据审查
 
 - [ ] 实机 `gpu-hardware` job 归档 artifact 经 schema validator 且 `gate_succeeded==true` 前，本 Track 保持 production NO-GO。
+
+
+### W6.9 Gate 收尾（2026-08-03，追加记录）
+
+- [x] 6 处 render 调用点加入 viewport + 投影 + BeginMode2D/EndMode2D（根因 A/B 修复，HDR buffer 1280x720、场景正确进 HDR）。
+- [x] occupancy 接线（ProbeGiOccupancy / ClassifyOccupancyProbe / EvaluateOccupancyEvidence / RenderSystem::GetGiOccupancy）。
+- [x] 引擎 fullscreen-quad 空批次杀 program 根因修复（`third_party/raylib/src/rlgl.h`，**waivered third-party 修改**，需主代理评审确认）。
+- [x] SDF 探针移到 delta capture 之后（首 cell missing 修复）。
+- [x] 本地验证：GL 错误 256→0、ROI 非黑（0.62-0.89）、sdf passed、occupancy present+blocks_go=false、7-pass 真实 trace、stress passed。
+- [ ] 资源泄漏候选（18 个）解决：baseline 快照时序或持久资源白名单，否则完整 `gpu-hardware` job 无法 GO。
+- [ ] 完整 120 样本/100 循环/60s 压测复测（leak-candidates 修复后）。

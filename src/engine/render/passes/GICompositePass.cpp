@@ -1,5 +1,6 @@
 #include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
+#include "engine/render/passes/RadianceCascadesPass.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
@@ -76,6 +77,8 @@ bool GICompositePass::Initialize(ResourceManager &resources) {
   m_resetHistoryLoc = rlGetLocationUniform(m_compositeShader.id, "uResetHistory");
   m_cameraDeltaUvLoc = rlGetLocationUniform(m_compositeShader.id, "uCameraDeltaUv");
   m_zoomRatioLoc = rlGetLocationUniform(m_compositeShader.id, "uZoomRatio");
+  m_occupancyEnabledLoc =
+      rlGetLocationUniform(m_compositeShader.id, "uOccupancyEnabled");
 
   m_initialized = true;
   return true;
@@ -86,6 +89,8 @@ void GICompositePass::Shutdown() {
   resources::FramebufferManager::Destroy(m_outputScene);
   resources::FramebufferManager::Destroy(m_historyA);
   resources::FramebufferManager::Destroy(m_historyB);
+  resources::FramebufferManager::Destroy(m_occupancyHistoryA);
+  resources::FramebufferManager::Destroy(m_occupancyHistoryB);
   m_sceneResolutionLoc = -1;
   m_radianceResolutionLoc = -1;
   m_temporalWeightLoc = -1;
@@ -93,6 +98,7 @@ void GICompositePass::Shutdown() {
   m_resetHistoryLoc = -1;
   m_cameraDeltaUvLoc = -1;
   m_zoomRatioLoc = -1;
+  m_occupancyEnabledLoc = -1;
   m_cachedWidth = 0;
   m_cachedHeight = 0;
   m_initialized = false;
@@ -102,6 +108,8 @@ void GICompositePass::Shutdown() {
   m_prevCameraTarget = {0.0f, 0.0f};
   m_prevCameraZoom = 0.0f;
   m_prevLightSignature = 0u;
+  m_prevOccluderMaskVersion = 0u;
+  m_prevVfxEmissionSnapshotVersion = 0u;
 }
 
 void GICompositePass::OnResize(const int width, const int height) {
@@ -135,13 +143,34 @@ bool GICompositePass::EnsureResources(const int width, const int height) {
     resources::FramebufferManager::Resize(m_historyB, width, height);
   }
 
+  // M0-A R3: persistent R8 occupancy/depth history ping-pong. The current-frame
+  // occupancy (occluder mask) is stored each execute so the next frame can
+  // compare occupancy at the reprojected UV for disocclusion rejection.
+  const uint32_t occupancyFormat = RenderConstants::V5GI::kOccluderMaskFormat;
+  if (!m_occupancyHistoryA.IsValid()) {
+    m_occupancyHistoryA =
+        resources::FramebufferManager::Create(width, height, occupancyFormat, false);
+  } else if (m_occupancyHistoryA.width != width ||
+             m_occupancyHistoryA.height != height) {
+    resources::FramebufferManager::Resize(m_occupancyHistoryA, width, height);
+  }
+
+  if (!m_occupancyHistoryB.IsValid()) {
+    m_occupancyHistoryB =
+        resources::FramebufferManager::Create(width, height, occupancyFormat, false);
+  } else if (m_occupancyHistoryB.width != width ||
+             m_occupancyHistoryB.height != height) {
+    resources::FramebufferManager::Resize(m_occupancyHistoryB, width, height);
+  }
+
   if (m_cachedWidth != width || m_cachedHeight != height) {
     m_historyValid = false;
     m_cachedWidth = width;
     m_cachedHeight = height;
   }
 
-  return m_outputScene.IsValid() && m_historyA.IsValid() && m_historyB.IsValid();
+  return m_outputScene.IsValid() && m_historyA.IsValid() && m_historyB.IsValid() &&
+         m_occupancyHistoryA.IsValid() && m_occupancyHistoryB.IsValid();
 }
 
 uint64_t GICompositePass::BuildLightSignature() const {
@@ -189,9 +218,13 @@ void GICompositePass::Execute(graph::RenderContext &context) {
 
   const int width = context.hdrSceneBuffer.width;
   const int height = context.hdrSceneBuffer.height;
+  const int previousWidth = m_cachedWidth;
+  const int previousHeight = m_cachedHeight;
   if (!EnsureResources(width, height)) {
     return;
   }
+  const bool extentChanged =
+      (previousWidth != width || previousHeight != height);
 
   const uint64_t lightSignature = BuildLightSignature();
   const bool lightChanged = m_historyValid && (lightSignature != m_prevLightSignature);
@@ -228,7 +261,19 @@ void GICompositePass::Execute(graph::RenderContext &context) {
       m_historyValid && (m_prevOccluderMaskVersion != 0u) &&
       (occluderVersion != m_prevOccluderMaskVersion);
 
-  const bool resetHistory = !m_historyValid || lightChanged || occluderChanged;
+  // M0-A R2 closure: the VFX emission snapshot version is a GI input version.
+  // When the frozen emission layer changed since the last composite, history
+  // produced against the previous emission must not be reused.
+  const uint64_t vfxEmissionVersion =
+      (m_radianceCascadesPass != nullptr)
+          ? m_radianceCascadesPass->GetVfxEmissionSnapshotVersion()
+          : 0u;
+  const bool emissiveChanged =
+      m_historyValid && (vfxEmissionVersion != m_prevVfxEmissionSnapshotVersion);
+
+  const bool resetHistory =
+      !m_historyValid || extentChanged || lightChanged || occluderChanged ||
+      emissiveChanged;
   if (resetHistory) {
     temporalWeight = 0.0f;
   }
@@ -274,6 +319,9 @@ void GICompositePass::Execute(graph::RenderContext &context) {
   constexpr uint32_t kHistoryInBinding = 2u;
   constexpr uint32_t kSceneOutBinding = 3u;
   constexpr uint32_t kHistoryOutBinding = 4u;
+  constexpr uint32_t kOccupancyCurrInBinding = 5u;
+  constexpr uint32_t kOccupancyPrevInBinding = 6u;
+  constexpr uint32_t kOccupancyOutBinding = 7u;
   NoMoreDay::utils::GPUUtils::BindImageTexture(kSceneInBinding,
                                                context.hdrSceneBuffer.colorTexture, 0,
                                                false, 0, kGLReadOnly, kGLRgba16f);
@@ -289,6 +337,40 @@ void GICompositePass::Execute(graph::RenderContext &context) {
   NoMoreDay::utils::GPUUtils::BindImageTexture(kHistoryOutBinding,
                                                historyWrite.colorTexture, 0, false, 0,
                                                kGLWriteOnly, kGLRgba16f);
+
+  // M0-A R3: occupancy/depth disocclusion rejection. The current-frame
+  // occupancy is the occluder mask texture (GL_R8, 0/1) owned by
+  // OccluderExtractPass. Previous occupancy is read from the persistent R8
+  // ping-pong history at the reprojected UV; any mismatch zeroes the history
+  // weight. The current occupancy is always written to the outgoing history
+  // slot for the next frame.
+  const uint32_t occupancyFormat = RenderConstants::V5GI::kOccluderMaskFormat;
+  const uint32_t currentOccupancyTexture =
+      (m_occluderExtractPass != nullptr)
+          ? m_occluderExtractPass->GetOccluderMaskTexture()
+          : 0u;
+  const auto &occupancyRead =
+      m_readHistoryA ? m_occupancyHistoryA : m_occupancyHistoryB;
+  auto &occupancyWrite = m_readHistoryA ? m_occupancyHistoryB : m_occupancyHistoryA;
+  const bool occupancyAvailable = (currentOccupancyTexture != 0u) &&
+                                  occupancyRead.IsValid() &&
+                                  occupancyWrite.IsValid();
+  if (occupancyAvailable) {
+    NoMoreDay::utils::GPUUtils::BindImageTexture(kOccupancyCurrInBinding,
+                                                 currentOccupancyTexture, 0, false, 0,
+                                                 kGLReadOnly, occupancyFormat);
+    NoMoreDay::utils::GPUUtils::BindImageTexture(kOccupancyPrevInBinding,
+                                                 occupancyRead.colorTexture, 0, false,
+                                                 0, kGLReadOnly, occupancyFormat);
+    NoMoreDay::utils::GPUUtils::BindImageTexture(kOccupancyOutBinding,
+                                                 occupancyWrite.colorTexture, 0, false,
+                                                 0, kGLWriteOnly, occupancyFormat);
+  }
+  const int occupancyEnabledInt = occupancyAvailable ? 1 : 0;
+  if (m_occupancyEnabledLoc >= 0) {
+    rlSetUniform(m_occupancyEnabledLoc, &occupancyEnabledInt, RL_SHADER_UNIFORM_INT, 1);
+  }
+
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
       DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
       DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
@@ -307,10 +389,29 @@ void GICompositePass::Execute(graph::RenderContext &context) {
                                               context.hdrSceneBuffer.fbo);
   NoMoreDay::utils::GPUUtils::Viewport(0, 0, width, height);
 
+  if (resetHistory) {
+    ++m_historyResetCount;
+    if (!m_historyValid || extentChanged) {
+      m_lastResetReason = "extent";
+    } else if (lightChanged) {
+      m_lastResetReason = "light";
+    } else if (occluderChanged) {
+      m_lastResetReason = "occluder";
+    } else if (emissiveChanged) {
+      m_lastResetReason = "emissive";
+    } else {
+      m_lastResetReason = "initial";
+    }
+  }
+
   if (resetHistory && lightChanged) {
     LOG_INFO("GICompositePass: reset temporal history due light signature change");
   } else if (resetHistory && occluderChanged) {
     LOG_INFO("GICompositePass: reset temporal history due occluder mask version change ({})", occluderVersion);
+  } else if (resetHistory && emissiveChanged) {
+    LOG_INFO("GICompositePass: reset temporal history due VFX emission snapshot version change ({})", vfxEmissionVersion);
+  } else if (resetHistory && extentChanged) {
+    LOG_INFO("GICompositePass: reset temporal history due resolution change ({}x{})", width, height);
   }
 
   m_historyValid = true;
@@ -320,6 +421,7 @@ void GICompositePass::Execute(graph::RenderContext &context) {
   m_prevCameraZoom = context.camera->zoom;
   m_prevLightSignature = lightSignature;
   m_prevOccluderMaskVersion = occluderVersion;
+  m_prevVfxEmissionSnapshotVersion = vfxEmissionVersion;
   core::ApplyRlglFlushTemplate();
 }
 

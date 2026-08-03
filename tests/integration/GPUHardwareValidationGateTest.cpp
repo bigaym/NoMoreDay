@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <limits>
+#include <vector>
 
 namespace {
 
@@ -129,6 +131,241 @@ TEST_CASE("[Unit] GPU Hardware Validation Gate - ROI origin crop correctness") {
   const float oobRoi = GPUHardwareValidationGate::ComputeRoiMeanLuma(
       frame.data(), frame.size(), kFullW, kFullH, 3, 3, 2, 2);
   CHECK(oobRoi == 0.0f);
+}
+
+// W6 (M0-C) occupancy evidence (M0-A R3): the pure-CPU 0/1-mask classifier is
+// GPU-free, so the mask contract (every texel finite, min/max/mean sane, and
+// the 5-point probe sitting within epsilon of {0,1}) is unit-testable without
+// touching a GPU. The GPU readback path (ProbeGiOccupancy) delegates here.
+TEST_CASE("[Unit] GPU Hardware Validation Gate - ClassifyOccupancyProbe 0/1 mask contract") {
+  using namespace NoMoreDay::render::validation;
+
+  // All-zeros mask: a valid 0/1 mask (empty scene).
+  {
+    std::vector<float> texels(4 * 4, 0.0f);
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK(r.texturePresent);
+    CHECK(r.maskValid);
+    CHECK(r.minValue == 0.0f);
+    CHECK(r.maxValue == 0.0f);
+    CHECK(r.meanValue == 0.0f);
+    CHECK(r.probeSamples.size() == 5);
+  }
+
+  // All-ones mask: a valid 0/1 mask (fully occluded scene).
+  {
+    std::vector<float> texels(4 * 4, 1.0f);
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK(r.texturePresent);
+    CHECK(r.maskValid);
+    CHECK(r.minValue == 1.0f);
+    CHECK(r.maxValue == 1.0f);
+    CHECK(r.meanValue == 1.0f);
+  }
+
+  // Mixed 0/1 mask with the probe points exactly on {0,1} values.
+  {
+    std::vector<float> texels(4 * 4, 0.0f);
+    // Corners + center of the 4x4 probe are set to 1; interior stays 0.
+    texels[0] = 1.0f;              // (0,0)
+    texels[3] = 1.0f;              // (3,0)
+    texels[4 * 3 + 0] = 1.0f;      // (0,3)
+    texels[4 * 3 + 3] = 1.0f;      // (3,3)
+    texels[4 * 2 + 2] = 1.0f;      // (2,2)
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK(r.texturePresent);
+    CHECK(r.maskValid);
+    CHECK(r.minValue == 0.0f);
+    CHECK(r.maxValue == 1.0f);
+    CHECK(r.meanValue > 0.0f);
+    CHECK(r.meanValue < 1.0f);
+    for (const float p : r.probeSamples) {
+      CHECK(p == 1.0f);
+    }
+  }
+
+  // Non-finite texel: never a valid mask - fails closed.
+  {
+    std::vector<float> texels(4 * 4, 0.0f);
+    texels[5] = std::numeric_limits<float>::quiet_NaN();
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK_FALSE(r.texturePresent);
+    CHECK_FALSE(r.maskValid);
+    CHECK(r.reason.find("non-finite") != std::string::npos);
+  }
+
+  // Inf texel also fails closed.
+  {
+    std::vector<float> texels(4 * 4, 0.0f);
+    texels[7] = std::numeric_limits<float>::infinity();
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK_FALSE(r.texturePresent);
+    CHECK_FALSE(r.maskValid);
+  }
+
+  // Dimension mismatch: texel count must equal width * height - fails closed.
+  {
+    std::vector<float> texels(4 * 5, 0.0f);
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK_FALSE(r.texturePresent);
+    CHECK_FALSE(r.maskValid);
+    CHECK(r.reason.find("dimensions") != std::string::npos);
+  }
+
+  // Null/empty input fails closed.
+  {
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        nullptr, 0, 4, 4);
+    CAPTURE(r.reason);
+    CHECK_FALSE(r.texturePresent);
+    CHECK_FALSE(r.maskValid);
+  }
+
+  // A gradient-like (non-binary) probe point fails the mask check.
+  {
+    std::vector<float> texels(4 * 4, 0.0f);
+    texels[0] = 0.5f;  // (0,0) sits between 0 and 1 - not a 0/1 mask.
+    const OccupancyProbeResult r = GPUHardwareValidationGate::ClassifyOccupancyProbe(
+        texels.data(), texels.size(), 4, 4);
+    CAPTURE(r.reason);
+    CHECK(r.texturePresent);
+    CHECK_FALSE(r.maskValid);
+    CHECK(r.reason.find("0/1 mask") != std::string::npos);
+  }
+}
+
+// W6 (M0-C) occupancy evidence verdict (M0-A R3): fail-closed judgement. The
+// gate may only report "present" when a real texture + a valid 0/1 mask probe
+// + a positive history reset count (proof temporal rejection occurred) all hold.
+TEST_CASE("[Unit] GPU Hardware Validation Gate - EvaluateOccupancyEvidence fail-closed verdict") {
+  using namespace NoMoreDay::render::validation;
+
+  // Helper: a valid probe (as if a real R8 history was read back and classified).
+  auto validProbe = [] {
+    OccupancyProbeResult p;
+    p.texturePresent = true;
+    p.maskValid = true;
+    p.minValue = 0.0f;
+    p.maxValue = 1.0f;
+    p.meanValue = 0.5f;
+    p.probeSamples = {0.0f, 1.0f, 0.0f, 1.0f, 1.0f};
+    return p;
+  };
+
+  // No texture exposed -> failed, fail-closed (blocks GO).
+  {
+    const OccupancyEvidenceResult r = GPUHardwareValidationGate::EvaluateOccupancyEvidence(
+        0u, 0, 0, validProbe(), 3, "extent changed");
+    CHECK(r.status == "failed");
+    CHECK(r.blocksGo);
+    CHECK_FALSE(r.texturePresent);
+    CHECK(r.reason.find("no occupancy history texture") != std::string::npos);
+  }
+
+  // Texture present but the mask probe failed -> failed, fail-closed.
+  {
+    OccupancyProbeResult badProbe;
+    badProbe.texturePresent = false;
+    badProbe.reason = "glGetTexImage unavailable";
+    const OccupancyEvidenceResult r = GPUHardwareValidationGate::EvaluateOccupancyEvidence(
+        42u, 1280, 720, badProbe, 3, "extent changed");
+    CHECK(r.status == "failed");
+    CHECK(r.blocksGo);
+    CHECK(r.texturePresent);
+    CHECK(r.reason.find("probe failed") != std::string::npos);
+  }
+
+  // Texture + valid mask but reset count == 0 -> failed (no rejection proof).
+  {
+    const OccupancyEvidenceResult r = GPUHardwareValidationGate::EvaluateOccupancyEvidence(
+        42u, 1280, 720, validProbe(), 0, "");
+    CHECK(r.status == "failed");
+    CHECK(r.blocksGo);
+    CHECK(r.texturePresent);
+    CHECK(r.reason.find("never reset") != std::string::npos);
+  }
+
+  // Texture + valid mask + positive reset count -> present, GO allowed.
+  {
+    const OccupancyEvidenceResult r = GPUHardwareValidationGate::EvaluateOccupancyEvidence(
+        42u, 1280, 720, validProbe(), 4, "extent changed");
+    CHECK(r.status == "present");
+    CHECK_FALSE(r.blocksGo);
+    CHECK(r.texturePresent);
+    CHECK(r.width == 1280);
+    CHECK(r.height == 720);
+    CHECK(r.historyResetCount == 4);
+    CHECK(r.lastResetReason == "extent changed");
+  }
+}
+
+// M0-B: external target contract - CaptureTargetState must read the REAL
+// attachment state of the harness-owned RGBA16F composite target through legal
+// GL 4.3 pnames (glGetFramebufferAttachmentParameteriv + texture-level
+// parameters). The pseudo-pnames 5c257e22 removed (0x8D24/0x8D25/0x825D) are
+// never reused. A fully verified capture is "passed"; the identity, extent,
+// format and component layout are pinned in the recorded state.
+TEST_CASE("[Integration] GPU Hardware Validation Gate - Target state capture verifies composite attachment") {
+  using namespace NoMoreDay::render::validation;
+
+  if (!CreateMinimalGpuContext()) {
+    FAIL("Cannot create GPU context; skipping target state capture test");
+  }
+
+  const auto fixtures = GPUHardwareValidationGate::GetStandardFixtures();
+  REQUIRE_FALSE(fixtures.empty());
+
+  GameplayRuntimeHarness harness;
+  REQUIRE(harness.PrepareFixture(fixtures[0]));
+
+  const uint32_t fbo = harness.CompositeFramebuffer();
+  REQUIRE(fbo != 0);
+
+  const TargetAttachmentState state =
+      GPUHardwareValidationGate::CaptureTargetState(
+          fbo, fixtures[0].width, fixtures[0].height, 0x881A);
+
+  CAPTURE(state.status);
+  CAPTURE(state.reason);
+  CHECK(state.status == "passed");
+  CHECK(state.captured);
+  CHECK(state.expectedInternalFormat == 0x881A);
+  // The harness attaches a texture (GL_TEXTURE = 0x1702), never a renderbuffer.
+  CHECK(state.attachmentObjectType == 0x1702);
+  CHECK(state.attachmentObjectName != 0);
+  CHECK(state.attachmentWidth == fixtures[0].width);
+  CHECK(state.attachmentHeight == fixtures[0].height);
+  CHECK(state.attachmentInternalFormat == 0x881A);
+  // RGBA16F = GL_FLOAT (0x1406) components, GL_LINEAR (0x2601) encoding, 16-bit
+  // RGBA channels.
+  CHECK(state.componentType == 0x1406);
+  CHECK(state.colorEncoding == 0x2601);
+  CHECK(state.redSize == 16);
+  CHECK(state.greenSize == 16);
+  CHECK(state.blueSize == 16);
+  CHECK(state.alphaSize == 16);
+  // Bind state must be restored to the pre-capture binding (0 here) so the
+  // capture never leaks GL state into the render loop.
+  CHECK(state.framebufferBinding == 0);
+
+  // Fail-closed paths: fbo == 0 is rejected verbatim, never default-filled.
+  const TargetAttachmentState invalid =
+      GPUHardwareValidationGate::CaptureTargetState(0, 1280, 720, 0x881A);
+  CHECK(invalid.status == "failed");
+  CHECK_FALSE(invalid.captured);
+  CHECK_FALSE(invalid.reason.empty());
 }
 
 // W6 (M0-C): this test is contract/diagnostic only - it runs the RunGate
@@ -258,6 +495,37 @@ TEST_CASE("[GPU-Diagnostic] GPU Hardware Validation Gate - RunGate Offscreen Mat
       CHECK(fix.contains("sdf_max_value"));
       CHECK(fix.contains("sdf_mean_value"));
       CHECK(fix["sdf_probe_samples"].is_array());
+      // M0-B: every matrix cell that ran a target captured its external target
+      // state; the RGBA16F contract must verify ("passed", fail-closed).
+      CHECK(fix.contains("target_state"));
+      const auto &ts = fix["target_state"];
+      CHECK(ts.contains("captured"));
+      CHECK(ts.contains("status"));
+      CHECK(ts.contains("reason"));
+      CHECK(ts.contains("expected_internal_format"));
+      CHECK(ts.contains("framebuffer_binding"));
+      CHECK(ts.contains("viewport"));
+      CHECK(ts.contains("scissor_test_enabled"));
+      CHECK(ts.contains("scissor"));
+      CHECK(ts.contains("attachment_object_type"));
+      CHECK(ts.contains("attachment_object_name"));
+      CHECK(ts.contains("attachment_width"));
+      CHECK(ts.contains("attachment_height"));
+      CHECK(ts.contains("attachment_internal_format"));
+      CHECK(ts.contains("color_encoding"));
+      CHECK(ts.contains("component_type"));
+      CHECK(ts.contains("red_size"));
+      CHECK(ts.contains("green_size"));
+      CHECK(ts.contains("blue_size"));
+      CHECK(ts.contains("alpha_size"));
+      CHECK(ts.contains("depth_size"));
+      CHECK(ts.contains("stencil_size"));
+      CHECK(ts["status"].get<std::string>() == "passed");
+      CHECK(ts["expected_internal_format"].get<uint32_t>() == 0x881A);
+      CHECK(ts["attachment_internal_format"].get<uint32_t>() == 0x881A);
+      CHECK(ts["attachment_object_type"].get<uint32_t>() == 0x1702);
+      CHECK(ts["attachment_width"].get<int>() > 0);
+      CHECK(ts["attachment_height"].get<int>() > 0);
     }
   }
 
@@ -280,6 +548,21 @@ TEST_CASE("[GPU-Diagnostic] GPU Hardware Validation Gate - RunGate Offscreen Mat
   CHECK(parsed["occupancy"].contains("status"));
   CHECK(parsed["occupancy"].contains("reason"));
   CHECK(parsed["occupancy"].contains("blocks_go"));
+  // W6 (M0-C) occupancy evidence (M0-A R3): the probe detail schema is always
+  // present. The diagnostic harness runs without RenderSystem::Initialize, so
+  // no real occupancy history exists and the gate MUST stay fail-closed
+  // (never "present", blocks_go stays true) - silent pass-through is forbidden.
+  CHECK(parsed["occupancy"].contains("texture_present"));
+  CHECK(parsed["occupancy"].contains("probe_width"));
+  CHECK(parsed["occupancy"].contains("probe_height"));
+  CHECK(parsed["occupancy"].contains("min_value"));
+  CHECK(parsed["occupancy"].contains("max_value"));
+  CHECK(parsed["occupancy"].contains("mean_value"));
+  CHECK(parsed["occupancy"].contains("probe_points"));
+  CHECK(parsed["occupancy"].contains("reset_count"));
+  CHECK(parsed["occupancy"].contains("last_reset_reason"));
+  CHECK(parsed["occupancy"]["status"].get<std::string>() != "present");
+  CHECK(parsed["occupancy"]["blocks_go"].get<bool>());
   // W6 (M0-C) High-3: capabilities carry the hooks binding + real identity.
   CHECK(parsed["capabilities"].contains("render_hooks_supplied"));
   CHECK(parsed["capabilities"].contains("driver_version"));

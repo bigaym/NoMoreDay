@@ -54,3 +54,10 @@
   - `--test-case=*RenderGraph*`：31 cases / 217 assertions 通过（V5 契约回归）。
   - `ctest -L unit` 全量：`nmd.tests.unit` 与 `nmd.tests.ai.unit` 首跑失败、各自单独重跑通过（已知 flaky `HeavenlySwordClosureTests.cpp:97`，与 W5 无关）；`nmd.tests.skill.unit` 等其余通过。
 - 结论：6 项修正全部落地并复测通过；W5 范围与未关闭项不变（同上小节），生产保持 NO-GO。
+
+## 2026-08-02（M0-B）：外部 target 合同补齐（MS-8 剩余风险第 4 项）
+
+- 变更（gate 层）：`GPUHardwareValidationGate.hpp/.cpp` 新增 `TargetAttachmentState` 与静态 `CaptureTargetState()`——经 `glfwGetProcAddress` 解析合法 GL 4.3 入口（`glGetFramebufferAttachmentParameteriv`/`glGetTexLevelParameteriv`/`glGetRenderbufferParameteriv`/`glGetIntegerv`/`glIsEnabled`），记录 bind/viewport/scissor 快照 + COLOR_ATTACHMENT0 的 OBJECT_TYPE/OBJECT_NAME/COLOR_ENCODING/COMPONENT_TYPE/各分量 size + texture-level/renderbuffer 参数（extent、internal format）。未复用 `5c257e22` 曾用的非法 pname（0x8D24/0x8D25/0x825D）。矩阵 cell 在 `CompositeFramebuffer()` 校验后调用；非 `passed`（missing entry→`unavailable`、fbo==0/GL_NONE/extent-format 不符→`failed`）判 cell 失败（fail-closed）；fbo==0 分支如实记录。`ToJsonString` 仅在采集过的 cell 输出 `matrix_results[*].target_state`。
+- 测试新增：`[Integration] GPU Hardware Validation Gate - Target state capture verifies composite attachment`（harness 真实 RGBA16F texture attachment 断言 passed/1280x720/0x881A/GL_TEXTURE(0x1702)/16-bit RGBA/GL_FLOAT(0x1406)/GL_LINEAR(0x2601)/bind 恢复为 0；fbo==0 → failed 且 reason 非空）；`[GPU-Diagnostic]` RunGate 测试逐 matrix cell 断言 `target_state` schema 全键、status=="passed"、internal format 0x881A、object type 0x1702、extent>0。
+- 构建/测试待补（被并发代理 blocker）：`build.bat` 全量构建当前被 `src/engine/render/passes/GICompositePass.hpp`（M0-A R3 代理独占、未完成状态：引用了未声明的 `m_readHistoryA` 等成员，非 M0-B 改动）阻塞；`GPUHardwareValidationGate.cpp` 编译 0 错误。聚焦测试与 ctest 需等 M0-A R3 文件修复后执行。
+- 未关闭：外部 target 合同代码与文档已补齐，但完整构建/聚焦测试因并发代理未完成而待验；M0-C 硬件证据未产生；生产保持 NO-GO。

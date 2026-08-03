@@ -57,6 +57,15 @@ registry 只接收 create/recreate/destroy observer 事件，实际释放仍由�
 - **ResourceKind 覆盖**：`VertexArray` 与 `ShaderProgram`（raw 非 ResourceManager shader）纳入 kind 枚举，供 VAO 与 raw shader owner 观察；新增枚举值不改 `bytesByKind` 数据结构。
 - **帧推进**：`GPUResourceRegistry::AdvanceFrame()` 在正常渲染路径中每成功完成一帧恰好调用一次——紧接 `RenderSystem::render` 内 `graph.Execute()` 成功后、下游 snapshot 消费者读取之前。不允许 per-pass 调用、不允许在失败/中止的 execute 后调用。硬件 gate 的 stress 循环不得手动 advance，避免 double-age pending 记录。
 
+#### 外部 composite target 状态捕获契约（2026-08-02，M0-B）
+
+- **范围**：外部 composite target（由 fixture driver/harness 拥有、gate 只读绑定）的 attachment 完整性必须在 gate artifact 中如实记录。`5c257e22` 删除的 `glGetFramebufferAttachmentParameteriv` 查询以合法 GL 4.3 pname 恢复，且位于 gate 层（`GPUHardwareValidationGate::CaptureTargetState`），不触碰 `RenderSystem` 热路径。
+- **合法 pname**：仅使用核心 GL 4.3 常量——`GL_FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE(0x8CD0)`/`OBJECT_NAME(0x8CD1)`/`COLOR_ENCODING(0x8210)`/`COMPONENT_TYPE(0x8211)`/`RED/GREEN/BLUE/ALPHA/DEPTH/STENCIL_SIZE(0x8212..0x8217)`；extent 与 internal format 经对象自身查询（texture→`glGetTexLevelParameteriv` `GL_TEXTURE_WIDTH/HEIGHT/INTERNAL_FORMAT`，renderbuffer→`glGetRenderbufferParameteriv` `GL_RENDERBUFFER_WIDTH/HEIGHT/INTERNAL_FORMAT`）。`5c257e22` 曾用的 `0x8D24/0x8D25/0x825D` 从未是有效核心常量，禁止复用。
+- **动态解析**：入口经 `glfwGetProcAddress` 解析；缺失 → status `unavailable` + reason，fail-closed。
+- **如实记录，禁止默认填充**：fbo==0、attachment 缺失（OBJECT_TYPE==GL_NONE）、extent/internalFormat 与合同不符 → status `failed` + 具体 reason；只有全部核验通过才 `passed`。未采集的 cell（如 fixture-prep 失败）保持字段缺失，使 artifact 中「缺失」与「failed」可区分。
+- **fail-closed**：任一 matrix cell 的 target state 非 `passed` 即判该 cell 失败（`executionChecksPassed=false`），进而阻止 GO；不允许跳过或旁路。
+- **artifact**：`matrix_results[*].target_state` 含 captured/status/reason/expected_internal_format/framebuffer_binding/viewport/scissor/attachment 身份、extent、internal format、color_encoding、component_type、各分量 size。
+
 ### 计时、ABI、设备
 
 每个 pass 使用多槽 query ring，在 N 帧后只读取 ready query。未就绪保持 Pending，绝不写 `0ms`。HUD、统计和 auto-degrade 分别显示有效 GPU、CPU 提交和无样本。

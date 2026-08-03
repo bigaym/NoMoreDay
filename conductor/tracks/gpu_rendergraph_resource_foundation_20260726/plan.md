@@ -166,3 +166,11 @@ Execute(plan):
 - 文档调和：spec §3 新增 registry 记账与帧推进契约（observer-only、duplicate 拒绝、记账一致、尺寸更新防下溢、注销先于 GL 删除、handle 复用须先注销、PersistentMapping 先于 backing buffer 移除、exact-one advance、gate 不手动 advance）；debt_register RG-3 关闭条件按 2026-08-02 契约改写。
 - 现状修正：早期「FullscreenQuad 已登记、RenderGraph 每帧推进」记录与源码不符，S5 重构丢失；W5 恢复并补齐（见 validation W5 记录）。
 - 契约决定：`ResourceKind` 增加 `VertexArray` 与 `ShaderProgram`（raw 非 ResourceManager shader 纳入观察）；duplicate registration 采用 reject + diagnostic（不更新、不计入）；`RenderOwnerTag` 保持既有集合，GPUEntitySystem 资源用 `Unknown` 观察（不新增 tag，避免扩大 switch 面）。
+
+## M0-B 外部 target 合同补齐（2026-08-02，MS-8 剩余风险第 4 项）
+
+- **背景**：`5c257e22` 删除 `glGetFramebufferAttachmentParameteriv` 查询后，GateReport 的 target state capture 不完整——`CaptureCompositeTargetState` 只读 bind/viewport/scissor，internalFormat 恒 0，attachment 完整性（身份/extent/format）未查。历史 review 曾以「✅ 已查询」记录，与实际代码不符（见 `gpu-production-hdr-gi-closure-review.md`）。
+- **根因复核**（MS-6）：被删查询使用三个非法 pname（伪 `0x8D24/0x8D25/0x825D`，核心 GL 4.3 不存在），每帧产生 3 条 `GL_INVALID_ENUM` 洪泛，且自引入以来从未返回有效数据。合法替代查询法已确认：`OBJECT_TYPE` 分支 + `glGetTexLevelParameteriv`/`glGetRenderbufferParameteriv` + internal format 查询。
+- **实施（gate 层，不碰 RenderSystem 热路径）**：`GPUHardwareValidationGate` 新增 `CaptureTargetState(framebuffer, w, h, internalFormat)`：经 `glfwGetProcAddress` 解析 `glGetFramebufferAttachmentParameteriv` 等入口；记录 bind/viewport/scissor 快照与 COLOR_ATTACHMENT0 身份/extent/format；extent 与 internalFormat 不符或查询缺失 → fail-closed。矩阵 cell 在 offscreenFbo 校验后调用，非 `passed` 即判 cell 失败；fbo==0 分支如实记录。artifact 输出 `matrix_results[*].target_state`（仅在采集过时存在，缺失可区分于 failed）。
+- **测试**：新增 `[Integration] Target state capture verifies composite attachment`（harness 真实 RGBA16F texture attachment：status passed、1280x720、0x881A、GL_TEXTURE、16/16/16/16、GL_FLOAT、GL_LINEAR、fbo==0 拒绝）；`[GPU-Diagnostic]` RunGate 测试逐 cell 断言 target_state schema + status passed + 0x881A。
+- **契约不可回退**：occupancy `missing_pending_m0a` 占位、fail-closed、真实 vendor/driver 身份、exactly-one AdvanceFrame、registry observer-only。

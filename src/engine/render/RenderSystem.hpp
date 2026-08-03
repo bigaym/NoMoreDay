@@ -76,8 +76,21 @@ public:
         int width = 0;
         int height = 0;
     };
+    // M0-A R3 occupancy history evidence (GICompositePass R8 ping-pong). The
+    // history is updated every real Execute; `historyValid` mirrors
+    // HasOccupancyHistory() and `historyResetCount` proves temporal rejection
+    // actually occurred (extent/camera/zoom/light/occluder/emissive resets).
+    struct GiOccupancyInfo {
+        uint32_t texture = 0;
+        int width = 0;
+        int height = 0;
+        bool historyValid = false;
+        uint64_t historyResetCount = 0;
+        std::string lastResetReason;
+    };
     [[nodiscard]] static const std::vector<std::string> &GetLastExecutedPassOrder();
     [[nodiscard]] static GiDistanceFieldInfo GetGiDistanceField();
+    [[nodiscard]] static GiOccupancyInfo GetGiOccupancy();
 
     // Screen Shake API
     static void AddScreenShake(float intensity);

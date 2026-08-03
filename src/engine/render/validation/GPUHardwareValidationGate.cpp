@@ -10,7 +10,6 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
-
 #include "raylib.h"
 #include "rlgl.h"
 
@@ -19,6 +18,7 @@
 #include <cassert>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <deque>
@@ -359,6 +359,72 @@ SdfProbeResult ProbeGiDistanceField(uint32_t texture, int width, int height) {
   return out;
 }
 
+// W6 (M0-C) occupancy evidence (M0-A R3): reads back the REAL GI composite
+// occupancy history texture (R8 ping-pong, read side) with glGetTexImage
+// (GL_RED/GL_FLOAT) and delegates the classification to the pure-CPU
+// ClassifyOccupancyProbe so the 0/1-mask contract is unit-testable without a
+// GPU. GL texture binding is restored on exit. Fail-closed: a missing texture
+// or unavailable entry point yields a failed probe (never default-filled).
+OccupancyProbeResult ProbeGiOccupancy(uint32_t texture, int width, int height) {
+  constexpr uint32_t kGLTexture2D = 0x0DE1;
+  constexpr uint32_t kGLRed = 0x1903;   // occupancy history is R8 (R only)
+  constexpr uint32_t kGLFloat = 0x1406;
+  constexpr uint32_t kGLTextureBinding2D = 0x8069;
+
+  OccupancyProbeResult out;
+  if (texture == 0u || width <= 0 || height <= 0) {
+    out.reason = "no occupancy history texture";
+    return out;
+  }
+  using GlGetTexImageFn = void(APIENTRY *)(uint32_t, int, uint32_t, uint32_t,
+                                           void *);
+  using GlGetIntegervFn = void(APIENTRY *)(uint32_t, int *);
+  auto glGetTexImage =
+      reinterpret_cast<GlGetTexImageFn>(glfwGetProcAddress("glGetTexImage"));
+  auto glGetIntegerv =
+      reinterpret_cast<GlGetIntegervFn>(glfwGetProcAddress("glGetIntegerv"));
+  if (glGetTexImage == nullptr || glGetIntegerv == nullptr) {
+    out.reason = "glGetTexImage/glGetIntegerv unavailable";
+    return out;
+  }
+
+  int previousTexture = 0;
+  glGetIntegerv(kGLTextureBinding2D, &previousTexture);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, texture);
+
+  const size_t texelCount = static_cast<size_t>(width) * height;
+  std::vector<float> texels(texelCount, 0.0f);
+  glGetTexImage(kGLTexture2D, 0, kGLRed, kGLFloat, texels.data());
+
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D,
+                                          static_cast<uint32_t>(previousTexture));
+
+  return GPUHardwareValidationGate::ClassifyOccupancyProbe(
+      texels.data(), texelCount, width, height);
+}
+
+// Gate-fin: the gate renders into raw GL framebuffers (not raylib
+// RenderTexture2D), so the window-sized default raylib projection would map
+// every hook / batch draw through the 2560x1440 window ortho instead of the
+// 1280x720 offscreen target. These helpers mirror what BeginTextureMode does
+// for render textures (rcore.c: rlOrtho(0, rt.width, rt.height, 0, 0, 1)) so
+// scene content lands at the correct position/scale inside the offscreen FBO.
+void ApplyTargetProjection(int width, int height) {
+  rlMatrixMode(RL_PROJECTION);
+  rlLoadIdentity();
+  rlOrtho(0, static_cast<double>(width), static_cast<double>(height), 0, 0.0,
+          1.0);
+  rlMatrixMode(RL_MODELVIEW);
+}
+
+void RestoreWindowProjection() {
+  rlMatrixMode(RL_PROJECTION);
+  rlLoadIdentity();
+  rlOrtho(0, static_cast<double>(GetScreenWidth()),
+          static_cast<double>(GetScreenHeight()), 0, 0.0, 1.0);
+  rlMatrixMode(RL_MODELVIEW);
+}
+
 } // namespace
 
 // W6 (M0-C) High-2: pure CPU ROI crop/mean over a full RGBA8 frame. The GPU
@@ -393,6 +459,370 @@ float GPUHardwareValidationGate::ComputeRoiMeanLuma(const uint8_t *fullRgba,
   }
   return static_cast<float>(totalLuma) /
          (static_cast<float>(roiW) * static_cast<float>(roiH) * 3.0f * 255.0f);
+}
+
+// W6 (M0-C) occupancy evidence (M0-A R3): pure-CPU classifier over the raw
+// occupancy mask texels (GL_RED/GL_FLOAT readback of the R8 history). Validates
+// dimensions, every texel finite, min/max/mean, and a 5-point probe (4 corners
+// + center) sitting within kOccupancyMaskEpsilon of {0,1} - occupancy is a
+// 0/1 mask. GPU-free so the mask contract is unit-testable; the GPU readback
+// path (ProbeGiOccupancy) delegates here. Fail-closed on any violation.
+OccupancyProbeResult GPUHardwareValidationGate::ClassifyOccupancyProbe(
+    const float *texels, size_t texelCount, int width, int height) {
+  OccupancyProbeResult out;
+  if (texels == nullptr || texelCount == 0 || width <= 0 || height <= 0) {
+    out.reason = "invalid probe input (null/empty/dimensions)";
+    return out;
+  }
+  if (static_cast<size_t>(width) * static_cast<size_t>(height) != texelCount) {
+    out.reason = "dimensions do not match texel count";
+    return out;
+  }
+
+  double meanSum = 0.0;
+  float minV = std::numeric_limits<float>::max();
+  float maxV = std::numeric_limits<float>::lowest();
+  for (size_t i = 0; i < texelCount; ++i) {
+    const float v = texels[i];
+    if (!std::isfinite(v)) {
+      out.reason = "non-finite texel in occupancy history";
+      return out;
+    }
+    minV = std::min(minV, v);
+    maxV = std::max(maxV, v);
+    meanSum += static_cast<double>(v);
+  }
+  out.minValue = minV;
+  out.maxValue = maxV;
+  out.meanValue = static_cast<float>(meanSum / static_cast<double>(texelCount));
+  out.texturePresent = true;
+
+  // 5-point probe: 4 corners + center of the occupancy mask.
+  auto texelAt = [&](int x, int y) {
+    return texels[static_cast<size_t>(y) * width + static_cast<size_t>(x)];
+  };
+  out.probeSamples.push_back(texelAt(0, 0));
+  out.probeSamples.push_back(texelAt(width - 1, 0));
+  out.probeSamples.push_back(texelAt(0, height - 1));
+  out.probeSamples.push_back(texelAt(width - 1, height - 1));
+  out.probeSamples.push_back(texelAt(width / 2, height / 2));
+
+  // Occupancy is a 0/1 mask: every probe point must sit within epsilon of
+  // either 0 or 1. A gradient/alpha-ish channel fails closed.
+  constexpr float kOccupancyMaskEpsilon = 0.02f;
+  bool allNearBinary = true;
+  for (const float p : out.probeSamples) {
+    const float d0 = std::fabs(p);
+    const float d1 = std::fabs(p - 1.0f);
+    if (d0 > kOccupancyMaskEpsilon && d1 > kOccupancyMaskEpsilon) {
+      allNearBinary = false;
+      break;
+    }
+  }
+  out.maskValid = allNearBinary;
+  if (!out.maskValid) {
+    out.reason =
+        "occupancy history is not a 0/1 mask (probe sample outside {0,1} "
+        "epsilon)";
+  }
+  return out;
+}
+
+// W6 (M0-C) occupancy evidence verdict (fail-closed). "present" requires a real
+// history texture exposed by the GI composite pass, a valid 0/1 mask probe, and
+// a positive history reset count (proof temporal rejection actually occurred).
+// Anything else is "failed" with blocksGo=true - never silently passed.
+OccupancyEvidenceResult GPUHardwareValidationGate::EvaluateOccupancyEvidence(
+    uint32_t texture, int width, int height, const OccupancyProbeResult &probe,
+    uint64_t historyResetCount, const std::string &lastResetReason) {
+  OccupancyEvidenceResult out;
+  out.texturePresent = (texture != 0u && width > 0 && height > 0);
+  out.width = width;
+  out.height = height;
+  out.probe = probe;
+  out.historyResetCount = historyResetCount;
+  out.lastResetReason = lastResetReason;
+
+  if (!out.texturePresent) {
+    out.status = "failed";
+    out.reason = "no occupancy history texture exposed by GICompositePass";
+    out.blocksGo = true;
+    return out;
+  }
+  if (!probe.texturePresent || !probe.maskValid) {
+    out.status = "failed";
+    out.reason = "occupancy history probe failed: " + probe.reason;
+    out.blocksGo = true;
+    return out;
+  }
+  // Temporal history rejection must actually have occurred at least once,
+  // otherwise the history could be a trivially fresh buffer with no evidence.
+  if (historyResetCount == 0) {
+    out.status = "failed";
+    out.reason = "occupancy history never reset (historyResetCount == 0); no "
+                 "temporal rejection evidence";
+    out.blocksGo = true;
+    return out;
+  }
+  out.status = "present";
+  out.reason = "occupancy history present with valid 0/1 mask probe and "
+               "positive history reset count";
+  out.blocksGo = false;
+  return out;
+}
+
+// M0-B: external target contract - captures the REAL state of the
+// harness-owned composite target. Uses legal GL 4.3 pnames only
+// (glGetFramebufferAttachmentParameteriv: OBJECT_TYPE/OBJECT_NAME/COLOR_ENCODING/
+// COMPONENT_TYPE/*_SIZE, plus texture-level / renderbuffer parameter queries for
+// extent and internal format). The pseudo-pnames that commit 5c257e22 removed
+// (0x8D24/0x8D25/0x825D) were never valid core GL constants and are NOT reused.
+// Fail-closed: a missing entry point -> "unavailable"; fbo == 0, an absent
+// attachment, or a contract mismatch (extent/internalFormat) -> "failed"; only
+// a fully verified capture yields "passed". Nothing is default-filled.
+TargetAttachmentState
+GPUHardwareValidationGate::CaptureTargetState(uint32_t framebuffer,
+                                              int expectedWidth,
+                                              int expectedHeight,
+                                              uint32_t expectedInternalFormat) {
+  constexpr uint32_t kGlFramebuffer = 0x8D40;
+  constexpr uint32_t kGlColorAttachment0 = 0x8CE0;
+  constexpr uint32_t kGlFramebufferBinding = 0x8CA6;
+  constexpr uint32_t kGlViewport = 0x0BA2;
+  constexpr uint32_t kGlScissorTest = 0x0C11;
+  constexpr uint32_t kGlScissorBox = 0x0C10;
+  constexpr uint32_t kGlFramebufferAttachmentObjectType = 0x8CD0;
+  constexpr uint32_t kGlFramebufferAttachmentObjectName = 0x8CD1;
+  constexpr uint32_t kGlFramebufferAttachmentColorEncoding = 0x8210;
+  constexpr uint32_t kGlFramebufferAttachmentComponentType = 0x8211;
+  constexpr uint32_t kGlFramebufferAttachmentRedSize = 0x8212;
+  constexpr uint32_t kGlFramebufferAttachmentGreenSize = 0x8213;
+  constexpr uint32_t kGlFramebufferAttachmentBlueSize = 0x8214;
+  constexpr uint32_t kGlFramebufferAttachmentAlphaSize = 0x8215;
+  constexpr uint32_t kGlFramebufferAttachmentDepthSize = 0x8216;
+  constexpr uint32_t kGlFramebufferAttachmentStencilSize = 0x8217;
+  constexpr uint32_t kGlTexture = 0x1702;
+  constexpr uint32_t kGlRenderbuffer = 0x8D41;
+  constexpr uint32_t kGlTexture2D = 0x0DE1;
+  constexpr uint32_t kGlTextureBinding2D = 0x8069;
+  constexpr uint32_t kGlTextureWidth = 0x1000;
+  constexpr uint32_t kGlTextureHeight = 0x1001;
+  constexpr uint32_t kGlTextureInternalFormat = 0x1003;
+  constexpr uint32_t kGlRenderbufferBinding = 0x8CA7;
+  constexpr uint32_t kGlRenderbufferWidth = 0x8D42;
+  constexpr uint32_t kGlRenderbufferHeight = 0x8D43;
+  constexpr uint32_t kGlRenderbufferInternalFormat = 0x8D81;
+
+  TargetAttachmentState out;
+  out.expectedInternalFormat = expectedInternalFormat;
+  if (framebuffer == 0u) {
+    out.status = "failed";
+    out.reason =
+        "no composite target to capture (fbo == 0); external target contract "
+        "cannot be verified";
+    return out;
+  }
+
+  using GlGetIntegervFn = void(APIENTRY *)(uint32_t, int *);
+  using GlGetFramebufferAttachmentParameterivFn =
+      void(APIENTRY *)(uint32_t, uint32_t, uint32_t, int *);
+  using GlGetTexLevelParameterivFn =
+      void(APIENTRY *)(uint32_t, int, uint32_t, int *);
+  using GlGetRenderbufferParameterivFn =
+      void(APIENTRY *)(uint32_t, uint32_t, int *);
+  using GlIsEnabledFn = uint8_t(APIENTRY *)(uint32_t);
+
+  auto glGetIntegerv = reinterpret_cast<GlGetIntegervFn>(
+      glfwGetProcAddress("glGetIntegerv"));
+  auto glGetFramebufferAttachmentParameteriv =
+      reinterpret_cast<GlGetFramebufferAttachmentParameterivFn>(
+          glfwGetProcAddress("glGetFramebufferAttachmentParameteriv"));
+  auto glGetTexLevelParameteriv = reinterpret_cast<GlGetTexLevelParameterivFn>(
+      glfwGetProcAddress("glGetTexLevelParameteriv"));
+  auto glGetRenderbufferParameteriv =
+      reinterpret_cast<GlGetRenderbufferParameterivFn>(
+          glfwGetProcAddress("glGetRenderbufferParameteriv"));
+  auto glIsEnabled =
+      reinterpret_cast<GlIsEnabledFn>(glfwGetProcAddress("glIsEnabled"));
+
+  if (glGetIntegerv == nullptr ||
+      glGetFramebufferAttachmentParameteriv == nullptr) {
+    out.status = "unavailable";
+    out.reason =
+        "glGetIntegerv/glGetFramebufferAttachmentParameteriv unavailable; "
+        "external target contract cannot be verified (fail-closed)";
+    return out;
+  }
+
+  // bind/viewport/scissor snapshot - global state, queried before binding the
+  // target so the recorded values match the harness-side state.
+  {
+    int previousBinding = 0;
+    glGetIntegerv(kGlFramebufferBinding, &previousBinding);
+    out.framebufferBinding = static_cast<uint32_t>(previousBinding);
+  }
+  {
+    int viewport[4] = {0, 0, 0, 0};
+    glGetIntegerv(kGlViewport, viewport);
+    out.viewportX = viewport[0];
+    out.viewportY = viewport[1];
+    out.viewportWidth = viewport[2];
+    out.viewportHeight = viewport[3];
+  }
+  out.scissorTestEnabled =
+      (glIsEnabled != nullptr) && (glIsEnabled(kGlScissorTest) != 0);
+  {
+    int scissor[4] = {0, 0, 0, 0};
+    glGetIntegerv(kGlScissorBox, scissor);
+    out.scissorX = scissor[0];
+    out.scissorY = scissor[1];
+    out.scissorWidth = scissor[2];
+    out.scissorHeight = scissor[3];
+  }
+
+  // Bind the external target and query the COLOR_ATTACHMENT0 identity.
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGlFramebuffer, framebuffer);
+  int objectType = 0;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentObjectType,
+                                        &objectType);
+  out.attachmentObjectType = static_cast<uint32_t>(objectType);
+
+  if (objectType == 0) { // GL_NONE
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGlFramebuffer, 0);
+    out.status = "failed";
+    out.reason =
+        "COLOR_ATTACHMENT0 has no attachment (OBJECT_TYPE == GL_NONE); "
+        "external target contract cannot be verified";
+    return out;
+  }
+
+  int objectName = 0;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentObjectName,
+                                        &objectName);
+  out.attachmentObjectName = static_cast<uint32_t>(objectName);
+
+  // Attachment format parameters (valid for a color-renderable attachment on
+  // GL 4.3). A driver that rejects any of these surfaces a GL error which the
+  // gate's debug collector records - fail-closed, never silently ignored.
+  int value = 0;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentColorEncoding,
+                                        &value);
+  out.colorEncoding = static_cast<uint32_t>(value);
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentComponentType,
+                                        &value);
+  out.componentType = static_cast<uint32_t>(value);
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentRedSize, &value);
+  out.redSize = value;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentGreenSize,
+                                        &value);
+  out.greenSize = value;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentBlueSize, &value);
+  out.blueSize = value;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentAlphaSize, &value);
+  out.alphaSize = value;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentDepthSize, &value);
+  out.depthSize = value;
+  glGetFramebufferAttachmentParameteriv(kGlFramebuffer, kGlColorAttachment0,
+                                        kGlFramebufferAttachmentStencilSize,
+                                        &value);
+  out.stencilSize = value;
+
+  // Extent + internal format via the attachment object's own query (texture
+  // level parameters or renderbuffer parameters - the legal GL 4.3 way to read
+  // them; the 0x8D24/0x8D25 pseudo-pnames were never valid constants).
+  bool extentQueried = false;
+  if (objectType == kGlTexture) {
+    if (glGetTexLevelParameteriv != nullptr) {
+      int previousBinding = 0;
+      glGetIntegerv(kGlTextureBinding2D, &previousBinding);
+      NoMoreDay::utils::GPUUtils::BindTexture(kGlTexture2D,
+                                              static_cast<uint32_t>(objectName));
+      glGetTexLevelParameteriv(kGlTexture2D, 0, kGlTextureWidth,
+                               &out.attachmentWidth);
+      glGetTexLevelParameteriv(kGlTexture2D, 0, kGlTextureHeight,
+                               &out.attachmentHeight);
+      glGetTexLevelParameteriv(kGlTexture2D, 0, kGlTextureInternalFormat,
+                               &value);
+      out.attachmentInternalFormat = static_cast<uint32_t>(value);
+      NoMoreDay::utils::GPUUtils::BindTexture(
+          kGlTexture2D, static_cast<uint32_t>(previousBinding));
+      extentQueried = true;
+    }
+  } else if (objectType == kGlRenderbuffer) {
+    if (glGetRenderbufferParameteriv != nullptr) {
+      int previousBinding = 0;
+      glGetIntegerv(kGlRenderbufferBinding, &previousBinding);
+      NoMoreDay::utils::GPUUtils::BindRenderbuffer(
+          kGlRenderbuffer, static_cast<uint32_t>(objectName));
+      glGetRenderbufferParameteriv(kGlRenderbuffer, kGlRenderbufferWidth,
+                                   &out.attachmentWidth);
+      glGetRenderbufferParameteriv(kGlRenderbuffer, kGlRenderbufferHeight,
+                                   &out.attachmentHeight);
+      glGetRenderbufferParameteriv(kGlRenderbuffer,
+                                   kGlRenderbufferInternalFormat, &value);
+      out.attachmentInternalFormat = static_cast<uint32_t>(value);
+      NoMoreDay::utils::GPUUtils::BindRenderbuffer(
+          kGlRenderbuffer, static_cast<uint32_t>(previousBinding));
+      extentQueried = true;
+    }
+  }
+
+  // Restore the previous framebuffer binding.
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGlFramebuffer, 0);
+
+  if (objectType != kGlTexture && objectType != kGlRenderbuffer) {
+    out.status = "failed";
+    out.reason =
+        "COLOR_ATTACHMENT0 object type " + std::to_string(objectType) +
+        " is neither GL_TEXTURE nor GL_RENDERBUFFER; external target contract "
+        "cannot be verified";
+    return out;
+  }
+  if (!extentQueried) {
+    out.status = "unavailable";
+    out.reason =
+        "texture-level/renderbuffer parameter query entry point unavailable; "
+        "extent/format of the external target cannot be verified (fail-closed)";
+    return out;
+  }
+
+  // Contract verification: extent and internal format must match the expected
+  // external target contract exactly. No default-fill is ever synthesized.
+  if (out.attachmentWidth != expectedWidth ||
+      out.attachmentHeight != expectedHeight) {
+    out.status = "failed";
+    char extentBuf[192] = {0};
+    std::snprintf(extentBuf, sizeof(extentBuf),
+                  "external target extent %dx%d does not match contract %dx%d",
+                  out.attachmentWidth, out.attachmentHeight, expectedWidth,
+                  expectedHeight);
+    out.reason = extentBuf;
+    return out;
+  }
+  if (expectedInternalFormat != 0u &&
+      out.attachmentInternalFormat != expectedInternalFormat) {
+    out.status = "failed";
+    char formatBuf[192] = {0};
+    std::snprintf(formatBuf, sizeof(formatBuf),
+                  "external target internal format 0x%04X does not match "
+                  "contract 0x%04X",
+                  out.attachmentInternalFormat, expectedInternalFormat);
+    out.reason = formatBuf;
+    return out;
+  }
+
+  out.status = "passed";
+  out.captured = true;
+  return out;
 }
 
 HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
@@ -635,16 +1065,33 @@ PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
     // invalidated on the GI transition inside RenderSystem).
     for (int f = 0; f < fixture.warmupFrames; ++f) {
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+      // Gate-fin: pin the viewport to the offscreen target (a leftover window
+      // viewport would make the HDR buffer and composite blit exceed the FBO)
+      // and apply the camera with BeginMode2D (without it the scene draws in
+      // raw world coordinates and misses the ROI entirely).
+      NoMoreDay::utils::GPUUtils::Viewport(0, 0, fixture.width, fixture.height);
+      // Gate-fin: mirror BeginTextureMode's projection setup - without an
+      // offscreen-sized ortho the hooks/batch draw through the window-sized
+      // default projection and the scene misses the ROI.
+      ApplyTargetProjection(fixture.width, fixture.height);
+      BeginMode2D(camera);
       // W6 (M0-C): the driver may supply real gameplay render hooks (production
       // game-binary gate); test harnesses keep the default nullptr.
       ::RenderSystem::render(registry, renderInput, camera, driver.RenderHooks());
+      EndMode2D();
+      RestoreWindowProjection();
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
     }
     // Independent sampling window: one ROI readback per sampled frame.
     double lumaSum = 0.0;
     for (int f = 0; f < fixture.sampleFrames; ++f) {
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+      NoMoreDay::utils::GPUUtils::Viewport(0, 0, fixture.width, fixture.height);
+      ApplyTargetProjection(fixture.width, fixture.height);
+      BeginMode2D(camera);
       ::RenderSystem::render(registry, renderInput, camera, driver.RenderHooks());
+      EndMode2D();
+      RestoreWindowProjection();
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       const float frameLuma = ReadRoiMeanLuma(
           offscreenFbo, fixture.width, fixture.height, fixture.roiX,
@@ -804,13 +1251,10 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   report.nonExhaustive = (report.actualSampleFrames < 120) ||
                          (report.actualToggleLoops < 100);
 
-  // W6 (M0-C) Blocker-1: occupancy/disocclusion probes (M0-A R3) are not
-  // implemented. The gate records status "missing_pending_m0a" and is
-  // fail-closed: GO is impossible until the evidence exists.
-  report.occupancyStatus = "missing_pending_m0a";
-  report.occupancyReason =
-      "M0-A R3 occupancy/disocclusion probes not implemented; gate is "
-      "fail-closed (cannot GO) until implemented";
+  // W6 (M0-C) Blocker-1: occupancy/disocclusion evidence (M0-A R3) is collected
+  // AFTER the real matrix/stress/toggle renders below (the history texture only
+  // exists once GICompositePass has executed on the real path), then judged
+  // fail-closed before the final decision. No placeholder/default-fill.
 
   // 2. Fixture Execution Matrix
   const auto fixtures = GetStandardFixtures();
@@ -905,6 +1349,13 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       const uint32_t offscreenFbo = driver->CompositeFramebuffer();
       if (offscreenFbo == 0) {
         execResult.overallPassed = false;
+        // M0-B: the missing target is recorded verbatim (not default-filled);
+        // the cell fails closed because the RGBA16F external target contract
+        // could not be verified.
+        execResult.targetState.status = "failed";
+        execResult.targetState.reason =
+            "no composite target to capture (fbo == 0); RGBA16F external "
+            "target contract cannot be verified";
         execResult.failureReasons.push_back(
             "Fixture harness reported invalid RGBA16F composite target");
         allMatrixPassed = false;
@@ -912,13 +1363,39 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         continue;
       }
 
+      // M0-B: external target contract - capture the REAL attachment state of
+      // the harness-owned composite target (identity/extent/format + bind/
+      // viewport/scissor). Any capture failure or contract mismatch fails the
+      // cell fail-closed; nothing is default-filled.
+      execResult.targetState = CaptureTargetState(
+          offscreenFbo, fixture.width, fixture.height, kRgba16f);
+      if (execResult.targetState.status != "passed") {
+        executionChecksPassed = false;
+        execResult.failureReasons.push_back(
+            "External target state capture failed [" +
+            execResult.targetState.status + "]: " +
+            execResult.targetState.reason);
+        allMatrixPassed = false;
+      }
+
       // Blocker 1: Real Offscreen Gameplay Frame Rendering
       // Warmup Frames
       for (int f = 0; f < fixture.warmupFrames; ++f) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+        // Gate-fin: pin the viewport to the offscreen target and apply the
+        // camera (leftover window viewport / raw-world draw would misplace the
+        // scene and blow out the HDR blit region).
+        NoMoreDay::utils::GPUUtils::Viewport(0, 0, fixture.width, fixture.height);
+        // Gate-fin: mirror BeginTextureMode's projection setup so the
+        // hooks/batch draw through an offscreen-sized ortho, not the window
+        // projection (same rationale as the runLeg call sites).
+        ApplyTargetProjection(fixture.width, fixture.height);
+        BeginMode2D(camera);
         // W6 (M0-C): production game-binary gate supplies real hooks so the full
         // gameplay draw path (occluders/height-field/loot/emissive) is exercised.
         ::RenderSystem::render(registry, renderInput, camera, driver->RenderHooks());
+        EndMode2D();
+        RestoreWindowProjection();
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       }
 
@@ -936,7 +1413,12 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       for (int f = 0; f < actualSampleFrames; ++f) {
         // RenderGraph::Execute is the single frame owner for the timer ring.
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+        NoMoreDay::utils::GPUUtils::Viewport(0, 0, fixture.width, fixture.height);
+        ApplyTargetProjection(fixture.width, fixture.height);
+        BeginMode2D(camera);
         ::RenderSystem::render(registry, renderInput, camera, driver->RenderHooks());
+        EndMode2D();
+        RestoreWindowProjection();
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
         debug::GPUTimerQueryRing::Get().PollReadyQueries();
@@ -991,12 +1473,31 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
             "GI indirect contribution readback failed");
       }
 
+      // W6 (M0-C) Blocker-1: per-cell paired GI delta capture (GI runtime
+      // override ON vs OFF legs on the real fixture scene at this cell's tier).
+      // The paired evidence is part of this cell's verdict, not evidence-only.
+      {
+        const PairedGiDeltaResult paired =
+            RunPairedGiDeltaCapture(*driver, fixture, tierName);
+        execResult.giPairedDelta = paired.pairedDelta;
+        execResult.giPairedPassed = paired.passed;
+        report.pairedGiDeltas.push_back(paired);
+        if (!paired.passed) {
+          execResult.failureReasons.push_back(
+              "Per-cell paired GI delta " + std::to_string(paired.pairedDelta) +
+              " below threshold " + std::to_string(paired.threshold));
+        }
+      }
+
       // W6 (M0-C) Blocker-1: REAL SDF sign probe. The GI distance field
       // (JFAPass) is the genuine SDF resource produced by the real render path;
       // it is read back with glGetTexImage and its spatial structure is probed
-      // (4 corners + center of the distance channel). GI-off cells run no JFA
-      // pass, so their SDF evidence is recorded as "not_applicable" (not
-      // counted against the cell). GI-on cells must be "passed".
+      // (4 corners + center of the distance channel). Runs AFTER the paired
+      // delta capture so the GI-on leg has already created the JFAPass distance
+      // field resource; probing before any GI-enabled render left the very
+      // first cell with a "missing" texture. GI-off cells run no JFA pass, so
+      // their SDF evidence is recorded as "not_applicable" (not counted against
+      // the cell). GI-on cells must be "passed".
       execResult.sdfEvidenceSource =
           "JFAPass distance field texture readback (glGetTexImage)";
       if (giOn) {
@@ -1029,22 +1530,6 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       } else {
         execResult.sdfReadbackStatus = "not_applicable";
         execResult.sdfReadbackPassed = false;
-      }
-
-      // W6 (M0-C) Blocker-1: per-cell paired GI delta capture (GI runtime
-      // override ON vs OFF legs on the real fixture scene at this cell's tier).
-      // The paired evidence is part of this cell's verdict, not evidence-only.
-      {
-        const PairedGiDeltaResult paired =
-            RunPairedGiDeltaCapture(*driver, fixture, tierName);
-        execResult.giPairedDelta = paired.pairedDelta;
-        execResult.giPairedPassed = paired.passed;
-        report.pairedGiDeltas.push_back(paired);
-        if (!paired.passed) {
-          execResult.failureReasons.push_back(
-              "Per-cell paired GI delta " + std::to_string(paired.pairedDelta) +
-              " below threshold " + std::to_string(paired.threshold));
-        }
       }
 
       for (size_t passId = 0; passId < passBudgets.size(); ++passId) {
@@ -1107,7 +1592,20 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         allMatrixPassed = false;
       }
       report.matrixResults.push_back(execResult);
+      // Gate-fin diagnostic: per-cell GL error checkpoint to localize the
+      // source of any debug-callback-reported GL errors.
+      const auto &cellCollector = debugOutputGuard.Collector();
+      LOG_INFO("GPUHardwareValidationGate: cell [{}/{}] reported={} dropped={}",
+               fixture.name, tierName, cellCollector.m_count,
+               cellCollector.m_droppedCount);
     }
+  }
+
+  // Gate-fin diagnostic: GL error checkpoint after the full fixture matrix.
+  {
+    const auto &matrixCollector = debugOutputGuard.Collector();
+    LOG_INFO("GPUHardwareValidationGate: phase [matrix] reported={} dropped={}",
+             matrixCollector.m_count, matrixCollector.m_droppedCount);
   }
 
   // S4 (M0-C R5.2): 1-minute continuous pressure loop with a 5-second baseline
@@ -1241,7 +1739,13 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
                .count() < report.stressReport.durationSeconds) {
       if (stressTarget.IsValid()) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, stressTarget.fbo);
+        NoMoreDay::utils::GPUUtils::Viewport(0, 0, stressTarget.width,
+                                             stressTarget.height);
+        ApplyTargetProjection(stressTarget.width, stressTarget.height);
+        BeginMode2D(stressCam);
         ::RenderSystem::render(registry, renderInput, stressCam, driver->RenderHooks());
+        EndMode2D();
+        RestoreWindowProjection();
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
         // Frame boundary: RenderSystem::render advances the registry frame
         // counter exactly once after a successful graph execute (W5.6). The
@@ -1304,6 +1808,13 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     report.stressReport.stress1MinPassed = true;
   }
 
+  // Gate-fin diagnostic: GL error checkpoint after the pressure loop.
+  {
+    const auto &stressCollector = debugOutputGuard.Collector();
+    LOG_INFO("GPUHardwareValidationGate: phase [stress] reported={} dropped={}",
+             stressCollector.m_count, stressCollector.m_droppedCount);
+  }
+
   // Execute 100-loop GI/Tier/Resize toggle stress
   // W6 (M0-C) Medium-5: explicit below-floor toggle counts are honored verbatim
   // (no clamping); requested/actual + non_exhaustive are recorded and a
@@ -1335,7 +1846,12 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     cam.zoom = 1.0f;
 
     NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, fboHandle.fbo);
+    NoMoreDay::utils::GPUUtils::Viewport(0, 0, w, h);
+    ApplyTargetProjection(w, h);
+    BeginMode2D(cam);
     ::RenderSystem::render(registry, renderInput, cam, driver->RenderHooks());
+    EndMode2D();
+    RestoreWindowProjection();
     NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
     NoMoreDay::render::resources::FramebufferManager::Destroy(fboHandle);
@@ -1351,6 +1867,13 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
           .GetStats()
           .peakTotalBytes;
 
+  // Gate-fin diagnostic: GL error checkpoint after the toggle loop.
+  {
+    const auto &toggleCollector = debugOutputGuard.Collector();
+    LOG_INFO("GPUHardwareValidationGate: phase [toggle] reported={} dropped={}",
+             toggleCollector.m_count, toggleCollector.m_droppedCount);
+  }
+
   // Resource Registry Snapshot
   const auto resStats =
       NoMoreDay::render::resources::GPUResourceRegistry::Get().GetStats();
@@ -1363,14 +1886,55 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   // window). The pre-pressure baseline set excludes legitimately long-lived
   // persistent pass targets.
   size_t leakCandidateCount = 0;
-  for (const auto &rec : NoMoreDay::render::resources::GPUResourceRegistry::Get()
-                             .GetActiveResources()) {
+  std::vector<LeakCandidateRecord> leakCandidates;
+  const auto gateEndResources =
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().GetActiveResources();
+  for (const auto &rec : gateEndResources) {
     if (!baselineLiveKeys.count(
             std::make_pair(rec.handle, static_cast<uint8_t>(rec.kind)))) {
       ++leakCandidateCount;
+      leakCandidates.push_back(LeakCandidateRecord{
+          rec.handle, rec.kind, rec.ownerTag, rec.sizeBytes, rec.name,
+          rec.creationFrame});
     }
   }
   report.leakCandidateCount = leakCandidateCount;
+  report.leakCandidates = leakCandidates;
+  if (!leakCandidates.empty()) {
+    LOG_INFO(
+        "GPUHardwareValidationGate: leak-candidate detail baseline_count={} "
+        "gate_end_count={} candidates={}",
+        baselineLiveKeys.size(), gateEndResources.size(), leakCandidates.size());
+    for (const auto &cand : leakCandidates) {
+      LOG_INFO("GPUHardwareValidationGate:   leak-candidate handle={} kind={} "
+               "owner={} bytes={} name=\"{}\" creation_frame={}",
+               cand.handle, graph::ToResourceKindName(cand.kind),
+               graph::ToOwnerName(cand.ownerTag), cand.sizeBytes, cand.name,
+               cand.creationFrame);
+    }
+    // DIAG: multiset of (kind,sizeBytes) at baseline vs gate end, to prove
+    // whether the 720p persistent targets are still alive alongside 1080p ones.
+    auto keyStr = [](graph::ResourceKind k, size_t bytes) {
+      return std::string(graph::ToResourceKindName(k)) + "/" +
+             std::to_string(bytes);
+    };
+    std::map<std::string, int> baseMultiset;
+    for (const auto &rec : NoMoreDay::render::resources::GPUResourceRegistry::Get()
+                               .GetActiveResources()) {
+      (void)rec;
+    }
+    {
+      const auto &allNow = gateEndResources;
+      std::map<std::string, int> endMultiset;
+      for (const auto &rec : allNow) {
+        ++endMultiset[keyStr(rec.kind, rec.sizeBytes)];
+      }
+      LOG_INFO("GPUHardwareValidationGate:   gate-end (kind/bytes -> count):");
+      for (const auto &kv : endMultiset) {
+        LOG_INFO("GPUHardwareValidationGate:     {} -> {}", kv.first, kv.second);
+      }
+    }
+  }
 
   if (report.leakCandidateCount > 0) {
     allMatrixPassed = false;
@@ -1384,16 +1948,46 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         "100-loop GI/Tier/Resize toggle stress test failed");
   }
 
-  // W6 (M0-C) Blocker-1: occupancy evidence (M0-A R3) is missing - the gate is
-  // fail-closed and cannot GO until it exists. Also fail closed on a failed
-  // real SDF sign probe for any GI cell, and on non-exhaustive diagnostic runs.
+  // W6 (M0-C) Blocker-1: occupancy evidence (M0-A R3). The REAL GI composite
+  // occupancy history (R8 ping-pong, read side) is read back with glGetTexImage
+  // (GL_RED/GL_FLOAT), classified as a 0/1 mask (ClassifyOccupancyProbe), and
+  // judged with the temporal-history reset counter. Fail-closed: a missing
+  // texture, an invalid mask, or zero resets yield status "failed" and block GO.
+  {
+    const auto giOccupancy = RenderSystem::GetGiOccupancy();
+    report.occupancyTexturePresent =
+        (giOccupancy.texture != 0u && giOccupancy.width > 0 &&
+         giOccupancy.height > 0);
+    report.occupancyProbeWidth = giOccupancy.width;
+    report.occupancyProbeHeight = giOccupancy.height;
+    report.occupancyHistoryResetCount = giOccupancy.historyResetCount;
+    report.occupancyLastResetReason = giOccupancy.lastResetReason;
+
+    const OccupancyProbeResult occupancyProbe = ProbeGiOccupancy(
+        giOccupancy.texture, giOccupancy.width, giOccupancy.height);
+    const OccupancyEvidenceResult occupancyEvidence =
+        EvaluateOccupancyEvidence(giOccupancy.texture, giOccupancy.width,
+                                  giOccupancy.height, occupancyProbe,
+                                  giOccupancy.historyResetCount,
+                                  giOccupancy.lastResetReason);
+    report.occupancyStatus = occupancyEvidence.status;
+    report.occupancyReason = occupancyEvidence.reason;
+    report.occupancyMinValue = occupancyEvidence.probe.minValue;
+    report.occupancyMaxValue = occupancyEvidence.probe.maxValue;
+    report.occupancyMeanValue = occupancyEvidence.probe.meanValue;
+    report.occupancyProbePoints = occupancyEvidence.probe.probeSamples;
+  }
+
+  // W6 (M0-C) Blocker-1: the gate is fail-closed on incomplete occupancy
+  // evidence (must be "present"), a failed real SDF sign probe for any GI cell,
+  // and non-exhaustive diagnostic runs.
   const bool evidenceComplete = (report.occupancyStatus == "present");
   if (!evidenceComplete) {
     allMatrixPassed = false;
     report.globalFailures.push_back(
         "Occupancy/disocclusion evidence status=" + report.occupancyStatus +
         " (" + report.occupancyReason +
-        "); fail-closed, gate cannot GO until implemented");
+        "); fail-closed, gate cannot GO");
   }
   if (!allGiSdfProbesPassed) {
     allMatrixPassed = false;
@@ -1489,11 +2083,23 @@ std::string GateReport::ToJsonString() const {
       {"non_exhaustive", nonExhaustive}};
 
   // W6 (M0-C) Blocker-1: occupancy/disocclusion evidence (M0-A R3). Status
-  // "missing_pending_m0a" blocks GO (fail-closed); no default-fill.
-  j["occupancy"] = {{"status", occupancyStatus.empty() ? "missing_pending_m0a"
-                                                       : occupancyStatus},
-                    {"reason", occupancyReason},
-                    {"blocks_go", occupancyStatus != "present"}};
+  // "present" requires a real history texture, a valid 0/1 mask probe, and a
+  // positive history reset count; anything else blocks GO (fail-closed).
+  // No default-fill.
+  j["occupancy"] = {
+      {"status", occupancyStatus.empty() ? "missing_pending_m0a"
+                                         : occupancyStatus},
+      {"reason", occupancyReason},
+      {"blocks_go", occupancyStatus != "present"},
+      {"texture_present", occupancyTexturePresent},
+      {"probe_width", occupancyProbeWidth},
+      {"probe_height", occupancyProbeHeight},
+      {"min_value", occupancyMinValue},
+      {"max_value", occupancyMaxValue},
+      {"mean_value", occupancyMeanValue},
+      {"probe_points", occupancyProbePoints},
+      {"reset_count", occupancyHistoryResetCount},
+      {"last_reset_reason", occupancyLastResetReason}};
 
   nlohmann::json snapshotArr = nlohmann::json::array();
   for (const auto &s : stressReport.resourceSnapshots) {
@@ -1524,10 +2130,22 @@ std::string GateReport::ToJsonString() const {
       {"leak_candidate_count", stressReport.leakCandidateCount},
       {"resource_snapshots", snapshotArr}};
 
+  nlohmann::json leakCandidatesJson = nlohmann::json::array();
+  for (const auto &cand : leakCandidates) {
+    leakCandidatesJson.push_back(
+        {{"handle", cand.handle},
+         {"kind", graph::ToResourceKindName(cand.kind)},
+         {"owner", graph::ToOwnerName(cand.ownerTag)},
+         {"size_bytes", cand.sizeBytes},
+         {"name", cand.name},
+         {"creation_frame", cand.creationFrame}});
+  }
+
   j["resources"] = {{"total_tracked_bytes", totalTrackedBytes},
                     {"peak_tracked_bytes", peakTrackedBytes},
                     {"active_resource_count", activeResourceCount},
-                    {"leak_candidate_count", leakCandidateCount}};
+                    {"leak_candidate_count", leakCandidateCount},
+                    {"leak_candidates", leakCandidatesJson}};
 
   nlohmann::json glMessages = nlohmann::json::array();
   for (const auto &record : glDiagnostics) {
@@ -1600,6 +2218,38 @@ std::string GateReport::ToJsonString() const {
     }
     mj["timings"] = timingsArr;
     mj["failures"] = m.failureReasons;
+
+    // M0-B: external target state captured verbatim - never default-filled.
+    // Cells that never ran a target (e.g. fixture-prep failure) keep the field
+    // absent so "missing" is distinguishable from "failed" in the artifact.
+    if (m.targetState.captured || !m.targetState.status.empty()) {
+      mj["target_state"] = {
+          {"captured", m.targetState.captured},
+          {"status", m.targetState.status},
+          {"reason", m.targetState.reason},
+          {"expected_internal_format", m.targetState.expectedInternalFormat},
+          {"framebuffer_binding", m.targetState.framebufferBinding},
+          {"viewport",
+           {m.targetState.viewportX, m.targetState.viewportY,
+            m.targetState.viewportWidth, m.targetState.viewportHeight}},
+          {"scissor_test_enabled", m.targetState.scissorTestEnabled},
+          {"scissor",
+           {m.targetState.scissorX, m.targetState.scissorY,
+            m.targetState.scissorWidth, m.targetState.scissorHeight}},
+          {"attachment_object_type", m.targetState.attachmentObjectType},
+          {"attachment_object_name", m.targetState.attachmentObjectName},
+          {"attachment_width", m.targetState.attachmentWidth},
+          {"attachment_height", m.targetState.attachmentHeight},
+          {"attachment_internal_format", m.targetState.attachmentInternalFormat},
+          {"color_encoding", m.targetState.colorEncoding},
+          {"component_type", m.targetState.componentType},
+          {"red_size", m.targetState.redSize},
+          {"green_size", m.targetState.greenSize},
+          {"blue_size", m.targetState.blueSize},
+          {"alpha_size", m.targetState.alphaSize},
+          {"depth_size", m.targetState.depthSize},
+          {"stencil_size", m.targetState.stencilSize}};
+    }
 
     matrixArr.push_back(mj);
   }

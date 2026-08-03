@@ -8,6 +8,13 @@ layout(rgba16f, binding = 2) uniform readonly image2D uHistoryIn;
 layout(rgba16f, binding = 3) uniform writeonly image2D uSceneOut;
 layout(rgba16f, binding = 4) uniform writeonly image2D uHistoryOut;
 
+// M0-A R3: occupancy/depth history for disocclusion rejection.
+// Current-frame occupancy (occluder mask, R8 0/1), previous-frame occupancy
+// history at the reprojected UV, and the outgoing occupancy history slot.
+layout(r8, binding = 5) uniform readonly image2D uOccupancyCurrIn;
+layout(r8, binding = 6) uniform readonly image2D uOccupancyPrevIn;
+layout(r8, binding = 7) uniform writeonly image2D uOccupancyOut;
+
 uniform ivec2 uSceneResolution;
 uniform ivec2 uRadianceResolution;
 uniform float uTemporalWeight;
@@ -15,6 +22,7 @@ uniform float uGiIntensity;
 uniform int uResetHistory;
 uniform vec2 uCameraDeltaUv;
 uniform float uZoomRatio;
+uniform int uOccupancyEnabled;
 
 ivec2 resolveRadiancePixel(ivec2 scenePixel) {
     vec2 uv = (vec2(scenePixel) + vec2(0.5)) / vec2(uSceneResolution);
@@ -43,6 +51,26 @@ void main() {
 
     vec3 previousGi = prevValid ? imageLoad(uHistoryIn, clamp(prevPixel, ivec2(0), uSceneResolution - ivec2(1))).rgb : currentGi;
     float temporal = prevValid ? clamp(uTemporalWeight, 0.0, 0.98) : 0.0;
+
+    // M0-A R3: disocclusion rejection. When occupancy tracking is enabled,
+    // compare the current-frame occupancy with the previous-frame occupancy at
+    // the reprojected UV. A mismatch means the reprojected history is stale
+    // (occluder moved into/out of this pixel), so the history weight must be
+    // zeroed regardless of the version-based reset state. The current occupancy
+    // is always persisted (even on reset frames) so the next frame compares
+    // against the immediately preceding occupancy.
+    if (uOccupancyEnabled != 0) {
+        float currOcc = imageLoad(uOccupancyCurrIn, pixel).r;
+        if (prevValid) {
+            float prevOcc = imageLoad(uOccupancyPrevIn, clamp(prevPixel, ivec2(0), uSceneResolution - ivec2(1))).r;
+            bool occConsistent = (currOcc > 0.5) == (prevOcc > 0.5);
+            if (!occConsistent) {
+                temporal = 0.0;
+            }
+        }
+        imageStore(uOccupancyOut, pixel, vec4(currOcc, 0.0, 0.0, 1.0));
+    }
+
     vec3 blendedGi = mix(currentGi, previousGi, temporal);
     vec3 finalColor = scene.rgb + blendedGi;
 
