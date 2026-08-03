@@ -272,3 +272,13 @@ R3 只覆盖诊断采集和 fail-closed 判定；它不替代真实 Gameplay fix
 - **V5 master spec §7 预算表**（低 270FPS/中 180FPS/高 144FPS）：OccluderExtract 0.10/0.15/0.20ms、JFA 0.40/0.60/0.80ms、RadianceCascades 1.20/1.80/2.50ms、GIComposite 0.05/0.08/0.10ms、SPH 0.30/0.60/0.80ms、总预算 2.05/3.23/4.40ms。
 - gate 与 V5 §7 偏差：Radiance 1.5（严于 2.5）、GIComposite 0.5（宽于 0.1）、Occluder 0.3（宽于 0.2）；Scene/Lighting/VFX/PostProcess/UIWorld/Composite/HeightShadow 不在 §7 表内（V5 帧预算挪移表 HeightShadow 0.30 vs gate 0.5）。
 - 决策选项：①GetPassBudgets 对齐 V5 §7 档位表（High=中档/Ultra=高档）；②非表 pass 预算来源定义（V5 帧预算表/总预算推导/Track 校准）；③压力 fixture（outdoor 220 灯/48 occluder）是否必须满足正常预算（压力=生产上限 → JFA 2.81ms 属 M0-A 性能调优 backlog；压力=超预算测试 → gate 需区分判定）；④JFA 2.81ms@1280x720 vs V5 参考 1.5ms@1080p 超 1.9 倍，归 M0-A 性能调优。
+
+---
+
+## §21 2026-08-03（决策）：预算契约问题搁置，门禁保持 NO_GO
+
+### 决策记录
+- **用户决策**（2026-08-03）：放弃剩余的 NO_GO 预算超支问题，**后面遇到再说**。预算契约四个决策点（§20 末尾）不再推进。
+- **当前门禁状态**：`gate_status=NO_GO` 为**已知且被接受的状态**，不代表生产 GO，也不代表机制缺陷。门禁机制（真实 pass trace、SDF/occupancy 探针、leak 判定、压力限速、fail-closed）均已验证正确工作；剩余阻塞全部为真实 GPU 计时 p95 超预算（§20 实测明细）。
+- **恢复条件**：后续若重新处理，须先解决 §20 的预算契约决策点（V5 §7 对齐/非表 pass 预算来源/压力 fixture 语义），再评估 JFA 2.81ms@1280x720 是否属 M0-A 性能调优。
+- **不影响**：本地/CI 契约测试、诊断测试、Python runner 测试均不受此决策影响（硬件 job 独立 opt-in）。

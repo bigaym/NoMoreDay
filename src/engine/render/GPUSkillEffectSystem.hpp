@@ -30,6 +30,13 @@ public:
     static SkillVfxEvent NormalizeSkillVfxEvent(const SkillVfxEvent& event);
     void SubmitSkillEvent(const SkillVfxEvent& event);
 
+    // Read-only test seam: returns a copy of the events currently staged by
+    // SubmitSkillEvent before StageSkillEvents consumes them. Lets contract
+    // tests observe, through the real submission path, that each event enters
+    // the staging queue already normalized (NormalizeSkillVfxEvent). The
+    // accessor is side-effect free; no production code path depends on it.
+    [[nodiscard]] std::vector<SkillVfxEvent> GetStagedSkillEventsForTesting() const;
+
     struct DistortionRequest {
         float worldX = 0.0f;
         float worldY = 0.0f;

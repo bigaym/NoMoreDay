@@ -16,6 +16,10 @@ namespace NoMoreDay {
 
 TEST_CASE("[Unit] SkillBehaviorGuard - Heavenly Sword element nodes close remaining gaps") {
     entt::registry registry;
+    // Isolate from the process-wide ailment-proc budget singleton: AilmentApplier
+    // denies procs once the shared token buckets (keyed by entity id) are drained
+    // by earlier tests in the same run. ResetForTests() restores a clean state.
+    ProcBudgetManager::Get().ResetForTests();
     CombatEventDispatcher::Init();
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillBehaviorRegistry::Initialize();
@@ -68,31 +72,37 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Heavenly Sword element nodes close remain
         mastery.heavenly_attunement = BladeAttunement::Frost;
         test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 11, {{1120, 1}, {1122, 1}});
 
-        SkillExecution exec;
-        exec.skill_id = 11;
-        exec.owner = player;
-        exec.target_pos = {18.0f, 0.0f};
-
-        auto cast = SkillBehaviorRegistry::GetCast(11);
-        REQUIRE(cast != nullptr);
-        cast(registry, player, exec);
-
-        // We might need multiple ticks to see a freeze if it's chance-based, 
-        // but for this test we'll assume it should happen or we'll mock the chance.
-        grid.rebuild(registry.view<Position>(), registry);
+        // FrozenDominion applies Freeze with a 15% chance per field damage tick
+        // (HeavenlySwordDescent.cpp), and a single field ticks roughly once per
+        // 0.5s, so one cast can legitimately miss the roll. Cast repeatedly until
+        // the chance resolves so this assertion no longer depends on the shared
+        // thread-local RNG stream position, which varies with test order and made
+        // CHECK(hasFreeze) intermittently fail on first runs.
         bool hasFreeze = false;
-        for(int i=0; i<30; ++i) {
-            SkillSystem::Update(registry, grid, 0.10f);
-            if (registry.all_of<ActiveEffectsComponent>(target)) {
-                auto &effects = registry.get<ActiveEffectsComponent>(target);
-                for (const auto& effect : effects.effects) {
-                    if (effect.type == BuffType::Freeze) {
-                        hasFreeze = true;
-                        break;
+        for (int attempt = 0; attempt < 10 && !hasFreeze; ++attempt) {
+            resource.current = 1000; // enough for repeated casts (each consumes <= 5)
+            SkillExecution exec;
+            exec.skill_id = 11;
+            exec.owner = player;
+            exec.target_pos = {18.0f, 0.0f};
+
+            auto cast = SkillBehaviorRegistry::GetCast(11);
+            REQUIRE(cast != nullptr);
+            cast(registry, player, exec);
+            grid.rebuild(registry.view<Position>(), registry);
+
+            for (int i = 0; i < 50 && !hasFreeze; ++i) {
+                SkillSystem::Update(registry, grid, 0.10f);
+                if (registry.all_of<ActiveEffectsComponent>(target)) {
+                    const auto &effects = registry.get<ActiveEffectsComponent>(target);
+                    for (const auto& effect : effects.effects) {
+                        if (effect.type == BuffType::Freeze) {
+                            hasFreeze = true;
+                            break;
+                        }
                     }
                 }
             }
-            if (hasFreeze) break;
         }
         CHECK(hasFreeze);
     }

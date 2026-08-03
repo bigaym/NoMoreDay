@@ -434,6 +434,11 @@ void GPUSkillEffectSystem::SubmitSkillEvent(const SkillVfxEvent &event) {
   m_pendingEvents.push_back(NormalizeSkillVfxEvent(event));
 }
 
+std::vector<SkillVfxEvent>
+GPUSkillEffectSystem::GetStagedSkillEventsForTesting() const {
+  return m_pendingEvents;
+}
+
 void GPUSkillEffectSystem::DrainDistortionRequests(
     std::vector<DistortionRequest> &out) {
   if (m_pendingDistortion.empty()) {

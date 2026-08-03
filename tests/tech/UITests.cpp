@@ -435,7 +435,10 @@ TEST_CASE("[Tech] SkillUI - mastery hub locks all Blade Ascendant signature skil
 
     REQUIRE(!source.empty());
     CHECK(source.find("(id == 10)") == std::string::npos);
-    CHECK(source.find("id == 10 || id == 11 || id == 12") != std::string::npos);
+    // Signature-skill detection is data-driven (BladeMasteryProfile::signature_skill_id),
+    // so no hardcoded skill-id literals may reappear.
+    CHECK(source.find("id == 10 || id == 11 || id == 12") == std::string::npos);
+    CHECK(source.find("profile.signature_skill_id") != std::string::npos);
     CHECK(source.find("IsSignatureSkillUnlocked(registry, player, id)") != std::string::npos);
     CHECK(source.find("signatureLocked") != std::string::npos);
 }

@@ -12,6 +12,8 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 TEST_CASE("[Unit] SkillVfxEvent - Enum Value Stability") {
   CHECK(static_cast<uint8_t>(NoMoreDay::SkillVfxEventType::CastStart) == 0u);
@@ -546,4 +548,122 @@ TEST_CASE("[Unit] SkillVfxEvent - Recipe Coverage Global Systems") {
   CHECK(hasSkill1BuffEnter);
   CHECK(hasSkill1BuffExit);
   CHECK(hasResistOverlayAction);
+}
+
+namespace {
+
+// W3_ production-path helpers. These drive the real
+// GPUSkillEffectSystem::SubmitSkillEvent -> m_pendingEvents staging chain and
+// observe the result through the read-only test seam
+// (GPUSkillEffectSystem::GetStagedSkillEventsForTesting). They never touch the
+// static normalize helper directly, so a missing normalization at the submit
+// boundary would fail these tests.
+
+// Submits `event` through the real production path and returns the staged copy
+// identified by `markerCastId`. Filtering by a unique castId keeps each test
+// case independent of any other events left in the process-wide singleton.
+std::vector<NoMoreDay::SkillVfxEvent>
+W3_SubmitAndPeekStaged(const NoMoreDay::SkillVfxEvent &event,
+                       const uint64_t markerCastId) {
+  auto &system = NoMoreDay::systems::GPUSkillEffectSystem::Get();
+  system.SubmitSkillEvent(event);
+  std::vector<NoMoreDay::SkillVfxEvent> matched;
+  for (const NoMoreDay::SkillVfxEvent &staged :
+       system.GetStagedSkillEventsForTesting()) {
+    if (staged.castId == markerCastId) {
+      matched.push_back(staged);
+    }
+  }
+  return matched;
+}
+
+// Batch variant: submits `events` in order and returns, in the same order, the
+// staged copies whose castId matches the corresponding input (each input
+// castId must be unique within the batch).
+std::vector<NoMoreDay::SkillVfxEvent> W3_SubmitAndPeekStagedBatch(
+    const std::vector<NoMoreDay::SkillVfxEvent> &events) {
+  auto &system = NoMoreDay::systems::GPUSkillEffectSystem::Get();
+  for (const NoMoreDay::SkillVfxEvent &event : events) {
+    system.SubmitSkillEvent(event);
+  }
+  const std::vector<NoMoreDay::SkillVfxEvent> staged =
+      system.GetStagedSkillEventsForTesting();
+  std::vector<NoMoreDay::SkillVfxEvent> matched;
+  for (const NoMoreDay::SkillVfxEvent &event : events) {
+    for (const NoMoreDay::SkillVfxEvent &candidate : staged) {
+      if (candidate.castId == event.castId) {
+        matched.push_back(candidate);
+        break;
+      }
+    }
+  }
+  return matched;
+}
+
+} // namespace
+
+TEST_CASE("[Unit] SkillVfxEvent - SubmitSkillEvent Staging Normalizes Invalid "
+          "Scalar") {
+  using NoMoreDay::SkillVfxEvent;
+  using E = NoMoreDay::SkillVfxElementType;
+
+  const std::array<std::pair<uint64_t, uint8_t>, 3> invalidInputs = {{
+      {0xA100'0000'0000'0001ull, 200u},
+      {0xA100'0000'0000'0002ull, 0xFFu},
+      {0xA100'0000'0000'0003ull, 5u},
+  }};
+
+  for (const auto &[castId, rawScalar] : invalidInputs) {
+    SkillVfxEvent invalid = {};
+    invalid.skillId = 1u;
+    invalid.castId = castId;
+    invalid.elementType = rawScalar;
+
+    const std::vector<SkillVfxEvent> staged =
+        W3_SubmitAndPeekStaged(invalid, castId);
+
+    // Normalization must not mutate the submitted event.
+    CHECK(invalid.elementType == rawScalar);
+    REQUIRE(staged.size() == 1u);
+    INFO("invalid scalar=" << static_cast<uint32_t>(rawScalar));
+    CHECK(staged[0].elementType == static_cast<uint8_t>(E::Physical));
+    CHECK(staged[0].skillId == invalid.skillId);
+    CHECK(staged[0].castId == castId);
+  }
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - SubmitSkillEvent Staging Preserves Valid "
+          "Scalars") {
+  using NoMoreDay::SkillVfxEvent;
+  using E = NoMoreDay::SkillVfxElementType;
+
+  const std::array<std::pair<uint8_t, uint8_t>, 5> elementScalars = {{
+      {0u, static_cast<uint8_t>(E::Physical)},
+      {1u, static_cast<uint8_t>(E::Fire)},
+      {2u, static_cast<uint8_t>(E::Cold)},
+      {3u, static_cast<uint8_t>(E::Lightning)},
+      {4u, static_cast<uint8_t>(E::Void)},
+  }};
+
+  std::vector<SkillVfxEvent> submitted;
+  for (size_t i = 0; i < elementScalars.size(); ++i) {
+    SkillVfxEvent event = {};
+    event.skillId = 2u;
+    event.castId = 0xB200'0000'0000'0000ull + static_cast<uint64_t>(i);
+    event.elementType = elementScalars[i].first;
+    submitted.push_back(event);
+  }
+
+  const std::vector<SkillVfxEvent> staged =
+      W3_SubmitAndPeekStagedBatch(submitted);
+
+  REQUIRE(staged.size() == submitted.size());
+  for (size_t i = 0; i < elementScalars.size(); ++i) {
+    INFO("valid scalar=" << static_cast<uint32_t>(elementScalars[i].first));
+    // Valid scalars pass through the staging boundary unchanged.
+    CHECK(staged[i].elementType == elementScalars[i].second);
+    CHECK(staged[i].castId == submitted[i].castId);
+    // The submitted events were not mutated by the staging path.
+    CHECK(submitted[i].elementType == elementScalars[i].first);
+  }
 }
