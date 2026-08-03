@@ -129,3 +129,15 @@ ResolveGiHistory(current):
 - [ ] R4: 增加遮挡、VFX emission、resize、zoom、emissive、occupancy 与相机移动的 paired fixture/readback。
 
 **退出标准**：R1-R4 的 unit/integration 通过，且 M0-C 在真实 Gameplay fixture 上归档对应 trace、readback 和截图；完整 depth reprojection 继续作为已接受残余风险，不在本整改范围扩大实现。
+
+## 续作状态（2026-08-03）
+
+以下基于代码与本地验证如实记录，不替代退出标准的最终验收。
+
+- **R1**（冻结版本化 EmissiveVfx snapshot）：**已实现**。`RadianceCascadesPass::PrepareVfxEmissionSnapshot` 在 Radiance 前冻结 VFX emission（RadianceCascadesPass.cpp:228-259），成功即 `++m_vfxEmissionSnapshotVersion`；emissive 仅来自 LightManager，不采样 HDR 亮度（v5_emissive_build.comp）。
+- **R2**（GI-input version 使 history 无效）：**大部分实现**。GICompositePass 已拒绝 extent/light/occluder/emissive 变化（history reset + `GetLastResetReason()` ∈ {extent,light,occluder,emissive,initial}）；emissive/VFX snapshot version 已纳入拒绝链（M0-C gate occupancy 实测 `last_reset_reason=emissive`）。**缺口**：material emissive（stamps）未纳入 signature；zoom 变化仅靠 OccluderExtract 间接链。
+- **R3**（occupancy history + disocclusion 拒绝）：**部分实现**。GICompositePass 持久化上一帧 occupancy（GL_R8，复用 kOccluderMaskFormat），`v5_gi_composite.comp` 按 `(currOcc>0.5)==(prevOcc>0.5)` 一致性拒绝（不一致 temporal=0）；新增 `tests/integration/GIHistoryRejectionTest.cpp`（occupancy 纹理生命周期/emissive 拒绝/occluder 回归，`*M0-A*` 3 passed）。**缺口**：完整 depth reprojection 未实现（2D history，UV 越界靠 clamp+prevValid），维持 spec 已接受残余风险。
+- **R4**（paired fixture/readback）：**大部分实现**。M0-C gate 矩阵 3 fixtures（cave_bleed / dynamic_combat_emissive / outdoor_light_pressure）×2 tier ×2 GI 共 9 cells，per-cell `RunPairedGiDeltaCapture` 双 leg + ROI readback + SDF 真实 readback（glGetTexImage JFAPass GL_R16F）。**缺口**：resize/zoom/camera 移动等动态 fixtures 未覆盖（toggle 循环已覆盖 resize/tier/GI 切换但无逐 cell readback）。
+- 退出条件：**C 已满足**（四档 fluidEnabled=false + Release 强制关闭）；**A 部分**（toggle 循环 100 次存在，矩阵/paired 有 nonBlackRoi 检查，toggle 循环本身无黑帧 readback）；**B 部分**（SDF readback 已实现且 gate 实测 passed，V5 严格负值/ray-stop 全链路测试未归档）；**D 待实机**。
+
+验证证据：GIHistoryRejectionTest（*M0-A* 3 passed）、*GI* 65 passed、build 通过；M0-C gate local-full-20260802h 矩阵 9 cells 中 5 通过、GI 链真实执行（valid=120）。生产 NO_GO 的剩余阻塞为真实 GPU 计时 p95 超预算（用户 2026-08-03 决定搁置，见 M0-C validation.md §20/§21）。
