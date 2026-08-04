@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/lighting/GlobalHeightField.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 #include "raylib.h"
@@ -77,6 +78,48 @@ struct RenderContext {
   float worldWidth = 0.0f;
   float worldHeight = 0.0f;
   float tileWorldSize = 0.0f;
+
+  // Per-frame snapshots supplied by external backing owners. RenderGraph may
+  // resolve these for contract validation, but never allocates, binds, resizes,
+  // or releases the referenced GL objects.
+  std::vector<ImportedBackingHandle> importedBackings;
+
+  const ImportedBackingHandle *FindImportedBacking(RenderResourceTag tag) const {
+    for (const ImportedBackingHandle &backing : importedBackings) {
+      if (backing.resourceTag == tag) {
+        return &backing;
+      }
+    }
+    return nullptr;
+  }
+
+  // Set by RenderGraph::Execute while a pass is running so the pass can emit
+  // declared same-pass phase barriers (RenderContext::EmitPhaseBarrier) at the
+  // exact execution point that pass-entry barriers cannot cover.
+  RenderGraph *activeGraph = nullptr;
+
+  // Emits the GL memory barrier declared via
+  // RenderGraphBuilder::AddPhaseBarrier(sourcePhase, targetPhase, bits) for
+  // the currently executing pass. Returns true when a matching declaration was
+  // resolved and the barrier was issued; false when no graph is active or the
+  // phase pair was never declared (contract violation).
+  bool EmitPhaseBarrier(PipelineStage sourcePhase, PipelineStage targetPhase) {
+    return activeGraph != nullptr &&
+           activeGraph->EmitActivePassPhaseBarrier(sourcePhase, targetPhase);
+  }
+
+  // B12 graph-driven binding execution: resolves and executes the admitted
+  // BindBufferBase / BindImageUnit operations for the pass currently executing
+  // (declared bindings matched against this per-frame imported backing
+  // snapshot). Only the existing GPUUtils binding APIs are called; no
+  // allocation, resize, release, or ownership change, and the graph never owns
+  // GL handles. Returns true when every supported binding was admitted and
+  // bound; false (with a recorded runtime diagnostic) when any was denied or
+  // unsupported. Manual binds inside pass Execute stay authoritative and
+  // re-bind the same values (behavior-equivalent duplicates).
+  bool ApplyActivePassBindings() {
+    return activeGraph != nullptr && activeGraph->ApplyActivePassBindings(*this);
+  }
 
   bool IsValid() const {
     return registry != nullptr && resources != nullptr && camera != nullptr;

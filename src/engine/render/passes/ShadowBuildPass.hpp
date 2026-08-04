@@ -38,6 +38,11 @@ public:
   [[nodiscard]] uint32_t GetShadowAtlasTexture() const {
     return m_shadowAtlas.colorTexture;
   }
+  [[nodiscard]] uint32_t GetShadowAtlasFramebuffer() const {
+    return m_shadowAtlas.fbo;
+  }
+  [[nodiscard]] uint32_t GetSdfImageTexture() const { return m_sdfField.colorTexture; }
+  [[nodiscard]] uint32_t GetOccluderBufferId() const { return m_occluderBuffer.GetId(); }
   [[nodiscard]] int GetShadowAtlasSize() const { return m_shadowAtlasSize; }
   [[nodiscard]] int GetSdfWidth() const { return m_cachedWidth; }
   [[nodiscard]] int GetSdfHeight() const { return m_cachedHeight; }

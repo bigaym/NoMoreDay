@@ -1,6 +1,7 @@
 #include "engine/render/lighting/ClusteredLightingState.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 
 #include <algorithm>
@@ -139,6 +140,28 @@ bool ClusteredLightingState::EnsureBufferCapacity(const uint32_t clusterCount,
       m_clusterCounterBuffer.GetSize() < kCounterBytes) {
     m_clusterCounterBuffer.Create(kCounterBytes, nullptr, RL_DYNAMIC_DRAW);
   }
+
+  // B11 (RG-3 owner metadata): ComputeBuffer registers every SSBO with owner
+  // Unknown; the cluster buffers must carry the RenderGraph owner contract
+  // (LightCulling). Reclassify is idempotent on an existing record and fails
+  // closed on a missing one, so it is safe to apply after every capacity pass
+  // (this is the single creation/resize point for all five buffers).
+  auto &registry = resources::GPUResourceRegistry::Get();
+  registry.ReclassifyResourceOwner(m_clusterHeaderBuffer.GetId(),
+                                   graph::ResourceKind::StorageBuffer,
+                                   graph::RenderOwnerTag::LightCulling);
+  registry.ReclassifyResourceOwner(m_clusterLightIndexBuffer.GetId(),
+                                   graph::ResourceKind::StorageBuffer,
+                                   graph::RenderOwnerTag::LightCulling);
+  registry.ReclassifyResourceOwner(m_clusterPackedLightBuffer.GetId(),
+                                   graph::ResourceKind::StorageBuffer,
+                                   graph::RenderOwnerTag::LightCulling);
+  registry.ReclassifyResourceOwner(m_lightBoundsBuffer.GetId(),
+                                   graph::ResourceKind::StorageBuffer,
+                                   graph::RenderOwnerTag::LightCulling);
+  registry.ReclassifyResourceOwner(m_clusterCounterBuffer.GetId(),
+                                   graph::ResourceKind::StorageBuffer,
+                                   graph::RenderOwnerTag::LightCulling);
 
   const bool buffersReady = m_clusterHeaderBuffer.GetId() != 0 &&
                             m_clusterLightIndexBuffer.GetId() != 0 &&

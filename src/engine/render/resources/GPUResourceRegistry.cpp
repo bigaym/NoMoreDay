@@ -135,6 +135,45 @@ void GPUResourceRegistry::UpdateResourceSize(uint32_t handle, graph::ResourceKin
   ownerBytes = (ownerBytes >= oldBytes) ? (ownerBytes - oldBytes + newSizeBytes) : newSizeBytes;
 }
 
+bool GPUResourceRegistry::ReclassifyResourceOwner(uint32_t handle,
+                                                   graph::ResourceKind kind,
+                                                   graph::RenderOwnerTag newOwnerTag) {
+  if (handle == 0) {
+    return false;
+  }
+  std::lock_guard<std::mutex> lock(m_mutex);
+
+  const uint64_t key = MakeKey(handle, kind);
+  auto it = m_records.find(key);
+  if (it == m_records.end()) {
+    // B11 (RG-3 contract, spec §3): owner metadata updates target an existing
+    // observer record only. A missing record is a contract failure; counters
+    // stay untouched (no silent mutation).
+    LOG_WARN("GPUResourceRegistry: ReclassifyResourceOwner on unknown (handle={}, kind={}) ignored",
+             handle, graph::ToResourceKindName(kind));
+    return false;
+  }
+
+  const graph::RenderOwnerTag oldOwnerTag = it->second.ownerTag;
+  if (oldOwnerTag == newOwnerTag) {
+    return true; // No-op; the record already carries the requested owner.
+  }
+
+  const size_t bytes = it->second.sizeBytes;
+  it->second.ownerTag = newOwnerTag;
+
+  // B11 (RG-3 contract): owner metadata mutations rebalance the per-owner byte
+  // ledger through this single path. Subtraction is saturated so an inconsistent
+  // ledger cannot underflow.
+  auto &oldOwnerBytes = m_stats.bytesByOwner[static_cast<uint8_t>(oldOwnerTag)];
+  oldOwnerBytes = (oldOwnerBytes >= bytes) ? (oldOwnerBytes - bytes) : 0;
+
+  auto &newOwnerBytes = m_stats.bytesByOwner[static_cast<uint8_t>(newOwnerTag)];
+  newOwnerBytes += bytes;
+
+  return true;
+}
+
 void GPUResourceRegistry::AdvanceFrame() {
   std::lock_guard<std::mutex> lock(m_mutex);
   m_currentFrame++;

@@ -9,6 +9,7 @@
 #include "engine/render/passes/ShadowPreparePass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 
 #include "rlgl.h"
@@ -29,6 +30,44 @@ constexpr const char *kFullscreenVertexShader =
 constexpr const char *kShadowAtlasTileFragmentShader =
     "assets/shaders/lighting/shadow_atlas_tile.frag";
 
+// Same-pass phase barrier: the SDF compute dispatch writes the SDF image and
+// the occluder SSBO, and the Hybrid path reads them from fragment shaders in
+// the SAME Execute (RenderAtlasTiles). Pass-entry barriers and cross-pass graph
+// transitions fire before Execute and cannot cover this phase pair, so the bits
+// are declared via AddPhaseBarrier(Compute, Fragment, ...) and emitted at the
+// exact execution point (after dispatch, before tile draws).
+constexpr uint32_t kShadowBuildBarrierBits =
+    static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+    static_cast<uint32_t>(RenderConstants::Barrier::Buffer);
+
+// B11 (RG-3 owner metadata): FramebufferManager registers every FBO under the
+// generic "Scene" owner and ComputeBuffer under "Unknown"; the shadow backings
+// must carry the RenderGraph owner contract (Shadow). The real owner
+// (ShadowBuildPass) reclassifies the observer records right after it creates or
+// recreates the backing (FramebufferManager::Resize and ComputeBuffer::Create
+// internally destroy + recreate, so the reclassify must re-apply on every
+// resize). Observer-only: no GL call, no ownership transfer, only the registry
+// metadata record is updated.
+void ReclassifyShadowFramebuffer(const resources::FramebufferHandle &handle) {
+  auto &registry = resources::GPUResourceRegistry::Get();
+  if (handle.fbo != 0) {
+    registry.ReclassifyResourceOwner(handle.fbo, graph::ResourceKind::Framebuffer,
+                                     graph::RenderOwnerTag::Shadow);
+  }
+  if (handle.colorTexture != 0) {
+    registry.ReclassifyResourceOwner(handle.colorTexture,
+                                     graph::ResourceKind::Texture2D,
+                                     graph::RenderOwnerTag::Shadow);
+  }
+}
+
+void ReclassifyShadowComputeBuffer(unsigned int id) {
+  if (id != 0) {
+    resources::GPUResourceRegistry::Get().ReclassifyResourceOwner(
+        id, graph::ResourceKind::StorageBuffer, graph::RenderOwnerTag::Shadow);
+  }
+}
+
 } // namespace
 
 ShadowBuildPass::ShadowBuildPass() = default;
@@ -36,7 +75,98 @@ ShadowBuildPass::ShadowBuildPass() = default;
 ShadowBuildPass::~ShadowBuildPass() { Shutdown(); }
 
 void ShadowBuildPass::Setup(graph::RenderGraphBuilder &builder) {
-  (void)builder;
+  graph::TypedResourceDescriptor atlasDesc;
+  atlasDesc.name = "ShadowAtlas";
+  atlasDesc.tag = graph::RenderResourceTag::ShadowAtlas;
+  atlasDesc.ownerTag = graph::RenderOwnerTag::Shadow;
+  atlasDesc.kind = graph::ResourceKind::Texture2D;
+  atlasDesc.format = graph::ResourceFormat::RGBA16F;
+  atlasDesc.lifetime = graph::ResourceLifetime::Persistent;
+  builder.DeclareResource(atlasDesc);
+
+  graph::TypedResourceDescriptor sdfDesc;
+  sdfDesc.name = "ShadowDistanceField";
+  sdfDesc.tag = graph::RenderResourceTag::ShadowDistanceField;
+  sdfDesc.ownerTag = graph::RenderOwnerTag::Shadow;
+  sdfDesc.kind = graph::ResourceKind::Texture2D;
+  // FramebufferManager::Create uses GL_RG16F for this backing texture.
+  sdfDesc.format = graph::ResourceFormat::RG16F;
+  sdfDesc.lifetime = graph::ResourceLifetime::Persistent;
+  builder.DeclareResource(sdfDesc);
+
+  graph::TypedResourceDescriptor occluderDesc;
+  occluderDesc.name = "ShadowOccluderSSBO";
+  occluderDesc.tag = graph::RenderResourceTag::ShadowOccluderSSBO;
+  occluderDesc.ownerTag = graph::RenderOwnerTag::Shadow;
+  occluderDesc.kind = graph::ResourceKind::StorageBuffer;
+  occluderDesc.lifetime = graph::ResourceLifetime::Persistent;
+  builder.DeclareResource(occluderDesc);
+
+  // SDF is written by the compute dispatch and consumed by ShadowResolvePass
+  // (cross-pass Compute->Fragment transition is graph-generated).
+  builder.Write(graph::RenderResourceTag::ShadowDistanceField,
+                graph::RenderOwnerTag::Shadow, graph::PipelineStage::Compute,
+                graph::ResourceUsage::StorageWrite);
+  builder.Write(graph::RenderResourceTag::ShadowAtlas,
+                graph::RenderOwnerTag::Shadow, graph::PipelineStage::Fragment,
+                graph::ResourceUsage::ColorAttachment);
+  // Occluder data is produced on the host by the shadow prepare stage
+  // (ShadowPreparePass) and consumed by this pass's SDF compute dispatch.
+  builder.Read(graph::RenderResourceTag::ShadowOccluderSSBO,
+               graph::RenderOwnerTag::Shadow, graph::PipelineStage::Compute,
+               graph::ResourceUsage::StorageRead);
+
+  // Same-pass phase barrier: SDF compute writes must be visible to the Hybrid
+  // atlas tile fragment draws that follow in this Execute. Declared here and
+  // emitted by Execute via RenderContext::EmitPhaseBarrier(Compute, Fragment)
+  // at the exact execution point (after dispatch, before tile draw).
+  builder.AddPhaseBarrier(graph::PipelineStage::Compute,
+                          graph::PipelineStage::Fragment,
+                          kShadowBuildBarrierBits);
+
+  // Observer-only binding declarations for the manual BindBufferBase /
+  // BindImageTexture calls kept in Execute. They give the graph visibility over
+  // the GL binding points without issuing any GL call or changing ownership.
+  builder.BindBufferBase(graph::RenderResourceTag::ShadowOccluderSSBO,
+                         RenderConstants::ShadowCS::kOccluderBinding);
+  builder.BindImageUnit(graph::RenderResourceTag::ShadowDistanceField,
+                        RenderConstants::ShadowCS::kSdfImageBinding,
+                        kGLWriteOnly, kGLRg16f);
+
+  // External backing import contract: the SDF field and shadow atlas are
+  // FramebufferManager framebuffers owned by this pass (OnResize/EnsureAtlasSize
+  // create/resize them; Shutdown destroys them); the occluder SSBO is a
+  // ComputeBuffer owned here too. These declarations are observer-only metadata
+  // for the compiled plan: the graph must never allocate, resize, free, or
+  // GL-bind imported backing, and manual binds stay authoritative until a future
+  // phase swaps them in without changing ownership.
+  graph::ResourceImportInfo atlasImport;
+  atlasImport.resourceTag = graph::RenderResourceTag::ShadowAtlas;
+  atlasImport.kind = graph::ResourceKind::Texture2D;
+  atlasImport.format = graph::ResourceFormat::RGBA16F;
+  atlasImport.backingOwner = graph::RenderOwnerTag::Shadow;
+  atlasImport.resizeFollowsCapacity = true; // EnsureAtlasSize recreates on atlas size change
+  atlasImport.colorAttachmentIndex = 0;
+  builder.ImportResource(atlasImport);
+
+  graph::ResourceImportInfo sdfImport;
+  sdfImport.resourceTag = graph::RenderResourceTag::ShadowDistanceField;
+  sdfImport.kind = graph::ResourceKind::Texture2D;
+  sdfImport.format = graph::ResourceFormat::RG16F;
+  sdfImport.backingOwner = graph::RenderOwnerTag::Shadow;
+  sdfImport.resizeFollowsScreen = true; // OnResize recreates backing at screen size
+  sdfImport.imageUnit = RenderConstants::ShadowCS::kSdfImageBinding;
+  sdfImport.imageAccess = kGLWriteOnly;
+  sdfImport.imageFormat = kGLRg16f;
+  builder.ImportResource(sdfImport);
+
+  graph::ResourceImportInfo occluderImport;
+  occluderImport.resourceTag = graph::RenderResourceTag::ShadowOccluderSSBO;
+  occluderImport.kind = graph::ResourceKind::StorageBuffer;
+  occluderImport.backingOwner = graph::RenderOwnerTag::Shadow;
+  occluderImport.resizeFollowsCapacity = true; // UploadOccluders recreates on capacity growth
+  occluderImport.bindingPoint = RenderConstants::ShadowCS::kOccluderBinding;
+  builder.ImportResource(occluderImport);
 }
 
 bool ShadowBuildPass::Initialize(ResourceManager &resources) {
@@ -143,9 +273,11 @@ void ShadowBuildPass::OnResize(const int width, const int height) {
   m_cachedHeight = height;
   if (!m_sdfField.IsValid()) {
     m_sdfField = resources::FramebufferManager::Create(width, height, kGLRg16f, false);
+    ReclassifyShadowFramebuffer(m_sdfField);
     return;
   }
   resources::FramebufferManager::Resize(m_sdfField, width, height);
+  ReclassifyShadowFramebuffer(m_sdfField);
 }
 
 void ShadowBuildPass::EnsureAtlasSize(const int atlasSize) {
@@ -154,6 +286,7 @@ void ShadowBuildPass::EnsureAtlasSize(const int atlasSize) {
     m_shadowAtlas = resources::FramebufferManager::Create(clampedAtlasSize,
                                                           clampedAtlasSize,
                                                           kGLRgba16f, false);
+    ReclassifyShadowFramebuffer(m_shadowAtlas);
     m_shadowAtlasSize = clampedAtlasSize;
     return;
   }
@@ -161,6 +294,7 @@ void ShadowBuildPass::EnsureAtlasSize(const int atlasSize) {
       m_shadowAtlas.height != clampedAtlasSize) {
     resources::FramebufferManager::Resize(m_shadowAtlas, clampedAtlasSize,
                                           clampedAtlasSize);
+    ReclassifyShadowFramebuffer(m_shadowAtlas);
     m_shadowAtlasSize = clampedAtlasSize;
   }
 }
@@ -175,6 +309,9 @@ bool ShadowBuildPass::UploadOccluders(
       std::max<size_t>(1u, uploadCount) * sizeof(NoMoreDay::components::GPUShadowCaster);
   if (m_occluderBuffer.GetId() == 0 || m_occluderBuffer.GetSize() < requiredBytes) {
     m_occluderBuffer.Create(requiredBytes, nullptr, RL_DYNAMIC_DRAW);
+    // B11 (RG-3 owner metadata): ComputeBuffer registers owner Unknown; the
+    // occluder backing must carry the RenderGraph owner contract (Shadow).
+    ReclassifyShadowComputeBuffer(m_occluderBuffer.GetId());
   }
   if (m_occluderBuffer.GetId() == 0) {
     LOG_ERROR("ShadowBuildPass: failed to allocate occluder buffer");
@@ -366,10 +503,15 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
       (static_cast<uint32_t>(height) + (kShadowGroupSize - 1u)) / kShadowGroupSize, 1);
   rlDisableShader();
 
-  constexpr uint32_t kShadowBuildBarrier =
-      static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-      static_cast<uint32_t>(RenderConstants::Barrier::Buffer);
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(kShadowBuildBarrier);
+  // Same-pass phase barrier: emitted at the exact execution point (after the
+  // SDF dispatch, before the Hybrid atlas tile draws). The graph resolves the
+  // bits from the AddPhaseBarrier(Compute, Fragment, ...) declaration in Setup.
+  // If the graph path is unavailable (standalone Execute), fall back to the
+  // same fallback bits so visual output is unchanged.
+  if (!context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                                graph::PipelineStage::Fragment)) {
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(kShadowBuildBarrierBits);
+  }
 
   if (config.shadowMode == core::ShadowMode::Hybrid) {
     EnsureAtlasSize(static_cast<int>(config.shadowAtlasSize));
@@ -377,7 +519,6 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
   }
 
   MarkSuccess();
-  core::ApplyRlglFlushTemplate();
 }
 
 } // namespace NoMoreDay::render::passes

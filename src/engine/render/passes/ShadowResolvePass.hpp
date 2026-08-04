@@ -29,6 +29,7 @@ public:
   [[nodiscard]] uint32_t GetShadowMaskTexture() const {
     return m_shadowMask.colorTexture;
   }
+  [[nodiscard]] uint32_t GetShadowMaskFramebuffer() const { return m_shadowMask.fbo; }
   [[nodiscard]] bool IsShadowReadyForCurrentFrame() const {
     return m_shadowReadyThisFrame;
   }
@@ -40,6 +41,11 @@ public:
 
 private:
   void ReportFailure(const std::string &reason);
+
+  // B11 (RG-3 owner metadata): reclassify the shadow mask observer records to
+  // the RenderGraph owner contract (Shadow) after create/resize. See the call
+  // site in OnResize.
+  void ReclassifyShadowMask();
 
   const ShadowBuildPass *m_buildPass = nullptr;
   Shader m_shadowResolveShader = {};

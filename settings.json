@@ -65,7 +65,7 @@
     "render.gpuText.enabled": false,
     "render.v3.enabled": false,
     "renderQualityAutoDetect": {
-        "benchmarkScore": 124.28199768066406,
+        "benchmarkScore": 124.08879852294922,
         "benchmarkTier": "Ultra",
         "capability": {
             "maxArrayTextureLayers": 2048,
@@ -86,7 +86,7 @@
         "renderer": "NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2",
         "selectedTier": "Ultra",
         "source": "capability+benchmark",
-        "updatedAtUtc": "2026-07-28T12:14:53Z",
+        "updatedAtUtc": "2026-08-04T13:48:32Z",
         "version": 1
     }
 }

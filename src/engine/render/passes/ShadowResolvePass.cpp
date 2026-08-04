@@ -8,6 +8,7 @@
 #include "engine/render/passes/ShadowBuildPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 
 #include <algorithm>
 
@@ -30,7 +31,38 @@ ShadowResolvePass::ShadowResolvePass() = default;
 ShadowResolvePass::~ShadowResolvePass() { Shutdown(); }
 
 void ShadowResolvePass::Setup(graph::RenderGraphBuilder &builder) {
-  (void)builder;
+  graph::TypedResourceDescriptor maskDesc;
+  maskDesc.name = "ShadowMask";
+  maskDesc.tag = graph::RenderResourceTag::ShadowMask;
+  maskDesc.ownerTag = graph::RenderOwnerTag::Shadow;
+  maskDesc.kind = graph::ResourceKind::Texture2D;
+  maskDesc.format = graph::ResourceFormat::RGBA16F; // actual FBO format (see OnResize)
+  maskDesc.lifetime = graph::ResourceLifetime::Persistent;
+  builder.DeclareResource(maskDesc);
+
+  // SDF was written by ShadowBuildPass's compute dispatch; the graph generates
+  // the cross-pass Compute->Fragment transition that replaces the previous
+  // manual compute-to-fragment barrier.
+  builder.Read(graph::RenderResourceTag::ShadowDistanceField,
+               graph::RenderOwnerTag::Shadow, graph::PipelineStage::Fragment,
+               graph::ResourceUsage::ShaderRead);
+  builder.Write(graph::RenderResourceTag::ShadowMask,
+                graph::RenderOwnerTag::Shadow,
+                graph::PipelineStage::FramebufferAttachment,
+                graph::ResourceUsage::ColorAttachment);
+
+  // External backing import contract: ShadowMask is a FramebufferManager
+  // framebuffer owned by this pass (OnResize recreates it at screen size,
+  // Shutdown destroys it). Observer-only metadata: the graph never allocates,
+  // resizes, frees, or GL-binds this backing.
+  graph::ResourceImportInfo maskImport;
+  maskImport.resourceTag = graph::RenderResourceTag::ShadowMask;
+  maskImport.kind = graph::ResourceKind::Texture2D;
+  maskImport.format = graph::ResourceFormat::RGBA16F;
+  maskImport.backingOwner = graph::RenderOwnerTag::Shadow;
+  maskImport.resizeFollowsScreen = true; // OnResize recreates backing at screen size
+  maskImport.colorAttachmentIndex = 0;
+  builder.ImportResource(maskImport);
 }
 
 bool ShadowResolvePass::Initialize() {
@@ -107,9 +139,29 @@ void ShadowResolvePass::OnResize(const int width, const int height) {
   if (!m_shadowMask.IsValid()) {
     m_shadowMask =
         resources::FramebufferManager::Create(width, height, kGLRgba16f, false);
+    ReclassifyShadowMask();
     return;
   }
   resources::FramebufferManager::Resize(m_shadowMask, width, height);
+  ReclassifyShadowMask();
+}
+
+void ShadowResolvePass::ReclassifyShadowMask() {
+  // B11 (RG-3 owner metadata): FramebufferManager registers every FBO under the
+  // generic "Scene" owner; the shadow mask must carry the RenderGraph owner
+  // contract (Shadow). Observer-only: no GL call, no ownership transfer, only
+  // the registry metadata record is updated.
+  auto &registry = resources::GPUResourceRegistry::Get();
+  if (m_shadowMask.fbo != 0) {
+    registry.ReclassifyResourceOwner(m_shadowMask.fbo,
+                                     graph::ResourceKind::Framebuffer,
+                                     graph::RenderOwnerTag::Shadow);
+  }
+  if (m_shadowMask.colorTexture != 0) {
+    registry.ReclassifyResourceOwner(m_shadowMask.colorTexture,
+                                     graph::ResourceKind::Texture2D,
+                                     graph::RenderOwnerTag::Shadow);
+  }
 }
 
 void ShadowResolvePass::Execute(graph::RenderContext &context) {
@@ -161,6 +213,8 @@ void ShadowResolvePass::Execute(graph::RenderContext &context) {
     }
   }
 
+  // Keep the producer-to-consumer synchronization until graph backing/import
+  // ownership and phase-aware barriers are implemented.
   core::ApplyComputeToFragmentBarrierTemplate();
 
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, m_shadowMask.fbo);
@@ -197,7 +251,6 @@ void ShadowResolvePass::Execute(graph::RenderContext &context) {
   }
 
   m_shadowReadyThisFrame = true;
-  core::ApplyRlglFlushTemplate();
 }
 
 } // namespace NoMoreDay::render::passes

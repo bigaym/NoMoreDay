@@ -3,8 +3,8 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
-#include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/graph/RenderContext.hpp"
+#include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 
 #include <algorithm>
@@ -21,7 +21,12 @@ constexpr float kInfluenceWeight = 1.0f;
 } // namespace
 
 void ShadowPreparePass::Setup(graph::RenderGraphBuilder &builder) {
-  (void)builder;
+  // CPU-only stage: it produces the occluder data that ShadowBuildPass's SDF
+  // compute dispatch consumes. Declared as a Host write so the graph emits the
+  // Host->Compute transition instead of relying on an implicit rlgl flush.
+  builder.Write(graph::RenderResourceTag::ShadowOccluderSSBO,
+                graph::RenderOwnerTag::Shadow, graph::PipelineStage::Host,
+                graph::ResourceUsage::StorageWrite);
 }
 
 uint32_t ShadowPreparePass::BuildStableLightId(
@@ -215,8 +220,6 @@ void ShadowPreparePass::Execute(graph::RenderContext &context) {
         m_atlasOverflowCount, m_atlasSize, m_atlasTileSize, m_atlasTilesPerRow);
     m_lastLoggedOverflow = m_atlasOverflowCount;
   }
-
-  core::ApplyRlglFlushTemplate();
 }
 
 } // namespace NoMoreDay::render::passes

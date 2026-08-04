@@ -5,8 +5,8 @@
 #include "engine/render/core/BindingRegistry.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/RenderConstants.hpp"
-#include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/graph/RenderContext.hpp"
+#include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -39,7 +39,99 @@ LightCullingPass::LightCullingPass() = default;
 LightCullingPass::~LightCullingPass() { Shutdown(); }
 
 void LightCullingPass::Setup(graph::RenderGraphBuilder &builder) {
-  (void)builder;
+  const auto declareClusterBuffer = [&builder](graph::RenderResourceTag tag,
+                                               const char *name) {
+    graph::TypedResourceDescriptor desc;
+    desc.name = name;
+    desc.tag = tag;
+    desc.ownerTag = graph::RenderOwnerTag::LightCulling;
+    desc.kind = graph::ResourceKind::StorageBuffer;
+    desc.lifetime = graph::ResourceLifetime::Persistent;
+    builder.DeclareResource(desc);
+  };
+  declareClusterBuffer(graph::RenderResourceTag::ClusterHeaderSSBO,
+                       "ClusterHeaderSSBO");
+  declareClusterBuffer(graph::RenderResourceTag::ClusterLightIndexSSBO,
+                       "ClusterLightIndexSSBO");
+  declareClusterBuffer(graph::RenderResourceTag::ClusterPackedLightSSBO,
+                       "ClusterPackedLightSSBO");
+  declareClusterBuffer(graph::RenderResourceTag::ClusterCounterSSBO,
+                       "ClusterCounterSSBO");
+  declareClusterBuffer(graph::RenderResourceTag::LightBoundsSSBO,
+                       "LightBoundsSSBO");
+
+  builder.Write(graph::RenderResourceTag::ClusterHeaderSSBO,
+                graph::RenderOwnerTag::LightCulling,
+                graph::PipelineStage::Compute,
+                graph::ResourceUsage::StorageWrite);
+  builder.Write(graph::RenderResourceTag::ClusterLightIndexSSBO,
+                graph::RenderOwnerTag::LightCulling,
+                graph::PipelineStage::Compute,
+                graph::ResourceUsage::StorageWrite);
+  builder.Write(graph::RenderResourceTag::ClusterPackedLightSSBO,
+                graph::RenderOwnerTag::LightCulling,
+                graph::PipelineStage::Compute,
+                graph::ResourceUsage::StorageWrite);
+  builder.Write(graph::RenderResourceTag::ClusterCounterSSBO,
+                graph::RenderOwnerTag::LightCulling,
+                graph::PipelineStage::Compute,
+                graph::ResourceUsage::StorageWrite);
+  // Light bounds are uploaded by the CPU (ClusteredLightingState::UploadLightBounds)
+  // before the compute dispatch reads them; the Host write must precede the
+  // Compute read in declaration order so the graph sees a valid producer.
+  builder.Write(graph::RenderResourceTag::LightBoundsSSBO,
+                graph::RenderOwnerTag::LightCulling, graph::PipelineStage::Host,
+                graph::ResourceUsage::StorageWrite);
+  builder.Read(graph::RenderResourceTag::LightBoundsSSBO,
+               graph::RenderOwnerTag::LightCulling, graph::PipelineStage::Compute,
+               graph::ResourceUsage::StorageRead);
+
+  // External backing import contract: every cluster/LightBuffer SSBO reached by
+  // Execute is owned outside the graph (ClusteredLightingState / LightManager
+  // own the GL buffers; EnsureBufferCapacity / OrphanAndUpload recreate them on
+  // capacity growth). Declared here as observer-only metadata — the graph never
+  // allocates, resizes, frees, or GL-binds imported backing, and the manual
+  // BindBufferBase calls in Execute stay authoritative. Binding points mirror
+  // the LightCulling binding domain symbols resolved in Execute.
+  const auto resolveLightCullingBinding = [](const char *symbol,
+                                             uint32_t fallback) -> uint32_t {
+    uint32_t resolved = 0u;
+    if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           symbol, resolved)) {
+      LOG_ERROR("LightCullingPass: failed to resolve binding '%s'", symbol);
+      return fallback;
+    }
+    return resolved;
+  };
+  const auto importClusterBuffer =
+      [&builder](graph::RenderResourceTag tag, uint32_t bindingPoint) {
+        graph::ResourceImportInfo import;
+        import.resourceTag = tag;
+        import.kind = graph::ResourceKind::StorageBuffer;
+        import.backingOwner = graph::RenderOwnerTag::LightCulling;
+        import.resizeFollowsCapacity = true; // EnsureBufferCapacity recreates buffers
+        import.bindingPoint = bindingPoint;
+        builder.ImportResource(import);
+      };
+  importClusterBuffer(graph::RenderResourceTag::ClusterHeaderSSBO,
+                      resolveLightCullingBinding("CLUSTER_HEADER_OUT", 1u));
+  importClusterBuffer(graph::RenderResourceTag::ClusterLightIndexSSBO,
+                      resolveLightCullingBinding("CLUSTER_INDEX_OUT", 2u));
+  importClusterBuffer(graph::RenderResourceTag::ClusterPackedLightSSBO,
+                      resolveLightCullingBinding("CLUSTER_LIGHT_OUT", 5u));
+  importClusterBuffer(graph::RenderResourceTag::ClusterCounterSSBO,
+                      resolveLightCullingBinding("CLUSTER_COUNTER", 4u));
+  importClusterBuffer(graph::RenderResourceTag::LightBoundsSSBO,
+                      resolveLightCullingBinding("LIGHT_BOUNDS_IN", 3u));
+
+  graph::ResourceImportInfo lightBufferImport;
+  lightBufferImport.resourceTag = graph::RenderResourceTag::LightBufferSSBO;
+  lightBufferImport.kind = graph::ResourceKind::StorageBuffer;
+  lightBufferImport.backingOwner = graph::RenderOwnerTag::Lighting; // LightManager
+  lightBufferImport.resizeFollowsCapacity = true; // OrphanAndUpload on upload
+  lightBufferImport.bindingPoint =
+      resolveLightCullingBinding("LIGHT_LIST_IN", 0u);
+  builder.ImportResource(lightBufferImport);
 }
 
 bool LightCullingPass::Initialize(::ResourceManager &resources) {
@@ -274,6 +366,8 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
       DivUp(grid.slicesZ, kComputeGroupSizeZ));
   rlDisableShader();
 
+  // Host readback sync for ReadBackClusterHeaders() below (per design §4.2 this
+  // explicit barrier is retained; it is not a graph pass barrier).
   NoMoreDay::utils::GPUUtils::MemoryBarrier(kGLShaderStorageBarrierBit);
 
   if (m_readbackEnabledForTesting) {
@@ -287,7 +381,6 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
   }
   m_clusterDataReadyForCurrentFrame = true;
   MarkSuccess();
-  core::ApplyRlglFlushTemplate();
 }
 
 } // namespace NoMoreDay::render::passes

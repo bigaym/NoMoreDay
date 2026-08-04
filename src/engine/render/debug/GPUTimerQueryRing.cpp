@@ -1,6 +1,7 @@
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
 
@@ -66,9 +67,20 @@ void GPUTimerQueryRing::Shutdown() {
     using FnType = void (APIENTRY *)(int, const uint32_t *);
     for (size_t i = 0; i < kRingDepth; ++i) {
       for (auto &[id, slot] : m_ring[i].slots) {
-        if (slot.queryBegin > 0) {
-          uint32_t q[2] = {slot.queryBegin, slot.queryEnd};
-          reinterpret_cast<FnType>(s_glDeleteQueries)(2, q);
+        if (slot.queryBegin > 0 || slot.queryEnd > 0) {
+          // RG-3: unregister before GL release (observer-only pairing).
+          if (slot.queryBegin > 0) {
+            NoMoreDay::render::resources::GPUResourceRegistry::Get()
+                .UnregisterResource(slot.queryBegin,
+                                    NoMoreDay::render::graph::ResourceKind::QueryRing);
+            reinterpret_cast<FnType>(s_glDeleteQueries)(1, &slot.queryBegin);
+          }
+          if (slot.queryEnd > 0) {
+            NoMoreDay::render::resources::GPUResourceRegistry::Get()
+                .UnregisterResource(slot.queryEnd,
+                                    NoMoreDay::render::graph::ResourceKind::QueryRing);
+            reinterpret_cast<FnType>(s_glDeleteQueries)(1, &slot.queryEnd);
+          }
         }
       }
     }
@@ -156,6 +168,20 @@ void GPUTimerQueryRing::BeginPass(uint32_t passId) {
       reinterpret_cast<FnGen>(s_glGenQueries)(2, q);
       slot.queryBegin = q[0];
       slot.queryEnd = q[1];
+      // RG-3 (observer-only): register each successfully generated query;
+      // Shutdown remains the sole GL releaser.
+      if (slot.queryBegin > 0) {
+        NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+            slot.queryBegin, NoMoreDay::render::graph::ResourceKind::QueryRing,
+            NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+            "GPUTimerQueryRing");
+      }
+      if (slot.queryEnd > 0) {
+        NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+            slot.queryEnd, NoMoreDay::render::graph::ResourceKind::QueryRing,
+            NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+            "GPUTimerQueryRing");
+      }
     }
     if (slot.queryBegin > 0) {
       reinterpret_cast<FnBegin>(s_glBeginQuery)(kGLTimeElapsed, slot.queryBegin);

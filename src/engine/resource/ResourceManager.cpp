@@ -4,6 +4,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/debug/ShaderReloadGovernance.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 #include <filesystem>
 #include <fstream>
@@ -310,8 +311,52 @@ Shader ResourceManager::loadShader(entt::id_type id, const std::string &vsPath,
   Shader shader = LoadShaderFromMemory(vertexSourcePtr, fragmentSourcePtr);
   if (shader.id == 0) {
     LOG_ERROR("ResourceManager: Failed to load shader VS='{}' FS='{}'", vsPath, fsPath);
+    if (!vsPath.empty()) {
+      std::vector<std::string> vsIncludeChain;
+      const uint64_t vsHash =
+          NoMoreDay::render::debug::ShaderReloadGovernance::Get().ComputeIncludeHash(
+              vsPath, vsIncludeChain);
+      NoMoreDay::render::debug::ShaderReloadGovernance::Get().RecordReloadAttempt(
+          vsPath, false, vsHash, vsIncludeChain, "VS/FS", vsPath,
+          "LoadShaderFromMemory failed");
+    }
+    if (!fsPath.empty()) {
+      std::vector<std::string> fsIncludeChain;
+      const uint64_t fsHash =
+          NoMoreDay::render::debug::ShaderReloadGovernance::Get().ComputeIncludeHash(
+              fsPath, fsIncludeChain);
+      NoMoreDay::render::debug::ShaderReloadGovernance::Get().RecordReloadAttempt(
+          fsPath, false, fsHash, fsIncludeChain, "VS/FS", fsPath,
+          "LoadShaderFromMemory failed");
+    }
     return {0};
   }
+
+  // RG-3 (observer-only): register the VS/FS program with the GPU resource
+  // registry; ResourceManager (unloadAll) remains the sole GL releaser.
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      shader.id, NoMoreDay::render::graph::ResourceKind::ShaderProgram,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+      "ResourceManagerShader");
+
+  // F-group contract: VS/FS load attempts are recorded by ShaderReloadGovernance.
+  if (!vsPath.empty()) {
+    std::vector<std::string> vsIncludeChain;
+    const uint64_t vsHash =
+        NoMoreDay::render::debug::ShaderReloadGovernance::Get().ComputeIncludeHash(
+            vsPath, vsIncludeChain);
+    NoMoreDay::render::debug::ShaderReloadGovernance::Get().RecordReloadAttempt(
+        vsPath, true, vsHash, vsIncludeChain, "VS/FS", vsPath, "");
+  }
+  if (!fsPath.empty()) {
+    std::vector<std::string> fsIncludeChain;
+    const uint64_t fsHash =
+        NoMoreDay::render::debug::ShaderReloadGovernance::Get().ComputeIncludeHash(
+            fsPath, fsIncludeChain);
+    NoMoreDay::render::debug::ShaderReloadGovernance::Get().RecordReloadAttempt(
+        fsPath, true, fsHash, fsIncludeChain, "VS/FS", fsPath, "");
+  }
+
   m_shaders[id] = shader;
   return shader;
 }
@@ -379,6 +424,13 @@ Shader ResourceManager::loadComputeShader(entt::id_type id,
   shader.locs = (int *)RL_MALLOC(32 * sizeof(int));
   for (int i = 0; i < 32; i++)
     shader.locs[i] = -1;
+
+  // RG-3 (observer-only): register the compute program with the GPU resource
+  // registry; ResourceManager (unloadAll) remains the sole GL releaser.
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      shader.id, NoMoreDay::render::graph::ResourceKind::ShaderProgram,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+      "ResourceManagerComputeShader");
 
   m_shaders[id] = shader;
   LOG_INFO("ResourceManager: Loaded compute shader (ID: {}) from '{}'", id,
@@ -613,9 +665,15 @@ void ResourceManager::unloadAll() {
 
   for (auto &[id, shader] : m_shaders) {
 
-    if (shader.id != 0 && !m_headless)
+    if (shader.id != 0 && !m_headless) {
+
+      // RG-3: unregister before GL release (observer-only pairing).
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+          shader.id, NoMoreDay::render::graph::ResourceKind::ShaderProgram);
 
       UnloadShader(shader);
+
+    }
 
   }
 

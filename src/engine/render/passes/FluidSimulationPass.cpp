@@ -9,6 +9,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/passes/RadianceCascadesPass.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 
 #include "raymath.h"
@@ -92,6 +93,9 @@ bool FluidSimulationPass::Initialize(ResourceManager &resources) {
     UnloadShaders();
     return false;
   }
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_quadVao, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u, "FluidQuadVAO");
 
   rlEnableVertexArray(m_quadVao);
   m_quadVbo = rlLoadVertexBuffer(quadVertices, sizeof(quadVertices), false);
@@ -101,6 +105,10 @@ bool FluidSimulationPass::Initialize(ResourceManager &resources) {
     Shutdown();
     return false;
   }
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_quadVbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown,
+      sizeof(quadVertices), "FluidQuadVBO");
 
   rlSetVertexAttribute(0, 2, RL_FLOAT, false, 4 * sizeof(float), 0);
   rlEnableVertexAttribute(0);
@@ -122,10 +130,14 @@ void FluidSimulationPass::Shutdown() {
   UnloadShaders();
 
   if (m_quadVao != 0u) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_quadVao, NoMoreDay::render::graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(m_quadVao);
     m_quadVao = 0u;
   }
   if (m_quadVbo != 0u) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_quadVbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer);
     rlUnloadVertexBuffer(m_quadVbo);
     m_quadVbo = 0u;
   }

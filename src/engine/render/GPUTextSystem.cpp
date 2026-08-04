@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 
 #include <cstring>
@@ -72,8 +73,15 @@ void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
       0.5f,  0.5f,  1.0f, 1.0f, -0.5f, -0.5f, 0.0f, 0.0f,
       0.5f,  0.5f,  1.0f, 1.0f, -0.5f, 0.5f,  0.0f, 1.0f};
   m_vao = rlLoadVertexArray();
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_vao, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u, "TextQuadVAO");
   rlEnableVertexArray(m_vao);
   m_vbo = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_vbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, sizeof(vertices),
+      "TextQuadVBO");
   rlSetVertexAttribute(0, 2, RL_FLOAT, false, 4 * sizeof(float), 0);
   rlEnableVertexAttribute(0);
   rlSetVertexAttribute(1, 2, RL_FLOAT, false, 4 * sizeof(float),
@@ -113,10 +121,14 @@ void GPUTextSystem::Shutdown() {
     UnloadShader(m_renderShader);
   }
   if (m_vao != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_vao, NoMoreDay::render::graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(m_vao);
     m_vao = 0;
   }
   if (m_vbo != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_vbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer);
     rlUnloadVertexBuffer(m_vbo);
     m_vbo = 0;
   }

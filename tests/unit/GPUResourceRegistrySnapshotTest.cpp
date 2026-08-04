@@ -232,3 +232,248 @@ TEST_CASE("[Unit] GPUResourceRegistry - unknown-record unregister and size updat
   CHECK(after.currentTotalBytes == before.currentTotalBytes);
   CHECK(after.peakTotalBytes == before.peakTotalBytes);
 }
+
+// Phase G (RG-3 completeness): the 8 dedicated VAO/VBO sites, ResourceManager
+// shader programs (VS/FS + compute) and GPUTimerQueryRing query pairs all
+// follow the same observer-only pairing contract: RegisterResource immediately
+// after successful GL creation and UnregisterResource BEFORE the matching GL
+// release. This test locks the register/unregister pairing and lifecycle
+// counters for exactly those kinds (VertexArray / VertexBuffer / ShaderProgram
+// / QueryRing).
+TEST_CASE("[Unit] GPUResourceRegistry - Phase G kinds pair register with unregister before release") {
+  using namespace NoMoreDay::render::resources;
+  using namespace NoMoreDay::render::graph;
+
+  auto &registry = GPUResourceRegistry::Get();
+  registry.Reset();
+
+  // Distinct numeric handles (as distinct GL objects would have).
+  constexpr uint32_t kVao = 1;
+  constexpr uint32_t kVbo = 2;
+  constexpr uint32_t kShader = 3;
+  constexpr uint32_t kQuery = 4;
+
+  // 1. Successful creation -> register (mirrors each G1/G2/G3 site).
+  registry.RegisterResource(kVao, ResourceKind::VertexArray, RenderOwnerTag::Unknown, 0u, "QuadVAO");
+  registry.RegisterResource(kVbo, ResourceKind::VertexBuffer, RenderOwnerTag::Unknown, 96u, "QuadVBO");
+  registry.RegisterResource(kShader, ResourceKind::ShaderProgram, RenderOwnerTag::Unknown, 0u, "ResourceManagerShader");
+  registry.RegisterResource(kQuery, ResourceKind::QueryRing, RenderOwnerTag::Unknown, 0u, "GPUTimerQueryRing");
+
+  GPUResourceStats stats = registry.GetStats();
+  CHECK(stats.activeCount == 4);
+  CHECK(stats.totalCreatedCount == 4);
+  CHECK(stats.totalDestroyedCount == 0);
+  CHECK(stats.currentTotalBytes == 96u);
+
+  auto active = registry.GetActiveResources();
+  REQUIRE(active.size() == 4);
+  for (const auto &rec : active) {
+    CHECK(rec.ownerTag == RenderOwnerTag::Unknown);
+    CHECK(rec.creationFrame == 0);
+  }
+
+  // The (kind << 32 | handle) key keeps same-handle/different-kind records
+  // distinct, exactly as the registry contract requires.
+  registry.RegisterResource(kVao, ResourceKind::VertexBuffer, RenderOwnerTag::Unknown, 32u, "SiblingVBO");
+  stats = registry.GetStats();
+  CHECK(stats.activeCount == 5);
+  CHECK(stats.totalCreatedCount == 5);
+
+  // 2. GL release -> unregister first (mirrors Shutdown ordering). Unregistering
+  // each record individually must decrement lifecycle counters exactly once.
+  registry.UnregisterResource(kVbo, ResourceKind::VertexBuffer);
+  registry.UnregisterResource(kVao, ResourceKind::VertexArray);
+  registry.UnregisterResource(kVao, ResourceKind::VertexBuffer);
+  registry.UnregisterResource(kShader, ResourceKind::ShaderProgram);
+  registry.UnregisterResource(kQuery, ResourceKind::QueryRing);
+
+  stats = registry.GetStats();
+  CHECK(stats.activeCount == 0);
+  CHECK(stats.totalCreatedCount == 5);
+  CHECK(stats.totalDestroyedCount == 5);
+  CHECK(stats.currentTotalBytes == 0);
+  CHECK(stats.peakTotalBytes == 96u + 32u);
+
+  active = registry.GetActiveResources();
+  CHECK(active.empty());
+
+  // 3. Unknown-kind unregister after the fact is a diagnostic no-op.
+  registry.UnregisterResource(kVao, ResourceKind::VertexArray);
+  stats = registry.GetStats();
+  CHECK(stats.activeCount == 0);
+  CHECK(stats.totalDestroyedCount == 5);
+
+  // 4. Snapshot reflects the full lifecycle: created then destroyed, bytes 0.
+  const GPUResourceSnapshot snap = registry.TakeSnapshot();
+  CHECK(snap.activeResourceCount == 0);
+  CHECK(snap.liveReferenceCount == 0);
+  CHECK(snap.currentTotalBytes == 0);
+  CHECK(snap.totalCreatedCount == 5);
+  CHECK(snap.totalDestroyedCount == 5);
+}
+
+// B11 (RG-3 owner metadata): ReclassifyResourceOwner reclassifies an EXISTING
+// record to a new RenderOwnerTag and rebalances the per-owner byte ledger
+// without touching lifecycle counters or the total bytes.
+TEST_CASE("[Unit] GPUResourceRegistry - owner reclassification rebalances the owner-byte ledger") {
+  using namespace NoMoreDay::render::resources;
+  using namespace NoMoreDay::render::graph;
+
+  auto &registry = GPUResourceRegistry::Get();
+  registry.Reset();
+
+  constexpr uint32_t kShadowFbo = 3001;
+  constexpr uint32_t kShadowTex = 3002;
+  constexpr uint32_t kClusterBuf = 3003;
+  constexpr size_t kFboBytes = 8u * 1024u * 1024u;
+  constexpr size_t kTexBytes = 4u * 1024u * 1024u;
+  constexpr size_t kBufBytes = 2048u;
+
+  // FramebufferManager registers FBO + color texture under the generic Scene
+  // owner; ComputeBuffer registers SSBOs under Unknown. That is the pre-B11
+  // baseline we reclassify away from.
+  registry.RegisterResource(kShadowFbo, ResourceKind::Framebuffer, RenderOwnerTag::Scene,
+                            kFboBytes, "shadow_sdf_fbo");
+  registry.RegisterResource(kShadowTex, ResourceKind::Texture2D, RenderOwnerTag::Scene,
+                            kTexBytes, "shadow_sdf_color");
+  registry.RegisterResource(kClusterBuf, ResourceKind::StorageBuffer, RenderOwnerTag::Unknown,
+                            kBufBytes, "cluster_header");
+
+  // Reclassify to the RenderGraph owner contract.
+  CHECK(registry.ReclassifyResourceOwner(kShadowFbo, ResourceKind::Framebuffer,
+                                         RenderOwnerTag::Shadow));
+  CHECK(registry.ReclassifyResourceOwner(kShadowTex, ResourceKind::Texture2D,
+                                         RenderOwnerTag::Shadow));
+  CHECK(registry.ReclassifyResourceOwner(kClusterBuf, ResourceKind::StorageBuffer,
+                                         RenderOwnerTag::LightCulling));
+
+  const GPUResourceStats stats = registry.GetStats();
+  // Totals and lifecycle counters are untouched by metadata reclassification.
+  CHECK(stats.currentTotalBytes == kFboBytes + kTexBytes + kBufBytes);
+  CHECK(stats.activeCount == 3);
+  CHECK(stats.totalCreatedCount == 3);
+  CHECK(stats.totalDestroyedCount == 0);
+  // Bytes moved from the old owners to the new owners exactly.
+  CHECK(stats.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::Scene)) == 0);
+  CHECK(stats.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::Unknown)) == 0);
+  CHECK(stats.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::Shadow)) ==
+        kFboBytes + kTexBytes);
+  CHECK(stats.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::LightCulling)) ==
+        kBufBytes);
+
+  const auto active = registry.GetActiveResources();
+  REQUIRE(active.size() == 3);
+  for (const auto &rec : active) {
+    if (rec.handle == kShadowFbo) {
+      CHECK(rec.ownerTag == RenderOwnerTag::Shadow);
+    } else if (rec.handle == kShadowTex) {
+      CHECK(rec.ownerTag == RenderOwnerTag::Shadow);
+    } else {
+      CHECK(rec.ownerTag == RenderOwnerTag::LightCulling);
+    }
+  }
+
+  // Reclassifying to the already-held owner is a successful no-op.
+  CHECK(registry.ReclassifyResourceOwner(kClusterBuf, ResourceKind::StorageBuffer,
+                                         RenderOwnerTag::LightCulling));
+  const GPUResourceStats afterNoop = registry.GetStats();
+  CHECK(afterNoop.currentTotalBytes == stats.currentTotalBytes);
+  CHECK(afterNoop.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::LightCulling)) ==
+        kBufBytes);
+}
+
+// B11 (RG-3 contract): ReclassifyResourceOwner on an unknown (handle, kind) or
+// on a zero handle fails closed - diagnostic no-op, no counter mutation.
+TEST_CASE("[Unit] GPUResourceRegistry - owner reclassification on unknown or zero handle fails closed") {
+  using namespace NoMoreDay::render::resources;
+  using namespace NoMoreDay::render::graph;
+
+  auto &registry = GPUResourceRegistry::Get();
+  registry.Reset();
+
+  constexpr uint32_t kKnownBuf = 3011;
+  constexpr uint32_t kNeverRegistered = 3012;
+  constexpr size_t kBufBytes = 4096u;
+
+  registry.RegisterResource(kKnownBuf, ResourceKind::StorageBuffer, RenderOwnerTag::Unknown,
+                            kBufBytes, "stable_buffer");
+  const GPUResourceStats before = registry.GetStats();
+
+  // Unknown numeric handle -> false, counters untouched.
+  CHECK_FALSE(registry.ReclassifyResourceOwner(kNeverRegistered,
+                                               ResourceKind::StorageBuffer,
+                                               RenderOwnerTag::Shadow));
+  // Known handle but wrong kind -> different registry key -> unknown record.
+  CHECK_FALSE(registry.ReclassifyResourceOwner(kKnownBuf, ResourceKind::Texture2D,
+                                               RenderOwnerTag::Shadow));
+  // Zero handle is never a valid registry key.
+  CHECK_FALSE(registry.ReclassifyResourceOwner(0, ResourceKind::StorageBuffer,
+                                               RenderOwnerTag::Shadow));
+
+  const GPUResourceStats after = registry.GetStats();
+  CHECK(after.activeCount == before.activeCount);
+  CHECK(after.totalCreatedCount == before.totalCreatedCount);
+  CHECK(after.totalDestroyedCount == before.totalDestroyedCount);
+  CHECK(after.currentTotalBytes == before.currentTotalBytes);
+  CHECK(after.peakTotalBytes == before.peakTotalBytes);
+
+  // The known record still carries its original owner.
+  const auto active = registry.GetActiveResources();
+  REQUIRE(active.size() == 1);
+  CHECK(active[0].ownerTag == RenderOwnerTag::Unknown);
+}
+
+// B11 (RG-3 owner metadata): the resize lifecycle of FramebufferManager/ComputeBuffer
+// is Destroy + Create. The recreate registers a NEW record under the generic owner,
+// so the reclassify must be re-applied to the NEW handle after every recreate.
+TEST_CASE("[Unit] GPUResourceRegistry - resize recreation pairs reclassify with the recreated handle") {
+  using namespace NoMoreDay::render::resources;
+  using namespace NoMoreDay::render::graph;
+
+  auto &registry = GPUResourceRegistry::Get();
+  registry.Reset();
+
+  constexpr uint32_t kOldFbo = 3021;
+  constexpr uint32_t kNewFbo = 3022;
+  constexpr size_t kOldBytes = 4u * 1024u * 1024u;
+  constexpr size_t kNewBytes = 8u * 1024u * 1024u;
+
+  // First allocation: FramebufferManager::Create registers under Scene, then the
+  // owner reclassifies to Shadow (the B11 wiring after create).
+  registry.RegisterResource(kOldFbo, ResourceKind::Framebuffer, RenderOwnerTag::Scene,
+                            kOldBytes, "shadow_mask_fbo");
+  CHECK(registry.ReclassifyResourceOwner(kOldFbo, ResourceKind::Framebuffer,
+                                         RenderOwnerTag::Shadow));
+
+  // Resize: FramebufferManager::Resize destroys the old backing (unregister) and
+  // creates a fresh GL object (register under Scene again).
+  registry.UnregisterResource(kOldFbo, ResourceKind::Framebuffer);
+  registry.RegisterResource(kNewFbo, ResourceKind::Framebuffer, RenderOwnerTag::Scene,
+                            kNewBytes, "shadow_mask_fbo_resized");
+
+  // Before the reclassify is re-applied, the new record still carries the generic
+  // Scene owner - exactly the debt B11 removes.
+  {
+    const auto active = registry.GetActiveResources();
+    REQUIRE(active.size() == 1);
+    CHECK(active[0].handle == kNewFbo);
+    CHECK(active[0].ownerTag == RenderOwnerTag::Scene);
+  }
+
+  // Owner re-applies the contract after the recreate (B11 wiring after resize).
+  CHECK(registry.ReclassifyResourceOwner(kNewFbo, ResourceKind::Framebuffer,
+                                         RenderOwnerTag::Shadow));
+
+  const GPUResourceStats stats = registry.GetStats();
+  CHECK(stats.activeCount == 1);
+  CHECK(stats.totalCreatedCount == 2);
+  CHECK(stats.totalDestroyedCount == 1);
+  CHECK(stats.currentTotalBytes == kNewBytes);
+  CHECK(stats.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::Shadow)) == kNewBytes);
+  CHECK(stats.bytesByOwner.at(static_cast<uint8_t>(RenderOwnerTag::Scene)) == 0);
+
+  const auto active = registry.GetActiveResources();
+  REQUIRE(active.size() == 1);
+  CHECK(active[0].handle == kNewFbo);
+  CHECK(active[0].sizeBytes == kNewBytes);
+}

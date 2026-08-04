@@ -1661,6 +1661,48 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.worldWidth = frame.worldWidth;
   graphContext.worldHeight = frame.worldHeight;
   graphContext.tileWorldSize = frame.tileWorldSize;
+  const auto addImportedBacking = [&graphContext](
+      NoMoreDay::render::graph::RenderResourceTag tag, uint32_t buffer,
+      uint32_t texture, uint32_t framebuffer) {
+    graphContext.importedBackings.push_back({tag, buffer, texture, framebuffer});
+  };
+  if (g_shadowBuildPass != nullptr) {
+    addImportedBacking(NoMoreDay::render::graph::RenderResourceTag::ShadowAtlas,
+                       0u, g_shadowBuildPass->GetShadowAtlasTexture(),
+                       g_shadowBuildPass->GetShadowAtlasFramebuffer());
+    addImportedBacking(
+        NoMoreDay::render::graph::RenderResourceTag::ShadowDistanceField, 0u,
+        g_shadowBuildPass->GetSdfImageTexture(), 0u);
+    addImportedBacking(
+        NoMoreDay::render::graph::RenderResourceTag::ShadowOccluderSSBO,
+        g_shadowBuildPass->GetOccluderBufferId(), 0u, 0u);
+  }
+  if (g_shadowResolvePass != nullptr) {
+    addImportedBacking(NoMoreDay::render::graph::RenderResourceTag::ShadowMask,
+                       0u, g_shadowResolvePass->GetShadowMaskTexture(),
+                       g_shadowResolvePass->GetShadowMaskFramebuffer());
+  }
+  const auto &clusterState =
+      NoMoreDay::render::lighting::ClusteredLightingState::Get();
+  addImportedBacking(
+      NoMoreDay::render::graph::RenderResourceTag::ClusterHeaderSSBO,
+      clusterState.GetClusterHeaderBufferId(), 0u, 0u);
+  addImportedBacking(
+      NoMoreDay::render::graph::RenderResourceTag::ClusterLightIndexSSBO,
+      clusterState.GetClusterLightIndexBufferId(), 0u, 0u);
+  addImportedBacking(
+      NoMoreDay::render::graph::RenderResourceTag::ClusterPackedLightSSBO,
+      clusterState.GetClusterPackedLightBufferId(), 0u, 0u);
+  addImportedBacking(
+      NoMoreDay::render::graph::RenderResourceTag::ClusterCounterSSBO,
+      clusterState.GetCounterBufferId(), 0u, 0u);
+  addImportedBacking(
+      NoMoreDay::render::graph::RenderResourceTag::LightBoundsSSBO,
+      clusterState.GetLightBoundsBufferId(), 0u, 0u);
+  addImportedBacking(
+      NoMoreDay::render::graph::RenderResourceTag::LightBufferSSBO,
+      NoMoreDay::render::lighting::LightManager::Get().GetLightBufferId(), 0u,
+      0u);
   if (g_jfaPass != nullptr && g_jfaPass->HasDistanceField()) {
     graphContext.giDistanceFieldTexture = g_jfaPass->GetDistanceFieldTexture();
     graphContext.giDistanceFieldWidth = g_jfaPass->GetDistanceFieldWidth();

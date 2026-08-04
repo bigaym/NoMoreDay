@@ -232,7 +232,7 @@ Game::~Game() {
 
 void Game::init() {
   LOG_INFO("Initializing Game systems...");
-  std::system("chcp 65001 >2&1");
+  std::system("chcp 65001 >nul 2>&1");
 
   // Global Static Inits
   NoMoreDay::CombatEventDispatcher::Init();

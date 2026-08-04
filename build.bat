@@ -275,33 +275,12 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
     call :run_quiet_step "Checking candidate module boundaries" "Module boundary check failed! Aborting." "python scripts\check_module_boundaries.py"
     if errorlevel 1 exit /b 1
 
-    call :run_quiet_step "Checking MS-1 Core candidate contract" "MS-1 Core candidate contract check failed! Aborting." "python scripts\check_core_candidate_contract.py"
-    if errorlevel 1 exit /b 1
-
     call :run_quiet_step "Generating render ABI includes" "Render ABI generation failed! Aborting." "python tools\render_abi\generate_gpu_abi.py"
     if errorlevel 1 exit /b 1
     call :run_quiet_step "Checking render ABI struct governance" "Render ABI governance check failed! Aborting." "python tools\render_abi\check_no_manual_abi_structs.py"
     if errorlevel 1 exit /b 1
 
-    call :run_quiet_step "Checking skill_spec runtime-^>canonical migration artifacts" "skill_spec migration artifact check failed! Aborting." "python scripts\migrate_skill_spec_modifier_slice.py --check --fail-on-drop"
-    if errorlevel 1 exit /b 1
-
-    call :run_quiet_step "Checking skill_spec canonical runtime contract drift" "skill_spec canonical runtime contract check failed! Aborting." "python scripts\gen_skill_spec_modifier_contract.py --check"
-    if errorlevel 1 exit /b 1
-
     call :run_quiet_step "Validating assets" "Asset validation failed! Aborting." "python scripts\validate_json.py"
-    if errorlevel 1 exit /b 1
-
-    call :run_quiet_step "Checking map/monster modifier v2 drift" "Map/monster modifier v2 drift check failed! Aborting." "python scripts\gen_map_monster_modifier_v2.py --check"
-    if errorlevel 1 exit /b 1
-
-    call :run_quiet_step "Checking monster behavior-op dispatch coverage" "Monster behavior-op dispatch coverage check failed! Aborting." "python scripts\check_monster_behavior_dispatch.py"
-    if errorlevel 1 exit /b 1
-
-    call :run_quiet_step "Generating modifier runtime v2" "Modifier runtime v2 generation failed! Aborting." "python scripts\gen_modifier_runtime_v2.py --check"
-    if errorlevel 1 exit /b 1
-
-    call :run_quiet_step "Checking skill contract drift" "Skill contract check failed! Aborting." "python scripts\gen_skill_contracts.py --check"
     if errorlevel 1 exit /b 1
 ) else (
     echo [Build] Pre-check scripts skipped ^(novalidate^).

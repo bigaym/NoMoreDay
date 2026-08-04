@@ -2,6 +2,7 @@
 
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -86,6 +87,19 @@ void LightManager::Initialize() {
   m_lightBuffer->Create(
       static_cast<size_t>(NoMoreDay::Constants::Lighting::MAX_LIGHTS) *
       sizeof(components::GPULight));
+  // B11 (RG-3 owner metadata): ComputeBuffer registers owner Unknown; the light
+  // list backing must carry the RenderGraph owner contract. LightCullingPass
+  // declares its import for LightBufferSSBO with backingOwner = Lighting
+  // (LightManager) in Setup, so the registry owner is set to Lighting to stay
+  // verifiably consistent with that contract. Observer-only: no GL call, no
+  // ownership transfer. OrphanAndUpload reallocates storage on the same GL id,
+  // so a single reclassify after Create covers the whole lifetime.
+  if (m_lightBuffer->GetId() != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().ReclassifyResourceOwner(
+        m_lightBuffer->GetId(),
+        NoMoreDay::render::graph::ResourceKind::StorageBuffer,
+        NoMoreDay::render::graph::RenderOwnerTag::Lighting);
+  }
   m_stagingBuffer.reserve(
       static_cast<size_t>(NoMoreDay::Constants::Lighting::MAX_LIGHTS));
   m_activeLightRecords.reserve(

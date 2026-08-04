@@ -4,6 +4,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "raymath.h"
 #include "rlgl.h"
@@ -403,8 +404,16 @@ void GPUSkillEffectSystem::InitRender() {
   };
 
   m_quadVAO = rlLoadVertexArray();
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_quadVAO, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+      "SkillEffectQuadVAO");
   rlEnableVertexArray(m_quadVAO);
   m_quadVBO = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_quadVBO, NoMoreDay::render::graph::ResourceKind::VertexBuffer,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, sizeof(vertices),
+      "SkillEffectQuadVBO");
   rlSetVertexAttribute(0, 2, RL_FLOAT, false, 0, 0);
   rlEnableVertexAttribute(0);
   rlDisableVertexArray();
@@ -1405,8 +1414,16 @@ void GPUSkillEffectSystem::Shutdown() {
   LOG_INFO("Shutting down GPUSkillEffectSystem...");
   m_gpuBuffer.Release();
   UnloadShader(m_shader);
-  rlUnloadVertexArray(m_quadVAO);
-  rlUnloadVertexBuffer(m_quadVBO);
+  if (m_quadVAO != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_quadVAO, NoMoreDay::render::graph::ResourceKind::VertexArray);
+    rlUnloadVertexArray(m_quadVAO);
+  }
+  if (m_quadVBO != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_quadVBO, NoMoreDay::render::graph::ResourceKind::VertexBuffer);
+    rlUnloadVertexBuffer(m_quadVBO);
+  }
 
   m_shader.id = 0;
   m_timeLoc = -1;

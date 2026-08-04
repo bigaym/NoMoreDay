@@ -1,6 +1,14 @@
 #include "doctest.h"
 
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/graph/RenderContext.hpp"
+#include "engine/render/RenderConstants.hpp"
+#include "engine/render/passes/LightCullingPass.hpp"
+#include "engine/render/passes/ScenePass.hpp"
+#include "engine/render/passes/ShadowBuildPass.hpp"
+#include "engine/render/passes/ShadowPreparePass.hpp"
+#include "engine/render/passes/ShadowResolvePass.hpp"
+#include "engine/render/passes/VFXEmissionSnapshotPass.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/core/DeviceCapabilityMatrix.hpp"
@@ -597,6 +605,346 @@ TEST_CASE("[Unit] RenderGraph - S0 reserved stable pass id fails closed") {
                            "(identity)", "reserved frame-level id"));
 }
 
+TEST_CASE("[Unit] RenderGraph - Phase B typed shadow/cluster access plan") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ScenePass>());
+  graph.AddPass(std::make_shared<ShadowPreparePass>());
+  graph.AddPass(std::make_shared<ShadowBuildPass>());
+  graph.AddPass(std::make_shared<ShadowResolvePass>());
+  graph.AddPass(std::make_shared<LightCullingPass>());
+  // Test-only consumer: verifies the graph emits the cross-pass
+  // Compute->Fragment transitions for every cluster SSBO written by
+  // LightCullingPass (production consumer is LightingPass, migrated in
+  // Phase C).
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ClusterConsumerPass", [](RenderGraphBuilder &builder) {
+        for (const auto tag : {RenderResourceTag::ClusterHeaderSSBO,
+                               RenderResourceTag::ClusterLightIndexSSBO,
+                               RenderResourceTag::ClusterPackedLightSSBO,
+                               RenderResourceTag::ClusterCounterSSBO}) {
+          builder.Read(tag, RenderOwnerTag::LightCulling,
+                       PipelineStage::Fragment, ResourceUsage::ShaderRead);
+        }
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+
+  // Every shadow/cluster resource must be present in the compiled plan.
+  bool hasShadowAtlas = false;
+  bool hasSdf = false;
+  bool hasShadowMask = false;
+  bool hasOccluder = false;
+  bool hasClusterHeader = false;
+  bool hasClusterLightIndex = false;
+  bool hasClusterPackedLight = false;
+  bool hasClusterCounter = false;
+  for (const auto &res : plan.resources) {
+    if (res.resourceName == "ShadowAtlas") {
+      hasShadowAtlas = true;
+    }
+    if (res.resourceName == "ShadowDistanceField") {
+      hasSdf = true;
+    }
+    if (res.resourceName == "ShadowMask") {
+      hasShadowMask = true;
+    }
+    if (res.resourceName == "ShadowOccluderSSBO") {
+      hasOccluder = true;
+    }
+    if (res.resourceName == "ClusterHeaderSSBO") {
+      hasClusterHeader = true;
+    }
+    if (res.resourceName == "ClusterLightIndexSSBO") {
+      hasClusterLightIndex = true;
+    }
+    if (res.resourceName == "ClusterPackedLightSSBO") {
+      hasClusterPackedLight = true;
+    }
+    if (res.resourceName == "ClusterCounterSSBO") {
+      hasClusterCounter = true;
+    }
+  }
+  CHECK(hasShadowAtlas);
+  CHECK(hasSdf);
+  CHECK(hasShadowMask);
+  CHECK(hasOccluder);
+  CHECK(hasClusterHeader);
+  CHECK(hasClusterLightIndex);
+  CHECK(hasClusterPackedLight);
+  CHECK(hasClusterCounter);
+
+  // Expected producer->consumer edges.
+  bool edgePrepareToBuild = false;
+  bool edgeBuildToResolve = false;
+  bool edgeCullingToHeader = false;
+  bool edgeCullingToLightIndex = false;
+  bool edgeCullingToPackedLight = false;
+  bool edgeCullingToCounter = false;
+  for (const auto &edge : plan.edges) {
+    if (edge.producerPassName == "ShadowPreparePass" &&
+        edge.consumerPassName == "ShadowBuildPass" &&
+        edge.resourceName == "ShadowOccluderSSBO") {
+      edgePrepareToBuild = true;
+    }
+    if (edge.producerPassName == "ShadowBuildPass" &&
+        edge.consumerPassName == "ShadowResolvePass" &&
+        edge.resourceName == "ShadowDistanceField") {
+      edgeBuildToResolve = true;
+    }
+    if (edge.producerPassName == "LightCullingPass" &&
+        edge.consumerPassName == "ClusterConsumerPass") {
+      if (edge.resourceName == "ClusterHeaderSSBO") {
+        edgeCullingToHeader = true;
+      }
+      if (edge.resourceName == "ClusterLightIndexSSBO") {
+        edgeCullingToLightIndex = true;
+      }
+      if (edge.resourceName == "ClusterPackedLightSSBO") {
+        edgeCullingToPackedLight = true;
+      }
+      if (edge.resourceName == "ClusterCounterSSBO") {
+        edgeCullingToCounter = true;
+      }
+    }
+  }
+  CHECK(edgePrepareToBuild);
+  CHECK(edgeBuildToResolve);
+  CHECK(edgeCullingToHeader);
+  CHECK(edgeCullingToLightIndex);
+  CHECK(edgeCullingToPackedLight);
+  CHECK(edgeCullingToCounter);
+
+  // Expected cross-pass transitions replace the removed manual barriers.
+  bool transitionOccluder = false;
+  bool transitionSdf = false;
+  bool transitionHeader = false;
+  bool transitionLightIndex = false;
+  bool transitionPackedLight = false;
+  bool transitionCounter = false;
+  for (const auto &transition : plan.transitions) {
+    if (transition.resourceName == "ShadowOccluderSSBO") {
+      CHECK_EQ(transition.previousStage, PipelineStage::Host);
+      CHECK_EQ(transition.nextStage, PipelineStage::Compute);
+      CHECK_NE(transition.barrierBits, 0u);
+      transitionOccluder = true;
+    }
+    if (transition.resourceName == "ShadowDistanceField") {
+      CHECK_EQ(transition.previousStage, PipelineStage::Compute);
+      CHECK_EQ(transition.nextStage, PipelineStage::Fragment);
+      CHECK_NE(transition.barrierBits, 0u);
+      transitionSdf = true;
+    }
+    // Every cluster SSBO written by LightCullingPass must carry an explicit
+    // Compute->Fragment GL_SHADER_STORAGE_BARRIER_BIT transition so the
+    // fragment-stage consumer reads settled data.
+    const bool clusterResource =
+        transition.resourceName == "ClusterHeaderSSBO" ||
+        transition.resourceName == "ClusterLightIndexSSBO" ||
+        transition.resourceName == "ClusterPackedLightSSBO" ||
+        transition.resourceName == "ClusterCounterSSBO";
+    if (clusterResource) {
+      CHECK_EQ(transition.previousStage, PipelineStage::Compute);
+      CHECK_EQ(transition.nextStage, PipelineStage::Fragment);
+      CHECK_EQ(transition.barrierBits,
+               0x00002000u); // GL_SHADER_STORAGE_BARRIER_BIT
+    }
+    if (transition.resourceName == "ClusterHeaderSSBO") {
+      transitionHeader = true;
+    }
+    if (transition.resourceName == "ClusterLightIndexSSBO") {
+      transitionLightIndex = true;
+    }
+    if (transition.resourceName == "ClusterPackedLightSSBO") {
+      transitionPackedLight = true;
+    }
+    if (transition.resourceName == "ClusterCounterSSBO") {
+      transitionCounter = true;
+    }
+  }
+  CHECK(transitionOccluder);
+  CHECK(transitionSdf);
+  CHECK(transitionHeader);
+  CHECK(transitionLightIndex);
+  CHECK(transitionPackedLight);
+  CHECK(transitionCounter);
+
+  // B7 contract: no missing producer, no multiple writers, no dependency
+  // cycle must be reported for this shadow/cluster plan. This is an explicit
+  // negative assertion over the compiled plan diagnostics (not just the
+  // aggregate HasValidationErrors() check above).
+  for (const auto &diag : plan.diagnostics) {
+    CAPTURE(diag.passName);
+    CAPTURE(diag.resourceName);
+    CAPTURE(diag.message);
+    CHECK(diag.message.find("read-before-write") == std::string::npos);
+    CHECK(diag.message.find("multiple write owners") == std::string::npos);
+    CHECK(diag.message.find("cycle detected") == std::string::npos);
+  }
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase B same-pass phase barrier + binding observations") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+  using namespace NoMoreDay::RenderConstants;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ShadowPreparePass>());
+  graph.AddPass(std::make_shared<ShadowBuildPass>());
+  graph.AddPass(std::make_shared<ShadowResolvePass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+
+  // The same-pass SDF compute -> hybrid tile fragment barrier must be declared
+  // with the correct phase pair and the legacy Image|Buffer bits. It must NOT
+  // be represented by a pass-entry local barrier (which fires before Execute).
+  bool foundPhaseBarrier = false;
+  for (const auto &barrier : plan.phaseBarriers) {
+    if (barrier.passName == "ShadowBuildPass") {
+      CHECK_EQ(barrier.sourcePhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.targetPhase, PipelineStage::Fragment);
+      CHECK_EQ(barrier.barrierBits,
+               static_cast<uint32_t>(Barrier::Image) |
+                   static_cast<uint32_t>(Barrier::Buffer));
+      foundPhaseBarrier = true;
+    }
+  }
+  CHECK(foundPhaseBarrier);
+
+  // Observer-only binding declarations must be visible in the compiled plan.
+  bool foundOccluderBinding = false;
+  bool foundSdfImage = false;
+  for (const auto &binding : plan.bindings) {
+    if (binding.passName == "ShadowBuildPass" &&
+        binding.resourceName == "ShadowOccluderSSBO" &&
+        binding.kind == ResourceBindingKind::BufferBase) {
+      CHECK_EQ(binding.point, ShadowCS::kOccluderBinding);
+      foundOccluderBinding = true;
+    }
+    if (binding.passName == "ShadowBuildPass" &&
+        binding.resourceName == "ShadowDistanceField" &&
+        binding.kind == ResourceBindingKind::ImageUnit) {
+      CHECK_EQ(binding.point, ShadowCS::kSdfImageBinding);
+      foundSdfImage = true;
+    }
+  }
+  CHECK(foundOccluderBinding);
+  CHECK(foundSdfImage);
+}
+
+TEST_CASE("[Unit] RenderGraph - duplicate phase barrier declaration fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.AddPhaseBarrier(PipelineStage::Compute, PipelineStage::Fragment,
+                                0x0020u);
+        builder.AddPhaseBarrier(PipelineStage::Compute, PipelineStage::Fragment,
+                                0x0200u);
+      }));
+
+#if defined(NDEBUG)
+  CHECK_NOTHROW(graph.Build());
+#else
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+#endif
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ScenePass",
+                           "(phase-barrier)", "duplicate phase barrier"));
+}
+
+TEST_CASE("[Unit] RenderGraph - binding for unknown tag fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.BindBufferBase(RenderResourceTag::Custom, 1u);
+      }));
+
+#if defined(NDEBUG)
+  CHECK_NOTHROW(graph.Build());
+#else
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+#endif
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ScenePass",
+                           "(binding)", "unknown/custom resource tag"));
+}
+
+TEST_CASE("[Unit] RenderGraph - binding without descriptor warns (observer-only)") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene);
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  // Observer-only contract: no GL ownership change, so this is a warning, not a
+  // validation error.
+  CHECK(!graph.HasValidationErrors());
+  bool foundWarning = false;
+  for (const auto &diagnostic : graph.GetValidationDiagnostics()) {
+    if (diagnostic.severity ==
+            RenderGraph::ValidationDiagnostic::Severity::Warning &&
+        diagnostic.passName == "ScenePass" &&
+        diagnostic.resourceName == "ShadowOccluderSSBO" &&
+        diagnostic.message.find("no descriptor declared") != std::string::npos) {
+      foundWarning = true;
+    }
+  }
+  CHECK(foundWarning);
+}
+
+TEST_CASE("[Unit] RenderGraph - duplicate backing snapshots fail closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowBuildPass", [](RenderGraphBuilder &builder) {
+        TypedResourceDescriptor desc;
+        desc.name = "ShadowOccluderSSBO";
+        desc.tag = RenderResourceTag::ShadowOccluderSSBO;
+        desc.ownerTag = RenderOwnerTag::Shadow;
+        desc.kind = ResourceKind::StorageBuffer;
+        desc.lifetime = ResourceLifetime::Persistent;
+        builder.DeclareResource(desc);
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowOccluderSSBO;
+        import.kind = ResourceKind::StorageBuffer;
+        import.backingOwner = RenderOwnerTag::Shadow;
+        import.bindingPoint = 15u;
+        builder.ImportResource(import);
+      }));
+  graph.Build();
+
+  RenderContext context;
+  context.importedBackings = {
+      {RenderResourceTag::ShadowOccluderSSBO, 11u, 0u, 0u},
+      {RenderResourceTag::ShadowOccluderSSBO, 12u, 0u, 0u},
+  };
+
+  const auto result = graph.ResolvePassBindings(0u, context);
+  CHECK_FALSE(result.allAdmitted);
+  CHECK(result.operations.empty());
+  CHECK(HasErrorContaining(result.diagnostics, "ShadowBuildPass",
+                           "ShadowOccluderSSBO", "multiple imported backing"));
+}
+
 TEST_CASE("[Unit] RenderGraph - S0 timer ring frame index overflow guard") {
   using namespace NoMoreDay::render::debug;
 
@@ -631,6 +979,543 @@ TEST_CASE("[Unit] RenderGraph - S0 stable pass id timer plumbing round trip") {
   CHECK((res.state == QueryState::Valid || res.state == QueryState::CpuFallback ||
          res.state == QueryState::Pending));
   ring.Shutdown();
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase B external backing import contract lands in compiled plan") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+  using namespace NoMoreDay::RenderConstants;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ShadowPreparePass>());
+  graph.AddPass(std::make_shared<ShadowBuildPass>());
+  graph.AddPass(std::make_shared<ShadowResolvePass>());
+  graph.AddPass(std::make_shared<LightCullingPass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+
+  // The import declarations are observer-only metadata: they must name the
+  // external backing owner, its resize lifecycle, and the manual binding
+  // surface used by each pass, without any GL ownership change.
+  bool sdfImported = false;
+  bool atlasImported = false;
+  bool occluderImported = false;
+  bool maskImported = false;
+  bool clusterHeaderImported = false;
+  bool lightBufferImported = false;
+  for (const auto &import : plan.imports) {
+    if (import.passName == "ShadowBuildPass" &&
+        import.resourceName == "ShadowDistanceField") {
+      CHECK_EQ(import.kind, ResourceKind::Texture2D);
+      CHECK_EQ(import.format, ResourceFormat::RG16F);
+      CHECK_EQ(import.backingOwner, RenderOwnerTag::Shadow);
+      CHECK(import.resizeFollowsScreen);
+      CHECK_FALSE(import.resizeFollowsCapacity);
+      CHECK_EQ(import.imageUnit, ShadowCS::kSdfImageBinding);
+      sdfImported = true;
+    }
+    if (import.passName == "ShadowBuildPass" &&
+        import.resourceName == "ShadowAtlas") {
+      CHECK_EQ(import.kind, ResourceKind::Texture2D);
+      CHECK_EQ(import.format, ResourceFormat::RGBA16F);
+      CHECK_EQ(import.backingOwner, RenderOwnerTag::Shadow);
+      CHECK(import.resizeFollowsCapacity);
+      CHECK_EQ(import.colorAttachmentIndex, 0u);
+      atlasImported = true;
+    }
+    if (import.passName == "ShadowBuildPass" &&
+        import.resourceName == "ShadowOccluderSSBO") {
+      CHECK_EQ(import.kind, ResourceKind::StorageBuffer);
+      CHECK_EQ(import.backingOwner, RenderOwnerTag::Shadow);
+      CHECK(import.resizeFollowsCapacity);
+      CHECK_EQ(import.bindingPoint, ShadowCS::kOccluderBinding);
+      occluderImported = true;
+    }
+    if (import.passName == "ShadowResolvePass" &&
+        import.resourceName == "ShadowMask") {
+      CHECK_EQ(import.kind, ResourceKind::Texture2D);
+      CHECK_EQ(import.format, ResourceFormat::RGBA16F);
+      CHECK_EQ(import.backingOwner, RenderOwnerTag::Shadow);
+      CHECK(import.resizeFollowsScreen);
+      CHECK_EQ(import.colorAttachmentIndex, 0u);
+      maskImported = true;
+    }
+    if (import.passName == "LightCullingPass" &&
+        import.resourceName == "ClusterHeaderSSBO") {
+      CHECK_EQ(import.kind, ResourceKind::StorageBuffer);
+      CHECK_EQ(import.backingOwner, RenderOwnerTag::LightCulling);
+      CHECK(import.resizeFollowsCapacity);
+      CHECK_EQ(import.bindingPoint, 1u); // CLUSTER_HEADER_OUT
+      clusterHeaderImported = true;
+    }
+    if (import.passName == "LightCullingPass" &&
+        import.resourceName == "LightBufferSSBO") {
+      CHECK_EQ(import.kind, ResourceKind::StorageBuffer);
+      CHECK_EQ(import.backingOwner, RenderOwnerTag::Lighting); // LightManager
+      CHECK(import.resizeFollowsCapacity);
+      CHECK_EQ(import.bindingPoint, 0u); // LIGHT_LIST_IN
+      lightBufferImported = true;
+    }
+  }
+  CHECK(sdfImported);
+  CHECK(atlasImported);
+  CHECK(occluderImported);
+  CHECK(maskImported);
+  CHECK(clusterHeaderImported);
+  CHECK(lightBufferImported);
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase B6 VFXEmissionSnapshotPass declares particle emissive backing") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<VFXEmissionSnapshotPass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+
+  REQUIRE(plan.passOrder.size() == 1u);
+  CHECK_EQ(plan.passOrder[0], "VFXEmissionSnapshotPass");
+
+  // The pass writes the particle emissive texture (RadianceCascades-owned
+  // FBO, RGBA16F at screen size); the write contract must carry the correct
+  // tag, owner, stage, and usage.
+  bool resourceFound = false;
+  for (const auto &resource : plan.resources) {
+    if (resource.resourceName != "ParticleEmissive") {
+      continue;
+    }
+    CHECK_EQ(resource.tag, RenderResourceTag::ParticleEmissive);
+    CHECK(resource.hasProducer);
+    CHECK_EQ(resource.firstProducerPassIndex, 0u);
+    REQUIRE(resource.writerPassIndices.size() == 1u);
+    CHECK_EQ(resource.writerPassIndices[0], 0u);
+    CHECK_EQ(resource.descriptor.kind, ResourceKind::Texture2D);
+    CHECK_EQ(resource.descriptor.format, ResourceFormat::RGBA16F);
+    CHECK_EQ(resource.descriptor.lifetime, ResourceLifetime::Persistent);
+    CHECK_EQ(resource.descriptor.ownerTag, RenderOwnerTag::RadianceCascades);
+    resourceFound = true;
+  }
+  CHECK(resourceFound);
+
+  // The import contract names the external backing owner and its
+  // screen-following resize lifecycle. Observer-only: the graph must never
+  // allocate, resize, free, or GL-bind this backing.
+  bool importFound = false;
+  for (const auto &import : plan.imports) {
+    if (import.passName != "VFXEmissionSnapshotPass" ||
+        import.resourceName != "ParticleEmissive") {
+      continue;
+    }
+    CHECK_EQ(import.resourceTag, RenderResourceTag::ParticleEmissive);
+    CHECK_EQ(import.kind, ResourceKind::Texture2D);
+    CHECK_EQ(import.format, ResourceFormat::RGBA16F);
+    CHECK_EQ(import.backingOwner, RenderOwnerTag::RadianceCascades);
+    CHECK(import.resizeFollowsScreen);
+    CHECK_FALSE(import.resizeFollowsCapacity);
+    CHECK_EQ(import.colorAttachmentIndex, 0u);
+    importFound = true;
+  }
+  CHECK(importFound);
+}
+
+TEST_CASE("[Unit] RenderGraph - import on transient descriptor fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowBuildPass", [](RenderGraphBuilder &builder) {
+        TypedResourceDescriptor desc;
+        desc.name = "ShadowAtlas";
+        desc.tag = RenderResourceTag::ShadowAtlas;
+        desc.ownerTag = RenderOwnerTag::Shadow;
+        desc.kind = ResourceKind::Texture2D;
+        desc.format = ResourceFormat::RGBA16F;
+        desc.lifetime = ResourceLifetime::Transient; // graph would own this
+        builder.DeclareResource(desc);
+        builder.Write(RenderResourceTag::ShadowAtlas, RenderOwnerTag::Shadow,
+                      PipelineStage::Fragment, ResourceUsage::ColorAttachment);
+
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowAtlas;
+        import.kind = ResourceKind::Texture2D;
+        import.format = ResourceFormat::RGBA16F;
+        import.backingOwner = RenderOwnerTag::Shadow;
+        builder.ImportResource(import);
+      }));
+
+#if defined(NDEBUG)
+  CHECK_NOTHROW(graph.Build());
+#else
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+#endif
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ShadowBuildPass",
+                           "ShadowAtlas", "must not be declared Transient"));
+}
+
+TEST_CASE("[Unit] RenderGraph - import kind mismatch with descriptor fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowResolvePass", [](RenderGraphBuilder &builder) {
+        TypedResourceDescriptor desc;
+        desc.name = "ShadowMask";
+        desc.tag = RenderResourceTag::ShadowMask;
+        desc.ownerTag = RenderOwnerTag::Shadow;
+        desc.kind = ResourceKind::Texture2D;
+        desc.format = ResourceFormat::RGBA16F;
+        desc.lifetime = ResourceLifetime::Persistent;
+        builder.DeclareResource(desc);
+        builder.Write(RenderResourceTag::ShadowMask, RenderOwnerTag::Shadow,
+                      PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowMask;
+        import.kind = ResourceKind::StorageBuffer; // contradicts the descriptor
+        import.backingOwner = RenderOwnerTag::Shadow;
+        builder.ImportResource(import);
+      }));
+
+#if defined(NDEBUG)
+  CHECK_NOTHROW(graph.Build());
+#else
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+#endif
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ShadowResolvePass",
+                           "ShadowMask", "import kind does not match"));
+}
+
+TEST_CASE("[Unit] RenderGraph - conflicting import across passes fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowBuildPass", [](RenderGraphBuilder &builder) {
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowAtlas;
+        import.kind = ResourceKind::Texture2D;
+        import.format = ResourceFormat::RGBA16F;
+        import.backingOwner = RenderOwnerTag::Shadow;
+        builder.ImportResource(import);
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowResolvePass", [](RenderGraphBuilder &builder) {
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowAtlas;
+        import.kind = ResourceKind::StorageBuffer; // contradicts the first pass
+        import.backingOwner = RenderOwnerTag::Shadow;
+        builder.ImportResource(import);
+      }));
+
+#if defined(NDEBUG)
+  CHECK_NOTHROW(graph.Build());
+#else
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+#endif
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ShadowResolvePass",
+                           "ShadowAtlas", "import conflicts with a declaration"));
+}
+
+TEST_CASE("[Unit] RenderGraph - import binding surface mismatch with observed manual bind warns") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowBuildPass", [](RenderGraphBuilder &builder) {
+        TypedResourceDescriptor occluderDesc;
+        occluderDesc.name = "ShadowOccluderSSBO";
+        occluderDesc.tag = RenderResourceTag::ShadowOccluderSSBO;
+        occluderDesc.ownerTag = RenderOwnerTag::Shadow;
+        occluderDesc.kind = ResourceKind::StorageBuffer;
+        occluderDesc.lifetime = ResourceLifetime::Persistent;
+        builder.DeclareResource(occluderDesc);
+
+        // Manual bind stays authoritative; a stale import binding point is a
+        // warning, never an error, and never a GL ownership change.
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowOccluderSSBO;
+        import.kind = ResourceKind::StorageBuffer;
+        import.backingOwner = RenderOwnerTag::Shadow;
+        import.bindingPoint = 7u; // stale: manual bind uses 15
+        builder.ImportResource(import);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  bool foundWarning = false;
+  for (const auto &diagnostic : graph.GetValidationDiagnostics()) {
+    if (diagnostic.severity ==
+            RenderGraph::ValidationDiagnostic::Severity::Warning &&
+        diagnostic.passName == "ShadowBuildPass" &&
+        diagnostic.resourceName == "ShadowOccluderSSBO" &&
+        diagnostic.message.find("does not match the BindBufferBase observation") !=
+            std::string::npos) {
+      foundWarning = true;
+    }
+  }
+  CHECK(foundWarning);
+}
+
+TEST_CASE("[Unit] RenderGraph - import without backing owner warns") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene);
+
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowAtlas;
+        import.kind = ResourceKind::Texture2D;
+        import.format = ResourceFormat::RGBA16F;
+        // backingOwner left Unknown on purpose: unresolved ownership is a
+        // warning so the pass still builds and the observer contract survives.
+        builder.ImportResource(import);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  bool foundWarning = false;
+  for (const auto &diagnostic : graph.GetValidationDiagnostics()) {
+    if (diagnostic.severity ==
+            RenderGraph::ValidationDiagnostic::Severity::Warning &&
+        diagnostic.passName == "ScenePass" &&
+        diagnostic.resourceName == "ShadowAtlas" &&
+        diagnostic.message.find("does not name the external backing owner") !=
+            std::string::npos) {
+      foundWarning = true;
+    }
+  }
+  CHECK(foundWarning);
+}
+
+TEST_CASE("[Unit] RenderGraph - B12 binding resolve admits BufferBase/ImageUnit ops from snapshot") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+  using namespace NoMoreDay::RenderConstants;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ShadowPreparePass>());
+  graph.AddPass(std::make_shared<ShadowBuildPass>());
+  graph.AddPass(std::make_shared<ShadowResolvePass>());
+  graph.AddPass(std::make_shared<LightCullingPass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  // Per-frame imported backing snapshot as injected by RenderSystem; the graph
+  // only copies handles out of it and never owns any GL resource.
+  RenderContext context = {};
+  context.importedBackings.push_back(
+      {RenderResourceTag::ShadowOccluderSSBO, 100u, 0u, 0u});
+  context.importedBackings.push_back(
+      {RenderResourceTag::ShadowDistanceField, 0u, 200u, 0u});
+
+  const auto result = graph.ResolvePassBindings(1u /* ShadowBuildPass */, context);
+  CHECK(result.allAdmitted);
+  CHECK(result.diagnostics.empty());
+  REQUIRE(result.operations.size() == 2u);
+
+  const auto &bufferOp = result.operations[0];
+  CHECK_EQ(bufferOp.kind,
+           RenderGraph::ResolvedBindingOperation::Kind::BindBufferBase);
+  CHECK_EQ(bufferOp.resourceTag, RenderResourceTag::ShadowOccluderSSBO);
+  CHECK_EQ(bufferOp.point, ShadowCS::kOccluderBinding);
+  CHECK_EQ(bufferOp.handle, 100u);
+
+  const auto &imageOp = result.operations[1];
+  CHECK_EQ(imageOp.kind,
+           RenderGraph::ResolvedBindingOperation::Kind::BindImageTexture);
+  CHECK_EQ(imageOp.resourceTag, RenderResourceTag::ShadowDistanceField);
+  CHECK_EQ(imageOp.point, ShadowCS::kSdfImageBinding);
+  CHECK_EQ(imageOp.handle, 200u);
+  CHECK_EQ(imageOp.access, 0x88B9u); // GL_WRITE_ONLY
+  CHECK_EQ(imageOp.format, 0x822Fu); // GL_RG16F
+}
+
+TEST_CASE("[Unit] RenderGraph - B12 missing snapshot denies that binding fail-closed") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ShadowPreparePass>());
+  graph.AddPass(std::make_shared<ShadowBuildPass>());
+  graph.AddPass(std::make_shared<ShadowResolvePass>());
+  graph.AddPass(std::make_shared<LightCullingPass>());
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  RenderContext context = {};
+  context.importedBackings.push_back(
+      {RenderResourceTag::ShadowOccluderSSBO, 100u, 0u, 0u});
+  // No snapshot for ShadowDistanceField on purpose.
+
+  const auto result = graph.ResolvePassBindings(1u, context);
+  CHECK_FALSE(result.allAdmitted);
+  REQUIRE(result.operations.size() == 1u);
+  CHECK_EQ(result.operations[0].kind,
+           RenderGraph::ResolvedBindingOperation::Kind::BindBufferBase);
+  CHECK_EQ(result.operations[0].resourceTag, RenderResourceTag::ShadowOccluderSSBO);
+  CHECK_EQ(result.operations[0].handle, 100u);
+
+  bool sdfDenied = false;
+  for (const auto &diagnostic : result.diagnostics) {
+    if (diagnostic.severity == RenderGraph::ValidationDiagnostic::Severity::Error &&
+        diagnostic.passName == "ShadowBuildPass" &&
+        diagnostic.resourceName == "ShadowDistanceField" &&
+        diagnostic.message.find("no imported backing snapshot") !=
+            std::string::npos) {
+      sdfDenied = true;
+    }
+  }
+  CHECK(sdfDenied);
+}
+
+TEST_CASE("[Unit] RenderGraph - B12 import kind incompatible with binding kind is denied") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ShadowBuildPass", [](RenderGraphBuilder &builder) {
+        TypedResourceDescriptor desc;
+        desc.name = "ShadowOccluderSSBO";
+        desc.tag = RenderResourceTag::ShadowOccluderSSBO;
+        desc.ownerTag = RenderOwnerTag::Shadow;
+        desc.kind = ResourceKind::Texture2D; // import kind matches descriptor
+        desc.format = ResourceFormat::RG16F;
+        desc.lifetime = ResourceLifetime::Persistent;
+        builder.DeclareResource(desc);
+        builder.Write(RenderResourceTag::ShadowOccluderSSBO, RenderOwnerTag::Shadow,
+                      PipelineStage::Compute, ResourceUsage::StorageWrite);
+        // BufferBase binding on a Texture2D-backed import: kind clash.
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+
+        ResourceImportInfo import;
+        import.resourceTag = RenderResourceTag::ShadowOccluderSSBO;
+        import.kind = ResourceKind::Texture2D;
+        import.format = ResourceFormat::RG16F;
+        import.backingOwner = RenderOwnerTag::Shadow;
+        builder.ImportResource(import);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  RenderContext context = {};
+  context.importedBackings.push_back(
+      {RenderResourceTag::ShadowOccluderSSBO, 100u, 0u, 0u});
+
+  const auto result = graph.ResolvePassBindings(0u, context);
+  CHECK_FALSE(result.allAdmitted);
+  CHECK(result.operations.empty());
+  bool kindDenied = false;
+  for (const auto &diagnostic : result.diagnostics) {
+    if (diagnostic.severity == RenderGraph::ValidationDiagnostic::Severity::Error &&
+        diagnostic.passName == "ShadowBuildPass" &&
+        diagnostic.resourceName == "ShadowOccluderSSBO" &&
+        diagnostic.message.find("import kind is incompatible") !=
+            std::string::npos) {
+      kindDenied = true;
+    }
+  }
+  CHECK(kindDenied);
+}
+
+TEST_CASE("[Unit] RenderGraph - B12 zero imported backing handle denies fail-closed") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ShadowPreparePass>());
+  graph.AddPass(std::make_shared<ShadowBuildPass>());
+  graph.AddPass(std::make_shared<ShadowResolvePass>());
+  graph.AddPass(std::make_shared<LightCullingPass>());
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  RenderContext context = {};
+  context.importedBackings.push_back(
+      {RenderResourceTag::ShadowOccluderSSBO, 0u, 0u, 0u});
+  context.importedBackings.push_back(
+      {RenderResourceTag::ShadowDistanceField, 0u, 0u, 0u});
+
+  const auto result = graph.ResolvePassBindings(1u, context);
+  CHECK_FALSE(result.allAdmitted);
+  CHECK(result.operations.empty()); // zero handles must never become GL binds
+  size_t zeroHandleDenials = 0;
+  for (const auto &diagnostic : result.diagnostics) {
+    if (diagnostic.severity == RenderGraph::ValidationDiagnostic::Severity::Error &&
+        diagnostic.passName == "ShadowBuildPass" &&
+        diagnostic.message.find("zero/invalid handle") != std::string::npos) {
+      ++zeroHandleDenials;
+    }
+  }
+  CHECK_EQ(zeroHandleDenials, 2u);
+}
+
+TEST_CASE("[Unit] RenderGraph - B12 unsupported binding kind is diagnostic-only and fail-closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene);
+        // TextureUnit is outside the B12 execution scope (BufferBase/ImageUnit).
+        builder.BindTextureUnit(RenderResourceTag::SceneHdrColor, 0u);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  RenderContext context = {};
+  context.importedBackings.push_back(
+      {RenderResourceTag::SceneHdrColor, 100u, 0u, 0u});
+
+  const auto result = graph.ResolvePassBindings(0u, context);
+  CHECK_FALSE(result.allAdmitted);
+  CHECK(result.operations.empty()); // never faked as a GL bind
+  bool unsupportedReported = false;
+  for (const auto &diagnostic : result.diagnostics) {
+    if (diagnostic.passName == "ScenePass" &&
+        diagnostic.resourceName == "SceneColor" &&
+        diagnostic.message.find("unsupported by graph-driven binding") !=
+            std::string::npos) {
+      unsupportedReported = true;
+    }
+  }
+  CHECK(unsupportedReported);
+}
+
+TEST_CASE("[Unit] RenderGraph - B12 active-pass resolution outside Execute fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene);
+      }));
+  CHECK_NOTHROW(graph.Build());
+
+  RenderContext context = {};
+  const auto result = graph.ResolveActivePassBindings(context);
+  CHECK_FALSE(result.allAdmitted);
+  REQUIRE(result.diagnostics.size() == 1u);
+  CHECK_EQ(result.diagnostics[0].severity,
+           RenderGraph::ValidationDiagnostic::Severity::Error);
+  CHECK(result.diagnostics[0].message.find("no active pass") !=
+        std::string::npos);
 }
 
 

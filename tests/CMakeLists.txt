@@ -31,6 +31,7 @@ set_source_files_properties(
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/PostProcessBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/RadianceCascadesBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/GPUHardwareValidationGateTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/GraphBindingEquivalenceGLTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/AdaptiveQualityControllerTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/S7PairedGiDeltaTest.cpp
     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON

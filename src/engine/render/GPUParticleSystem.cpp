@@ -6,6 +6,7 @@
 #include "engine/render/particle/ForceFieldManager.hpp"
 #include "engine/render/particle/ParticleTextureManager.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 
 // RenderConstants::ParticleCS defines binding point semantics
 #include "engine/render/RenderConstants.hpp"
@@ -202,10 +203,16 @@ void GPUParticleSystem::Shutdown() {
 
   // VAO/VBO cleanup
   if (m_quadVBO != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get()
+        .UnregisterResource(m_quadVBO,
+                            NoMoreDay::render::graph::ResourceKind::VertexBuffer);
     rlUnloadVertexBuffer(m_quadVBO);
     m_quadVBO = 0;
   }
   if (m_quadVAO != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get()
+        .UnregisterResource(m_quadVAO,
+                            NoMoreDay::render::graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(m_quadVAO);
     m_quadVAO = 0;
   }
@@ -444,9 +451,16 @@ void GPUParticleSystem::CreateQuadVAO() {
   };
 
   m_quadVAO = rlLoadVertexArray();
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_quadVAO, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u, "ParticleQuadVAO");
   rlEnableVertexArray(m_quadVAO);
 
   m_quadVBO = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_quadVBO, NoMoreDay::render::graph::ResourceKind::VertexBuffer,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, sizeof(vertices),
+      "ParticleQuadVBO");
   rlSetVertexAttribute(0, 2, RL_FLOAT, false, 2 * sizeof(float), 0);
   rlEnableVertexAttribute(0);
 

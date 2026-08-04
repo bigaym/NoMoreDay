@@ -4,6 +4,7 @@
 #include "engine/render/RenderConstants.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include <rlgl.h>
 #include <string>
 
@@ -37,10 +38,18 @@ void PopupRenderer::Shutdown() {
   if (m_atlas.id != 0)
     UnloadTexture(m_atlas);
 
-  if (m_vbo != 0)
+  if (m_vbo != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_vbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer);
     rlUnloadVertexBuffer(m_vbo);
-  if (m_vao != 0)
+    m_vbo = 0;
+  }
+  if (m_vao != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_vao, NoMoreDay::render::graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(m_vao);
+    m_vao = 0;
+  }
 
   m_initialized = false;
 }
@@ -222,8 +231,15 @@ void PopupRenderer::CreateResources() {
                       0.5f,  0.5f,  1.0f, 1.0f, -0.5f, 0.5f,  0.0f, 1.0f};
 
   m_vao = rlLoadVertexArray();
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_vao, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u, "PopupQuadVAO");
   rlEnableVertexArray(m_vao);
   m_vbo = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_vbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, sizeof(vertices),
+      "PopupQuadVBO");
   rlSetVertexAttribute(0, 2, RL_FLOAT, false, 4 * sizeof(float), 0);
   rlEnableVertexAttribute(0);
   rlSetVertexAttribute(1, 2, RL_FLOAT, false, 4 * sizeof(float),

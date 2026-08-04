@@ -59,6 +59,21 @@ public:
                         std::string_view name);
   void UnregisterResource(uint32_t handle, graph::ResourceKind kind);
   void UpdateResourceSize(uint32_t handle, graph::ResourceKind kind, size_t newSizeBytes);
+
+  // B11 (RG-3 owner metadata): reclassify an existing observer record to a new
+  // RenderOwnerTag so the registry owner matches the RenderGraph owner contract
+  // for backings whose creator registers a generic owner (FramebufferManager
+  // hardcodes Scene; ComputeBuffer registers Unknown). Observer-only metadata
+  // update:
+  //   - only an EXISTING record may be reclassified; an unknown (handle, kind)
+  //     or zero handle fails closed (diagnostic logged, no counter mutation);
+  //   - the per-owner byte ledger is rebalanced from the old to the new owner
+  //     (saturated, so an inconsistent ledger cannot underflow);
+  //   - lifecycle counters (active/created/destroyed) are untouched.
+  // Returns true when an existing record now carries the requested owner (or
+  // already did); false when the handle was unknown/invalid.
+  bool ReclassifyResourceOwner(uint32_t handle, graph::ResourceKind kind,
+                               graph::RenderOwnerTag newOwnerTag);
   void AdvanceFrame();
   void Reset();
 

@@ -4,6 +4,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -50,6 +51,9 @@ void GPUTrailRenderer::Init(int maxTrails, int maxPointsPerTrail) {
   m_maxPointsPerTrailLoc = GetShaderLocation(m_trailShader, "uMaxPointsPerTrail");
 
   m_dummyVAO = rlLoadVertexArray();
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_dummyVAO, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u, "TrailDummyVAO");
   m_initialized = true;
 
   LOG_INFO("GPUTrailRenderer: Initialized (maxTrails={}, maxPointsPerTrail={})",
@@ -66,6 +70,8 @@ void GPUTrailRenderer::Shutdown() {
     m_trailShader = {0};
   }
   if (m_dummyVAO != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_dummyVAO, NoMoreDay::render::graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(m_dummyVAO);
     m_dummyVAO = 0;
   }

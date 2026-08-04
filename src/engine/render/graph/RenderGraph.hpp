@@ -23,6 +23,7 @@ enum class RenderResourceTag : uint8_t {
   OccluderMask,
   DistanceField,
   EmissiveBuffer,
+  ParticleEmissive,
   RadianceMap,
   GIHistoryColor,
   LightBufferSSBO,
@@ -31,6 +32,15 @@ enum class RenderResourceTag : uint8_t {
   FluidParticleSSBO,
   GPUTextBufferSSBO,
   GPULootBufferSSBO,
+  ShadowAtlas,
+  ShadowDistanceField,
+  ShadowMask,
+  ShadowOccluderSSBO,
+  ClusterHeaderSSBO,
+  ClusterLightIndexSSBO,
+  ClusterPackedLightSSBO,
+  ClusterCounterSSBO,
+  LightBoundsSSBO,
 };
 
 enum class RenderOwnerTag : uint8_t {
@@ -51,6 +61,8 @@ enum class RenderOwnerTag : uint8_t {
   PostProcess,
   Distortion,
   Composite,
+  Shadow,
+  LightCulling,
 };
 
 constexpr const char *ToResourceName(RenderResourceTag resourceTag) {
@@ -71,6 +83,8 @@ constexpr const char *ToResourceName(RenderResourceTag resourceTag) {
     return "DistanceField";
   case RenderResourceTag::EmissiveBuffer:
     return "EmissiveBuffer";
+  case RenderResourceTag::ParticleEmissive:
+    return "ParticleEmissive";
   case RenderResourceTag::RadianceMap:
     return "RadianceMap";
   case RenderResourceTag::GIHistoryColor:
@@ -87,6 +101,24 @@ constexpr const char *ToResourceName(RenderResourceTag resourceTag) {
     return "GPUTextBufferSSBO";
   case RenderResourceTag::GPULootBufferSSBO:
     return "GPULootBufferSSBO";
+  case RenderResourceTag::ShadowAtlas:
+    return "ShadowAtlas";
+  case RenderResourceTag::ShadowDistanceField:
+    return "ShadowDistanceField";
+  case RenderResourceTag::ShadowMask:
+    return "ShadowMask";
+  case RenderResourceTag::ShadowOccluderSSBO:
+    return "ShadowOccluderSSBO";
+  case RenderResourceTag::ClusterHeaderSSBO:
+    return "ClusterHeaderSSBO";
+  case RenderResourceTag::ClusterLightIndexSSBO:
+    return "ClusterLightIndexSSBO";
+  case RenderResourceTag::ClusterPackedLightSSBO:
+    return "ClusterPackedLightSSBO";
+  case RenderResourceTag::ClusterCounterSSBO:
+    return "ClusterCounterSSBO";
+  case RenderResourceTag::LightBoundsSSBO:
+    return "LightBoundsSSBO";
   case RenderResourceTag::Custom:
   default:
     return "";
@@ -118,6 +150,9 @@ constexpr RenderResourceTag ToResourceTag(std::string_view resourceName) {
   if (resourceName == "EmissiveBuffer") {
     return RenderResourceTag::EmissiveBuffer;
   }
+  if (resourceName == "ParticleEmissive") {
+    return RenderResourceTag::ParticleEmissive;
+  }
   if (resourceName == "RadianceMap") {
     return RenderResourceTag::RadianceMap;
   }
@@ -141,6 +176,33 @@ constexpr RenderResourceTag ToResourceTag(std::string_view resourceName) {
   }
   if (resourceName == "GPULootBufferSSBO") {
     return RenderResourceTag::GPULootBufferSSBO;
+  }
+  if (resourceName == "ShadowAtlas") {
+    return RenderResourceTag::ShadowAtlas;
+  }
+  if (resourceName == "ShadowDistanceField") {
+    return RenderResourceTag::ShadowDistanceField;
+  }
+  if (resourceName == "ShadowMask") {
+    return RenderResourceTag::ShadowMask;
+  }
+  if (resourceName == "ShadowOccluderSSBO") {
+    return RenderResourceTag::ShadowOccluderSSBO;
+  }
+  if (resourceName == "ClusterHeaderSSBO") {
+    return RenderResourceTag::ClusterHeaderSSBO;
+  }
+  if (resourceName == "ClusterLightIndexSSBO") {
+    return RenderResourceTag::ClusterLightIndexSSBO;
+  }
+  if (resourceName == "ClusterPackedLightSSBO") {
+    return RenderResourceTag::ClusterPackedLightSSBO;
+  }
+  if (resourceName == "ClusterCounterSSBO") {
+    return RenderResourceTag::ClusterCounterSSBO;
+  }
+  if (resourceName == "LightBoundsSSBO") {
+    return RenderResourceTag::LightBoundsSSBO;
   }
   return RenderResourceTag::Custom;
 }
@@ -179,6 +241,10 @@ constexpr const char *ToOwnerName(RenderOwnerTag ownerTag) {
     return "Distortion";
   case RenderOwnerTag::Composite:
     return "Composite";
+  case RenderOwnerTag::Shadow:
+    return "Shadow";
+  case RenderOwnerTag::LightCulling:
+    return "LightCulling";
   case RenderOwnerTag::Unknown:
   default:
     return "Unknown";
@@ -207,6 +273,120 @@ struct ResourceAccess {
 #include "engine/render/graph/RenderResourceDescriptor.hpp"
 
 namespace NoMoreDay::render::graph {
+
+// ---------------------------------------------------------------------------
+// Phase-aware barrier declaration (B2 contract, 2026-08-03)
+//
+// A pass may contain several GPU sub-phases inside a single Execute (e.g. a
+// compute dispatch followed by in-pass hybrid fragment draws). Pass-entry
+// barriers (AddPassLocalBarrier) and cross-pass graph transitions fire before
+// Execute and therefore CANNOT cover such same-pass phase transitions.
+//
+// AddPhaseBarrier(source, target, bits) declares, at Setup time, that the pass
+// requires a GL memory barrier when moving from `sourcePhase` to `targetPhase`
+// inside its own Execute. The pass then calls
+// RenderContext::EmitPhaseBarrier(source, target) at exactly that execution
+// point; RenderGraph resolves the declared bits and issues the barrier. The
+// declaration is descriptive only -- it never binds GL resources or changes
+// ownership.
+// ---------------------------------------------------------------------------
+struct PhaseBarrierDeclaration {
+  PipelineStage sourcePhase = PipelineStage::Compute;
+  PipelineStage targetPhase = PipelineStage::Fragment;
+  uint32_t barrierBits = 0;
+};
+
+// Resource binding kinds a pass may declare as an OBSERVATION of how it will
+// bind a resource during Execute. These declarations do not issue any GL calls
+// and do not take ownership; they give the graph visibility over backing
+// binding points (buffer binding points / image units / texture units) until a
+// future phase migrates the manual BindBufferBase/BindImageTexture calls.
+enum class ResourceBindingKind : uint8_t {
+  BufferBase = 0,     // glBindBufferBase(GL_SHADER_STORAGE_BUFFER, point, buffer)
+  ImageUnit,          // glBindImageTexture(unit, texture, level, layered, layer, access, format)
+  TextureUnit,        // glActiveTexture(unit) + glBindTexture (sampler input)
+  ColorAttachment,    // framebuffer color attachment index
+};
+
+struct ResourceBindingDeclaration {
+  RenderResourceTag resourceTag = RenderResourceTag::Custom;
+  ResourceBindingKind kind = ResourceBindingKind::BufferBase;
+  uint32_t point = 0;  // binding point / texture unit / attachment index
+  uint32_t access = 0; // image-unit access (GL_READ_ONLY/WRITE_ONLY/READ_WRITE); 0 otherwise
+  uint32_t format = 0; // image-unit internal format; 0 otherwise
+};
+
+// ---------------------------------------------------------------------------
+// External backing import contract (blocker: shadow/cluster/LightBuffer GL
+// backing ownership).
+//
+// Many typed resources are reached during a pass Execute through GL backings
+// that are created, resized, and released OUTSIDE the graph (FramebufferManager
+// framebuffers, ComputeBuffer SSBOs, LightManager/ClusteredLightingState
+// buffers). A pass declares that fact at Setup time via ImportResource. The
+// declaration is OBSERVER-ONLY and matches the BindBufferBase/BindImageUnit
+// observation contract:
+//
+//   - the graph never allocates, resizes, frees, or GL-binds imported backing;
+//   - ownership remains with the named backingOwner (the pass/state that calls
+//     FramebufferManager::Create/Resize/Destroy, ComputeBuffer::Create/Release,
+//     or LightManager buffer management);
+//   - bindingPoint/imageUnit/imageAccess/imageFormat/colorAttachmentIndex
+//     document the manual GL surface the pass currently reaches the backing
+//     with, so a future phase can swap the manual binds for graph-driven ones
+//     without changing ownership.
+//
+// Validation fails closed on contradictory imports (duplicate in a pass,
+// conflicting kind/format across passes, Transient descriptors, descriptor
+// mismatches) and warns on unresolved surfaces (unknown owner, mismatch with a
+// BindBufferBase/BindImageUnit observation). Resize contract: exactly one of
+// the resize* flags should reflect how the owner governs the backing extent
+// (FramebufferManager screen-size FBOs follow screen resize; capacity-backed
+// SSBOs follow light/cluster capacity growth). Zero in both flags is allowed
+// for fixed-size backings.
+// ---------------------------------------------------------------------------
+struct ResourceImportInfo {
+  RenderResourceTag resourceTag = RenderResourceTag::Custom;
+  ResourceKind kind = ResourceKind::StorageBuffer;      // real GL object kind
+  ResourceFormat format = ResourceFormat::Unknown;      // real backing format (textures)
+  RenderOwnerTag backingOwner = RenderOwnerTag::Unknown; // non-graph creator/owner
+
+  // Resize lifecycle contract (owner side; the graph never resizes).
+  bool resizeFollowsScreen = false;   // owner recreates backing on screen resize
+  bool resizeFollowsCapacity = false; // owner recreates backing on capacity growth
+
+  // Binding surface this pass uses to reach the backing during Execute.
+  uint32_t bindingPoint = 0;     // SSBO/UBO binding point or texture unit
+  uint32_t imageUnit = 0;        // image unit (glBindImageTexture)
+  uint32_t imageAccess = 0;      // image access (GL_READ_ONLY/WRITE_ONLY/READ_WRITE)
+  uint32_t imageFormat = 0;      // image internal format (e.g. GL_RG16F)
+  uint32_t colorAttachmentIndex = 0; // framebuffer color attachment index
+};
+
+// Resolved external backing supplied by the owner at frame execution time.
+// This is a handle snapshot only: the graph does not own or release any of
+// these GL objects. Zero handles are invalid and must fail closed.
+struct ImportedBackingHandle {
+  RenderResourceTag resourceTag = RenderResourceTag::Custom;
+  uint32_t bufferHandle = 0;
+  uint32_t textureHandle = 0;
+  uint32_t framebufferHandle = 0;
+
+  bool IsValidFor(ResourceKind kind) const {
+    switch (kind) {
+    case ResourceKind::StorageBuffer:
+    case ResourceKind::UniformBuffer:
+      return bufferHandle != 0;
+    case ResourceKind::Texture2D:
+    case ResourceKind::Texture2DArray:
+      return textureHandle != 0;
+    case ResourceKind::Framebuffer:
+      return framebufferHandle != 0;
+    default:
+      return false;
+    }
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Stable pass identity (S0)
@@ -275,16 +455,52 @@ public:
   void DeclareResource(const TypedResourceDescriptor &descriptor);
   void AddPassLocalBarrier(uint32_t barrierBits);
 
+  // Declares a same-pass phase transition that requires a GL memory barrier
+  // inside Execute. The pass must emit it at the exact execution point via
+  // RenderContext::EmitPhaseBarrier(sourcePhase, targetPhase).
+  void AddPhaseBarrier(PipelineStage sourcePhase, PipelineStage targetPhase,
+                       uint32_t barrierBits);
+
+  // Observes how the pass binds a declared resource during Execute. These are
+  // descriptive declarations only: they never issue GL calls nor change
+  // resource ownership.
+  void BindBufferBase(RenderResourceTag resourceTag, uint32_t bindingPoint);
+  void BindImageUnit(RenderResourceTag resourceTag, uint32_t unit,
+                     uint32_t access, uint32_t format);
+  // Observer-only declarations for the remaining binding kinds. The B12
+  // graph-driven execution layer treats them as unsupported (diagnostic only)
+  // until a future phase; the manual surface inside Execute stays
+  // authoritative.
+  void BindTextureUnit(RenderResourceTag resourceTag, uint32_t textureUnit);
+  void BindColorAttachment(RenderResourceTag resourceTag, uint32_t attachmentIndex);
+
+  // Declares that a typed resource is reached through GL backing created and
+  // owned outside the graph (see ResourceImportInfo). Observer-only: the graph
+  // must never allocate, resize, free, or GL-bind imported backing.
+  void ImportResource(const ResourceImportInfo &import);
+
   const std::vector<ResourceAccess> &GetAccesses() const { return m_accesses; }
   const std::vector<TypedPassAccess> &GetTypedAccesses() const { return m_typedAccesses; }
   const std::vector<TypedResourceDescriptor> &GetDeclaredDescriptors() const { return m_declaredDescriptors; }
   const std::vector<uint32_t> &GetPassLocalBarriers() const { return m_passLocalBarriers; }
+  const std::vector<PhaseBarrierDeclaration> &GetPhaseBarriers() const {
+    return m_phaseBarriers;
+  }
+  const std::vector<ResourceBindingDeclaration> &GetBindings() const {
+    return m_bindings;
+  }
+  const std::vector<ResourceImportInfo> &GetImports() const {
+    return m_imports;
+  }
 
 private:
   std::vector<ResourceAccess> m_accesses;
   std::vector<TypedPassAccess> m_typedAccesses;
   std::vector<TypedResourceDescriptor> m_declaredDescriptors;
   std::vector<uint32_t> m_passLocalBarriers;
+  std::vector<PhaseBarrierDeclaration> m_phaseBarriers;
+  std::vector<ResourceBindingDeclaration> m_bindings;
+  std::vector<ResourceImportInfo> m_imports;
 };
 
 struct RenderContext;
@@ -324,6 +540,41 @@ struct RenderTransition {
   uint32_t barrierBits = 0;
 };
 
+struct CompiledPhaseBarrier {
+  size_t passIndex = 0;
+  std::string passName;
+  PipelineStage sourcePhase = PipelineStage::Compute;
+  PipelineStage targetPhase = PipelineStage::Fragment;
+  uint32_t barrierBits = 0;
+};
+
+struct CompiledResourceBinding {
+  size_t passIndex = 0;
+  std::string passName;
+  std::string resourceName;
+  ResourceBindingKind kind = ResourceBindingKind::BufferBase;
+  uint32_t point = 0;
+  uint32_t access = 0;
+  uint32_t format = 0;
+};
+
+struct CompiledResourceImport {
+  size_t passIndex = 0;
+  std::string passName;
+  std::string resourceName;
+  RenderResourceTag resourceTag = RenderResourceTag::Custom;
+  ResourceKind kind = ResourceKind::StorageBuffer;
+  ResourceFormat format = ResourceFormat::Unknown;
+  RenderOwnerTag backingOwner = RenderOwnerTag::Unknown;
+  bool resizeFollowsScreen = false;
+  bool resizeFollowsCapacity = false;
+  uint32_t bindingPoint = 0;
+  uint32_t imageUnit = 0;
+  uint32_t imageAccess = 0;
+  uint32_t imageFormat = 0;
+  uint32_t colorAttachmentIndex = 0;
+};
+
 class RenderGraph {
 public:
   struct ValidationDiagnostic {
@@ -352,9 +603,61 @@ public:
     std::vector<ProducerConsumerEdge> edges;
     std::vector<CompiledResourceState> resources;
     std::vector<RenderTransition> transitions;
+    std::vector<CompiledPhaseBarrier> phaseBarriers;
+    std::vector<CompiledResourceBinding> bindings;
+    std::vector<CompiledResourceImport> imports;
     std::vector<ValidationDiagnostic> diagnostics;
 
     std::string DumpPlan() const;
+  };
+
+  // -------------------------------------------------------------------------
+  // B12 graph-driven binding admission/execution contract (2026-08-04)
+  //
+  // RenderGraph can resolve, for the pass currently executing, the real GL
+  // binds that match its compiled binding declarations (BindBufferBase /
+  // BindImageUnit) against the per-frame imported backing snapshot supplied by
+  // the owners through RenderContext. The graph never allocates, resizes,
+  // releases, or owns GL handles: handles are copied from the snapshot at
+  // admission time and only the existing GPUUtils binding APIs are invoked.
+  //
+  // Admission is EXPLICIT and FAIL-CLOSED. A binding is executed only when ALL
+  // of the following hold:
+  //   - the pass declared a matching ImportResource for the same tag,
+  //   - the import kind is compatible with the binding kind (tag/kind agree),
+  //   - the RenderContext snapshot carries a non-zero handle for that tag and
+  //     ImportedBackingHandle::IsValidFor(import.kind) returns true.
+  // Anything missing, inconsistent, or zero-handed is DENIED: no GL bind is
+  // issued, a validation/runtime diagnostic is recorded, and the caller
+  // receives false. Unsupported binding kinds (TextureUnit / ColorAttachment)
+  // are also denied with an explicit "unsupported" diagnostic. Manual binds
+  // inside pass Execute remain the authoritative surface and stay untouched;
+  // graph-driven binds are behavior-equivalent duplicates of them.
+  // -------------------------------------------------------------------------
+  struct ResolvedBindingOperation {
+    enum class Kind : uint8_t {
+      None = 0,
+      BindBufferBase,   // glBindBufferBase(GL_SHADER_STORAGE_BUFFER, point, handle)
+      BindImageTexture, // glBindImageTexture(unit, handle, 0, false, 0, access, format)
+      Unsupported,      // binding kind outside the B12 admission scope
+    };
+
+    Kind kind = Kind::None;
+    RenderResourceTag resourceTag = RenderResourceTag::Custom;
+    uint32_t point = 0;  // SSBO binding point or image unit
+    uint32_t handle = 0; // real GL handle from the snapshot; NOT owned by the graph
+    uint32_t access = 0; // image-unit access (BindImageTexture)
+    uint32_t format = 0; // image internal format (BindImageTexture)
+  };
+
+  // Result of resolving a pass's binding declarations against the snapshot.
+  // `operations` holds only ADMITTED operations in declaration order; denied
+  // or unsupported bindings never appear as GL binds and are reported through
+  // `diagnostics` + `allAdmitted == false`.
+  struct BindingResolutionResult {
+    std::vector<ResolvedBindingOperation> operations;
+    std::vector<ValidationDiagnostic> diagnostics;
+    bool allAdmitted = false; // true when every supported binding was admitted
   };
 
   void AddPass(std::shared_ptr<RenderPass> pass);
@@ -366,6 +669,39 @@ public:
   static bool IsValidationEnabled();
   static void SetTransientAliasingEnabled(bool enabled);
   static bool IsTransientAliasingEnabled();
+
+  // Emits the GL barrier declared via RenderGraphBuilder::AddPhaseBarrier(...)
+  // for the pass currently executing. Only valid between the start and end of
+  // a pass Execute driven by RenderGraph::Execute. Returns false (with an
+  // error log) when the phase pair was never declared for the active pass.
+  bool EmitActivePassPhaseBarrier(PipelineStage sourcePhase,
+                                  PipelineStage targetPhase);
+
+  // B12 graph-driven binding (see contract note above).
+  //
+  // Resolves the binding operations for the pass at `passIndex` by admitting
+  // each compiled binding declaration against a matching import and a valid
+  // snapshot handle. Pure resolution: no GL calls, no ownership change, no
+  // graph state mutation — fully unit-testable without a GL context.
+  BindingResolutionResult ResolvePassBindings(size_t passIndex,
+                                              const RenderContext &context) const;
+
+  // Same as ResolvePassBindings, but for the pass currently executing inside
+  // RenderGraph::Execute. Fail-closed when no pass is active.
+  BindingResolutionResult ResolveActivePassBindings(const RenderContext &context) const;
+
+  // Executes the admitted binding operations of the currently active pass via
+  // the existing GPUUtils binding APIs, immediately before pass Execute.
+  // Denied / unsupported bindings are never bound and are recorded (and
+  // logged) as runtime diagnostics. Returns true only when every supported
+  // binding of the active pass was admitted and bound.
+  bool ApplyActivePassBindings(RenderContext &context);
+
+  // Runtime diagnostics recorded by ApplyActivePassBindings during the current
+  // RenderGraph::Execute frame (accumulated across passes, cleared each frame).
+  const std::vector<ValidationDiagnostic> &GetRuntimeBindingDiagnostics() const {
+    return m_runtimeBindingDiagnostics;
+  }
 
   size_t GetPassCount() const { return m_nodes.size(); }
   const std::vector<ValidationDiagnostic> &GetValidationDiagnostics() const {
@@ -387,6 +723,9 @@ private:
     std::vector<TypedPassAccess> typedAccesses;
     std::vector<TypedResourceDescriptor> declaredDescriptors;
     std::vector<uint32_t> passLocalBarriers;
+    std::vector<PhaseBarrierDeclaration> phaseBarriers;
+    std::vector<ResourceBindingDeclaration> bindings;
+    std::vector<ResourceImportInfo> imports;
   };
 
   bool ValidatePassIdentityContract();
@@ -404,6 +743,8 @@ private:
   CompiledRenderPlan m_compiledPlan;
   bool m_hasValidationErrors = false;
   bool m_isBuilt = false;
+  size_t m_activeNodeIndex = static_cast<size_t>(-1);
+  std::vector<ValidationDiagnostic> m_runtimeBindingDiagnostics;
   static bool s_validationEnabled;
   static bool s_transientAliasingEnabled;
 };

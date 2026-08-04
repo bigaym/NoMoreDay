@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "rlgl.h"
 
 #include <GLFW/glfw3.h>
@@ -382,8 +383,15 @@ void GPULootSystem::Init(const uint32_t maxInstances) {
       0.5f,  0.5f,  1.0f, 1.0f, -0.5f, -0.5f, 0.0f, 0.0f,
       0.5f,  0.5f,  1.0f, 1.0f, -0.5f, 0.5f,  0.0f, 1.0f};
   m_vao = rlLoadVertexArray();
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_vao, NoMoreDay::render::graph::ResourceKind::VertexArray,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u, "LootQuadVAO");
   rlEnableVertexArray(m_vao);
   m_vbo = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+      m_vbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer,
+      NoMoreDay::render::graph::RenderOwnerTag::Unknown, sizeof(vertices),
+      "LootQuadVBO");
   rlSetVertexAttribute(0, 2, RL_FLOAT, false, 4 * sizeof(float), 0);
   rlEnableVertexAttribute(0);
   rlSetVertexAttribute(1, 2, RL_FLOAT, false, 4 * sizeof(float), 2 * sizeof(float));
@@ -401,10 +409,14 @@ void GPULootSystem::Shutdown() {
   m_visibleInstanceCount = 0;
 
   if (m_vao != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_vao, NoMoreDay::render::graph::ResourceKind::VertexArray);
     rlUnloadVertexArray(m_vao);
     m_vao = 0;
   }
   if (m_vbo != 0) {
+    NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+        m_vbo, NoMoreDay::render::graph::ResourceKind::VertexBuffer);
     rlUnloadVertexBuffer(m_vbo);
     m_vbo = 0;
   }
