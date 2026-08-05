@@ -3,7 +3,7 @@
 > **关联设计:** `docs/designs/2026-08-03-render-engine-interface-migration-design.md` §5.6
 > **关闭债务:** RG-4（reload/capability 平行路径）
 > **依赖:** 建议 Phase B 后启动（可并行）
-> **状态:** [ ] 未开始
+> **状态:** [x] 已完成（2026-08-05，F1-F5 全部落地并验证；见 §8 handoff 摘要）
 
 ## 1. Authority And Boundaries
 
@@ -46,11 +46,11 @@ installDebugCallback(severity->log);  // GL_DEBUG_OUTPUT + callback，severity �
 
 | # | 任务 | 依赖 | 状态 |
 | --- | --- | --- | --- |
-| F1 | `ShaderReloadGovernance` 覆盖 VS/FS + 递归 include hash + 失败重试 | - | [ ] |
-| F2 | 生产路径 reload 统一走 governance；`ShaderHotReloadManager` 决策（删除或 dev-only 移出） | F1、用户确认 F3 | [ ] |
-| F3 | `DeviceCapabilityMatrix` 接入生产路径 fail-closed（clustered 等依赖项） | - | [ ] |
-| F4 | GL debug callback 安装（P0 S3） | - | [ ] |
-| F5 | reload/capability fallback 自动化测试 + 回归 | F1-F4 | [ ] |
+| F1 | `ShaderReloadGovernance` 覆盖 VS/FS + 递归 include hash + 失败重试 | - | [x] 2026-08-05：代码已满足（ResourceManager.cpp:314-358 VS/FS success/failure 记录、:409-413 compute 记录、`ComputeIncludeHash` 递归 include、失败保留 `lastSuccessfulHash`），仅补测试（`tests/unit/ShaderReloadGovernanceTest.cpp`，3 用例） |
+| F2 | 生产路径 reload 统一走 governance；`ShaderHotReloadManager` 决策（删除或 dev-only 移出） | F1、用户确认 F3 | [x] 2026-08-05：用户决策**整体删除**；`.cpp/.hpp` 删除、CMakeLists 移除、RenderSystem.cpp 全部 5 处引用移除；`MaterialManager::TryHotReload()` 确认独立（JSON mtime 驱动）保留；`ShaderReloadGovernance` 为唯一 reload 状态/失败重试 owner |
+| F3 | `DeviceCapabilityMatrix` 接入生产路径 fail-closed（clustered 等依赖项） | - | [x] 2026-08-05：新增 `CheckProductionRequirements`（GL4.3/compute/SSBO/image/barrier，纯函数）；`RenderSystem::Initialize` 一次性 probe，缺失 LOG_ERROR + 中止初始化，不静默降级 |
+| F4 | GL debug callback 安装（P0 S3） | - | [x] 2026-08-05：新增 `render/debug/GLDebugCallback.{hpp,cpp}` 常驻安装（ERROR/HIGH 过滤）；与 gate 的 scoped 安装共存（gate 保存/恢复前 callback）；Initialize 安装 / Shutdown 恢复 |
+| F5 | reload/capability fallback 自动化测试 + 回归 | F1-F4 | [x] 2026-08-05：`ShaderReloadGovernanceTest`（3）+ `DeviceCapabilityProductionGateTest`（3，含 fabricated report fail-closed 与真实 GL probe、debug callback 捕获驱动错误）；unit/integration 套件回归 |
 
 ## 6. Test Method
 
@@ -87,3 +87,12 @@ artifact path: ...
 Track docs updated: M0-B spec §3 / debt RG-4 / P0 S3
 remaining risk or blocker: ...
 ```
+
+## 9. Implementation Record (2026-08-05)
+
+- **决策落地**：用户明确 `ShaderHotReloadManager` **整体删除**（非移出生产路径保留 dev 工具），本阶段按此执行；设计 open decision #3 同步闭合。
+- **F1 核实结论**：VS/FS（success `ResourceManager.cpp:342-358`、failure `:314-331`）与 compute（`:409-413`）均已记录；`ComputeIncludeHash` 已递归解析 `#include`（`ShaderReloadGovernance.cpp:27-62`）；失败重试保留 `lastSuccessfulHash` 并递增 `retryCount`（`RecordReloadAttempt` 仅 success 时更新指纹）。代码满足，仅补测试。
+- **F2 残留检查**：`src/` 内 `ShaderHotReloadManager`/`g_shaderHotReloadManager` 引用归零；`render/dev/` 空目录已删。`shaderHotReloadEnabled` 配置字段保留（settings.json 兼容，不再被渲染路径消费）。MaterialManager 材质热重载（JSON mtime + `hotReloadEnabled`）独立保留，不依赖被删组件。
+- **F3 语义**：`CheckProductionRequirements` 对 GL4.3 core/compute/SSBO/image load-store/`glMemoryBarrier` 缺失 fail-closed；诊断性能力（timer/debug callback）不在生产必需集。probe 恰一次（`DeviceCapabilityMatrix::Get()` 缓存），与 gate/诊断共享同一报告。
+- **F4 共存验证**：gate 的 `GlDebugOutputGuard` 保存/恢复前 callback 与 `GL_DEBUG_OUTPUT` 状态（`GPUHardwareValidationGate.cpp:111-150`），生产安装与其先后顺序均安全；`--gpu-gate` 路径（Game 构造→`RenderSystem::Initialize`）先装生产 callback，gate 运行后恢复。
+- **验证摘要**：build 成功；新增 focused 6 用例全绿；unit 9/9、integration 4/6（2 个 ctest 条目失败，均源自既有 `GPUEntityLifecycleRegistryTest` W5 partial-init rollback，与本阶段无关）；boundary/legacy/diff-check 全过。详见 handoff。

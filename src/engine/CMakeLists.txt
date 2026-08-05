@@ -8,11 +8,11 @@ add_library(NoMoreDayEngine STATIC
     render/core/BindingRegistry.cpp
     render/core/DeviceCapabilityMatrix.cpp
     render/core/QualityTierManager.cpp
+    render/debug/GLDebugCallback.cpp
     render/debug/GPUTimerQueryRing.cpp
     render/debug/ProfilerHudRenderer.cpp
     render/debug/RenderProfiler.cpp
     render/debug/ShaderReloadGovernance.cpp
-    render/dev/ShaderHotReloadManager.cpp
     render/gi/JFADistanceFieldEvaluator.cpp
     render/GPUABIContract.cpp
     render/GPUEntitySystem.cpp

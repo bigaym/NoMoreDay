@@ -55,6 +55,16 @@ void RadianceCascadesPass::Setup(graph::RenderGraphBuilder &builder) {
                 graph::RenderOwnerTag::RadianceCascades);
   builder.Write(graph::RenderResourceTag::RadianceMap,
                 graph::RenderOwnerTag::RadianceCascades);
+
+  // Same-pass phase barrier: the emissive build / material / merge / cascade
+  // compute dispatches all run inside this Execute and exchange data via image
+  // loads and stores. Declared here and emitted via EmitPhaseBarrier at each
+  // phase boundary (the exact execution points pass-entry barriers cannot
+  // cover).
+  builder.AddPhaseBarrier(graph::PipelineStage::Compute,
+                          graph::PipelineStage::Compute,
+                          static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+                              kTextureFetchBarrierBit);
 }
 
 bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
@@ -390,9 +400,10 @@ bool RadianceCascadesPass::RunEmissiveBuild(const graph::RenderContext &context,
       DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the material-emissive dispatches read the emissive
+  // base image: emitted from the Setup AddPhaseBarrier(Compute, Compute, ...).
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
@@ -475,16 +486,18 @@ bool RadianceCascadesPass::RunMaterialEmissive(
     NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
         DivUp(static_cast<uint32_t>(dispatchSize[0]), kGLComputeGroupSize),
         DivUp(static_cast<uint32_t>(dispatchSize[1]), kGLComputeGroupSize), 1u);
-    NoMoreDay::utils::GPUUtils::MemoryBarrier(
-        static_cast<uint32_t>(RenderConstants::Barrier::Image));
+    // Same-pass sync: successive stamp dispatches read-modify-write the same
+    // emissive image; emitted at this exact execution point.
+    context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                             graph::PipelineStage::Compute);
     ++stampCount;
   }
 
   rlDisableShader();
   NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the emissive merge dispatch reads the emissive base.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   m_lastMaterialStampCount = stampCount;
   return true;
 }
@@ -497,7 +510,8 @@ bool RadianceCascadesPass::RunParticleEmissive(const graph::RenderContext &conte
   return m_particleEmissive.IsValid() && m_vfxEmissionSnapshotValid;
 }
 
-bool RadianceCascadesPass::RunEmissiveMerge(const int width, const int height) {
+bool RadianceCascadesPass::RunEmissiveMerge(const graph::RenderContext &context,
+                                            const int width, const int height) {
   if (m_emissiveMergeShader.id == 0 || !m_emissiveBase.IsValid() ||
       !m_particleEmissive.IsValid() || !m_emissiveCombined.IsValid()) {
     return false;
@@ -526,9 +540,10 @@ bool RadianceCascadesPass::RunEmissiveMerge(const int width, const int height) {
       DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the cascade trace dispatch reads the combined
+  // emissive image (and before the level-0 radiance result leaves this pass).
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
@@ -622,10 +637,10 @@ bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
     NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
         DivUp(static_cast<uint32_t>(target.width), kGLComputeGroupSize),
         DivUp(static_cast<uint32_t>(target.height), kGLComputeGroupSize), 1u);
-    const uint32_t barrierBits =
-        static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-        kTextureFetchBarrierBit;
-    NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+    // Same-pass sync: each cascade level's dispatch reads the coarser level
+    // written by the previous iteration; emitted at this exact execution point.
+    context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                             graph::PipelineStage::Compute);
   }
 
   rlDisableShader();
@@ -759,7 +774,7 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
     ReportFailure("particle emissive pass failed");
     return;
   }
-  if (!RunEmissiveMerge(width, height)) {
+  if (!RunEmissiveMerge(context, width, height)) {
     ReportFailure("emissive merge failed");
     return;
   }

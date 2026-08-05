@@ -204,7 +204,7 @@ void ShadowBuildPass::ReportFailure(const char *reason) {
   m_lastExecuteSuccess = false;
   m_lastFailureReason = reason;
   LOG_LIMITED_WARN(
-      1.0f, "ShadowFallback: frame={} reason={} fallback=V2Lighting",
+      1.0f, "ShadowFallback: frame={} reason={} fallback=NoShadowMask",
       m_frameIndex, m_lastFailureReason);
 }
 
@@ -232,14 +232,16 @@ bool ShadowBuildPass::InitializeAtlasPath(ResourceManager &resources) {
 }
 
 void ShadowBuildPass::Shutdown() {
-  if (m_sdfComputeShader.id != 0) {
-    UnloadShader(m_sdfComputeShader);
-    m_sdfComputeShader = {};
-  }
-  if (m_atlasTileShader.id != 0) {
-    UnloadShader(m_atlasTileShader);
-    m_atlasTileShader = {};
-  }
+  // Ownership contract: m_sdfComputeShader and m_atlasTileShader were loaded
+  // through ResourceManager::loadComputeShader/loadShader, so the
+  // ResourceManager is their SOLE owner and GL releaser (unloadAll /
+  // ReleaseShader). This pass only borrows them: Shutdown must NOT call
+  // raylib UnloadShader here — that would double-free shader.locs when the
+  // manager later releases the same programs. We simply drop the local
+  // references; the ResourceManager cache stays valid, so a re-Initialize()
+  // reuses the same (still alive) shader objects.
+  m_sdfComputeShader = {};
+  m_atlasTileShader = {};
   m_occluderBuffer.Release();
   resources::FramebufferManager::Destroy(m_sdfField);
   resources::FramebufferManager::Destroy(m_shadowAtlas);

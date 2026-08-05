@@ -246,7 +246,13 @@ void DistortionPass::Execute(graph::RenderContext &context) {
   if (!m_initialized && !Initialize()) {
     return;
   }
-  if (m_inputBuffer == nullptr || !m_inputBuffer->IsValid() ||
+  // Phase D (RG-2): resolve the input from the graph-context producer output;
+  // a manually wired SetInputBuffer (retained for tests) takes precedence.
+  const resources::FramebufferHandle *inputBuffer = m_inputBuffer;
+  if (inputBuffer == nullptr) {
+    inputBuffer = &context.postProcessOutput;
+  }
+  if (inputBuffer == nullptr || !inputBuffer->IsValid() ||
       context.qualityManager == nullptr || context.camera == nullptr) {
     m_finalOutputBuffer = {};
     ResetSources();
@@ -255,15 +261,15 @@ void DistortionPass::Execute(graph::RenderContext &context) {
 
   const auto &config = context.qualityManager->GetConfig();
   if (!config.distortionEnabled) {
-    m_finalOutputBuffer = *m_inputBuffer;
+    m_finalOutputBuffer = *inputBuffer;
     ResetSources();
     return;
   }
 
-  const int width = m_inputBuffer->width;
-  const int height = m_inputBuffer->height;
+  const int width = inputBuffer->width;
+  const int height = inputBuffer->height;
   if (width <= 0 || height <= 0) {
-    m_finalOutputBuffer = *m_inputBuffer;
+    m_finalOutputBuffer = *inputBuffer;
     ResetSources();
     return;
   }
@@ -272,7 +278,7 @@ void DistortionPass::Execute(graph::RenderContext &context) {
   }
   EnsureWorkingBuffers(context, width, height);
   if (!m_distortionBuffer.IsValid() || !m_applyBuffer.IsValid()) {
-    m_finalOutputBuffer = *m_inputBuffer;
+    m_finalOutputBuffer = *inputBuffer;
     ResetSources();
     return;
   }
@@ -318,7 +324,7 @@ void DistortionPass::Execute(graph::RenderContext &context) {
 
   BindFramebufferAndViewport(m_applyBuffer);
   NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
-  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, m_inputBuffer->colorTexture);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, inputBuffer->colorTexture);
   NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0 + 1);
   NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, m_distortionBuffer.colorTexture);
 

@@ -3,7 +3,7 @@
 > **关联设计:** `docs/designs/2026-08-03-render-engine-interface-migration-design.md` §5.4
 > **关闭债务:** RG-1/RG-2（compiled plan 未保存跨 pass transition / descriptor 名称脱离）
 > **依赖:** Phase B、C（graph 覆盖 shadow/cluster/lighting 后，RenderSystem 才能整体依赖 graph）
-> **状态:** [ ] 未开始
+> **状态:** [x] 已完成（2026-08-05，含 D1-D7）
 
 ## 1. Authority And Boundaries
 
@@ -49,13 +49,13 @@ if config.useHdrSceneBuffer != s_prevUseHdrSceneBuffer:
 
 | # | 任务 | 依赖 | 状态 |
 | --- | --- | --- | --- |
-| D1 | 接通 `RenderGraph::OnResize`，统一 resize 分发，移除两处重复 fan-out 与 `EnsureGiPassesSized` | B、C | [ ] |
-| D2 | owner 追踪改 graph 推断（`ProducerOf`） | B、C | [ ] |
-| D3 | composite input 选择 + 变更日志改 graph 推断 | B、C | [ ] |
-| D4 | Distortion 输入改 typed access（移除 SetInputBuffer） | B、C | [ ] |
-| D5 | HDR/GI 状态机改 registry snapshot/config 驱动 | D1-D4 | [ ] |
-| D6 | ScenePass/Composite lambda 手工 bind 收敛为 graph attachment 声明 | D1-D4 | [ ] |
-| D7 | resize/toggle 回归测试 + 边界脚本 + `legacy` 扫描 | D1-D6 | [ ] |
+| D1 | 接通 `RenderGraph::OnResize`，统一 resize 分发，移除两处重复 fan-out 与 `EnsureGiPassesSized` | B、C | [x] |
+| D2 | owner 追踪改 graph 推断（`FindLastWriterOwner` 取代设计伪代码的 `ProducerOf`） | B、C | [x] |
+| D3 | composite input 选择 + 变更日志改 graph 推断 | B、C | [x] |
+| D4 | Distortion 输入改 typed access（移除 SetInputBuffer 生产调用，保留方法供测试） | B、C | [x] |
+| D5 | HDR/GI 状态机改 registry snapshot/config 驱动 | D1-D4 | [x] |
+| D6 | ScenePass/Composite lambda 手工 bind 收敛为 graph attachment 声明（target 来源 context 化） | D1-D4 | [x] |
+| D7 | resize/toggle 回归测试 + 边界脚本 + `legacy` 扫描 | D1-D6 | [x] |
 
 ## 6. Test Method
 

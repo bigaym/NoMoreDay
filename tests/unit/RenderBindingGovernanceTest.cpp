@@ -64,8 +64,6 @@ TEST_CASE("[Unit] Render Binding Governance - Shader binding registry alignment"
        static_cast<uint32_t>(Binding::SSBO_POPUP_DATA)},
       {"assets/shaders/ui/glyph.vert",
        static_cast<uint32_t>(Binding::SSBO_GLYPH_INSTANCE)},
-      {"assets/shaders/lighting/light_accumulation.frag",
-       static_cast<uint32_t>(Binding::SSBO_LIGHT_DATA)},
       {"assets/shaders/trail/trail.vert",
        static_cast<uint32_t>(Binding::SSBO_TRAIL_HEADERS)},
       {"assets/shaders/postprocess/distortion_write.frag",

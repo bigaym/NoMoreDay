@@ -1,11 +1,13 @@
 #include "doctest.h"
 
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include "engine/render/debug/ShaderReloadGovernance.hpp"
 #include "engine/render/passes/CompositePass.hpp"
+#include "engine/render/passes/DistortionPass.hpp"
 #include "engine/render/passes/FluidSimulationPass.hpp"
 #include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/HeightShadowPass.hpp"
@@ -70,10 +72,23 @@ bool HasErrorContaining(
   return false;
 }
 
+// Establishes a deterministic QualityTierManager baseline for partial graphs.
+// Other integration test cases (e.g. ClusteredLightingIntegrationTest) mutate
+// the singleton config (v3Enabled + clusteredLightingEnabled) without
+// restoring it; LightingPass::Setup gates its typed cluster reads on that
+// config, so a leaked "clustered enabled" state would make the partial graphs
+// below (no LightCullingPass producer) fail read-before-write validation.
+void ResetQualityTierConfigBaseline() {
+  auto &qm = NoMoreDay::render::core::QualityTierManager::Get();
+  qm.ForceTier(NoMoreDay::render::core::QualityTier::Low);
+}
+
 } // namespace
 
 TEST_CASE("[Integration] RenderGraph V5 Contracts - JFA chain stays valid") {
   using namespace NoMoreDay::render;
+
+  ResetQualityTierConfigBaseline();
 
   graph::RenderGraph graph;
   graph.AddPass(std::make_shared<passes::ScenePass>());
@@ -117,6 +132,8 @@ TEST_CASE("[Integration] RenderGraph V5 Contracts - DistanceField read-before-wr
 TEST_CASE("[Integration] RenderGraph V5 Contracts - Radiance and GI composite chain stays valid") {
   using namespace NoMoreDay::render;
 
+  ResetQualityTierConfigBaseline();
+
   graph::RenderGraph graph;
   graph.AddPass(std::make_shared<passes::ScenePass>());
   graph.AddPass(std::make_shared<passes::LightingPass>());
@@ -138,6 +155,8 @@ TEST_CASE("[Integration] RenderGraph V5 Contracts - Radiance and GI composite ch
 
 TEST_CASE("[Integration] Gameplay Offscreen Target - Full HDR GI Pass Matrix") {
   using namespace NoMoreDay::render;
+
+  ResetQualityTierConfigBaseline();
 
   graph::RenderGraph graph;
   graph.AddPass(std::make_shared<passes::ScenePass>());
@@ -194,6 +213,8 @@ TEST_CASE("[Integration] RenderGraph Phase 5 Compiled Plan & Observability Gate 
   using namespace NoMoreDay::render::resources;
   using namespace NoMoreDay::render::debug;
   using namespace NoMoreDay::render::core;
+
+  ResetQualityTierConfigBaseline();
 
   graph::RenderGraph graph;
   graph.AddPass(std::make_shared<passes::ScenePass>());
@@ -302,6 +323,166 @@ TEST_CASE("[Performance] JFA 1080p Incremental vs Full Dispatch Texel & Timing R
   timerRing.BeginFrame();
   timerRing.EndFrame();
   CHECK_NOTHROW(timerRing.GetPassResult(1));
+}
+
+TEST_CASE("[Integration] RenderGraph Phase D - composite input inferred from last writer (full HDR/GI matrix)") {
+  using namespace NoMoreDay::render;
+
+  ResetQualityTierConfigBaseline();
+
+  // Production add order for the full HDR/GI matrix WITHOUT postprocess/
+  // distortion: Scene -> GI/shadow chain -> VFX -> UIWorld. RenderSystem now
+  // Builds this graph first and derives the composite input from the graph.
+  graph::RenderGraph graph;
+  graph.AddPass(std::make_shared<passes::ScenePass>());
+  graph.AddPass(std::make_shared<passes::LightingPass>());
+  graph.AddPass(std::make_shared<passes::HeightShadowPass>());
+  graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
+  graph.AddPass(std::make_shared<passes::JFAPass>());
+  graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
+  graph.AddPass(std::make_shared<passes::GICompositePass>());
+  graph.AddPass(std::make_shared<passes::VFXPass>());
+  graph.AddPass(std::make_shared<passes::UIWorldPass>());
+
+  // Mirrors RenderSystem::render Phase D: Build #1 (pre-composite) drives the
+  // owner inference exactly as the former manual sceneHdrOwner/ldrOwner did.
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  const auto sceneHdrOwner =
+      graph.FindLastWriterOwner(graph::RenderResourceTag::SceneHdrColor);
+  const auto postProcessOwner =
+      graph.FindLastWriterOwner(graph::RenderResourceTag::PostProcessLdrColor);
+  const auto distortionOwner =
+      graph.FindLastWriterOwner(graph::RenderResourceTag::DistortionLdrColor);
+
+  // UIWorld always writes SceneHdrColor last -> it owns the HDR producer.
+  CHECK_EQ(sceneHdrOwner, graph::RenderOwnerTag::UIWorld);
+  // No LDR chain in this config -> composite falls back to the HDR buffer.
+  CHECK_EQ(postProcessOwner, graph::RenderOwnerTag::Unknown);
+  CHECK_EQ(distortionOwner, graph::RenderOwnerTag::Unknown);
+
+  graph::RenderResourceTag compositeInputResource =
+      graph::RenderResourceTag::SceneHdrColor;
+  graph::RenderOwnerTag compositeInputOwner = sceneHdrOwner;
+  if (distortionOwner == graph::RenderOwnerTag::Distortion) {
+    compositeInputResource = graph::RenderResourceTag::DistortionLdrColor;
+    compositeInputOwner = graph::RenderOwnerTag::Distortion;
+  } else if (postProcessOwner == graph::RenderOwnerTag::PostProcess) {
+    compositeInputResource = graph::RenderResourceTag::PostProcessLdrColor;
+    compositeInputOwner = graph::RenderOwnerTag::PostProcess;
+  }
+  CHECK_EQ(compositeInputResource, graph::RenderResourceTag::SceneHdrColor);
+  CHECK_EQ(compositeInputOwner, graph::RenderOwnerTag::UIWorld);
+
+  // Build #2 (post-composite) must stay valid.
+  graph.AddPass(std::make_shared<passes::CompositePass>(
+      compositeInputResource, compositeInputOwner));
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  CHECK(plan.isValid);
+  REQUIRE_EQ(plan.passOrder.size(), 10u);
+  CHECK_EQ(plan.passOrder.back(), "CompositePass");
+}
+
+TEST_CASE("[Integration] RenderGraph Phase D - LDR chain picks PostProcess then Distortion") {
+  using namespace NoMoreDay::render;
+
+  ResetQualityTierConfigBaseline();
+
+  // LDR chain present (postprocess + distortion): composite must be fed by the
+  // last LDR writer (Distortion), matching the old ldrOwner priority.
+  graph::RenderGraph graph;
+  graph.AddPass(std::make_shared<passes::ScenePass>());
+  graph.AddPass(std::make_shared<passes::LightingPass>());
+  graph.AddPass(std::make_shared<passes::VFXPass>());
+  graph.AddPass(std::make_shared<passes::UIWorldPass>());
+  graph.AddPass(std::make_shared<passes::PostProcessPass>());
+  graph.AddPass(std::make_shared<passes::DistortionPass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  const auto sceneHdrOwner =
+      graph.FindLastWriterOwner(graph::RenderResourceTag::SceneHdrColor);
+  const auto postProcessOwner =
+      graph.FindLastWriterOwner(graph::RenderResourceTag::PostProcessLdrColor);
+  const auto distortionOwner =
+      graph.FindLastWriterOwner(graph::RenderResourceTag::DistortionLdrColor);
+  CHECK_EQ(sceneHdrOwner, graph::RenderOwnerTag::UIWorld);
+  CHECK_EQ(postProcessOwner, graph::RenderOwnerTag::PostProcess);
+  CHECK_EQ(distortionOwner, graph::RenderOwnerTag::Distortion);
+
+  graph::RenderResourceTag compositeInputResource =
+      graph::RenderResourceTag::SceneHdrColor;
+  graph::RenderOwnerTag compositeInputOwner = sceneHdrOwner;
+  if (distortionOwner == graph::RenderOwnerTag::Distortion) {
+    compositeInputResource = graph::RenderResourceTag::DistortionLdrColor;
+    compositeInputOwner = graph::RenderOwnerTag::Distortion;
+  } else if (postProcessOwner == graph::RenderOwnerTag::PostProcess) {
+    compositeInputResource = graph::RenderResourceTag::PostProcessLdrColor;
+    compositeInputOwner = graph::RenderOwnerTag::PostProcess;
+  }
+  CHECK_EQ(compositeInputResource, graph::RenderResourceTag::DistortionLdrColor);
+  CHECK_EQ(compositeInputOwner, graph::RenderOwnerTag::Distortion);
+
+  graph.AddPass(std::make_shared<passes::CompositePass>(
+      compositeInputResource, compositeInputOwner));
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  CHECK_EQ(graph.GetCompiledPlan().passOrder.back(), "CompositePass");
+}
+
+TEST_CASE("[Integration] RenderGraph Phase D - config toggle changes graph membership and inference") {
+  using namespace NoMoreDay::render;
+  using namespace NoMoreDay::render::core;
+
+  ResetQualityTierConfigBaseline();
+
+  // Toggle the config fields that gate pass membership (v3/dynamic lighting).
+  auto &qm = QualityTierManager::Get();
+  auto &cfg = const_cast<RenderConfig &>(qm.GetConfig());
+  const bool originalV3 = cfg.v3Enabled;
+  const bool originalDynamic = cfg.dynamicLightingEnabled;
+  const bool originalClustered = cfg.clusteredLightingEnabled;
+  // Keep the cluster gate closed so the partial graph (no LightCullingPass)
+  // stays validation-clean while the HDR/Lighting chain toggles.
+  cfg.clusteredLightingEnabled = false;
+
+  // HDR on: LightingPass joins the graph; UIWorld still owns the HDR output.
+  cfg.v3Enabled = true;
+  cfg.dynamicLightingEnabled = true;
+  {
+    graph::RenderGraph graph;
+    graph.AddPass(std::make_shared<passes::ScenePass>());
+    graph.AddPass(std::make_shared<passes::LightingPass>());
+    graph.AddPass(std::make_shared<passes::UIWorldPass>());
+    CHECK_NOTHROW(graph.Build());
+    CHECK(!graph.HasValidationErrors());
+    CHECK_EQ(graph.FindLastWriterOwner(graph::RenderResourceTag::SceneHdrColor),
+             graph::RenderOwnerTag::UIWorld);
+  }
+
+  // HDR off (no dynamic lighting): the Lighting chain leaves; the same
+  // inference still resolves UIWorld as the composite input.
+  cfg.dynamicLightingEnabled = false;
+  {
+    graph::RenderGraph graph;
+    graph.AddPass(std::make_shared<passes::ScenePass>());
+    graph.AddPass(std::make_shared<passes::UIWorldPass>());
+    CHECK_NOTHROW(graph.Build());
+    CHECK(!graph.HasValidationErrors());
+    CHECK_EQ(graph.FindLastWriterOwner(graph::RenderResourceTag::SceneHdrColor),
+             graph::RenderOwnerTag::UIWorld);
+    CHECK_EQ(graph.FindLastWriterOwner(graph::RenderResourceTag::PostProcessLdrColor),
+             graph::RenderOwnerTag::Unknown);
+  }
+
+  // Restore the singleton config for later tests.
+  cfg.v3Enabled = originalV3;
+  cfg.dynamicLightingEnabled = originalDynamic;
+  cfg.clusteredLightingEnabled = originalClustered;
 }
 
 

@@ -116,7 +116,23 @@ gi::JFAUpdateDecision JFAPass::ApplyProductionUpdatePolicy(
 void JFAPass::Setup(graph::RenderGraphBuilder &builder) {
   builder.Read(graph::RenderResourceTag::OccluderMask,
                graph::RenderOwnerTag::OccluderExtract);
-  builder.Write(graph::RenderResourceTag::DistanceField, graph::RenderOwnerTag::JFA);
+  // DistanceField is produced by the resolve/upsample compute dispatches
+  // (image stores) and consumed by RadianceCascadesPass via image loads.
+  // Declared as a Compute write so the graph emits the cross-pass
+  // Image|TexFetch transition at RadianceCascades entry instead of a manual
+  // barrier at the end of this pass.
+  builder.Write(graph::RenderResourceTag::DistanceField, graph::RenderOwnerTag::JFA,
+                graph::PipelineStage::Compute, graph::ResourceUsage::StorageWrite);
+
+  // Same-pass phase barrier: seed init -> jump flood -> distance resolve run
+  // back-to-back inside this Execute and exchange data via image loads and
+  // stores (plus the overflow SSBO in the jump step). Declared here and emitted
+  // via EmitPhaseBarrier after each dispatch (the exact execution points).
+  builder.AddPhaseBarrier(
+      graph::PipelineStage::Compute, graph::PipelineStage::Compute,
+      static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+          static_cast<uint32_t>(RenderConstants::Barrier::Buffer) |
+          kTextureFetchBarrierBit);
 
   graph::TypedResourceDescriptor seedDesc;
   seedDesc.name = "JFASeedField";
@@ -342,7 +358,8 @@ uint32_t JFAPass::ReadOverflowCounter() const {
   return overflow;
 }
 
-bool JFAPass::RunSeedInit(const uint32_t occluderMaskTexture, const int fullWidth,
+bool JFAPass::RunSeedInit(const graph::RenderContext &context,
+                          const uint32_t occluderMaskTexture, const int fullWidth,
                           const int fullHeight, const gi::JFARect *rect) {
   if (m_seedInitShader.id == 0 || m_seedPing.colorTexture == 0u ||
       occluderMaskTexture == 0u) {
@@ -389,15 +406,15 @@ bool JFAPass::RunSeedInit(const uint32_t occluderMaskTexture, const int fullWidt
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the first jump-flood dispatch reads the seed image.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
-bool JFAPass::RunJumpFloodStep(const int stepSize, const int fullWidth,
-                               const int fullHeight,
-                               const uint32_t inputSeedTexture,
+bool JFAPass::RunJumpFloodStep(const graph::RenderContext &context,
+                               const int stepSize, const int fullWidth,
+                               const int fullHeight, const uint32_t inputSeedTexture,
                                const uint32_t outputSeedTexture,
                                const gi::JFARect *rect) {
   if (m_jumpFloodShader.id == 0 || inputSeedTexture == 0u ||
@@ -444,14 +461,15 @@ bool JFAPass::RunJumpFloodStep(const int stepSize, const int fullWidth,
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               static_cast<uint32_t>(RenderConstants::Barrier::Buffer) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the next jump step (or distance resolve) reads the
+  // seed/overflow results: emitted at this exact execution point.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
-bool JFAPass::RunDistanceResolve(const uint32_t occluderMaskTexture,
+bool JFAPass::RunDistanceResolve(const graph::RenderContext &context,
+                                 const uint32_t occluderMaskTexture,
                                  const int fullWidth, const int fullHeight,
                                  const uint32_t inputSeedTexture,
                                  const uint32_t outputDistanceTexture,
@@ -504,13 +522,17 @@ bool JFAPass::RunDistanceResolve(const uint32_t occluderMaskTexture,
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the upsample dispatch reads the half-resolution
+  // distance field work image. The subsequent full-resolution write is a
+  // cross-pass boundary covered by the graph transition fired at the
+  // RadianceCascades entry; no manual barrier here.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
-bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight, const gi::JFARect *rect) {
+bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight,
+                          const gi::JFARect *rect) {
   if (m_upsampleShader.id == 0 || !m_distanceFieldWork.IsValid() ||
       !m_distanceFieldFull.IsValid()) {
     return false;
@@ -559,9 +581,9 @@ bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight, const gi::J
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Cross-pass sync: RadianceCascadesPass consumes DistanceField via image
+  // loads. Covered by the graph transition (Write Compute/StorageWrite ->
+  // Read) fired at RadianceCascades' pass entry; no manual barrier here.
   return true;
 }
 
@@ -704,7 +726,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
 
   const uint32_t occluderMaskTexture = m_occluderExtractPass->GetOccluderMaskTexture();
   const auto runJfa = [&](const gi::JFARect *rect) {
-    if (!RunSeedInit(occluderMaskTexture, fullWidth, fullHeight, rect)) {
+    if (!RunSeedInit(context, occluderMaskTexture, fullWidth, fullHeight, rect)) {
       return false;
     }
     uint32_t seedInput = m_seedPing.colorTexture;
@@ -712,19 +734,19 @@ void JFAPass::Execute(graph::RenderContext &context) {
     int stepSize = HighestPowerOfTwoLessEqual(std::max(m_workWidth, m_workHeight));
     stepSize = std::max(1, stepSize / 2);
     while (stepSize >= 1) {
-      if (!RunJumpFloodStep(stepSize, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
+      if (!RunJumpFloodStep(context, stepSize, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
         return false;
       }
       std::swap(seedInput, seedOutput);
       stepSize /= 2;
     }
     if (std::max(m_workWidth, m_workHeight) >= 2) {
-      if (!RunJumpFloodStep(2, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
+      if (!RunJumpFloodStep(context, 2, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
         return false;
       }
       std::swap(seedInput, seedOutput);
     }
-    if (!RunJumpFloodStep(1, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
+    if (!RunJumpFloodStep(context, 1, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
       return false;
     }
     std::swap(seedInput, seedOutput);
@@ -739,7 +761,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
         if (fallbackStep > std::max(m_workWidth, m_workHeight)) {
           continue;
         }
-        if (!RunJumpFloodStep(fallbackStep, fullWidth, fullHeight, seedInput,
+        if (!RunJumpFloodStep(context, fallbackStep, fullWidth, fullHeight, seedInput,
                               seedOutput, rect)) {
           return false;
         }
@@ -749,7 +771,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
     }
     const uint32_t distanceOutput =
         halfResolution ? m_distanceFieldWork.colorTexture : m_distanceFieldFull.colorTexture;
-    if (!RunDistanceResolve(occluderMaskTexture, fullWidth, fullHeight, seedInput,
+    if (!RunDistanceResolve(context, occluderMaskTexture, fullWidth, fullHeight, seedInput,
                             distanceOutput, rect)) {
       return false;
     }

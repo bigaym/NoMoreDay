@@ -29,13 +29,17 @@ private:
   resources::FramebufferHandle m_outputBuffer = {};
 
   int m_sceneTexLoc = -1;
-  int m_lightCountLoc = -1;
   int m_sampleCountLoc = -1;
   int m_scatteringLoc = -1;
   int m_decayLoc = -1;
   int m_exposureLoc = -1;
   int m_cameraOffsetLoc = -1;
   int m_screenSizeLoc = -1;
+  int m_clusterGridXLoc = -1;
+  int m_clusterGridYLoc = -1;
+  int m_clusterGridZLoc = -1;
+  int m_clusterTileSizeWorldLoc = -1;
+  int m_layerBandWorldUnitsLoc = -1;
 
   int m_cachedWidth = 0;
   int m_cachedHeight = 0;

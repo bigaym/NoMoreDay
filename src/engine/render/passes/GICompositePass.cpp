@@ -55,6 +55,15 @@ void GICompositePass::Setup(graph::RenderGraphBuilder &builder) {
                graph::RenderOwnerTag::RadianceCascades);
   builder.Write(graph::RenderResourceTag::SceneHdrColor,
                 graph::RenderOwnerTag::GIComposite);
+
+  // Same-pass phase barrier: the composite compute dispatch writes the output
+  // scene image; the framebuffer blit that follows in this Execute reads it.
+  // Declared here and emitted via EmitPhaseBarrier(Compute, Fragment) at the
+  // exact execution point between dispatch and blit.
+  builder.AddPhaseBarrier(
+      graph::PipelineStage::Compute, graph::PipelineStage::Fragment,
+      static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+          static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
 }
 
 bool GICompositePass::Initialize(ResourceManager &resources) {
@@ -376,9 +385,11 @@ void GICompositePass::Execute(graph::RenderContext &context) {
       DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               static_cast<uint32_t>(RenderConstants::Barrier::Buffer);
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the blit reads the composite output: emitted at this
+  // exact execution point from the Setup AddPhaseBarrier(Compute, Fragment, ...)
+  // declaration.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Fragment);
 
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer, m_outputScene.fbo);
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,

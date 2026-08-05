@@ -46,12 +46,6 @@ public:
   [[nodiscard]] bool WasClusteredAppliedLastFrame() const {
     return m_lastClusteredApplied;
   }
-  [[nodiscard]] bool UsedClusteredFallbackLastFrame() const {
-    return m_lastClusteredFallback;
-  }
-  [[nodiscard]] const std::string &GetLastClusteredFallbackReason() const {
-    return m_lastClusteredFallbackReason;
-  }
 
 private:
   void DrawFullscreen(Shader shader, uint32_t sourceTexture);
@@ -62,12 +56,10 @@ private:
   int m_sceneTexLoc = -1;
   int m_ambientColorLoc = -1;
   int m_ambientIntensityLoc = -1;
-  int m_lightCountLoc = -1;
   int m_cameraOffsetLoc = -1;
   int m_screenSizeLoc = -1;
   int m_shadowMaskTexLoc = -1;
   int m_shadowEnabledLoc = -1;
-  int m_clusteredLightingEnabledLoc = -1;
   int m_clusterGridXLoc = -1;
   int m_clusterGridYLoc = -1;
   int m_clusterGridZLoc = -1;
@@ -81,11 +73,6 @@ private:
   bool m_lastUsedV2Fallback = false;
   std::string m_lastShadowFallbackReason;
   bool m_lastClusteredApplied = false;
-  bool m_lastClusteredFallback = false;
-  std::string m_lastClusteredFallbackReason;
-  double m_lastClusteredWarnTime = -1000.0;
-  uint32_t m_lastClusterSyncFrame = 0;
-  bool m_hasClusterSyncFrame = false;
   bool m_skipResolveForTesting = false;
   bool m_initialized = false;
   const ShadowResolvePass *m_shadowResolvePass = nullptr;

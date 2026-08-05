@@ -147,6 +147,16 @@ struct FixtureExecutionResult {
   // legs on the real fixture scene) is part of the cell verdict.
   float giPairedDelta{0.0f};
   bool giPairedPassed{false};
+  // B13: JFA work-shape diagnostics from the real last render of this cell.
+  std::string jfaMode;
+  uint32_t jfaDispatchTexelCount{0};
+  int jfaDirtyRectArea{0};
+  int jfaExpandedRectArea{0};
+  bool jfaPlus2Recovery{false};
+  bool jfaVerificationAttempted{false};
+  bool jfaVerificationPassed{false};
+  bool jfaVerificationRecovery{false};
+  std::string jfaVerificationResult;
   // W6 (M0-C): real SDF evidence. sdfReadbackStatus is "passed" (real JFAPass
   // distance field read back and spatially valid), "not_applicable" (GI-off
   // cell: no JFA pass runs), "missing" (GI-on but no distance field produced)

@@ -665,6 +665,13 @@ public:
   void Build();
   void Execute(RenderContext &context);
   void OnResize(int width, int height);
+
+  // Phase D (RG-1): infers the owner of the pass that most recently declared a
+  // typed Write to `resourceTag` (last writer in insertion/execution order),
+  // or RenderOwnerTag::Unknown when no graph pass writes it. Requires the pass
+  // accesses to be collected by Build(); returns Unknown on an unbuilt graph.
+  // Replaces RenderSystem's manual sceneHdrOwner/ldrOwner tracking.
+  RenderOwnerTag FindLastWriterOwner(RenderResourceTag resourceTag) const;
   static void SetValidationEnabled(bool enabled);
   static bool IsValidationEnabled();
   static void SetTransientAliasingEnabled(bool enabled);

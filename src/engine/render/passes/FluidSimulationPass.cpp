@@ -68,6 +68,20 @@ void FluidSimulationPass::Setup(graph::RenderGraphBuilder &builder) {
                graph::RenderOwnerTag::FluidSimulation);
   builder.Write(graph::RenderResourceTag::SceneHdrColor,
                 graph::RenderOwnerTag::FluidSimulation);
+
+  // Same-pass phase barriers: the SPH compute pipeline (grid hash -> neighbor
+  // search -> density -> force -> integrate) exchanges particle state through
+  // SSBOs, and the integrate dispatch feeds the instanced vertex draw that
+  // follows in this Execute. Declared here and emitted via EmitPhaseBarrier at
+  // each dispatch boundary (the exact execution points pass-entry barriers
+  // cannot cover).
+  builder.AddPhaseBarrier(graph::PipelineStage::Compute,
+                          graph::PipelineStage::Compute,
+                          static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
+  builder.AddPhaseBarrier(graph::PipelineStage::Compute,
+                          graph::PipelineStage::Vertex,
+                          static_cast<uint32_t>(RenderConstants::Barrier::Buffer) |
+                              kTextureFetchBarrierBit);
 }
 
 bool FluidSimulationPass::Initialize(ResourceManager &resources) {
@@ -286,7 +300,8 @@ void FluidSimulationPass::UploadConfig(const uint32_t maxParticles) {
   m_configBuffer.Update(&config, sizeof(config), 0u);
 }
 
-bool FluidSimulationPass::DispatchGridHash(const uint32_t particleCount) {
+bool FluidSimulationPass::DispatchGridHash(const graph::RenderContext &context,
+                                           const uint32_t particleCount) {
   if (m_gridHashShader.id == 0 || m_cellCountBuffer.GetId() == 0u ||
       m_cellCoordBuffer.GetId() == 0u || particleCount == 0u) {
     return false;
@@ -320,11 +335,14 @@ bool FluidSimulationPass::DispatchGridHash(const uint32_t particleCount) {
   utils::GPUUtils::BindBufferBase(2u, m_cellCountBuffer.GetId());
   utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
   rlDisableShader();
-  utils::GPUUtils::MemoryBarrier(static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
+  // Same-pass sync before the neighbor-search dispatch reads the cell SSBOs.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
-bool FluidSimulationPass::DispatchNeighborSearch(const uint32_t particleCount) {
+bool FluidSimulationPass::DispatchNeighborSearch(const graph::RenderContext &context,
+                                                 const uint32_t particleCount) {
   if (m_neighborSearchShader.id == 0 || m_neighborListBuffer.GetId() == 0u ||
       m_neighborCountBuffer.GetId() == 0u || particleCount == 0u) {
     return false;
@@ -352,11 +370,14 @@ bool FluidSimulationPass::DispatchNeighborSearch(const uint32_t particleCount) {
   utils::GPUUtils::BindBufferBase(4u, m_neighborCountBuffer.GetId());
   utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
   rlDisableShader();
-  utils::GPUUtils::MemoryBarrier(static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
+  // Same-pass sync before the density dispatch reads the neighbor SSBOs.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
-bool FluidSimulationPass::DispatchDensity(const uint32_t particleCount,
+bool FluidSimulationPass::DispatchDensity(const graph::RenderContext &context,
+                                          const uint32_t particleCount,
                                           const float deltaTime) {
   (void)deltaTime;
   if (m_densityShader.id == 0 || particleCount == 0u) {
@@ -381,12 +402,15 @@ bool FluidSimulationPass::DispatchDensity(const uint32_t particleCount,
   utils::GPUUtils::BindBufferBase(6u, m_configBuffer.GetId());
   utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
   rlDisableShader();
-  utils::GPUUtils::MemoryBarrier(static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
+  // Same-pass sync before the force dispatch reads the density results.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   SwapParticleBuffers();
   return true;
 }
 
-bool FluidSimulationPass::DispatchForce(const uint32_t particleCount,
+bool FluidSimulationPass::DispatchForce(const graph::RenderContext &context,
+                                        const uint32_t particleCount,
                                         const float deltaTime) {
   if (m_forceShader.id == 0 || particleCount == 0u) {
     return false;
@@ -412,7 +436,9 @@ bool FluidSimulationPass::DispatchForce(const uint32_t particleCount,
   utils::GPUUtils::BindBufferBase(6u, m_configBuffer.GetId());
   utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
   rlDisableShader();
-  utils::GPUUtils::MemoryBarrier(static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
+  // Same-pass sync before the integrate dispatch reads the force results.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   SwapParticleBuffers();
   return true;
 }
@@ -495,9 +521,10 @@ bool FluidSimulationPass::DispatchIntegrate(const graph::RenderContext &context,
   utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Buffer) |
-                               kTextureFetchBarrierBit;
-  utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the instanced particle vertex draw reads the updated
+  // particle buffer: emitted from the Setup AddPhaseBarrier(Compute, Vertex, ...).
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Vertex);
   SwapParticleBuffers();
   return true;
 }
@@ -825,9 +852,10 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
   const float deltaTime = ClampDeltaTime(GetFrameTime());
   UploadConfig(particleCount);
 
-  if (!DispatchGridHash(particleCount) || !DispatchNeighborSearch(particleCount) ||
-      !DispatchDensity(particleCount, deltaTime) ||
-      !DispatchForce(particleCount, deltaTime) ||
+  if (!DispatchGridHash(context, particleCount) ||
+      !DispatchNeighborSearch(context, particleCount) ||
+      !DispatchDensity(context, particleCount, deltaTime) ||
+      !DispatchForce(context, particleCount, deltaTime) ||
       !DispatchIntegrate(context, particleCount, deltaTime)) {
     if (m_lastFailureReason.empty()) {
       m_lastFailureReason = "fluid compute pipeline dispatch failed";

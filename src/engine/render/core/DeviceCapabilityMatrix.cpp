@@ -15,6 +15,28 @@ DeviceCapabilityMatrix &DeviceCapabilityMatrix::Get() {
   return instance;
 }
 
+ProductionCapabilityCheck DeviceCapabilityMatrix::CheckProductionRequirements(
+    const CapabilityReport &report) {
+  ProductionCapabilityCheck check;
+  if (!report.isGL43Supported) {
+    check.missingRequirements.push_back("OpenGL 4.3 core profile");
+  }
+  if (!report.isComputeSupported) {
+    check.missingRequirements.push_back("Compute shaders");
+  }
+  if (!report.isSSBOSupported) {
+    check.missingRequirements.push_back("SSBO (shader storage buffer)");
+  }
+  if (!report.isImageLoadStoreSupported) {
+    check.missingRequirements.push_back("Image load/store");
+  }
+  if (!report.isMemoryBarrierSupported) {
+    check.missingRequirements.push_back("glMemoryBarrier");
+  }
+  check.passed = check.missingRequirements.empty();
+  return check;
+}
+
 CapabilityReport DeviceCapabilityMatrix::ProbeCapabilities() {
   if (m_probed) return m_cachedReport;
 

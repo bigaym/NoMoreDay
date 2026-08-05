@@ -445,6 +445,47 @@ Shader ResourceManager::getShader(entt::id_type id) {
   return {0};
 }
 
+bool ResourceManager::ReleaseShader(entt::id_type id) {
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
+  return ReleaseShaderLocked(id);
+}
+
+bool ResourceManager::ReleaseShaderLocked(entt::id_type id) {
+  auto it = m_shaders.find(id);
+  if (it == m_shaders.end()) {
+    return false;
+  }
+
+  Shader shader = it->second;
+  m_shaders.erase(it); // Erase first: any subsequent release attempt no-ops.
+
+  if (shader.id != 0) {
+    if (!m_headless) {
+      // RG-3: unregister the registry record BEFORE the GL release so the
+      // observer never outlives the backing it tracks.
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
+          shader.id, NoMoreDay::render::graph::ResourceKind::ShaderProgram);
+      UnloadShader(shader);
+    }
+    // Ownership-release ledger: recorded for every release (headless dummies
+    // included — GL is skipped there, ownership release is still counted).
+    m_shaderReleaseCount++;
+    m_shaderReleaseIds.push_back(id);
+  }
+
+  return true;
+}
+
+size_t ResourceManager::GetShaderReleaseCount() const {
+  std::shared_lock<std::shared_mutex> lock(m_mutex);
+  return m_shaderReleaseCount;
+}
+
+std::vector<entt::id_type> ResourceManager::GetShaderReleaseIds() const {
+  std::shared_lock<std::shared_mutex> lock(m_mutex);
+  return m_shaderReleaseIds;
+}
+
 unsigned int
 
 ResourceManager::loadTextureArray(const std::vector<std::string> &paths) {
@@ -663,21 +704,23 @@ void ResourceManager::unloadAll() {
 
 
 
+  // All shaders are released through the single ReleaseShaderLocked choke
+  // point so the ownership-release ledger records exactly-once teardown.
+  std::vector<entt::id_type> shaderIds;
+
+  shaderIds.reserve(m_shaders.size());
+
   for (auto &[id, shader] : m_shaders) {
 
-    if (shader.id != 0 && !m_headless) {
-
-      // RG-3: unregister before GL release (observer-only pairing).
-      NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
-          shader.id, NoMoreDay::render::graph::ResourceKind::ShaderProgram);
-
-      UnloadShader(shader);
-
-    }
+    shaderIds.push_back(id);
 
   }
 
-  m_shaders.clear();
+  for (entt::id_type id : shaderIds) {
+
+    ReleaseShaderLocked(id);
+
+  }
 
 
 

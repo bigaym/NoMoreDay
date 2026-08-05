@@ -79,7 +79,7 @@ void ExpectLightCullingBindingsAligned() {
 
 } // namespace
 
-TEST_CASE("[Integration] Clustered Lighting - Fallback when culling pass missing") {
+TEST_CASE("[Integration] Clustered Lighting - fail-closed when culling pass missing") {
   using namespace NoMoreDay;
 
   if (!utils::GPUUtils::IsInitialized()) {
@@ -107,11 +107,11 @@ TEST_CASE("[Integration] Clustered Lighting - Fallback when culling pass missing
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;
 
+  // No LightCullingPass is bound: the pass fail-closes (reports, renders
+  // nothing) instead of silently degrading to a V2 direct-read fallback.
   lightingPass.Execute(context);
 
-  CHECK(lightingPass.UsedClusteredFallbackLastFrame());
   CHECK(!lightingPass.WasClusteredAppliedLastFrame());
-  CHECK(!lightingPass.GetLastClusteredFallbackReason().empty());
 
   lightingPass.Shutdown();
   render::resources::FramebufferManager::Destroy(hdr);
@@ -349,7 +349,6 @@ TEST_CASE("[Integration] Clustered Lighting - Culling to lighting consumption pa
   lightingPass.Execute(context);
 
   CHECK(lightingPass.WasClusteredAppliedLastFrame());
-  CHECK(!lightingPass.UsedClusteredFallbackLastFrame());
 
   lightingPass.Shutdown();
   render::lighting::ClusteredLightingState::Get().Shutdown();
@@ -407,9 +406,9 @@ TEST_CASE("[Integration] Clustered Lighting - Resize/context restore and offscre
     cullingPass.Execute(context);
     CHECK(cullingPass.SucceededThisFrame());
     lightingPass.Execute(context);
-    const bool lightingPathValid = lightingPass.WasClusteredAppliedLastFrame() ||
-                                   lightingPass.UsedClusteredFallbackLastFrame();
-    CHECK(lightingPathValid);
+    // Clustered lighting is the single production path (Phase E): the pass
+    // applies it whenever culling succeeded, otherwise it fail-closes.
+    CHECK(lightingPass.WasClusteredAppliedLastFrame());
 
     render::resources::FramebufferManager::Destroy(hdr);
     if ((i % 3) == 2) {

@@ -13,7 +13,7 @@
 #include "engine/render/GPULootSystem.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
-#include "engine/render/dev/ShaderHotReloadManager.hpp"
+#include "engine/render/debug/GLDebugCallback.hpp"
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
@@ -46,6 +46,7 @@
 #include "engine/render/resources/TransientResourcePool.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/core/AdaptiveQualityController.hpp"
+#include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/RenderConstants.hpp" 
@@ -186,7 +187,6 @@ std::shared_ptr<NoMoreDay::render::passes::ShadowPreparePass> g_shadowPreparePas
 std::shared_ptr<NoMoreDay::render::passes::ShadowBuildPass> g_shadowBuildPass;
 std::shared_ptr<NoMoreDay::render::passes::ShadowResolvePass> g_shadowResolvePass;
 std::unique_ptr<NoMoreDay::render::debug::RenderProfiler> g_renderProfiler;
-std::unique_ptr<NoMoreDay::render::dev::ShaderHotReloadManager> g_shaderHotReloadManager;
 
 // W6 (M0-C): the pass order of the graph actually compiled inside the last
 // render() call. The hardware gate reads this (via GetLastExecutedPassOrder)
@@ -289,23 +289,10 @@ bool IsHdrScenePipelineRequested(
          IsHdrPostProcessRequested(config);
 }
 
-// S7a: GI pass sizing contract. Each GI pass exposes a public OnResize entry;
-// the Execute-time Ensure* calls remain the authoritative sizer. This helper
-// explicitly re-drives the chain when GI is (re)enabled at a resolution where
-// the HDR buffer already exists (same-resolution false->true), so the pass
-// resources are guaranteed to match the current HDR scene buffer dimensions.
-void EnsureGiPassesSized(int width, int height) {
-  if (g_occluderExtractPass == nullptr || g_jfaPass == nullptr ||
-      g_radianceCascadesPass == nullptr || g_giCompositePass == nullptr) {
-    return;
-  }
-  g_occluderExtractPass->OnResize(width, height);
-  g_jfaPass->OnResize(width, height);
-  g_radianceCascadesPass->OnResize(width, height);
-  g_giCompositePass->OnResize(width, height);
-  LOG_INFO("RenderSystem: GI passes sized to {}x{} (same-resolution enable)", width,
-           height);
-}
+// Phase D (RG-1): GI pass sizing on same-resolution (re)enable is now driven by
+// RenderGraph::OnResize, which fans out to every node.pass->OnResize including
+// the four GI passes. The manual per-pass fan-out (former EnsureGiPassesSized)
+// is removed; the Execute-time Ensure* calls remain the authoritative sizer.
 
 struct AutoDegradeRuntimeState {
   bool initialized = false;
@@ -872,6 +859,28 @@ void RenderSystem::Initialize() {
   NoMoreDay::render::TextureArrayManager::Get().Initialize(64, 128);
   NoMoreDay::render::lighting::LightManager::Get().Initialize();
   if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
+    // Phase F (RG-4): probe the device capability matrix once at init and fail
+    // closed when production-critical features (GL 4.3 core, compute, SSBO,
+    // image load/store, glMemoryBarrier) are missing. No silent degradation.
+    const auto &capabilityReport =
+        NoMoreDay::render::core::DeviceCapabilityMatrix::Get()
+            .ProbeCapabilities();
+    const auto capabilityCheck =
+        NoMoreDay::render::core::DeviceCapabilityMatrix::
+            CheckProductionRequirements(capabilityReport);
+    if (!capabilityCheck.passed) {
+      LOG_ERROR("RenderSystem: production capability gate FAILED - missing "
+                "required feature(s):");
+      for (const auto &missing : capabilityCheck.missingRequirements) {
+        LOG_ERROR("  - {}", missing);
+      }
+      LOG_ERROR("{}", capabilityReport.DumpReport());
+      return;
+    }
+    // P0 S3: install the resident production GL debug callback so driver
+    // errors surface through the log instead of silently. Diagnostic-only.
+    NoMoreDay::render::debug::GLDebugCallback::Get().Install();
+
     const int screenWidth = GetScreenWidth();
     const int screenHeight = GetScreenHeight();
     if (screenWidth > 0 && screenHeight > 0) {
@@ -924,71 +933,6 @@ void RenderSystem::Initialize() {
     g_fluidSimulationPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
   }
   g_renderProfiler = std::make_unique<NoMoreDay::render::debug::RenderProfiler>();
-  g_shaderHotReloadManager =
-      std::make_unique<NoMoreDay::render::dev::ShaderHotReloadManager>();
-  g_shaderHotReloadManager->SetPollIntervalSeconds(0.5);
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.BrightExtract",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/bright_extract.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.KawaseDown",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/kawase_down.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.KawaseUp",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/kawase_up.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.Tonemap",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/tonemap.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.FXAA",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/fxaa.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.Vignette",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/vignette.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "PostProcess.ColorGrading",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/color_grading.frag"},
-      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "Lighting.Accumulation",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/lighting/light_accumulation.frag"},
-      []() { return g_lightingPass && g_lightingPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "Lighting.HeightShadow",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/lighting/height_shadow_apply.frag"},
-      []() {
-        return g_heightShadowPass && g_heightShadowPass->ReloadShaders();
-      });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "Lighting.Volumetric",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/lighting/volumetric_light.frag"},
-      []() { return g_volumetricPass && g_volumetricPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "Distortion.Apply",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/distortion_apply.frag"},
-      []() { return g_distortionPass && g_distortionPass->ReloadShaders(); });
-  g_shaderHotReloadManager->Register(
-      {.debugName = "Distortion.Write",
-       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
-       .fragmentPath = "assets/shaders/postprocess/distortion_write.frag"},
-      []() { return g_distortionPass && g_distortionPass->ReloadShaders(); });
 
   s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
                              "assets/shaders/ui/label_instanced.frag");
@@ -1112,14 +1056,12 @@ void RenderSystem::Shutdown() {
   if (g_shadowPreparePass) {
     g_shadowPreparePass.reset();
   }
-  if (g_shaderHotReloadManager) {
-    g_shaderHotReloadManager->Clear();
-    g_shaderHotReloadManager.reset();
-  }
   g_renderProfiler.reset();
   NoMoreDay::render::GPUTrailRenderer::Get().Shutdown();
   NoMoreDay::render::resources::FullscreenQuad::Shutdown();
   g_transientPool.Shutdown();
+  // P0 S3: restore the pre-init GL debug callback / GL_DEBUG_OUTPUT state.
+  NoMoreDay::render::debug::GLDebugCallback::Get().Shutdown();
 }
 
 void RenderSystem::render(entt::registry &registry,
@@ -1219,17 +1161,6 @@ void RenderSystem::render(entt::registry &registry,
              s_prevGiEnabled ? 1 : 0, renderConfig.giEnabled ? 1 : 0);
   }
   s_prevGiEnabled = renderConfig.giEnabled;
-#if defined(NDEBUG)
-  constexpr bool kDevHotReloadAllowed = false;
-#else
-  constexpr bool kDevHotReloadAllowed = true;
-#endif
-  const bool shaderHotReloadEnabled =
-      kDevHotReloadAllowed && renderConfig.shaderHotReloadEnabled;
-  if (g_shaderHotReloadManager) {
-    g_shaderHotReloadManager->SetEnabled(shaderHotReloadEnabled);
-    g_shaderHotReloadManager->PollAndReload();
-  }
   if (renderConfig.materialSystemEnabled) {
     NoMoreDay::render::MaterialManager::Get().TryHotReload();
     NoMoreDay::render::MaterialManager::Get().SyncToGPU();
@@ -1246,31 +1177,6 @@ void RenderSystem::render(entt::registry &registry,
   bool useHdrSceneBuffer = hdrPipelineRequested;
   // GPU Production HDR/GI Closure: Offscreen target (m_sceneRT) runs full HDR/GI pass matrix.
   const bool offscreenV3SafeMode = false;
-  static bool s_prevUseHdrSceneBuffer = false;
-  static bool s_prevHdrPipelineRequested = false;
-  static uint32_t s_prevCompositeFramebuffer = 0;
-  static bool s_prevOffscreenV3SafeMode = false;
-  if (s_prevUseHdrSceneBuffer != useHdrSceneBuffer ||
-      s_prevHdrPipelineRequested != hdrPipelineRequested ||
-      s_prevCompositeFramebuffer != compositeTarget.framebuffer ||
-      s_prevOffscreenV3SafeMode != offscreenV3SafeMode) {
-    LOG_INFO("RenderSystem: HDR chain {} (requested={}, bloom={}, postFx={}, "
-             "dynamicLighting={}, volumetric={}, compositeFbo={}, path={}, "
-             "offscreenSafeMode={})",
-             useHdrSceneBuffer ? "enabled" : "disabled",
-             hdrPipelineRequested ? 1 : 0,
-             renderConfig.bloomEnabled ? 1 : 0,
-             IsHdrPostProcessRequested(renderConfig) ? 1 : 0,
-             renderConfig.dynamicLightingEnabled ? 1 : 0,
-             renderConfig.volumetricLightEnabled ? 1 : 0,
-             compositeTarget.framebuffer,
-             isOffscreenCompositeTarget ? "offscreen" : "backbuffer",
-             offscreenV3SafeMode ? 1 : 0);
-    s_prevUseHdrSceneBuffer = useHdrSceneBuffer;
-    s_prevHdrPipelineRequested = hdrPipelineRequested;
-    s_prevCompositeFramebuffer = compositeTarget.framebuffer;
-    s_prevOffscreenV3SafeMode = offscreenV3SafeMode;
-  }
   if (isOffscreenCompositeTarget) {
     LOG_LIMITED_INFO(
         3.0f,
@@ -1292,6 +1198,15 @@ void RenderSystem::render(entt::registry &registry,
   // between offscreen/backbuffer paths. Pass execution is already gated; keep
   // resources alive and release them in RenderSystem::Shutdown().
 
+  // Phase D (D1/D5): unified resize dispatch. RenderGraph::OnResize fans out to
+  // every registered node.pass->OnResize once after the frame's passes are
+  // added, replacing the manual per-pass fan-out list below. The flags record
+  // when a unified OnResize must run this frame (HDR buffer create/resize or
+  // same-resolution GI re-enable). The TextureArrayManager rebuild stays at its
+  // original site; pass backing create/resize/reclassify behavior is unchanged.
+  bool hdrPassesNeedResize = false;
+  int resizeWidth = 0;
+  int resizeHeight = 0;
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int targetWidth = std::max(1, (isOffscreenCompositeTarget && compositeTarget.renderExtentWidth > 0)
                                             ? compositeTarget.renderExtentWidth
@@ -1309,38 +1224,15 @@ void RenderSystem::render(entt::registry &registry,
             (1024.0 * 1024.0);
         LOG_INFO("RenderSystem: created HDR scene buffer {}x{} (~{:.2f} MB)",
                  targetWidth, targetHeight, approxMb);
+        hdrPassesNeedResize = true;
+        resizeWidth = targetWidth;
+        resizeHeight = targetHeight;
       } else {
         LOG_LIMITED_WARN(
             3.0f,
             "RenderSystem: failed to allocate HDR scene buffer {}x{}, falling back to direct scene path",
             targetWidth, targetHeight);
         useHdrSceneBuffer = false;
-      }
-      if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
-        g_lightingPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
-        g_heightShadowPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_occluderExtractPass && g_jfaPass && g_radianceCascadesPass &&
-          g_giCompositePass && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled) {
-        g_occluderExtractPass->OnResize(targetWidth, targetHeight);
-        g_jfaPass->OnResize(targetWidth, targetHeight);
-        g_radianceCascadesPass->OnResize(targetWidth, targetHeight);
-        g_giCompositePass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_fluidSimulationPass && s_hdrSceneBuffer.IsValid() &&
-          renderConfig.fluidEnabled) {
-        g_fluidSimulationPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowBuildPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_shadowResolvePass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowResolvePass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
-        g_volumetricPass->OnResize(targetWidth, targetHeight);
       }
       NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
           targetWidth, targetHeight);
@@ -1354,32 +1246,9 @@ void RenderSystem::render(entt::registry &registry,
           (1024.0 * 1024.0);
       LOG_INFO("RenderSystem: resized HDR scene buffer {}x{} (~{:.2f} MB)",
                targetWidth, targetHeight, approxMb);
-      if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
-        g_lightingPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
-        g_heightShadowPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_occluderExtractPass && g_jfaPass && g_radianceCascadesPass &&
-          g_giCompositePass && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled) {
-        g_occluderExtractPass->OnResize(targetWidth, targetHeight);
-        g_jfaPass->OnResize(targetWidth, targetHeight);
-        g_radianceCascadesPass->OnResize(targetWidth, targetHeight);
-        g_giCompositePass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_fluidSimulationPass && s_hdrSceneBuffer.IsValid() &&
-          renderConfig.fluidEnabled) {
-        g_fluidSimulationPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowBuildPass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_shadowResolvePass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowResolvePass->OnResize(targetWidth, targetHeight);
-      }
-      if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
-        g_volumetricPass->OnResize(targetWidth, targetHeight);
-      }
+      hdrPassesNeedResize = true;
+      resizeWidth = targetWidth;
+      resizeHeight = targetHeight;
       NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
           targetWidth, targetHeight);
     }
@@ -1387,11 +1256,14 @@ void RenderSystem::render(entt::registry &registry,
 
   // S7a: same-resolution GI re-enable. When the HDR buffer already exists at the
   // current resolution the create/resize chain above is not hit, so explicitly
-  // re-size the GI passes to the current HDR scene buffer dimensions.
+  // re-drive the unified resize path (graph.OnResize) to the current HDR scene
+  // buffer dimensions; the graph fans out to the four GI pass nodes.
   static bool s_giPassesSized = false;
   if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled &&
       !s_giPassesSized) {
-    EnsureGiPassesSized(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+    hdrPassesNeedResize = true;
+    resizeWidth = s_hdrSceneBuffer.width;
+    resizeHeight = s_hdrSceneBuffer.height;
     s_giPassesSized = true;
   }
   if (!renderConfig.giEnabled) {
@@ -1460,27 +1332,24 @@ void RenderSystem::render(entt::registry &registry,
   using NoMoreDay::render::graph::RenderOwnerTag;
   using NoMoreDay::render::graph::RenderResourceTag;
 
-  RenderOwnerTag sceneHdrOwner = RenderOwnerTag::Unknown;
-  RenderOwnerTag ldrOwner = RenderOwnerTag::Unknown;
-
   NoMoreDay::render::graph::RenderGraph graph;
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>(
       [&frame, gameplayHooks, useHdrSceneBuffer, isOffscreenCompositeTarget](
-          NoMoreDay::render::graph::RenderContext &) {
+          NoMoreDay::render::graph::RenderContext &context) {
         NoMoreDay::render::core::ScopedGLState scopedState;
-        if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {
+        if (useHdrSceneBuffer && context.hdrSceneBuffer.IsValid()) {
           constexpr uint32_t kGLFramebuffer = 0x8D40;
-          NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
-                                                      s_hdrSceneBuffer.fbo);
-          NoMoreDay::utils::GPUUtils::Viewport(0, 0, s_hdrSceneBuffer.width,
-                                               s_hdrSceneBuffer.height);
+          NoMoreDay::utils::GPUUtils::BindFramebuffer(
+              kGLFramebuffer, context.hdrSceneBuffer.fbo);
+          NoMoreDay::utils::GPUUtils::Viewport(0, 0,
+                                               context.hdrSceneBuffer.width,
+                                               context.hdrSceneBuffer.height);
           if (!isOffscreenCompositeTarget) {
             ClearBackground(BLANK);
           }
         }
         ExecuteScenePass(frame, gameplayHooks);
       }));
-  sceneHdrOwner = RenderOwnerTag::Scene;
 
   if (renderConfig.v3Enabled && useHdrSceneBuffer) {
     if (g_shadowPreparePass != nullptr) {
@@ -1507,13 +1376,11 @@ void RenderSystem::render(entt::registry &registry,
       renderConfig.dynamicLightingEnabled &&
       g_lightingPass != nullptr) {
     graph.AddPass(g_lightingPass);
-    sceneHdrOwner = RenderOwnerTag::Lighting;
   }
   if (useHdrSceneBuffer && !offscreenV3SafeMode &&
       renderConfig.heightShadowEnabled &&
       g_heightShadowPass != nullptr) {
     graph.AddPass(g_heightShadowPass);
-    sceneHdrOwner = RenderOwnerTag::HeightShadow;
   }
   if (useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.giEnabled &&
       g_occluderExtractPass != nullptr && g_jfaPass != nullptr &&
@@ -1528,23 +1395,19 @@ void RenderSystem::render(entt::registry &registry,
         }));
     graph.AddPass(g_radianceCascadesPass);
     graph.AddPass(g_giCompositePass);
-    sceneHdrOwner = RenderOwnerTag::GIComposite;
   }
   if (useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.fluidEnabled &&
       g_fluidSimulationPass != nullptr) {
     graph.AddPass(g_fluidSimulationPass);
-    sceneHdrOwner = RenderOwnerTag::FluidSimulation;
   }
   if (useVolumetricPass && g_volumetricPass != nullptr) {
     graph.AddPass(g_volumetricPass);
-    sceneHdrOwner = RenderOwnerTag::Volumetric;
   }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXPass>(
       [&frame, gameplayHooks](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
         ExecuteVFXPass(frame, gameplayHooks);
       }));
-  sceneHdrOwner = RenderOwnerTag::VFX;
 
   if (frame.gpuTextEnabled) {
     graph.AddPass(std::make_shared<NoMoreDay::render::passes::GPUTextPass>(
@@ -1552,7 +1415,6 @@ void RenderSystem::render(entt::registry &registry,
           NoMoreDay::render::core::ScopedGLState scopedState;
           ExecuteGPUTextPass(frame);
         }));
-    sceneHdrOwner = RenderOwnerTag::VFX;
   }
 
   if (frame.gpuLootEnabled) {
@@ -1561,7 +1423,6 @@ void RenderSystem::render(entt::registry &registry,
           NoMoreDay::render::core::ScopedGLState scopedState;
           ExecuteGPULootPass(frame);
         }));
-    sceneHdrOwner = RenderOwnerTag::VFX;
   }
 
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::UIWorldPass>(
@@ -1569,68 +1430,63 @@ void RenderSystem::render(entt::registry &registry,
         NoMoreDay::render::core::ScopedGLState scopedState;
         ExecuteUIWorldPass(frame, gameplayHooks);
       }));
-  sceneHdrOwner = RenderOwnerTag::UIWorld;
 
   if (useHdrSceneBuffer && !offscreenV3SafeMode && g_postProcessPass != nullptr) {
     graph.AddPass(g_postProcessPass);
-    ldrOwner = RenderOwnerTag::PostProcess;
   }
   if (useDistortionPass && g_distortionPass != nullptr &&
       g_postProcessPass != nullptr) {
-    g_distortionPass->SetInputBuffer(&g_postProcessPass->GetOutputBuffer());
     graph.AddPass(g_distortionPass);
-    ldrOwner = RenderOwnerTag::Distortion;
   }
 
+  // Phase D (D2/D3): derive the composite input from the graph instead of
+  // manual owner tracking. Build() collects every registered pass's typed
+  // accesses; the last writer of each LDR resource decides which producer feeds
+  // composite, preserving the previous distortion > postprocess > hdr priority.
+  graph.Build();
+  const RenderOwnerTag sceneHdrOwner = graph.FindLastWriterOwner(
+      RenderResourceTag::SceneHdrColor);
+  const RenderOwnerTag postProcessOwner = graph.FindLastWriterOwner(
+      RenderResourceTag::PostProcessLdrColor);
+  const RenderOwnerTag distortionOwner = graph.FindLastWriterOwner(
+      RenderResourceTag::DistortionLdrColor);
   RenderResourceTag compositeInputResource = RenderResourceTag::SceneHdrColor;
   RenderOwnerTag compositeInputOwner = sceneHdrOwner;
-  if (ldrOwner == RenderOwnerTag::PostProcess) {
-    compositeInputResource = RenderResourceTag::PostProcessLdrColor;
-    compositeInputOwner = RenderOwnerTag::PostProcess;
-  } else if (ldrOwner == RenderOwnerTag::Distortion) {
+  if (distortionOwner == RenderOwnerTag::Distortion) {
     compositeInputResource = RenderResourceTag::DistortionLdrColor;
     compositeInputOwner = RenderOwnerTag::Distortion;
-  }
-
-  static RenderOwnerTag s_prevSceneHdrOwner = RenderOwnerTag::Unknown;
-  static RenderOwnerTag s_prevLdrOwner = RenderOwnerTag::Unknown;
-  static RenderResourceTag s_prevCompositeInput = RenderResourceTag::Custom;
-  static RenderOwnerTag s_prevCompositeInputOwner = RenderOwnerTag::Unknown;
-  if (s_prevSceneHdrOwner != sceneHdrOwner || s_prevLdrOwner != ldrOwner ||
-      s_prevCompositeInput != compositeInputResource ||
-      s_prevCompositeInputOwner != compositeInputOwner) {
-    LOG_INFO(
-        "RenderSystem: ownership transition sceneHdr={} ldr={} compositeIn={} "
-        "compositeOwner={}",
-        NoMoreDay::render::graph::ToOwnerName(sceneHdrOwner),
-        NoMoreDay::render::graph::ToOwnerName(ldrOwner),
-        NoMoreDay::render::graph::ToResourceName(compositeInputResource),
-        NoMoreDay::render::graph::ToOwnerName(compositeInputOwner));
-    s_prevSceneHdrOwner = sceneHdrOwner;
-    s_prevLdrOwner = ldrOwner;
-    s_prevCompositeInput = compositeInputResource;
-    s_prevCompositeInputOwner = compositeInputOwner;
+  } else if (postProcessOwner == RenderOwnerTag::PostProcess) {
+    compositeInputResource = RenderResourceTag::PostProcessLdrColor;
+    compositeInputOwner = RenderOwnerTag::PostProcess;
   }
 
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::CompositePass>(
       compositeInputResource, compositeInputOwner,
-      [useHdrSceneBuffer, useDistortionPass, compositeTarget](
-          NoMoreDay::render::graph::RenderContext &) {
+      [compositeInputOwner, useHdrSceneBuffer, compositeTarget](
+          NoMoreDay::render::graph::RenderContext &context) {
         NoMoreDay::render::core::ScopedGLState scopedState;
-        if (useDistortionPass && g_distortionPass != nullptr &&
+        if (compositeInputOwner == RenderOwnerTag::Distortion &&
+            g_distortionPass != nullptr &&
             g_distortionPass->GetOutputBuffer().IsValid()) {
           ExecuteCompositePass(&g_distortionPass->GetOutputBuffer(),
                                compositeTarget);
-        } else if (useHdrSceneBuffer && g_postProcessPass != nullptr &&
+        } else if (compositeInputOwner == RenderOwnerTag::PostProcess &&
+                   g_postProcessPass != nullptr &&
                    g_postProcessPass->GetOutputBuffer().IsValid()) {
           ExecuteCompositePass(&g_postProcessPass->GetOutputBuffer(),
                                compositeTarget);
-        } else if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {
-          ExecuteCompositePass(&s_hdrSceneBuffer, compositeTarget);
+        } else if (useHdrSceneBuffer && context.hdrSceneBuffer.IsValid()) {
+          ExecuteCompositePass(&context.hdrSceneBuffer, compositeTarget);
         } else {
           ExecuteCompositePass();
         }
       }));
+
+  // Phase D (D1): unified resize dispatch once every node (including composite)
+  // is registered; the graph fans out to each node.pass->OnResize exactly once.
+  if (hdrPassesNeedResize && resizeWidth > 0 && resizeHeight > 0) {
+    graph.OnResize(resizeWidth, resizeHeight);
+  }
 
   NoMoreDay::render::graph::RenderContext graphContext = {};
   graphContext.registry = &registry;
@@ -1805,6 +1661,39 @@ void RenderSystem::render(entt::registry &registry,
 // W6 (M0-C): hardware-gate evidence accessors (see RenderSystem.hpp).
 const std::vector<std::string> &RenderSystem::GetLastExecutedPassOrder() {
   return s_lastExecutedPassOrder;
+}
+
+RenderSystem::JfaDiagnostics RenderSystem::GetJfaDiagnostics() {
+  JfaDiagnostics diagnostics;
+  if (g_jfaPass == nullptr) {
+    return diagnostics;
+  }
+
+  const auto &report = g_jfaPass->GetLastReport();
+  switch (report.mode) {
+  case NoMoreDay::render::gi::JFAUpdateMode::Skip:
+    diagnostics.mode = "skip";
+    break;
+  case NoMoreDay::render::gi::JFAUpdateMode::Incremental:
+    diagnostics.mode = "incremental";
+    break;
+  case NoMoreDay::render::gi::JFAUpdateMode::Revert:
+    diagnostics.mode = "revert";
+    break;
+  case NoMoreDay::render::gi::JFAUpdateMode::Full:
+  default:
+    diagnostics.mode = "full";
+    break;
+  }
+  diagnostics.dispatchTexelCount = report.dispatchTexelCount;
+  diagnostics.dirtyRectArea = report.dirtyRect.Area();
+  diagnostics.expandedRectArea = report.expandedRect.Area();
+  diagnostics.plus2Recovery = g_jfaPass->UsedFallbackPlus2ThisFrame();
+  diagnostics.verificationAttempted = report.verificationAttempted;
+  diagnostics.verificationPassed = report.verificationPassed;
+  diagnostics.verificationRecovery = report.verificationFallback;
+  diagnostics.verificationResult = report.verificationResult;
+  return diagnostics;
 }
 
 RenderSystem::GiDistanceFieldInfo RenderSystem::GetGiDistanceField() {

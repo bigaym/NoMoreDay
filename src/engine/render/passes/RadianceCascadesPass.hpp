@@ -67,7 +67,7 @@ private:
                            int height);
   bool RunParticleEmissive(const graph::RenderContext &context, int width,
                            int height);
-  bool RunEmissiveMerge(int width, int height);
+  bool RunEmissiveMerge(const graph::RenderContext &context, int width, int height);
   bool RunCascadeTrace(const graph::RenderContext &context, uint32_t cascadeLevels,
                        bool holographicMode);
   void UploadConfig(const graph::RenderContext &context, uint32_t cascadeLevels,

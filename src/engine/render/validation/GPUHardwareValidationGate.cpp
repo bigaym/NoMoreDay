@@ -1466,6 +1466,20 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
             "trace missing (fail-closed)");
       }
 
+      // B13: capture the real JFA work shape without changing its execution or
+      // gate verdict. This distinguishes full/incremental work and recovery or
+      // verification cost when a timing budget is exceeded.
+      const auto jfaDiagnostics = RenderSystem::GetJfaDiagnostics();
+      execResult.jfaMode = jfaDiagnostics.mode;
+      execResult.jfaDispatchTexelCount = jfaDiagnostics.dispatchTexelCount;
+      execResult.jfaDirtyRectArea = jfaDiagnostics.dirtyRectArea;
+      execResult.jfaExpandedRectArea = jfaDiagnostics.expandedRectArea;
+      execResult.jfaPlus2Recovery = jfaDiagnostics.plus2Recovery;
+      execResult.jfaVerificationAttempted = jfaDiagnostics.verificationAttempted;
+      execResult.jfaVerificationPassed = jfaDiagnostics.verificationPassed;
+      execResult.jfaVerificationRecovery = jfaDiagnostics.verificationRecovery;
+      execResult.jfaVerificationResult = jfaDiagnostics.verificationResult;
+
       // W6 (M0-C) High-2: ROI readback at its TRUE origin. rlReadScreenPixels
       // cannot sample an offset region, so the full FBO is read and CPU-cropped
       // to [roiX,roiY,w,h]; the sampled region always matches the declared ROI.
@@ -2233,6 +2247,17 @@ std::string GateReport::ToJsonString() const {
     mj["non_black_roi_passed"] = m.nonBlackRoiPassed;
     mj["roi_mean_brightness"] = m.roiMeanBrightness;
     mj["gi_indirect_passed"] = m.giIndirectPassed;
+    // B13: real JFA work-shape diagnostics for timing root-cause analysis.
+    mj["jfa"] = {
+        {"mode", m.jfaMode},
+        {"dispatch_texel_count", m.jfaDispatchTexelCount},
+        {"dirty_rect_area", m.jfaDirtyRectArea},
+        {"expanded_rect_area", m.jfaExpandedRectArea},
+        {"fallback_plus2", m.jfaPlus2Recovery},
+        {"verification_attempted", m.jfaVerificationAttempted},
+        {"verification_passed", m.jfaVerificationPassed},
+        {"verification_fallback", m.jfaVerificationRecovery},
+        {"verification_result", m.jfaVerificationResult}};
     // W6 (M0-C) Blocker-1: per-cell paired GI delta + real SDF evidence.
     mj["gi_paired_delta"] = m.giPairedDelta;
     mj["gi_paired_passed"] = m.giPairedPassed;

@@ -93,12 +93,13 @@ public:
 
 private:
   bool EnsureResources(int fullWidth, int fullHeight, bool halfResolution);
-  bool RunSeedInit(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
-                   const gi::JFARect *rect = nullptr);
-  bool RunJumpFloodStep(int stepSize, int fullWidth, int fullHeight,
-                        uint32_t inputSeedTexture, uint32_t outputSeedTexture,
-                        const gi::JFARect *rect = nullptr);
-  bool RunDistanceResolve(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
+  bool RunSeedInit(const graph::RenderContext &context, uint32_t occluderMaskTexture,
+                   int fullWidth, int fullHeight, const gi::JFARect *rect = nullptr);
+  bool RunJumpFloodStep(const graph::RenderContext &context, int stepSize,
+                        int fullWidth, int fullHeight, uint32_t inputSeedTexture,
+                        uint32_t outputSeedTexture, const gi::JFARect *rect = nullptr);
+  bool RunDistanceResolve(const graph::RenderContext &context,
+                          uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
                           uint32_t inputSeedTexture, uint32_t outputDistanceTexture,
                           const gi::JFARect *rect = nullptr);
   bool RunUpsample(int fullWidth, int fullHeight, const gi::JFARect *rect = nullptr);

@@ -30,8 +30,6 @@ constexpr uint32_t kGLTexture2D = 0x0DE1;
 constexpr uint32_t kGLTexture0 = 0x84C0;
 constexpr uint32_t kGLColorBufferBit = 0x00004000;
 constexpr uint32_t kGLRgba16f = 0x881A;
-constexpr uint32_t kGLShaderStorageBarrierBit = 0x00002000;
-constexpr double kClusterFallbackWarnWindowSeconds = 5.0;
 constexpr const char *kFullscreenVertexShader =
     "assets/shaders/postprocess/fullscreen.vert";
 constexpr const char *kLightingFragmentShader =
@@ -57,6 +55,27 @@ void LightingPass::Setup(graph::RenderGraphBuilder &builder) {
                 graph::RenderOwnerTag::Lighting,
                 graph::PipelineStage::FramebufferAttachment,
                 graph::ResourceUsage::ColorAttachment);
+
+  // Cluster SSBO consumption: LightCullingPass writes the cluster buffers via
+  // compute; LightingPass's fullscreen fragment draw reads them. Declared only
+  // when the clustered-lighting path is actually enabled so the graph emits the
+  // cross-pass SSBO transition (0x2000) at this pass's entry instead of a
+  // manual barrier inside Execute. The gate mirrors the Execute() runtime guard
+  // (config.v3Enabled && config.clusteredLightingEnabled); graphs built without
+  // a LightCullingPass producer stay valid (read-before-write would otherwise
+  // fail validation).
+  const auto &config = core::QualityTierManager::Get().GetConfig();
+  if (config.v3Enabled && config.clusteredLightingEnabled) {
+    builder.Read(graph::RenderResourceTag::ClusterHeaderSSBO,
+                 graph::RenderOwnerTag::LightCulling,
+                 graph::PipelineStage::Fragment, graph::ResourceUsage::ShaderRead);
+    builder.Read(graph::RenderResourceTag::ClusterLightIndexSSBO,
+                 graph::RenderOwnerTag::LightCulling,
+                 graph::PipelineStage::Fragment, graph::ResourceUsage::ShaderRead);
+    builder.Read(graph::RenderResourceTag::ClusterPackedLightSSBO,
+                 graph::RenderOwnerTag::LightCulling,
+                 graph::PipelineStage::Fragment, graph::ResourceUsage::ShaderRead);
+  }
 }
 
 bool LightingPass::Initialize() {
@@ -75,13 +94,10 @@ bool LightingPass::Initialize() {
   m_ambientColorLoc = GetShaderLocation(m_lightAccumShader, "uAmbientColor");
   m_ambientIntensityLoc =
       GetShaderLocation(m_lightAccumShader, "uAmbientIntensity");
-  m_lightCountLoc = GetShaderLocation(m_lightAccumShader, "uLightCount");
   m_cameraOffsetLoc = GetShaderLocation(m_lightAccumShader, "uCameraOffset");
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
   m_shadowMaskTexLoc = GetShaderLocation(m_lightAccumShader, "uShadowMaskTex");
   m_shadowEnabledLoc = GetShaderLocation(m_lightAccumShader, "uShadowEnabled");
-  m_clusteredLightingEnabledLoc =
-      GetShaderLocation(m_lightAccumShader, "uClusteredLightingEnabled");
   m_clusterGridXLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridX");
   m_clusterGridYLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridY");
   m_clusterGridZLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridZ");
@@ -109,13 +125,10 @@ bool LightingPass::ReloadShaders() {
   m_sceneTexLoc = GetShaderLocation(m_lightAccumShader, "uSceneTex");
   m_ambientColorLoc = GetShaderLocation(m_lightAccumShader, "uAmbientColor");
   m_ambientIntensityLoc = GetShaderLocation(m_lightAccumShader, "uAmbientIntensity");
-  m_lightCountLoc = GetShaderLocation(m_lightAccumShader, "uLightCount");
   m_cameraOffsetLoc = GetShaderLocation(m_lightAccumShader, "uCameraOffset");
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
   m_shadowMaskTexLoc = GetShaderLocation(m_lightAccumShader, "uShadowMaskTex");
   m_shadowEnabledLoc = GetShaderLocation(m_lightAccumShader, "uShadowEnabled");
-  m_clusteredLightingEnabledLoc =
-      GetShaderLocation(m_lightAccumShader, "uClusteredLightingEnabled");
   m_clusterGridXLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridX");
   m_clusterGridYLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridY");
   m_clusterGridZLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridZ");
@@ -135,7 +148,6 @@ void LightingPass::Shutdown() {
   resources::FramebufferManager::Destroy(m_litBuffer);
   m_shadowMaskTexLoc = -1;
   m_shadowEnabledLoc = -1;
-  m_clusteredLightingEnabledLoc = -1;
   m_clusterGridXLoc = -1;
   m_clusterGridYLoc = -1;
   m_clusterGridZLoc = -1;
@@ -148,11 +160,6 @@ void LightingPass::Shutdown() {
   m_lastUsedV2Fallback = false;
   m_lastShadowFallbackReason.clear();
   m_lastClusteredApplied = false;
-  m_lastClusteredFallback = false;
-  m_lastClusteredFallbackReason.clear();
-  m_lastClusteredWarnTime = -1000.0;
-  m_lastClusterSyncFrame = 0;
-  m_hasClusterSyncFrame = false;
   m_skipResolveForTesting = false;
   m_initialized = false;
 }
@@ -194,8 +201,6 @@ void LightingPass::Execute(graph::RenderContext &context) {
   m_lastUsedV2Fallback = false;
   m_lastShadowFallbackReason.clear();
   m_lastClusteredApplied = false;
-  m_lastClusteredFallback = false;
-  m_lastClusteredFallbackReason.clear();
 
   const auto *qualityManager = context.qualityManager;
   if (qualityManager == nullptr || context.camera == nullptr) {
@@ -246,12 +251,6 @@ void LightingPass::Execute(graph::RenderContext &context) {
                    &config.ambientIntensity, SHADER_UNIFORM_FLOAT);
   }
 
-  const int lightCount = lighting::LightManager::Get().GetActiveLightCount();
-  if (m_lightCountLoc >= 0) {
-    SetShaderValue(m_lightAccumShader, m_lightCountLoc, &lightCount,
-                   SHADER_UNIFORM_INT);
-  }
-
   const float zoom = std::max(context.camera->zoom, 0.0001f);
   const float screenSize[2] = {static_cast<float>(width) / zoom,
                                static_cast<float>(height) / zoom};
@@ -299,7 +298,9 @@ void LightingPass::Execute(graph::RenderContext &context) {
   }
   if (m_lastUsedV2Fallback && !m_lastShadowFallbackReason.empty()) {
     LOG_LIMITED_WARN(
-        1.0f, "ShadowFallback: frame={} reason={} fallback=V2Lighting",
+        1.0f,
+        "ShadowFallback: frame={} reason={} shadows unavailable; lighting "
+        "continues without shadow mask",
         m_frameIndex, m_lastShadowFallbackReason);
   }
   if (m_shadowEnabledLoc >= 0) {
@@ -307,103 +308,106 @@ void LightingPass::Execute(graph::RenderContext &context) {
                    SHADER_UNIFORM_INT);
   }
 
-  int clusteredLightingEnabled = 0;
-  if (config.v3Enabled && config.clusteredLightingEnabled) {
-    if (m_lightCullingPass == nullptr) {
-      m_lastClusteredFallback = true;
-      m_lastClusteredFallbackReason = "light culling pass not bound";
-    } else if (m_lightCullingPass->HadFailureThisFrame()) {
-      m_lastClusteredFallback = true;
-      m_lastClusteredFallbackReason = m_lightCullingPass->GetLastFailureReason();
-    } else if (!m_lightCullingPass->IsClusterDataReadyForCurrentFrame()) {
-      m_lastClusteredFallback = true;
-      m_lastClusteredFallbackReason = "cluster data unavailable for current frame";
-    } else {
-      auto &clusterState = lighting::ClusteredLightingState::Get();
-      const auto &grid = clusterState.GetGrid();
-      if (grid.clusterCount == 0u || clusterState.GetClusterHeaderBufferId() == 0u ||
-          clusterState.GetClusterLightIndexBufferId() == 0u ||
-          clusterState.GetClusterPackedLightBufferId() == 0u) {
-        m_lastClusteredFallback = true;
-        m_lastClusteredFallbackReason = "cluster buffers unavailable";
-      } else {
-        uint32_t headerBinding = 0u;
-        uint32_t indexBinding = 0u;
-        uint32_t packedLightBinding = 0u;
-        if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                               "CLUSTER_HEADER_OUT",
-                                               headerBinding) ||
-            !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                               "CLUSTER_INDEX_OUT",
-                                               indexBinding) ||
-            !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                               "CLUSTER_LIGHT_OUT",
-                                               packedLightBinding)) {
-          m_lastClusteredFallback = true;
-          m_lastClusteredFallbackReason = "cluster binding resolution failed";
-        } else {
-          const uint32_t clusterFrame = clusterState.GetFrameIndex();
-          if (!m_hasClusterSyncFrame || m_lastClusterSyncFrame != clusterFrame) {
-            // Explicit compute->fragment SSBO sync point (auditable contract).
-            // Cluster data is immutable after culling in the current frame, so one
-            // barrier per cluster frame is sufficient.
-            NoMoreDay::utils::GPUUtils::MemoryBarrier(kGLShaderStorageBarrierBit);
-            m_lastClusterSyncFrame = clusterFrame;
-            m_hasClusterSyncFrame = true;
-          }
-          NoMoreDay::utils::GPUUtils::BindBufferBase(
-              headerBinding, clusterState.GetClusterHeaderBufferId());
-          NoMoreDay::utils::GPUUtils::BindBufferBase(
-              indexBinding, clusterState.GetClusterLightIndexBufferId());
-          NoMoreDay::utils::GPUUtils::BindBufferBase(
-              packedLightBinding, clusterState.GetClusterPackedLightBufferId());
+  // Clustered lighting is the single production path (Phase E). If clustered
+  // lighting is disabled or its data is unavailable, fail closed: report the
+  // condition and skip rendering instead of silently degrading to the old
+  // direct-read fallback loop.
+  if (!config.v3Enabled || !config.clusteredLightingEnabled) {
+    LOG_LIMITED_WARN(
+        1.0f,
+        "LightingPass: clustered lighting disabled (v3Enabled={}, "
+        "clusteredLightingEnabled={}); fail-closed, skipping lighting",
+        config.v3Enabled, config.clusteredLightingEnabled);
+    return;
+  }
+  if (m_lightCullingPass == nullptr) {
+    LOG_LIMITED_WARN(1.0f,
+                     "LightingPass: light culling pass not bound; fail-closed, "
+                     "skipping lighting");
+    return;
+  }
+  if (m_lightCullingPass->HadFailureThisFrame()) {
+    LOG_LIMITED_WARN(1.0f,
+                     "LightingPass: light culling failed ({}); fail-closed, "
+                     "skipping lighting",
+                     m_lightCullingPass->GetLastFailureReason());
+    return;
+  }
+  if (!m_lightCullingPass->IsClusterDataReadyForCurrentFrame()) {
+    LOG_LIMITED_WARN(1.0f,
+                     "LightingPass: cluster data unavailable for current frame; "
+                     "fail-closed, skipping lighting");
+    return;
+  }
 
-          const int gridX = static_cast<int>(grid.tilesX);
-          const int gridY = static_cast<int>(grid.tilesY);
-          const int gridZ = static_cast<int>(grid.slicesZ);
-          const float clusterTileSizeWorld =
-              static_cast<float>(config.clusterTileSize) / zoom;
-          const float layerBandWorldUnits =
-              lighting::ClusteredLightingState::kDefaultLayerBandWorldUnits;
-          if (m_clusterGridXLoc >= 0) {
-            SetShaderValue(m_lightAccumShader, m_clusterGridXLoc, &gridX,
-                           SHADER_UNIFORM_INT);
-          }
-          if (m_clusterGridYLoc >= 0) {
-            SetShaderValue(m_lightAccumShader, m_clusterGridYLoc, &gridY,
-                           SHADER_UNIFORM_INT);
-          }
-          if (m_clusterGridZLoc >= 0) {
-            SetShaderValue(m_lightAccumShader, m_clusterGridZLoc, &gridZ,
-                           SHADER_UNIFORM_INT);
-          }
-          if (m_clusterTileSizeWorldLoc >= 0) {
-            SetShaderValue(m_lightAccumShader, m_clusterTileSizeWorldLoc,
-                           &clusterTileSizeWorld, SHADER_UNIFORM_FLOAT);
-          }
-          if (m_layerBandWorldUnitsLoc >= 0) {
-            SetShaderValue(m_lightAccumShader, m_layerBandWorldUnitsLoc,
-                           &layerBandWorldUnits, SHADER_UNIFORM_FLOAT);
-          }
+  auto &clusterState = lighting::ClusteredLightingState::Get();
+  const auto &grid = clusterState.GetGrid();
+  if (grid.clusterCount == 0u || clusterState.GetClusterHeaderBufferId() == 0u ||
+      clusterState.GetClusterLightIndexBufferId() == 0u ||
+      clusterState.GetClusterPackedLightBufferId() == 0u) {
+    LOG_LIMITED_WARN(1.0f,
+                     "LightingPass: cluster buffers unavailable; fail-closed, "
+                     "skipping lighting");
+    return;
+  }
 
-          clusteredLightingEnabled = 1;
-          m_lastClusteredApplied = true;
-        }
-      }
-    }
+  uint32_t headerBinding = 0u;
+  uint32_t indexBinding = 0u;
+  uint32_t packedLightBinding = 0u;
+  if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                         "CLUSTER_HEADER_OUT",
+                                         headerBinding) ||
+      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                         "CLUSTER_INDEX_OUT",
+                                         indexBinding) ||
+      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                         "CLUSTER_LIGHT_OUT",
+                                         packedLightBinding)) {
+    LOG_LIMITED_WARN(1.0f,
+                     "LightingPass: cluster binding resolution failed; "
+                     "fail-closed, skipping lighting");
+    return;
   }
-  if (m_clusteredLightingEnabledLoc >= 0) {
-    SetShaderValue(m_lightAccumShader, m_clusteredLightingEnabledLoc,
-                   &clusteredLightingEnabled, SHADER_UNIFORM_INT);
+
+  // Cross-pass sync: the cluster SSBOs were written by LightCullingPass
+  // (compute) in this frame. The graph emits the SSBO transition (0x2000) at
+  // this pass's entry from the Setup Read declarations; no manual barrier here.
+  NoMoreDay::utils::GPUUtils::BindBufferBase(
+      headerBinding, clusterState.GetClusterHeaderBufferId());
+  NoMoreDay::utils::GPUUtils::BindBufferBase(
+      indexBinding, clusterState.GetClusterLightIndexBufferId());
+  NoMoreDay::utils::GPUUtils::BindBufferBase(
+      packedLightBinding, clusterState.GetClusterPackedLightBufferId());
+
+  const int gridX = static_cast<int>(grid.tilesX);
+  const int gridY = static_cast<int>(grid.tilesY);
+  const int gridZ = static_cast<int>(grid.slicesZ);
+  const float clusterTileSizeWorld =
+      static_cast<float>(config.clusterTileSize) / zoom;
+  const float layerBandWorldUnits =
+      lighting::ClusteredLightingState::kDefaultLayerBandWorldUnits;
+  if (m_clusterGridXLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_clusterGridXLoc, &gridX,
+                   SHADER_UNIFORM_INT);
   }
-  if (m_lastClusteredFallback && !m_lastClusteredFallbackReason.empty()) {
-    const double now = GetTime();
-    if ((now - m_lastClusteredWarnTime) >= kClusterFallbackWarnWindowSeconds) {
-      LOG_WARN("ClusteredLightingFallback: frame={} reason={} fallback=V2Lighting",
-               m_frameIndex, m_lastClusteredFallbackReason);
-      m_lastClusteredWarnTime = now;
-    }
+  if (m_clusterGridYLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_clusterGridYLoc, &gridY,
+                   SHADER_UNIFORM_INT);
   }
+  if (m_clusterGridZLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_clusterGridZLoc, &gridZ,
+                   SHADER_UNIFORM_INT);
+  }
+  if (m_clusterTileSizeWorldLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_clusterTileSizeWorldLoc,
+                   &clusterTileSizeWorld, SHADER_UNIFORM_FLOAT);
+  }
+  if (m_layerBandWorldUnitsLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_layerBandWorldUnitsLoc,
+                   &layerBandWorldUnits, SHADER_UNIFORM_FLOAT);
+  }
+
+  m_lastClusteredApplied = true;
 
   DrawFullscreen(m_lightAccumShader, context.hdrSceneBuffer.colorTexture);
 

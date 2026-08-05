@@ -7,9 +7,7 @@ uniform sampler2D uSceneTex;
 uniform sampler2D uShadowMaskTex;
 uniform vec3 uAmbientColor;
 uniform float uAmbientIntensity;
-uniform int uLightCount;
 uniform int uShadowEnabled;
-uniform int uClusteredLightingEnabled;
 uniform int uClusterGridX;
 uniform int uClusterGridY;
 uniform int uClusterGridZ;
@@ -17,29 +15,6 @@ uniform float uClusterTileSizeWorld;
 uniform float uLayerBandWorldUnits;
 uniform vec2 uCameraOffset;
 uniform vec2 uScreenSize;
-
-struct GPULight {
-    float posX;
-    float posY;
-    float radius;
-    float intensity;
-    float colorR;
-    float colorG;
-    float colorB;
-    float colorA;
-    float dirX;
-    float dirY;
-    float spotCosHalfAngle;
-    float spotOuterCos;
-    uint lightType;
-    uint shadowMapIndex;
-    uint priority;
-    uint flags;
-};
-
-layout(std430, binding = 9) readonly buffer LightBuffer {
-    GPULight lights[];
-};
 
 struct ClusterHeaderData {
     uint offset;
@@ -141,68 +116,6 @@ int computeClusterId(vec2 worldPos) {
     return tileX + tileY * uClusterGridX + slice * uClusterGridX * uClusterGridY;
 }
 
-void accumulateSingleLight(vec2 worldPos, float shadowFactor, uint lightIndex,
-                           inout vec3 totalLight) {
-    if (lightIndex >= uint(uLightCount)) {
-        return;
-    }
-
-    vec2 lightPos = vec2(lights[lightIndex].posX, lights[lightIndex].posY);
-    float radius = lights[lightIndex].radius;
-    float intensity = lights[lightIndex].intensity;
-    vec3 lightColor = vec3(lights[lightIndex].colorR, lights[lightIndex].colorG,
-                           lights[lightIndex].colorB);
-    uint lightType = lights[lightIndex].lightType;
-    float perLightShadow =
-        (uShadowEnabled != 0 && lights[lightIndex].shadowMapIndex != 0u)
-            ? shadowFactor
-            : 1.0;
-
-    float dist = distance(worldPos, lightPos);
-    float atten = calcAttenuation(dist, radius);
-    if (atten <= 0.0 || intensity <= 0.0) {
-        return;
-    }
-
-    if (lightType == 2u) {
-        totalLight += lightColor * intensity * atten;
-        return;
-    }
-
-    if (lightType == 3u) {
-        vec2 axis = normalize(vec2(lights[lightIndex].dirX, lights[lightIndex].dirY));
-        vec2 rel = worldPos - lightPos;
-        float halfLen = max(radius * 0.5, 1e-4);
-        float along = clamp(dot(rel, axis), -halfLen, halfLen);
-        vec2 closest = lightPos + axis * along;
-        float areaAtten = calcAttenuation(distance(worldPos, closest), radius);
-        totalLight += lightColor * intensity * areaAtten * perLightShadow;
-        return;
-    }
-    if (lightType == 4u) {
-        vec2 axis = normalize(vec2(lights[lightIndex].dirX, lights[lightIndex].dirY));
-        float halfLen = max(radius * 0.5, 1e-4);
-        vec2 a = lightPos - axis * halfLen;
-        vec2 b = lightPos + axis * halfLen;
-        float d = distanceToLineSegment(worldPos, a, b);
-        float lineAtten = calcAttenuation(d, radius);
-        totalLight += lightColor * intensity * lineAtten * perLightShadow;
-        return;
-    }
-
-    float spotFactor = 1.0;
-    if (lightType == 1u) {
-        vec2 toPixel = worldPos - lightPos;
-        spotFactor = calcSpotFactor(vec2(lights[lightIndex].dirX, lights[lightIndex].dirY),
-                                    toPixel, lights[lightIndex].spotCosHalfAngle);
-        if (spotFactor <= 0.0) {
-            return;
-        }
-    }
-
-    totalLight += lightColor * intensity * atten * spotFactor * perLightShadow;
-}
-
 void accumulatePackedLight(vec2 worldPos, float shadowFactor,
                            ClusterPackedLightData light,
                            inout vec3 totalLight) {
@@ -271,19 +184,16 @@ void main() {
         shadowFactor = texture(uShadowMaskTex, vTexCoord).r;
     }
 
-    if (uClusteredLightingEnabled != 0) {
-        int clusterId = computeClusterId(worldPos);
-        if (clusterId >= 0) {
-            ClusterHeaderData header = clusterHeaders[clusterId];
-            uint totalCount = header.pointCount + header.spotCount + header.areaCount;
-            for (uint i = 0u; i < totalCount; ++i) {
-                ClusterPackedLightData light = clusterLights[header.offset + i];
-                accumulatePackedLight(worldPos, shadowFactor, light, totalLight);
-            }
-        }
-    } else {
-        for (int i = 0; i < uLightCount; ++i) {
-            accumulateSingleLight(worldPos, shadowFactor, uint(i), totalLight);
+    // Clustered lighting is the only production path (Phase E): the pass
+    // fail-closes unless cluster data is available, so the branch is
+    // unconditional here.
+    int clusterId = computeClusterId(worldPos);
+    if (clusterId >= 0) {
+        ClusterHeaderData header = clusterHeaders[clusterId];
+        uint totalCount = header.pointCount + header.spotCount + header.areaCount;
+        for (uint i = 0u; i < totalCount; ++i) {
+            ClusterPackedLightData light = clusterLights[header.offset + i];
+            accumulatePackedLight(worldPos, shadowFactor, light, totalLight);
         }
     }
 

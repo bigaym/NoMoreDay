@@ -3,7 +3,9 @@
 > **关联设计:** `docs/designs/2026-08-03-render-engine-interface-migration-design.md` §5.5
 > **关闭债务:** RG-3（registry 覆盖不完整）
 > **依赖:** 无（可最先执行，机械、低风险，建立资源台账并暴露 MS-8 泄漏候选）
-> **状态:** [~] 进行中（G1-G3 实现完成，验证中；ResourceManager reload 生命周期仍由 F 阶段单独定义）
+> **状态:** [x] 完成（G1-G5 全部落地并通过验证；ResourceManager reload 生命周期仍由 F 阶段单独定义）
+>
+> **注（2026-08-05, G4/G5 收尾）:** G4 台账验证新增真实 GL 观察者用例 `tests/integration/PhaseGRegistrySnapshotGLTest.cpp`（[GPU-Diagnostic] 前缀，1x1 hidden GL context），断言 8 处 VAO/VBO + ResourceManager shader + GPUTimerQueryRing query 出现于连续两帧 snapshot 且计数一致、注销后回基线。G4 发现并修复一处 G1 遗漏注销：`MDIRenderer::Shutdown` 未释放 `m_statsStaging`（PersistentBuffer/PersistentBufferMapping 残留 2 条 × 24576B），已补 `m_statsStaging.Destroy()`（最小配对，observer-only）。G5 全量回归通过（unit 9/9、gpu.contract+diagnostic 2/2、模块边界 71 文件 PASS、legacy 扫描 PASS、git diff --check 干净）；已知 unrelated 失败：`GPUEntityLifecycleRegistryTest` W5（:197/:200/:334 activeResourceCount 回滚断言，见 §7 记录）。
 >
 > **注（2026-08-04, B11）:** design §5.5/B9 曾把"FramebufferManager owner 硬编码 Scene / ComputeBuffer owner Unknown 与 graph 合同不一致"标注为本组待办。该债务已由 Phase B11（`GPUResourceRegistry::ReclassifyResourceOwner`，Shadow→Shadow、cluster→LightCulling、LightBuffer→Lighting）单独关闭，不属于 G1-G5 的 VAO/VBO/shader/query 配对范围；本组无需重复处理。
 
@@ -57,11 +59,11 @@ dtor: registry.UnregisterResource(ids[i]); glDeleteQueries(...)
 
 | # | 任务 | 依赖 | 状态 |
 | --- | --- | --- | --- |
-| G1 | 8 处 VAO/VBO 注册/注销配对 | - | [~] |
-| G2 | `ResourceManager` shader program（VS/FS + compute）注册 + VS/FS 补 ReloadGovernance 记录 | - | [~] |
-| G3 | `GPUTimerQueryRing` query 注册/注销 | - | [~] |
-| G4 | 台账验证：S4 五秒快照覆盖全部目标资源，无 duplicate/missing | G1-G3 | [~] |
-| G5 | 边界脚本 + `legacy` 扫描 + 全量回归 | G1-G3 | [~] |
+| G1 | 8 处 VAO/VBO 注册/注销配对 | - | [x] 8 处 VAO/VBO 注册/注销已落地（G4 验证时发现并修复 MDIRenderer m_statsStaging 遗漏注销） |
+| G2 | `ResourceManager` shader program（VS/FS + compute）注册 + VS/FS 补 ReloadGovernance 记录 | - | [x] `ResourceManagerShader`/`ResourceManagerComputeShader` 已登记，VS/FS 补 ReloadGovernance 记录 |
+| G3 | `GPUTimerQueryRing` query 注册/注销 | - | [x] BeginPass 惰性注册（非零句柄为准），Shutdown 先注销再释放 |
+| G4 | 台账验证：S4 五秒快照覆盖全部目标资源，无 duplicate/missing | G1-G3 | [x] 新增 `PhaseGRegistrySnapshotGLTest.cpp`（真实 GL）覆盖 8 VAO/VBO + shader + query 连续两帧快照；发现并修复 MDIRenderer m_statsStaging 遗漏注销 |
+| G5 | 边界脚本 + `legacy` 扫描 + 全量回归 | G1-G3 | [x] 全部验证命令通过（W5 known unrelated 除外），详见 G4/G5 收尾注 |
 
 ## 6. Test Method
 
@@ -83,8 +85,8 @@ dtor: registry.UnregisterResource(ids[i]); glDeleteQueries(...)
 - G3: query 池全量登记，析构前全部注销。
 - G4: 连续两帧 snapshot 中目标资源均出现且计数一致；无 registry 诊断告警。
 - G5: build 双成功标记、ctest 无新增失败（既有已知失败除外）、边界 71/71、`legacy` 扫描通过。
-- **当前风险:** G2 仅记录现有 reload ledger，不实现 watch/poll/last-good swap；F 阶段必须作为唯一 reload 生命周期 owner，避免重复改造 `ResourceManager.cpp`。query 注册在 `BeginPass` 惰性发生，必须以成功生成的非零句柄为准。
-- **当前验证证据:** `cmake --build build --config RelWithDebInfo --target NoMoreDayTests -- /m:2` 成功；Phase G registry unit test 通过（28 assertions），RenderGraph/registry 合计 26 个 unit test、215 个 assertion 通过。尚未完成真实 GL 生命周期快照验证。
+- **当前风险:** G2 仅记录现有 reload ledger，不实现 watch/poll/last-good swap；F 阶段必须作为唯一 reload 生命周期 owner，避免重复改造 `ResourceManager.cpp`。query 注册在 `BeginPass` 惰性发生，必须以成功生成的非零句柄为准（`PhaseGRegistrySnapshotGLTest` 已按 `IsGpuTimerSupported()` 分条件断言 0/2 条 query 记录）。
+- **当前验证证据:** `cmake --build build --config RelWithDebInfo --target NoMoreDayTests -- /m:2` 成功。G4 真实 GL 快照用例通过（`[GPU-Diagnostic] Phase G - registry ledger covers 8 VAO/VBO sites, shaders and query ring across two frames`，50/50 断言通过；`nmd.tests.gpu.contract`+`nmd.tests.gpu.diagnostic` 2/2 通过）。unit 分层 9/9、模块边界检查 PASS、legacy 扫描 PASS（219/70 < 基线 222/71）、`git diff --check` 干净。已知 unrelated 失败：`GPUEntityLifecycleRegistryTest` W5（:197/:200/:334 `activeResourceCount` 回滚断言）在 `nmd.tests.integration` 与 `nmd.tests.ai.integration` 两个既有分层中触发，非本组引入、不修复。
 - 提交经用户授权，并按 `docs/plans/` 中 Handoff 模板如实报告。
 
 ## 8. Handoff Template

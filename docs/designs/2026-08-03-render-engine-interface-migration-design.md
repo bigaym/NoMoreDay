@@ -270,6 +270,8 @@ clustered 为主路径后，删除 LightingPass V2 直读 fallback 与非 cluste
 - `DeviceCapabilityMatrix` 接入生产路径：GL 4.3/SSBO/compute/image/barrier/format/timer/debug callback 缺失时依赖 feature fail-closed。
 - GL debug callback 安装（P0 S3 未做项）。
 
+> **2026-08-05 实施标注**：本 Phase 已落地（F1-F5）——`ShaderHotReloadManager` 整体删除（open decision #3 已解决）；`ShaderReloadGovernance` 记录 VS/FS 与 compute 递归 include hash 与失败重试（`ResourceManager::loadShader`/`loadComputeShader`）；`CheckProductionRequirements` 在 `RenderSystem::Initialize` 对生产必需能力（GL4.3/compute/SSBO/image/barrier）缺失 fail-closed（timer/debug callback 为诊断性，不阻断渲染）；生产 GL debug callback 由 `render/debug/GLDebugCallback` 常驻安装。详见 `docs/plans/2026-08-03-migration-phase-f-reload-capability-plan.md` §9。
+
 ## 6. Implementation Order And Subagent Work Packages
 
 ### 6.1 Dependency Graph
@@ -330,8 +332,8 @@ artifact path / Track docs updated / remaining risk or blocker
 
 **Open decisions**（需用户或后续设计确认）：
 1. ~~`VFXEmissionSnapshotPass`：迁移为声明 EmissiveBuffer 依赖，还是删除并并入 RadianceCascades。~~ **已解决（2026-08-04，B6）**：保留独立 pass，在 Setup 声明真实资源 `ParticleEmissive`（m_particleEmissive 纹理，写 + import，owner=RadianceCascades），不并入 RadianceCascades、不改变 pass 顺序或视觉行为。旧计划中 `Read(EmissiveBuffer, ...)` 为错误假设——本 pass 不读 EmissiveBuffer（见 §5.1 修正伪代码）。
-2. E 组 `clusteredLightingEnabled=false` 的语义：fail-closed 还是显式降级路径。
-3. F 组 `ShaderHotReloadManager`：整体删除还是仅从生产路径移出（保留 dev 工具）。
+2. E 组 `clusteredLightingEnabled=false` 的语义：fail-closed 还是显式降级路径。 **已解决（2026-08-05，E1）**：用户决策 **fail-closed**——`clusteredLightingEnabled=false` 时不做静默 V2 直读降级；配置要求 clustered 而 capability 缺失（compute/image/SSBO/GL4.3 任一）走 Phase F `DeviceCapabilityMatrix::CheckProductionRequirements`（`RenderSystem::Initialize` fail-closed 报告，E4 核实接线一致，不新增重复探测）。LightingPass/VolumetricLightPass 在 clustered 未启用或 cluster 数据不可用时报告并跳过渲染（不产生错误输出），语义与 LightCulling 一致。`fallback=V2Lighting` 措辞从生产路径清除（LightingPass/ShadowBuild/ShadowResolve 日志）。
+3. F 组 `ShaderHotReloadManager`：整体删除还是仅从生产路径移出（保留 dev 工具）。 **已解决（2026-08-05，F2）**：用户决策**整体删除**（`src/engine/render/dev/` 两个文件 + CMakeLists 条目 + RenderSystem.cpp 全部引用移除；`shaderHotReloadEnabled` 配置字段保留以兼容 settings.json）。`ShaderReloadGovernance` 成为唯一 reload 状态/失败重试 owner；`MaterialManager::TryHotReload()`（材质 JSON 热重载）独立保留。
 
 ## 9. Definition Of Overall Completion
 

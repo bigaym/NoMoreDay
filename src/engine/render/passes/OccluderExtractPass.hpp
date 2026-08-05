@@ -84,7 +84,8 @@ private:
   bool UploadOccluders(const NoMoreDay::components::GPUShadowCaster *occluders,
                        uint32_t occluderCount);
   bool EnsureMaskBuffers(int width, int height);
-  bool RunExtractPass(const Camera2D &camera, bool dynamicOnly, uint32_t outputTexture,
+  bool RunExtractPass(const graph::RenderContext &context, const Camera2D &camera,
+                      bool dynamicOnly, uint32_t outputTexture,
                       uint32_t occluderCount);
   bool RunComposePass();
   void ReportFailure(const char *reason);

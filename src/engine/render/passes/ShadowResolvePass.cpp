@@ -107,7 +107,7 @@ void ShadowResolvePass::ReportFailure(const std::string &reason) {
   m_shadowReadyThisFrame = false;
   m_lastExecuteFailed = true;
   m_lastFailureReason = reason;
-  LOG_WARN("ShadowFallback: frame={} reason={} fallback=V2Lighting", m_frameIndex,
+  LOG_WARN("ShadowFallback: frame={} reason={} fallback=NoShadowMask", m_frameIndex,
            m_lastFailureReason);
 }
 

@@ -2,8 +2,10 @@
 
 > **关联设计:** `docs/designs/2026-08-03-render-engine-interface-migration-design.md` §5.3
 > **关闭债务:** 验收 §4.1（单一路径）
-> **依赖:** Phase B、C（clustered 主路径访问已声明、barrier 已收敛）
-> **状态:** [ ] 未开始
+> **依赖:** Phase B、C（clustered 主路径访问已声明、barrier 已收敛）、Phase F（capability gate fail-closed）
+> **状态:** [x] 已完成（2026-08-05）
+
+> **open decision E2 已关闭（2026-08-05，用户确认）**：`clusteredLightingEnabled=false` 语义 = **fail-closed**（不做静默 V2 降级）。配置要求 clustered 而 capability 缺失（compute/image/SSBO/GL4.3 任一）走 Phase F `CheckProductionRequirements`（RenderSystem::Initialize fail-closed 报告，已实现，E4 核实接线一致，不新增重复探测）。LightingPass/VolumetricLightPass 在 clustered 未启用或 cluster 数据不可用时报告并跳过渲染（不产生错误输出），语义与 LightCulling 一致。
 
 ## 1. Authority And Boundaries
 
@@ -41,11 +43,11 @@ if renderConfig.clusteredLightingEnabled && !capability.clustered:
 
 | # | 任务 | 依赖 | 状态 |
 | --- | --- | --- | --- |
-| E1 | 决策落地：`clusteredLightingEnabled=false` 语义（fail-closed 或显式降级） | 用户确认 | [ ] |
-| E2 | LightingPass 移除 V2 fallback 分支 | E1 | [ ] |
-| E3 | VolumetricLightPass 移除非 clustered 路径 | E1 | [ ] |
-| E4 | 能力缺失 fail-closed 接入（与 F 组 gate 协作） | E2/E3、F | [ ] |
-| E5 | clustered 集成测试 + 回归 | E2/E3 | [ ] |
+| E1 | 决策落地：`clusteredLightingEnabled=false` 语义（fail-closed 或显式降级） | 用户确认 | [x] 2026-08-05 关闭为 fail-closed |
+| E2 | LightingPass 移除 V2 fallback 分支 | E1 | [x] 2026-08-05 |
+| E3 | VolumetricLightPass 移除非 clustered 路径 | E1 | [x] 2026-08-05 |
+| E4 | 能力缺失 fail-closed 接入（与 F 组 gate 协作） | E2/E3、F | [x] 2026-08-05 核实已覆盖 |
+| E5 | clustered 集成测试 + 回归 | E2/E3 | [x] 2026-08-05 |
 
 ## 6. Test Method
 

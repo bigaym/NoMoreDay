@@ -125,6 +125,7 @@ void MDIRenderer::Shutdown() {
   m_visibleBuffer.Destroy();
   m_commandBuffer.Destroy();
   m_statsBuffer.Destroy();
+  m_statsStaging.Destroy();
 }
 
 void MDIRenderer::Update(ResourceManager &rm, const PersistentBuffer &entities,

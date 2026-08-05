@@ -103,6 +103,26 @@ void LightCullingPass::Setup(graph::RenderGraphBuilder &builder) {
     }
     return resolved;
   };
+
+  // Observer-only binding declarations mirroring the LightCulling binding
+  // domain symbols resolved in Execute (BindingRegistry::LightCulling, points
+  // 0-5). The graph-driven resolver admits them against the per-frame
+  // imported-backing snapshot and issues behavior-equivalent binds right before
+  // Execute; the manual BindBufferBase calls inside Execute stay authoritative
+  // and untouched.
+  builder.BindBufferBase(graph::RenderResourceTag::LightBufferSSBO,
+                         resolveLightCullingBinding("LIGHT_LIST_IN", 0u));
+  builder.BindBufferBase(graph::RenderResourceTag::ClusterHeaderSSBO,
+                         resolveLightCullingBinding("CLUSTER_HEADER_OUT", 1u));
+  builder.BindBufferBase(graph::RenderResourceTag::ClusterLightIndexSSBO,
+                         resolveLightCullingBinding("CLUSTER_INDEX_OUT", 2u));
+  builder.BindBufferBase(graph::RenderResourceTag::LightBoundsSSBO,
+                         resolveLightCullingBinding("LIGHT_BOUNDS_IN", 3u));
+  builder.BindBufferBase(graph::RenderResourceTag::ClusterCounterSSBO,
+                         resolveLightCullingBinding("CLUSTER_COUNTER", 4u));
+  builder.BindBufferBase(graph::RenderResourceTag::ClusterPackedLightSSBO,
+                         resolveLightCullingBinding("CLUSTER_LIGHT_OUT", 5u));
+
   const auto importClusterBuffer =
       [&builder](graph::RenderResourceTag tag, uint32_t bindingPoint) {
         graph::ResourceImportInfo import;

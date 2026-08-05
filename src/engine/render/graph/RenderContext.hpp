@@ -36,6 +36,12 @@ struct RenderContext {
   core::QualityTierManager *qualityManager = nullptr;
   debug::RenderProfiler *renderProfiler = nullptr;
   resources::FramebufferHandle hdrSceneBuffer = {};
+  // Phase D (RG-2): live LDR output of PostProcessPass, published by the pass
+  // at the end of its own Execute so downstream consumers (DistortionPass,
+  // CompositePass) resolve the producer's current backing from the graph
+  // context instead of a manual SetInputBuffer wiring. Invalid until
+  // PostProcessPass::Execute writes it.
+  resources::FramebufferHandle postProcessOutput = {};
   uint32_t giDistanceFieldTexture = 0u;
   int giDistanceFieldWidth = 0;
   int giDistanceFieldHeight = 0;
@@ -103,7 +109,7 @@ struct RenderContext {
   // the currently executing pass. Returns true when a matching declaration was
   // resolved and the barrier was issued; false when no graph is active or the
   // phase pair was never declared (contract violation).
-  bool EmitPhaseBarrier(PipelineStage sourcePhase, PipelineStage targetPhase) {
+  bool EmitPhaseBarrier(PipelineStage sourcePhase, PipelineStage targetPhase) const {
     return activeGraph != nullptr &&
            activeGraph->EmitActivePassPhaseBarrier(sourcePhase, targetPhase);
   }

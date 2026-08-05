@@ -45,10 +45,13 @@ private:
                             const Camera2D &camera);
   void SeedParticles(uint32_t count, const Camera2D &camera, int width, int height);
   void UploadConfig(uint32_t maxParticles);
-  bool DispatchGridHash(uint32_t particleCount);
-  bool DispatchNeighborSearch(uint32_t particleCount);
-  bool DispatchDensity(uint32_t particleCount, float deltaTime);
-  bool DispatchForce(uint32_t particleCount, float deltaTime);
+  bool DispatchGridHash(const graph::RenderContext &context, uint32_t particleCount);
+  bool DispatchNeighborSearch(const graph::RenderContext &context,
+                              uint32_t particleCount);
+  bool DispatchDensity(const graph::RenderContext &context, uint32_t particleCount,
+                       float deltaTime);
+  bool DispatchForce(const graph::RenderContext &context, uint32_t particleCount,
+                     float deltaTime);
   bool DispatchIntegrate(const graph::RenderContext &context, uint32_t particleCount,
                          float deltaTime);
   void InjectEmissive(const graph::RenderContext &context, uint32_t particleCount);

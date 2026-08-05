@@ -39,8 +39,22 @@ OccluderExtractPass::OccluderExtractPass() = default;
 OccluderExtractPass::~OccluderExtractPass() { Shutdown(); }
 
 void OccluderExtractPass::Setup(graph::RenderGraphBuilder &builder) {
+  // OccluderMask is produced by the compose compute dispatch (image store) and
+  // consumed by JFAPass via image loads. Declared as a Compute write so the
+  // graph emits the cross-pass Image|TexFetch transition (0x28) at JFA entry
+  // instead of a manual barrier at the end of this pass.
   builder.Write(graph::RenderResourceTag::OccluderMask,
-                graph::RenderOwnerTag::OccluderExtract);
+                graph::RenderOwnerTag::OccluderExtract,
+                graph::PipelineStage::Compute, graph::ResourceUsage::StorageWrite);
+
+  // Same-pass phase barrier: the extract dispatch writes the static/dynamic
+  // layer images; the compose dispatch that follows in this Execute reads them
+  // as images. Declared here and emitted via EmitPhaseBarrier after each
+  // extract dispatch (the exact execution point between the two phases).
+  builder.AddPhaseBarrier(graph::PipelineStage::Compute,
+                          graph::PipelineStage::Compute,
+                          static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+                              kTextureFetchBarrierBit);
 }
 
 bool OccluderExtractPass::Initialize(ResourceManager &resources) {
@@ -166,7 +180,8 @@ bool OccluderExtractPass::UploadOccluders(
   return true;
 }
 
-bool OccluderExtractPass::RunExtractPass(const Camera2D &camera,
+bool OccluderExtractPass::RunExtractPass(const graph::RenderContext &context,
+                                         const Camera2D &camera,
                                          const bool dynamicOnly,
                                          const uint32_t outputTexture,
                                          const uint32_t occluderCount) {
@@ -214,9 +229,10 @@ bool OccluderExtractPass::RunExtractPass(const Camera2D &camera,
       DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Same-pass sync before the compose dispatch reads the layer images: emitted
+  // at this exact execution point from the Setup AddPhaseBarrier declaration.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
   return true;
 }
 
@@ -249,9 +265,9 @@ bool OccluderExtractPass::RunComposePass() {
       DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
   rlDisableShader();
 
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  // Cross-pass sync: JFAPass consumes OccluderMask via image loads. Covered by
+  // the graph transition (Write Compute/StorageWrite -> Read) fired at JFA's
+  // pass entry; no manual barrier here.
   return true;
 }
 
@@ -341,7 +357,7 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
   const bool firstFrame = (m_frameIndex <= 1u);
 
   if (firstFrame || staticChanged) {
-    if (!RunExtractPass(*context.camera, false, m_staticMask.colorTexture,
+    if (!RunExtractPass(context, *context.camera, false, m_staticMask.colorTexture,
                         stats.totalCount)) {
       ReportFailure("failed to rebuild static occluder layer");
       return;
@@ -351,7 +367,7 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
   }
 
   if (firstFrame || dynamicChanged) {
-    if (!RunExtractPass(*context.camera, true, m_dynamicMask.colorTexture,
+    if (!RunExtractPass(context, *context.camera, true, m_dynamicMask.colorTexture,
                         stats.totalCount)) {
       ReportFailure("failed to update dynamic occluder layer");
       return;

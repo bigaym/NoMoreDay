@@ -72,6 +72,8 @@ registry 只接收 create/recreate/destroy observer 事件，实际释放仍由�
 
 manifest 生成或验证 C++ layout、GLSL layout、binding 常量。shader watch fingerprint 递归包含 `#include`；编译失败保留上次成功 fingerprint，持续重试并输出文件/include chain/driver log。capability gate 检查 GL 4.3、SSBO、compute/image、barrier、required format、timer 与 debug callback，缺失时使依赖 feature fail-closed 至明确回退。
 
+> **2026-08-05（Phase F / RG-4）实施标注**：生产 reload 已收敛为单一 owner——`ShaderHotReloadManager` 整体删除，`ShaderReloadGovernance` 记录 VS/FS 与 compute 的递归 include hash、失败保留 `lastSuccessfulHash` 重试（`ResourceManager::loadShader`/`loadComputeShader` 调用点）；`DeviceCapabilityMatrix::CheckProductionRequirements` 在 `RenderSystem::Initialize` 对 GL 4.3 core/compute/SSBO/image load-store/`glMemoryBarrier` 缺失 fail-closed（诊断性 timer/debug callback 不在生产必需集）；生产 GL debug callback 由 `GLDebugCallback` 常驻安装（ERROR/HIGH 过滤），与 gate 的 scoped 安装共存。
+
 ## 4. 验收标准
 
 - [ ] 所有生产 pass 的资源使用 typed descriptor/access 声明，GI/HDR/history/SSBO/external target 可导出 compiled plan。
@@ -79,7 +81,7 @@ manifest 生成或验证 C++ layout、GLSL layout、binding 常量。shader watc
 - [ ] compute image/SSBO、attachment-to-sample、history ping-pong、external composite transition 有声明式同步。
 - [ ] registry 覆盖引擎创建的 texture/FBO/SSBO/VBO/VAO/query/persistent mapping，无双重所有权。
 - [ ] profiler 不将未就绪 query 记为零，自动降级不混用 CPU fallback 与 GPU 数据。
-- [ ] ABI/binding check、include 修改、失败重试、capability fallback 与 GL diagnostics 有自动化测试。
+- [x] ABI/binding check、include 修改、失败重试、capability fallback 与 GL diagnostics 有自动化测试（2026-08-05：`GPUABIGovernanceTest`/`GPUABIBindingTierIntegrationTest`、`ShaderReloadGovernanceTest`、`DeviceCapabilityProductionGateTest`、gate GL diagnostics 测试落地）。
 - [ ] 构建、unit、integration、CI、performance 和目标 GPU smoke 通过，旧 V3/V5 contract 入口持续兼容。
 
 ## 5. 风险

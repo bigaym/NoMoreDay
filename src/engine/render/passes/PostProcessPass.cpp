@@ -597,6 +597,10 @@ void PostProcessPass::Execute(graph::RenderContext &context) {
 
   m_finalOutputBuffer = m_ldrBuffer;
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
+  // Phase D (RG-2): publish the live LDR output through the graph context so
+  // downstream consumers (DistortionPass, CompositePass) resolve the producer's
+  // current backing from the graph instead of a manual SetInputBuffer wiring.
+  context.postProcessOutput = m_finalOutputBuffer;
 }
 
 } // namespace NoMoreDay::render::passes

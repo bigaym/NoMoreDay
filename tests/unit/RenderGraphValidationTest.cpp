@@ -3,7 +3,14 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/passes/FluidSimulationPass.hpp"
+#include "engine/render/passes/GICompositePass.hpp"
+#include "engine/render/passes/JFAPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
+#include "engine/render/passes/LightingPass.hpp"
+#include "engine/render/passes/OccluderExtractPass.hpp"
+#include "engine/render/passes/RadianceCascadesPass.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/ShadowBuildPass.hpp"
 #include "engine/render/passes/ShadowPreparePass.hpp"
@@ -840,6 +847,186 @@ TEST_CASE("[Unit] RenderGraph - Phase B same-pass phase barrier + binding observ
   CHECK(foundSdfImage);
 }
 
+TEST_CASE("[Unit] RenderGraph - Phase C GI chain same-pass phase barriers + cross-pass transitions") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+  using namespace NoMoreDay::RenderConstants;
+
+  // Production-style GI chain (minus the shadow/VFX/UI wrapper passes): every
+  // one of the six migrated passes must carry its same-pass phase barrier
+  // declaration in the compiled plan, and the removed manual barriers at the
+  // OccluderExtract->JFA and JFA->RadianceCascades boundaries must be
+  // represented as graph transitions with the legacy Image|TexFetch bits.
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ScenePass>());
+  graph.AddPass(std::make_shared<LightingPass>());
+  graph.AddPass(std::make_shared<OccluderExtractPass>());
+  graph.AddPass(std::make_shared<JFAPass>());
+  graph.AddPass(std::make_shared<RadianceCascadesPass>());
+  graph.AddPass(std::make_shared<GICompositePass>());
+  graph.AddPass(std::make_shared<FluidSimulationPass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+
+  constexpr uint32_t kTextureFetch = 0x00000008u;
+  constexpr uint32_t kImageTexFetch =
+      static_cast<uint32_t>(Barrier::Image) | kTextureFetch;
+  constexpr uint32_t kBufferTexFetch =
+      static_cast<uint32_t>(Barrier::Buffer) | kTextureFetch;
+  constexpr uint32_t kImageBufferTexFetch =
+      static_cast<uint32_t>(Barrier::Image) |
+      static_cast<uint32_t>(Barrier::Buffer) | kTextureFetch;
+
+  bool foundOccluderBarrier = false;
+  bool foundRadianceBarrier = false;
+  bool foundGiCompositeBarrier = false;
+  bool foundFluidComputeBarrier = false;
+  bool foundFluidVertexBarrier = false;
+  bool foundJfaBarrier = false;
+  for (const auto &barrier : plan.phaseBarriers) {
+    if (barrier.passName == "OccluderExtractPass") {
+      CHECK_EQ(barrier.sourcePhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.targetPhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.barrierBits, kImageTexFetch);
+      foundOccluderBarrier = true;
+    }
+    if (barrier.passName == "RadianceCascadesPass") {
+      CHECK_EQ(barrier.sourcePhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.targetPhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.barrierBits, kImageTexFetch);
+      foundRadianceBarrier = true;
+    }
+    if (barrier.passName == "GICompositePass") {
+      CHECK_EQ(barrier.sourcePhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.targetPhase, PipelineStage::Fragment);
+      CHECK_EQ(barrier.barrierBits,
+               static_cast<uint32_t>(Barrier::Image) |
+                   static_cast<uint32_t>(Barrier::Buffer));
+      foundGiCompositeBarrier = true;
+    }
+    if (barrier.passName == "FluidSimulationPass" &&
+        barrier.sourcePhase == PipelineStage::Compute &&
+        barrier.targetPhase == PipelineStage::Compute) {
+      CHECK_EQ(barrier.barrierBits, static_cast<uint32_t>(Barrier::Buffer));
+      foundFluidComputeBarrier = true;
+    }
+    if (barrier.passName == "FluidSimulationPass" &&
+        barrier.sourcePhase == PipelineStage::Compute &&
+        barrier.targetPhase == PipelineStage::Vertex) {
+      CHECK_EQ(barrier.barrierBits, kBufferTexFetch);
+      foundFluidVertexBarrier = true;
+    }
+    if (barrier.passName == "JFAPass") {
+      CHECK_EQ(barrier.sourcePhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.targetPhase, PipelineStage::Compute);
+      CHECK_EQ(barrier.barrierBits, kImageBufferTexFetch);
+      foundJfaBarrier = true;
+    }
+  }
+  CHECK(foundOccluderBarrier);
+  CHECK(foundRadianceBarrier);
+  CHECK(foundGiCompositeBarrier);
+  CHECK(foundFluidComputeBarrier);
+  CHECK(foundFluidVertexBarrier);
+  CHECK(foundJfaBarrier);
+
+  // The two deleted cross-pass sites must be covered by graph transitions
+  // (Compute write -> Fragment read) carrying the legacy Image|TexFetch bits.
+  bool transitionOccluderMask = false;
+  bool transitionDistanceField = false;
+  for (const auto &transition : plan.transitions) {
+    if (transition.resourceName == "OccluderMask") {
+      CHECK_EQ(transition.previousStage, PipelineStage::Compute);
+      CHECK_EQ(transition.nextStage, PipelineStage::Fragment);
+      CHECK_EQ(transition.previousMode, PassAccessMode::Write);
+      CHECK_EQ(transition.nextMode, PassAccessMode::Read);
+      CHECK_EQ(transition.barrierBits, kImageTexFetch);
+      transitionOccluderMask = true;
+    }
+    if (transition.resourceName == "DistanceField") {
+      CHECK_EQ(transition.previousStage, PipelineStage::Compute);
+      CHECK_EQ(transition.nextStage, PipelineStage::Fragment);
+      CHECK_EQ(transition.previousMode, PassAccessMode::Write);
+      CHECK_EQ(transition.nextMode, PassAccessMode::Read);
+      CHECK_EQ(transition.barrierBits, kImageTexFetch);
+      transitionDistanceField = true;
+    }
+  }
+  CHECK(transitionOccluderMask);
+  CHECK(transitionDistanceField);
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase C LightingPass consumes cluster SSBOs via graph transitions") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::passes;
+  using namespace NoMoreDay::render::core;
+
+  // LightingPass declares its typed cluster reads (gated on the
+  // v3Enabled && clusteredLightingEnabled config) so the graph emits the
+  // Compute->Fragment SSBO transitions at LightingPass's entry, replacing the
+  // manual per-cluster-frame MemoryBarrier. The gate is driven by the
+  // QualityTierManager singleton; set the fields the gate reads, then restore.
+  auto &qm = QualityTierManager::Get();
+  auto &cfg = const_cast<RenderConfig &>(qm.GetConfig());
+  const bool originalV3 = cfg.v3Enabled;
+  const bool originalClustered = cfg.clusteredLightingEnabled;
+  const bool originalDynamic = cfg.dynamicLightingEnabled;
+  cfg.v3Enabled = true;
+  cfg.clusteredLightingEnabled = true;
+  cfg.dynamicLightingEnabled = true;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<ScenePass>());
+  graph.AddPass(std::make_shared<LightCullingPass>());
+  graph.AddPass(std::make_shared<LightingPass>());
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+
+  bool transitionHeader = false;
+  bool transitionLightIndex = false;
+  bool transitionPackedLight = false;
+  for (const auto &transition : plan.transitions) {
+    const bool clusterResource =
+        transition.resourceName == "ClusterHeaderSSBO" ||
+        transition.resourceName == "ClusterLightIndexSSBO" ||
+        transition.resourceName == "ClusterPackedLightSSBO";
+    if (!clusterResource) {
+      continue;
+    }
+    CHECK_EQ(transition.previousStage, PipelineStage::Compute);
+    CHECK_EQ(transition.nextStage, PipelineStage::Fragment);
+    CHECK_EQ(transition.previousMode, PassAccessMode::Write);
+    CHECK_EQ(transition.nextMode, PassAccessMode::Read);
+    // GL_SHADER_STORAGE_BARRIER_BIT == the removed manual barrier bits.
+    CHECK_EQ(transition.barrierBits, 0x00002000u);
+    const std::string &consumer = plan.passes[transition.consumerPassIndex].passName;
+    CHECK(consumer == "LightingPass");
+    if (transition.resourceName == "ClusterHeaderSSBO") {
+      transitionHeader = true;
+    }
+    if (transition.resourceName == "ClusterLightIndexSSBO") {
+      transitionLightIndex = true;
+    }
+    if (transition.resourceName == "ClusterPackedLightSSBO") {
+      transitionPackedLight = true;
+    }
+  }
+  CHECK(transitionHeader);
+  CHECK(transitionLightIndex);
+  CHECK(transitionPackedLight);
+
+  // Restore the singleton config so later unit tests see the default baseline.
+  cfg.v3Enabled = originalV3;
+  cfg.clusteredLightingEnabled = originalClustered;
+  cfg.dynamicLightingEnabled = originalDynamic;
+}
+
 TEST_CASE("[Unit] RenderGraph - duplicate phase barrier declaration fails closed") {
   using namespace NoMoreDay::render::graph;
 
@@ -1516,6 +1703,126 @@ TEST_CASE("[Unit] RenderGraph - B12 active-pass resolution outside Execute fails
            RenderGraph::ValidationDiagnostic::Severity::Error);
   CHECK(result.diagnostics[0].message.find("no active pass") !=
         std::string::npos);
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase D FindLastWriterOwner mirrors production owners") {
+  using namespace NoMoreDay::render::graph;
+
+  // Production-style multi-writer SceneHdrColor chain ending in UIWorld, plus
+  // the LDR chain written by PostProcess then Distortion (distortion last).
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene,
+                      PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "VFXPass", [](RenderGraphBuilder &builder) {
+        builder.Read(RenderResourceTag::SceneHdrColor, RenderOwnerTag::VFX,
+                     PipelineStage::Fragment, ResourceUsage::ShaderRead);
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::VFX,
+                      PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "UIWorldPass", [](RenderGraphBuilder &builder) {
+        builder.Read(RenderResourceTag::SceneHdrColor, RenderOwnerTag::UIWorld,
+                     PipelineStage::Fragment, ResourceUsage::ShaderRead);
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::UIWorld,
+                      PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "PostProcessPass", [](RenderGraphBuilder &builder) {
+        builder.Read(RenderResourceTag::SceneHdrColor, RenderOwnerTag::PostProcess,
+                     PipelineStage::Fragment, ResourceUsage::ShaderRead);
+        builder.Write(RenderResourceTag::PostProcessLdrColor,
+                      RenderOwnerTag::PostProcess, PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "DistortionPass", [](RenderGraphBuilder &builder) {
+        builder.Read(RenderResourceTag::PostProcessLdrColor,
+                     RenderOwnerTag::Distortion, PipelineStage::Fragment,
+                     ResourceUsage::ShaderRead);
+        builder.Write(RenderResourceTag::DistortionLdrColor,
+                      RenderOwnerTag::Distortion, PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+
+  // The last typed writer decides the owner (UIWorld after VFX after Scene).
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::SceneHdrColor),
+           RenderOwnerTag::UIWorld);
+  // Distortion is the last writer of the LDR chain -> composite picks it.
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::DistortionLdrColor),
+           RenderOwnerTag::Distortion);
+  // When only PostProcess writes the LDR color, it is the owner.
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::PostProcessLdrColor),
+           RenderOwnerTag::PostProcess);
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase D FindLastWriterOwner falls back to Unknown") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene,
+                      PipelineStage::FramebufferAttachment,
+                      ResourceUsage::ColorAttachment);
+      }));
+
+  // Unknown when the tag has no writer at all.
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::SceneDepth),
+           RenderOwnerTag::Unknown);
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::DistortionLdrColor),
+           RenderOwnerTag::Unknown);
+  // Unknown for tags outside the typed enum.
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::Custom),
+           RenderOwnerTag::Unknown);
+
+  // Accesses are collected during Build; before Build the graph must not
+  // invent writers from an empty access set.
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::SceneHdrColor),
+           RenderOwnerTag::Unknown);
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK_EQ(graph.FindLastWriterOwner(RenderResourceTag::SceneHdrColor),
+           RenderOwnerTag::Scene);
+}
+
+TEST_CASE("[Unit] RenderGraph - Phase D OnResize fans out exactly once per node") {
+  using namespace NoMoreDay::render::graph;
+
+  int sceneResizes = 0;
+  int compositeResizes = 0;
+  RenderGraph graph;
+  class ResizeCountingPass : public TestRenderPass {
+  public:
+    ResizeCountingPass(const char *name, int &count)
+        : TestRenderPass(name, nullptr), m_count(count) {}
+    void OnResize(int, int) override { ++m_count; }
+
+  private:
+    int &m_count;
+  };
+
+  graph.AddPass(std::make_shared<ResizeCountingPass>("ScenePass", sceneResizes));
+  graph.AddPass(
+      std::make_shared<ResizeCountingPass>("CompositePass", compositeResizes));
+
+  graph.OnResize(640, 360);
+  CHECK_EQ(sceneResizes, 1);
+  CHECK_EQ(compositeResizes, 1);
+
+  // A second OnResize drives the chain again (idempotent dispatch per call).
+  graph.OnResize(1280, 720);
+  CHECK_EQ(sceneResizes, 2);
+  CHECK_EQ(compositeResizes, 2);
 }
 
 

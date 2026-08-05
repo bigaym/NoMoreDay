@@ -489,6 +489,20 @@ void RenderGraph::OnResize(int width, int height) {
   }
 }
 
+RenderOwnerTag RenderGraph::FindLastWriterOwner(
+    RenderResourceTag resourceTag) const {
+  RenderOwnerTag lastWriterOwner = RenderOwnerTag::Unknown;
+  for (const Node &node : m_nodes) {
+    for (const ResourceAccess &access : node.accesses) {
+      if (access.type == ResourceAccess::Type::Write &&
+          access.resourceTag == resourceTag) {
+        lastWriterOwner = access.ownerTag;
+      }
+    }
+  }
+  return lastWriterOwner;
+}
+
 void RenderGraph::Build() {
   m_validationDiagnostics.clear();
   m_hasValidationErrors = false;

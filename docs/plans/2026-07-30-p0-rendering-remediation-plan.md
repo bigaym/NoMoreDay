@@ -141,7 +141,7 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 ### S3：M0-C R3 GL debug callback 安装（fail-closed）
 
-- **状态**：`[ ]`（无依赖）
+- **状态**：`[x]`（gate 侧已落地；2026-08-05 经 Phase F F4 补齐生产常驻安装，见下方实施记录）
 - **内容**：
   1. **capability 传导**：`HardwareCapabilityReport`（Gate 侧）新增 debug callback 支持字段，从 `DeviceCapabilityMatrix` 的能力报告传导；preflight 不满足（字段为假或 `GL_DEBUG_OUTPUT` 启用失败）→ gate 结论 `NOT_RUN`（不得降级通过）。
   2. **callback 生命周期**：GL context 下安装 `glDebugMessageCallback` → 启用 `GL_DEBUG_OUTPUT` → 运行期过滤（仅 ERROR/HIGH，防刷屏）→ 运行结束恢复原始 callback/禁用；线程约束：callback 在 GL 线程调用，收集队列无锁化（单线程断言）。
@@ -150,6 +150,9 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 - **验收**：gate 报告含结构化诊断；callback 安装/恢复成对；能力缺失 `NOT_RUN`；ERROR/HIGH → NO-GO；runner 归档完整报告。
 - **验证命令**：`./build.bat`；`python -m unittest tests/python/GpuHardwareValidationGateRunnerTest.py`；gate focused 测试；RTX 4070 实机采集。
 - **风险**：中。
+
+**S3 实施记录（2026-08-05，Phase F F4 补生产常驻安装）**：
+- gate 侧（capability 传导、scoped 生命周期、结构化诊断、NOT_RUN fail-closed、runner JSON 归档）此前已随 gate 实现落地；Phase F F4 补齐缺口项：`src/engine/render/debug/GLDebugCallback.{hpp,cpp}` 在生产初始化（`RenderSystem::Initialize`）常驻安装 `GL_DEBUG_OUTPUT` + `glDebugMessageCallback`，severity 过滤（仅 ERROR/HIGH 上报，防刷屏），`RenderSystem::Shutdown` 恢复前 callback/启用态；与 gate 的 scoped 安装按先后顺序均可共存（gate 保存/恢复前 callback）。验证：`tests/integration/DeviceCapabilityProductionGateTest.cpp` 断言安装无 GL 错误、能捕获 `GL_INVALID_ENUM` 驱动错误、shutdown 恢复状态。RTX 4070 实机硬件采集证据仍属 M0-C 生产 gate（NO-GO 待 M0-C 硬件证据），不在本条目声称。
 
 ### S4：M0-C R5.2 五秒 registry 快照
 

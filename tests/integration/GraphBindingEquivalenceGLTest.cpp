@@ -1,18 +1,36 @@
 #include "doctest.h"
 
+#include "engine/render/GPUData.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/core/BindingRegistry.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/lighting/ClusteredLightingState.hpp"
+#include "engine/render/lighting/LightManager.hpp"
+#include "engine/render/passes/LightCullingPass.hpp"
+#include "engine/render/passes/ShadowBuildPass.hpp"
+#include "engine/render/passes/ShadowPreparePass.hpp"
+#include "engine/render/passes/ShadowResolvePass.hpp"
+#include "engine/render/resources/FramebufferManager.hpp"
+#include "engine/render/resources/FullscreenQuad.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
+#include "engine/resource/ResourceManager.hpp"
+
+#include <entt/entt.hpp>
 
 #include "raylib.h"
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
@@ -727,4 +745,1682 @@ TEST_CASE(
   NoMoreDay::utils::GPUUtils::DeleteBuffers(1, &ssbo);
   NoMoreDay::utils::GPUUtils::DeleteTextures(1, &texture);
   rlUnloadShaderProgram(computeProgram);
+}
+
+// ===========================================================================
+// B2/B3 real production-path gate: real ShadowBuildPass graph-driven bind +
+// same-pass phase barrier on real GL (2026-08-04)
+//
+// The B12 fixture above proves the resolver/executor contract on a synthetic
+// mirror pass. This gate goes one level deeper: it drives the REAL
+// ShadowPreparePass -> ShadowBuildPass -> ShadowResolvePass chain through a
+// REAL RenderGraph::Execute on a hidden 1x1 GL context with a REAL
+// QualityTierManager config (High tier -> SDF shadow mode), and verifies:
+//   - the compiled plan carries the B2 same-pass phase barrier declaration
+//     (ShadowBuildPass Compute->Fragment, bits == Barrier::Image|Barrier::Buffer
+//     == 0x220) and the graph-generated cross-pass transitions
+//     (ShadowOccluderSSBO Host->Compute, ShadowDistanceField Compute->Fragment);
+//   - graph-driven bind == manual bind equivalence on the REAL pass: with a
+//     valid imported-backing snapshot (built from the real handles the pass
+//     created on the previous frame, mirroring RenderSystem's frame-N snapshot
+//     of frame N-1 backings) the resolver admits exactly the two production
+//     operations (BindBufferBase @ ShadowCS::kOccluderBinding, BindImageTexture
+//     @ ShadowCS::kSdfImageBinding WRITE_ONLY GL_RG16F) and the SDF/mask output
+//     hashes are bit-identical to the manual-fallback frame;
+//   - fail-closed: a missing / zero-handle snapshot is DENIED (runtime
+//     diagnostics, zero graph-issued binds), yet the REAL manual
+//     BindBufferBase/BindImageTexture inside Execute still produce the
+//     identical output -- the production safety net stays authoritative;
+//   - zero GL errors across the frames and no GPUResourceRegistry active-record
+//     growth attributable to this test after teardown.
+//
+// ARTIFACT / GATE CLASSIFICATION: this is a [GPU-Diagnostic] contract-level
+// per-pass binding + barrier gate. It is NOT production visual evidence (there
+// is no screenshot/hash baseline and the production gate artifact remains NO_GO
+// per B8), and it does NOT authorize removing any manual
+// BindBufferBase/BindImageTexture or the ShadowResolve original
+// compute-to-fragment barrier.
+// ===========================================================================
+namespace {
+
+constexpr uint32_t kGLRgba16f = 0x881A;
+constexpr uint32_t kGLRgba = 0x1908;
+constexpr int kShadowGateSize = 64;
+
+// RGBA16F texture readback (GL_RGBA / GL_FLOAT) for the shadow mask.
+bool ReadbackImageTextureRgba(uint32_t texture, std::vector<float> &out) {
+  using GlGetTexImageFn = void(APIENTRY *)(uint32_t, int, uint32_t, uint32_t, void *);
+  auto glGetTexImage =
+      reinterpret_cast<GlGetTexImageFn>(glfwGetProcAddress("glGetTexImage"));
+  if (glGetTexImage == nullptr) {
+    return false;
+  }
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, texture);
+  glGetTexImage(kGLTexture2D, 0, kGLRgba, kGLFloat, out.data());
+  return true;
+}
+
+using GlGetErrorFn = uint32_t(APIENTRY *)();
+GlGetErrorFn GetGlErrorFn() {
+  static GlGetErrorFn fn =
+      reinterpret_cast<GlGetErrorFn>(glfwGetProcAddress("glGetError"));
+  return fn;
+}
+
+uint32_t GlError() {
+  GlGetErrorFn fn = GetGlErrorFn();
+  return fn != nullptr ? fn() : 0u;
+}
+
+void DrainGlErrors() {
+  while (GlError() != 0u) {
+  }
+}
+
+int CountAndDrainGlErrors() {
+  int count = 0;
+  while (GlError() != 0u) {
+    ++count;
+  }
+  return count;
+}
+
+// Temp settings for the real QualityTierManager path (same pattern as
+// ShadowPipelineTierFallbackIntegrationTest).
+std::filesystem::path MakeGateSettingsPath(const std::string &name) {
+  const std::filesystem::path dir =
+      std::filesystem::path("bin") / "tmp_shadow_gate";
+  std::error_code ec;
+  std::filesystem::create_directories(dir, ec);
+  return dir / name;
+}
+
+void WriteGateSettingsJson(const std::filesystem::path &path) {
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  REQUIRE(out.is_open());
+  out << nlohmann::json(
+              {{"renderQualityTier", "High"},
+               {"render",
+                {{"v3",
+                  {{"enabled", true},
+                   {"shadowEnabled", true},
+                   {"shadowMode", "sdf"},
+                   {"maxShadowedLights", 8},
+                   {"shadowAtlasSize", 2048}}}}}})
+              .dump(2);
+}
+
+// Hash of an all-sentinel buffer of the given float count (non-triviality
+// control for the readbacks).
+uint64_t HashAllSentinel(size_t floatCount) {
+  std::vector<float> data(floatCount, kSentinel);
+  return Fnv1a64(data.data(), data.size() * sizeof(float));
+}
+
+// Locates the compiled pass index by name (defensive against topological
+// reorder).
+size_t FindCompiledPassIndex(
+    const NoMoreDay::render::graph::RenderGraph::CompiledRenderPlan &plan,
+    const std::string &passName) {
+  for (const auto &pass : plan.passes) {
+    if (pass.passName == passName) {
+      return pass.passIndex;
+    }
+  }
+  return static_cast<size_t>(-1);
+}
+
+// Count of active registry records whose name contains `needle` (shared
+// records such as the FullscreenQuad VAO are excluded from the leak delta).
+size_t CountRegistryRecordsNamed(const std::string &needle) {
+  size_t count = 0;
+  for (const auto &record :
+       NoMoreDay::render::resources::GPUResourceRegistry::Get()
+           .GetActiveResources()) {
+    if (record.name.find(needle) != std::string::npos) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+// Leak-check baseline: active registry records that are not the engine-owned
+// GPUTimerQueryRing (allocated per Execute, never released inside a test
+// process). The "ResourceManager*" name filter remains as a cross-test safety
+// margin for unrelated fixtures that may leave manager shader records behind.
+// This fixture's own two records are unregistered by resources.unloadAll() in
+// teardown (see the real ShadowBuildPass gate test case).
+size_t LeakCheckResourceCount() {
+  size_t count = 0;
+  for (const auto &record :
+       NoMoreDay::render::resources::GPUResourceRegistry::Get()
+           .GetActiveResources()) {
+    if (record.name.find("GPUTimerQueryRing") != std::string::npos) {
+      continue;
+    }
+    if (record.name.find("ResourceManager") != std::string::npos) {
+      continue;
+    }
+    ++count;
+  }
+  return count;
+}
+
+}  // namespace
+
+// ===========================================================================
+// Phase B B4 LightCulling per-pass GL gate helpers (2026-08-05)
+//
+// TEST_CASE "B4 contract" drives the REAL LightCullingPass through a real
+// RenderGraph::Execute on the hidden 1x1 GL context and asserts the compiled
+// plan surface (6 imports at the LightCulling binding-domain points 0-5, 6
+// BindBufferBase observers the production Setup now declares at the same
+// points 0-5, LightBounds Host->Compute + 4 cluster Compute->Fragment
+// transitions at 0x2000) plus real cluster readback determinism across
+// empty/valid/zero imported-backing snapshots (empty/zero fail closed, valid
+// admits exactly the 6 graph-driven operations).
+//
+// TEST_CASE "B4 6-point surface" uses a test-local LightCullingSurfacePass
+// that mirrors the production Execute surface (6 descriptors, 6
+// BindBufferBase observers at points 0-5, 6 ImportResource with the real
+// Lighting/LightCulling owners) so the graph-driven-only vs manual-only
+// equivalence of the real 6-point BufferBase surface can be proven on real
+// GL (bit-identical readback hashes) before any manual bind is removed.
+// ===========================================================================
+namespace {
+
+constexpr uint32_t kLightCullingStorageBarrierBit = 0x00002000u;
+constexpr uint32_t kMaxClusteredLights = 4096u;
+
+// Byte-level SSBO readback (counter / index / packed buffers).
+bool ReadbackSsboBytes(uint32_t buffer, void *out, size_t bytes) {
+  if (buffer == 0u || out == nullptr) {
+    return false;
+  }
+  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer, buffer);
+  NoMoreDay::utils::GPUUtils::GetBufferSubData(
+      kGLShaderStorageBuffer, 0, static_cast<ptrdiff_t>(bytes), out);
+  return true;
+}
+
+// Deterministic cluster "counts" hash: per-cluster (pointCount, spotCount,
+// areaCount). The header.offset field is EXCLUDED because the shader allocates
+// it via atomicAdd(counter.writeCursor, ...) whose per-dispatch order is not
+// deterministic; the three count fields are per-cluster deterministic.
+uint64_t HashClusterCounts(
+    const std::vector<NoMoreDay::components::GPUClusterHeader> &headers) {
+  std::vector<uint32_t> counts;
+  counts.reserve(headers.size() * 3u);
+  for (const auto &header : headers) {
+    counts.push_back(header.pointCount);
+    counts.push_back(header.spotCount);
+    counts.push_back(header.areaCount);
+  }
+  return Fnv1a64(counts.data(), counts.size() * sizeof(uint32_t));
+}
+
+// Reads the 32-byte cluster counter buffer (writeCursor + overflow fields;
+// reserved words stay zero, so the whole 32B is deterministic).
+uint64_t HashCounterBuffer(uint32_t counterBufferId) {
+  NoMoreDay::components::GPUClusterCounters counter = {};
+  if (!ReadbackSsboBytes(counterBufferId, &counter, sizeof(counter))) {
+    return 0u;
+  }
+  return Fnv1a64(&counter, sizeof(counter));
+}
+
+// Reads index[0..written) — all written entries reference the single test
+// light, so the content is deterministic regardless of the racy offsets.
+uint64_t HashIndexRange(uint32_t indexBufferId, uint32_t written) {
+  if (indexBufferId == 0u || written == 0u) {
+    return 0u;
+  }
+  std::vector<uint8_t> bytes(static_cast<size_t>(written) * sizeof(uint32_t));
+  if (!ReadbackSsboBytes(indexBufferId, bytes.data(), bytes.size())) {
+    return 0u;
+  }
+  return Fnv1a64(bytes.data(), bytes.size());
+}
+
+// Reads packed[0..written) (64B per entry). All entries come from the same
+// single light, so the content is deterministic.
+uint64_t HashPackedRange(uint32_t packedBufferId, uint32_t written) {
+  if (packedBufferId == 0u || written == 0u) {
+    return 0u;
+  }
+  std::vector<uint8_t> bytes(static_cast<size_t>(written) *
+                             sizeof(NoMoreDay::components::GPUClusterPackedLight));
+  if (!ReadbackSsboBytes(packedBufferId, bytes.data(), bytes.size())) {
+    return 0u;
+  }
+  return Fnv1a64(bytes.data(), bytes.size());
+}
+
+// Test-local consumer mirroring the B7 fragment side: reads the four cluster
+// buffers in the Fragment stage (no GL work) so the graph generates the
+// Compute->Fragment transitions with the storage barrier bits.
+class ClusterConsumerPass : public NoMoreDay::render::graph::RenderPass {
+public:
+  void Setup(NoMoreDay::render::graph::RenderGraphBuilder &builder) override {
+    using namespace NoMoreDay::render::graph;
+    builder.Read(RenderResourceTag::ClusterHeaderSSBO, RenderOwnerTag::LightCulling,
+                 PipelineStage::Fragment, ResourceUsage::StorageRead);
+    builder.Read(RenderResourceTag::ClusterLightIndexSSBO, RenderOwnerTag::LightCulling,
+                 PipelineStage::Fragment, ResourceUsage::StorageRead);
+    builder.Read(RenderResourceTag::ClusterPackedLightSSBO, RenderOwnerTag::LightCulling,
+                 PipelineStage::Fragment, ResourceUsage::StorageRead);
+    builder.Read(RenderResourceTag::ClusterCounterSSBO, RenderOwnerTag::LightCulling,
+                 PipelineStage::Fragment, ResourceUsage::StorageRead);
+  }
+
+  void Execute(NoMoreDay::render::graph::RenderContext &) override {}
+
+  const char *GetName() const override { return "ClusterConsumerPass"; }
+};
+
+// Test-local mirror of the production LightCullingPass Execute surface, with a
+// switchable binding authority so the same real shader/buffer setup can be
+// driven graph-driven-only or manual-only. Setup declares the full 6-point
+// BufferBase surface (points 0-5) plus the six real imports.
+class LightCullingSurfacePass : public NoMoreDay::render::graph::RenderPass {
+public:
+  enum class BindingAuthority { ManualOnly, GraphDrivenOnly };
+
+  explicit LightCullingSurfacePass(BindingAuthority authority)
+      : m_bindingAuthority(authority) {}
+
+  // Fail-closed control: when false, Execute skips the dispatch so a denied
+  // graph-driven frame cannot write through a stale GL binding.
+  bool dispatchEnabled = true;
+
+  void Setup(NoMoreDay::render::graph::RenderGraphBuilder &builder) override {
+    using namespace NoMoreDay::render::graph;
+
+    const auto declareClusterBuffer = [&builder](RenderResourceTag tag,
+                                                 const char *name) {
+      TypedResourceDescriptor desc;
+      desc.name = name;
+      desc.tag = tag;
+      desc.ownerTag = RenderOwnerTag::LightCulling;
+      desc.kind = ResourceKind::StorageBuffer;
+      desc.lifetime = ResourceLifetime::Persistent;
+      builder.DeclareResource(desc);
+    };
+    declareClusterBuffer(RenderResourceTag::ClusterHeaderSSBO, "ClusterHeaderSSBO");
+    declareClusterBuffer(RenderResourceTag::ClusterLightIndexSSBO, "ClusterLightIndexSSBO");
+    declareClusterBuffer(RenderResourceTag::ClusterPackedLightSSBO, "ClusterPackedLightSSBO");
+    declareClusterBuffer(RenderResourceTag::ClusterCounterSSBO, "ClusterCounterSSBO");
+    declareClusterBuffer(RenderResourceTag::LightBoundsSSBO, "LightBoundsSSBO");
+
+    TypedResourceDescriptor lightBufferDesc;
+    lightBufferDesc.name = "LightBufferSSBO";
+    lightBufferDesc.tag = RenderResourceTag::LightBufferSSBO;
+    lightBufferDesc.ownerTag = RenderOwnerTag::Lighting;
+    lightBufferDesc.kind = ResourceKind::StorageBuffer;
+    lightBufferDesc.lifetime = ResourceLifetime::Persistent;
+    builder.DeclareResource(lightBufferDesc);
+
+    // Producer accesses (each first access is a write; LightBounds and
+    // LightBuffer are uploaded by the host then read by the compute dispatch,
+    // mirroring production).
+    builder.Write(RenderResourceTag::ClusterHeaderSSBO, RenderOwnerTag::LightCulling,
+                  PipelineStage::Compute, ResourceUsage::StorageWrite);
+    builder.Write(RenderResourceTag::ClusterLightIndexSSBO, RenderOwnerTag::LightCulling,
+                  PipelineStage::Compute, ResourceUsage::StorageWrite);
+    builder.Write(RenderResourceTag::ClusterPackedLightSSBO, RenderOwnerTag::LightCulling,
+                  PipelineStage::Compute, ResourceUsage::StorageWrite);
+    builder.Write(RenderResourceTag::ClusterCounterSSBO, RenderOwnerTag::LightCulling,
+                  PipelineStage::Compute, ResourceUsage::StorageWrite);
+    builder.Write(RenderResourceTag::LightBoundsSSBO, RenderOwnerTag::LightCulling,
+                  PipelineStage::Host, ResourceUsage::StorageWrite);
+    builder.Read(RenderResourceTag::LightBoundsSSBO, RenderOwnerTag::LightCulling,
+                 PipelineStage::Compute, ResourceUsage::StorageRead);
+    builder.Write(RenderResourceTag::LightBufferSSBO, RenderOwnerTag::Lighting,
+                  PipelineStage::Host, ResourceUsage::StorageWrite);
+    builder.Read(RenderResourceTag::LightBufferSSBO, RenderOwnerTag::Lighting,
+                 PipelineStage::Compute, ResourceUsage::StorageRead);
+
+    // 6 BindBufferBase observers at the LightCulling binding-domain points.
+    builder.BindBufferBase(RenderResourceTag::LightBufferSSBO, 0u);
+    builder.BindBufferBase(RenderResourceTag::ClusterHeaderSSBO, 1u);
+    builder.BindBufferBase(RenderResourceTag::ClusterLightIndexSSBO, 2u);
+    builder.BindBufferBase(RenderResourceTag::LightBoundsSSBO, 3u);
+    builder.BindBufferBase(RenderResourceTag::ClusterCounterSSBO, 4u);
+    builder.BindBufferBase(RenderResourceTag::ClusterPackedLightSSBO, 5u);
+
+    // 6 imports mirroring production ownership.
+    const auto importClusterBuffer = [&builder](RenderResourceTag tag,
+                                                uint32_t point) {
+      ResourceImportInfo import;
+      import.resourceTag = tag;
+      import.kind = ResourceKind::StorageBuffer;
+      import.backingOwner = RenderOwnerTag::LightCulling;
+      import.resizeFollowsCapacity = true;
+      import.bindingPoint = point;
+      builder.ImportResource(import);
+    };
+    importClusterBuffer(RenderResourceTag::ClusterHeaderSSBO, 1u);
+    importClusterBuffer(RenderResourceTag::ClusterLightIndexSSBO, 2u);
+    importClusterBuffer(RenderResourceTag::ClusterPackedLightSSBO, 5u);
+    importClusterBuffer(RenderResourceTag::ClusterCounterSSBO, 4u);
+    importClusterBuffer(RenderResourceTag::LightBoundsSSBO, 3u);
+
+    ResourceImportInfo lightBufferImport;
+    lightBufferImport.resourceTag = RenderResourceTag::LightBufferSSBO;
+    lightBufferImport.kind = ResourceKind::StorageBuffer;
+    lightBufferImport.backingOwner = RenderOwnerTag::Lighting;
+    lightBufferImport.resizeFollowsCapacity = true;
+    lightBufferImport.bindingPoint = 0u;
+    builder.ImportResource(lightBufferImport);
+  }
+
+  void Execute(NoMoreDay::render::graph::RenderContext &context) override {
+    ++m_frameIndex;
+    if (context.qualityManager == nullptr || context.camera == nullptr ||
+        context.resources == nullptr) {
+      return;
+    }
+    const auto &config = context.qualityManager->GetConfig();
+    if (!config.v3Enabled || !config.dynamicLightingEnabled ||
+        !config.clusteredLightingEnabled) {
+      return;
+    }
+    if (!context.hdrSceneBuffer.IsValid()) {
+      return;
+    }
+    if (!m_initialized && !Initialize(*context.resources)) {
+      return;
+    }
+
+    auto &clusterState = NoMoreDay::render::lighting::ClusteredLightingState::Get();
+    const auto grid =
+        NoMoreDay::render::lighting::ClusteredLightingState::ComputeClusterGridDimensions(
+            static_cast<uint32_t>(std::max(0, context.hdrSceneBuffer.width)),
+            static_cast<uint32_t>(std::max(0, context.hdrSceneBuffer.height)),
+            config.clusterTileSize, config.clusterZSliceCount);
+    if (grid.clusterCount == 0u) {
+      return;
+    }
+
+    const auto &records =
+        NoMoreDay::render::lighting::LightManager::Get().GetActiveLightRecordsCpu();
+    const uint32_t lightCount = static_cast<uint32_t>(records.size());
+    if (!clusterState.BeginFrame(
+            m_frameIndex,
+            static_cast<uint32_t>(std::max(0, context.hdrSceneBuffer.width)),
+            static_cast<uint32_t>(std::max(0, context.hdrSceneBuffer.height)),
+            config.clusterTileSize, config.clusterZSliceCount, lightCount)) {
+      return;
+    }
+
+    std::vector<NoMoreDay::components::GPULightBounds> bounds;
+    bounds.reserve(static_cast<size_t>(lightCount));
+    for (uint32_t i = 0; i < lightCount; ++i) {
+      const auto &light = records[static_cast<size_t>(i)].gpuLight;
+      const float minX = light.posX - light.radius;
+      const float minY = light.posY - light.radius;
+      const float maxX = light.posX + light.radius;
+      const float maxY = light.posY + light.radius;
+      const int32_t minLayer =
+          NoMoreDay::render::lighting::ClusteredLightingState::MapWorldYToRenderLayer(
+              minY, NoMoreDay::render::lighting::ClusteredLightingState::kDefaultLayerBandWorldUnits);
+      const int32_t maxLayer =
+          NoMoreDay::render::lighting::ClusteredLightingState::MapWorldYToRenderLayer(
+              maxY, NoMoreDay::render::lighting::ClusteredLightingState::kDefaultLayerBandWorldUnits);
+      bounds.push_back({
+          .minXY = {minX, minY},
+          .maxXY = {maxX, maxY},
+          .minLayer = static_cast<float>(std::min(minLayer, maxLayer)),
+          .maxLayer = static_cast<float>(std::max(minLayer, maxLayer)),
+          .lightIndex = i,
+          .reserved = static_cast<uint32_t>(records[static_cast<size_t>(i)].priority),
+      });
+    }
+    if (!clusterState.UploadLightBounds(bounds)) {
+      return;
+    }
+
+    uint32_t lightListBinding = 0u;
+    uint32_t headerBinding = 0u;
+    uint32_t indexBinding = 0u;
+    uint32_t packedLightBinding = 0u;
+    uint32_t boundsBinding = 0u;
+    uint32_t counterBinding = 0u;
+    if (!NoMoreDay::render::core::BindingRegistry::TryResolve(
+            NoMoreDay::render::core::BindingDomain::LightCulling, "LIGHT_LIST_IN", lightListBinding) ||
+        !NoMoreDay::render::core::BindingRegistry::TryResolve(
+            NoMoreDay::render::core::BindingDomain::LightCulling, "CLUSTER_HEADER_OUT", headerBinding) ||
+        !NoMoreDay::render::core::BindingRegistry::TryResolve(
+            NoMoreDay::render::core::BindingDomain::LightCulling, "CLUSTER_INDEX_OUT", indexBinding) ||
+        !NoMoreDay::render::core::BindingRegistry::TryResolve(
+            NoMoreDay::render::core::BindingDomain::LightCulling, "CLUSTER_LIGHT_OUT", packedLightBinding) ||
+        !NoMoreDay::render::core::BindingRegistry::TryResolve(
+            NoMoreDay::render::core::BindingDomain::LightCulling, "LIGHT_BOUNDS_IN", boundsBinding) ||
+        !NoMoreDay::render::core::BindingRegistry::TryResolve(
+            NoMoreDay::render::core::BindingDomain::LightCulling, "CLUSTER_COUNTER", counterBinding)) {
+      return;
+    }
+
+    const uint32_t lightBufferId =
+        NoMoreDay::render::lighting::LightManager::Get().GetLightBufferId();
+    if (lightBufferId == 0u) {
+      return;
+    }
+
+    rlEnableShader(m_shader.id);
+    const int clusterX = static_cast<int>(grid.tilesX);
+    const int clusterY = static_cast<int>(grid.tilesY);
+    const int clusterZ = static_cast<int>(grid.slicesZ);
+    if (m_clusterGridXLoc >= 0) {
+      rlSetUniform(m_clusterGridXLoc, &clusterX, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_clusterGridYLoc >= 0) {
+      rlSetUniform(m_clusterGridYLoc, &clusterY, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_clusterGridZLoc >= 0) {
+      rlSetUniform(m_clusterGridZLoc, &clusterZ, RL_SHADER_UNIFORM_INT, 1);
+    }
+    const float zoom = std::max(context.camera->zoom, 0.0001f);
+    const float tileSizeWorld = static_cast<float>(config.clusterTileSize) / zoom;
+    const float cameraOffset[2] = {
+        context.camera->target.x - (context.camera->offset.x / zoom),
+        context.camera->target.y - (context.camera->offset.y / zoom),
+    };
+    if (m_tileSizeWorldLoc >= 0) {
+      rlSetUniform(m_tileSizeWorldLoc, &tileSizeWorld, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    if (m_cameraOffsetLoc >= 0) {
+      rlSetUniform(m_cameraOffsetLoc, cameraOffset, RL_SHADER_UNIFORM_VEC2, 1);
+    }
+    if (m_lightCountLoc >= 0) {
+      const int lightCountInt = static_cast<int>(lightCount);
+      rlSetUniform(m_lightCountLoc, &lightCountInt, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_maxLightsPerClusterLoc >= 0) {
+      const int maxPerCluster =
+          static_cast<int>(NoMoreDay::render::core::kMaxLightsPerCluster);
+      rlSetUniform(m_maxLightsPerClusterLoc, &maxPerCluster, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_maxTotalClusteredLightsLoc >= 0) {
+      const int maxTotal =
+          static_cast<int>(NoMoreDay::render::core::kMaxTotalClusteredLights);
+      rlSetUniform(m_maxTotalClusteredLightsLoc, &maxTotal, RL_SHADER_UNIFORM_INT, 1);
+    }
+
+    if (m_bindingAuthority == BindingAuthority::ManualOnly) {
+      NoMoreDay::utils::GPUUtils::BindBufferBase(lightListBinding, lightBufferId);
+      NoMoreDay::utils::GPUUtils::BindBufferBase(headerBinding,
+                                                 clusterState.GetClusterHeaderBufferId());
+      NoMoreDay::utils::GPUUtils::BindBufferBase(indexBinding,
+                                                 clusterState.GetClusterLightIndexBufferId());
+      NoMoreDay::utils::GPUUtils::BindBufferBase(packedLightBinding,
+                                                 clusterState.GetClusterPackedLightBufferId());
+      NoMoreDay::utils::GPUUtils::BindBufferBase(boundsBinding,
+                                                 clusterState.GetLightBoundsBufferId());
+      NoMoreDay::utils::GPUUtils::BindBufferBase(counterBinding,
+                                                 clusterState.GetCounterBufferId());
+    }
+
+    if (dispatchEnabled) {
+      NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+          (grid.tilesX + 7u) / 8u, (grid.tilesY + 7u) / 8u,
+          (grid.slicesZ + 0u) / 1u);
+    }
+    rlDisableShader();
+    // Host readback sync (mirrors production: the explicit storage barrier is
+    // retained for ReadBackClusterHeaders determinism).
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(kLightCullingStorageBarrierBit);
+    clusterState.ReadBackClusterHeaders();
+  }
+
+  const char *GetName() const override { return "LightCullingSurfacePass"; }
+
+private:
+  bool Initialize(::ResourceManager &resources) {
+    if (m_initialized) {
+      return true;
+    }
+    using namespace entt::literals;
+    m_shader = resources.loadComputeShader("light_culling_compute"_hs,
+                                           "assets/shaders/lighting/light_culling.comp");
+    if (m_shader.id == 0) {
+      return false;
+    }
+    m_clusterGridXLoc = rlGetLocationUniform(m_shader.id, "uClusterGridX");
+    m_clusterGridYLoc = rlGetLocationUniform(m_shader.id, "uClusterGridY");
+    m_clusterGridZLoc = rlGetLocationUniform(m_shader.id, "uClusterGridZ");
+    m_tileSizeWorldLoc = rlGetLocationUniform(m_shader.id, "uTileSizeWorld");
+    m_cameraOffsetLoc = rlGetLocationUniform(m_shader.id, "uCameraOffset");
+    m_lightCountLoc = rlGetLocationUniform(m_shader.id, "uLightCount");
+    m_maxLightsPerClusterLoc =
+        rlGetLocationUniform(m_shader.id, "uMaxLightsPerCluster");
+    m_maxTotalClusteredLightsLoc =
+        rlGetLocationUniform(m_shader.id, "uMaxTotalClusteredLights");
+    m_initialized = true;
+    return true;
+  }
+
+  BindingAuthority m_bindingAuthority;
+  Shader m_shader = {};
+  int m_clusterGridXLoc = -1;
+  int m_clusterGridYLoc = -1;
+  int m_clusterGridZLoc = -1;
+  int m_tileSizeWorldLoc = -1;
+  int m_cameraOffsetLoc = -1;
+  int m_lightCountLoc = -1;
+  int m_maxLightsPerClusterLoc = -1;
+  int m_maxTotalClusteredLightsLoc = -1;
+  uint32_t m_frameIndex = 0;
+  bool m_initialized = false;
+};
+
+}  // namespace
+
+TEST_CASE(
+    "[GPU-Diagnostic] RenderGraph - real ShadowBuildPass graph-driven bind + "
+    "phase barrier gate on real GL") {
+  using namespace NoMoreDay;
+  using namespace NoMoreDay::render::graph;
+
+  if (!CreateMinimalGpuContext()) {
+    // Established GPU-fixture convention (no DOCTEST_SKIP in the vendored
+    // doctest): an explicit "unavailable" failure, never a false pass.
+    FAIL("Cannot create GPU context; skipping real ShadowBuildPass gate (GL "
+         "4.3 compute unavailable on this host)");
+  }
+
+  // --- Real production config through the real QualityTierManager singleton:
+  // High tier maps to SDF shadow mode, which exercises the B2/B3 binding +
+  // phase-barrier surface without the Hybrid atlas-tile path. This mutates the
+  // global config exactly like the existing ShadowPipelineTierFallback
+  // integration test (accepted; no restore).
+  const auto settingsPath = MakeGateSettingsPath("shadow_build_gate.json");
+  WriteGateSettingsJson(settingsPath);
+  auto &qm = render::core::QualityTierManager::Get();
+  qm.Initialize(settingsPath.string(), true);
+  qm.ForceTier(render::core::QualityTier::High);
+  REQUIRE(qm.GetConfig().v3Enabled);
+  REQUIRE(qm.GetConfig().shadowEnabled);
+  REQUIRE(qm.GetConfig().shadowMode == render::core::ShadowMode::SDF);
+
+  entt::registry registry;
+  ResourceManager resources;
+
+  // Registry baseline measured BEFORE creating any backing owned by this test
+  // (the shared FullscreenQuad VAO record is tracked separately below).
+  const size_t quadBefore = CountRegistryRecordsNamed("FullscreenQuadVAO");
+  const size_t nonQuadBefore = LeakCheckResourceCount() - quadBefore;
+
+  auto hdr = render::resources::FramebufferManager::Create(
+      kShadowGateSize, kShadowGateSize, kGLRgba16f, false);
+  REQUIRE(hdr.IsValid());
+
+  Camera2D camera = {};
+  camera.target = {32.0f, 32.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  // One occluder centered on the camera target: with offset=(0,0)/zoom=1 the
+  // SDF shader maps the center texel to world (63.5,63.5)
+  // (uv=(31.5,31.5)/64), radius 16 => signed distance -16 at the center and
+  // positive away from it (both branches of the SDF are exercised).
+  NoMoreDay::components::GPUShadowCaster occluders[1] = {};
+  occluders[0].posX = 63.5f;
+  occluders[0].posY = 63.5f;
+  occluders[0].radius = 16.0f;
+  occluders[0].occluderHeight = 8.0f;
+
+  uint64_t sdfManualHash = 0;
+  uint64_t maskManualHash = 0;
+  uint64_t sdfAdmittedHash = 0;
+  uint64_t maskAdmittedHash = 0;
+
+  DrainGlErrors();
+  {
+    auto preparePass = std::make_shared<render::passes::ShadowPreparePass>();
+    auto buildPass = std::make_shared<render::passes::ShadowBuildPass>();
+    auto resolvePass = std::make_shared<render::passes::ShadowResolvePass>();
+    buildPass->SetPreparePass(preparePass.get());
+    resolvePass->SetBuildPass(buildPass.get());
+    REQUIRE(buildPass->Initialize(resources));
+
+    RenderGraph graph;
+    graph.AddPass(preparePass);
+    graph.AddPass(buildPass);
+    graph.AddPass(resolvePass);
+    graph.Build();
+    REQUIRE(!graph.HasValidationErrors());
+
+    const auto &plan = graph.GetCompiledPlan();
+
+    // ---- B2 same-pass phase barrier declaration: Compute->Fragment with the
+    // Image|Buffer bits (0x220) exported by BuildCompiledPlan. ----
+    {
+      bool found = false;
+      for (const auto &pb : plan.phaseBarriers) {
+        if (pb.passName == "ShadowBuildPass" &&
+            pb.sourcePhase == PipelineStage::Compute &&
+            pb.targetPhase == PipelineStage::Fragment) {
+          found = true;
+          CHECK_EQ(pb.barrierBits,
+                   static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+                       static_cast<uint32_t>(RenderConstants::Barrier::Buffer));
+        }
+      }
+      REQUIRE(found);
+    }
+
+    // ---- Graph-generated cross-pass transitions. ----
+    {
+      bool occluderTransition = false;
+      bool sdfTransition = false;
+      for (const auto &transition : plan.transitions) {
+        if (transition.resourceName == "ShadowOccluderSSBO" &&
+            transition.previousStage == PipelineStage::Host &&
+            transition.nextStage == PipelineStage::Compute) {
+          occluderTransition = true;
+          CHECK(transition.barrierBits != 0u);
+        }
+        if (transition.resourceName == "ShadowDistanceField" &&
+            transition.previousStage == PipelineStage::Compute &&
+            transition.nextStage == PipelineStage::Fragment) {
+          sdfTransition = true;
+          CHECK(transition.barrierBits != 0u);
+        }
+      }
+      REQUIRE(occluderTransition);
+      REQUIRE(sdfTransition);
+    }
+
+    // ---- Observer declarations landed in the compiled plan (2 bindings / 3
+    // imports for ShadowBuildPass; 1 import for ShadowResolvePass). ----
+    {
+      size_t bindingCount = 0;
+      size_t buildImportCount = 0;
+      for (const auto &binding : plan.bindings) {
+        if (binding.passName == "ShadowBuildPass") {
+          ++bindingCount;
+        }
+      }
+      for (const auto &import : plan.imports) {
+        if (import.passName == "ShadowBuildPass") {
+          ++buildImportCount;
+        }
+      }
+      CHECK_EQ(bindingCount, 2u);
+      CHECK_EQ(buildImportCount, 3u);
+    }
+
+    const size_t buildPassIndex =
+        FindCompiledPassIndex(plan, "ShadowBuildPass");
+    REQUIRE(buildPassIndex != static_cast<size_t>(-1));
+
+    // ---- Frame A: empty snapshot -> graph-driven binds are denied (runtime
+    // diagnostics), while the REAL manual BindBufferBase/BindImageTexture
+    // inside Execute still produce the SDF + mask (production safety net is
+    // authoritative). ----
+    {
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.occluders = occluders;
+      context.occluderCount = 1u;
+
+      graph.Execute(context);
+
+      size_t missingDenials = 0;
+      for (const auto &diagnostic : graph.GetRuntimeBindingDiagnostics()) {
+        if (diagnostic.severity ==
+                RenderGraph::ValidationDiagnostic::Severity::Error &&
+            diagnostic.message.find("no imported backing snapshot") !=
+                std::string::npos) {
+          ++missingDenials;
+        }
+      }
+      CHECK_EQ(missingDenials, 2u);
+
+      CHECK(buildPass->SucceededThisFrame());
+      CHECK(buildPass->HasSdfField());
+      CHECK(resolvePass->HasShadowMask());
+
+      std::vector<float> sdfData(
+          static_cast<size_t>(2 * kShadowGateSize * kShadowGateSize),
+          kSentinel);
+      REQUIRE(ReadbackImageTexture(buildPass->GetSdfImageTexture(), sdfData));
+      std::vector<float> maskData(
+          static_cast<size_t>(4 * kShadowGateSize * kShadowGateSize),
+          kSentinel);
+      REQUIRE(ReadbackImageTextureRgba(resolvePass->GetShadowMaskTexture(),
+                                       maskData));
+
+      sdfManualHash =
+          Fnv1a64(sdfData.data(), sdfData.size() * sizeof(float));
+      maskManualHash =
+          Fnv1a64(maskData.data(), maskData.size() * sizeof(float));
+      // Non-triviality: the pass really wrote through its surfaces.
+      CHECK_NE(sdfManualHash, HashAllSentinel(sdfData.size()));
+      CHECK_NE(maskManualHash, HashAllSentinel(maskData.size()));
+    }
+
+    // ---- Frame B: valid per-frame imported-backing snapshot built from the
+    // REAL handles the pass created during frame A (mirrors RenderSystem's
+    // frame-N snapshot of frame N-1 backings). The resolver must admit exactly
+    // the two production-surface operations and Execute must run with zero
+    // runtime diagnostics; output must be bit-identical to the manual frame. ----
+    const uint32_t occluderHandle = buildPass->GetOccluderBufferId();
+    const uint32_t sdfTextureHandle = buildPass->GetSdfImageTexture();
+    REQUIRE(occluderHandle != 0u);
+    REQUIRE(sdfTextureHandle != 0u);
+
+    std::vector<ImportedBackingHandle> validSnapshot = {
+        {RenderResourceTag::ShadowOccluderSSBO, occluderHandle, 0u, 0u},
+        {RenderResourceTag::ShadowDistanceField, 0u, sdfTextureHandle, 0u},
+        {RenderResourceTag::ShadowMask, 0u, resolvePass->GetShadowMaskTexture(),
+         resolvePass->GetShadowMaskFramebuffer()},
+    };
+    if (buildPass->HasShadowAtlas()) {
+      validSnapshot.push_back(
+          {RenderResourceTag::ShadowAtlas, 0u,
+           buildPass->GetShadowAtlasTexture(),
+           buildPass->GetShadowAtlasFramebuffer()});
+    }
+
+    {
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.occluders = occluders;
+      context.occluderCount = 1u;
+      context.importedBackings = validSnapshot;
+
+      const auto resolution =
+          graph.ResolvePassBindings(buildPassIndex, context);
+      REQUIRE(resolution.allAdmitted);
+      REQUIRE(resolution.operations.size() == 2u);
+      CHECK_EQ(resolution.operations[0].kind,
+               RenderGraph::ResolvedBindingOperation::Kind::BindBufferBase);
+      CHECK_EQ(resolution.operations[0].point,
+               RenderConstants::ShadowCS::kOccluderBinding);
+      CHECK_EQ(resolution.operations[0].handle, occluderHandle);
+      CHECK_EQ(resolution.operations[1].kind,
+               RenderGraph::ResolvedBindingOperation::Kind::BindImageTexture);
+      CHECK_EQ(resolution.operations[1].point,
+               RenderConstants::ShadowCS::kSdfImageBinding);
+      CHECK_EQ(resolution.operations[1].handle, sdfTextureHandle);
+      CHECK_EQ(resolution.operations[1].access, kGLWriteOnly);
+      CHECK_EQ(resolution.operations[1].format, kGLRg16f);
+
+      graph.Execute(context);
+
+      CHECK(graph.GetRuntimeBindingDiagnostics().empty());
+
+      std::vector<float> sdfData(
+          static_cast<size_t>(2 * kShadowGateSize * kShadowGateSize),
+          kSentinel);
+      REQUIRE(ReadbackImageTexture(buildPass->GetSdfImageTexture(), sdfData));
+      std::vector<float> maskData(
+          static_cast<size_t>(4 * kShadowGateSize * kShadowGateSize),
+          kSentinel);
+      REQUIRE(ReadbackImageTextureRgba(resolvePass->GetShadowMaskTexture(),
+                                       maskData));
+
+      sdfAdmittedHash =
+          Fnv1a64(sdfData.data(), sdfData.size() * sizeof(float));
+      maskAdmittedHash =
+          Fnv1a64(maskData.data(), maskData.size() * sizeof(float));
+      CHECK_EQ(sdfAdmittedHash, sdfManualHash);
+      CHECK_EQ(maskAdmittedHash, maskManualHash);
+      CHECK_NE(sdfAdmittedHash, HashAllSentinel(sdfData.size()));
+      CHECK_NE(maskAdmittedHash, HashAllSentinel(maskData.size()));
+    }
+
+    // ---- Frame C: zero-handle snapshot -> the resolver fails closed (no
+    // operations, allAdmitted false) and the runtime path records the expected
+    // denial, while the REAL manual binds keep the output identical. ----
+    {
+      std::vector<ImportedBackingHandle> zeroSnapshot = {
+          {RenderResourceTag::ShadowOccluderSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ShadowDistanceField, 0u, 0u, 0u},
+      };
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.occluders = occluders;
+      context.occluderCount = 1u;
+      context.importedBackings = zeroSnapshot;
+
+      const auto resolution =
+          graph.ResolvePassBindings(buildPassIndex, context);
+      CHECK_FALSE(resolution.allAdmitted);
+      CHECK(resolution.operations.empty());
+
+      graph.Execute(context);
+
+      size_t zeroHandleDenials = 0;
+      for (const auto &diagnostic : graph.GetRuntimeBindingDiagnostics()) {
+        if (diagnostic.severity ==
+                RenderGraph::ValidationDiagnostic::Severity::Error &&
+            diagnostic.message.find("zero/invalid handle") !=
+                std::string::npos) {
+          ++zeroHandleDenials;
+        }
+      }
+      CHECK_EQ(zeroHandleDenials, 2u);
+
+      std::vector<float> sdfData(
+          static_cast<size_t>(2 * kShadowGateSize * kShadowGateSize),
+          kSentinel);
+      REQUIRE(ReadbackImageTexture(buildPass->GetSdfImageTexture(), sdfData));
+      const uint64_t sdfDeniedHash =
+          Fnv1a64(sdfData.data(), sdfData.size() * sizeof(float));
+      CHECK_EQ(sdfDeniedHash, sdfManualHash);
+    }
+
+    // ---- GL error surface: the graph-driven frames introduced no GL errors. ----
+    CHECK_EQ(CountAndDrainGlErrors(), 0);
+
+    // ---- Teardown (real owners release their backings). ----
+    buildPass->Shutdown();
+    resolvePass->Shutdown();
+  }  // graph + shared_ptr passes released here (destructors call Shutdown
+     // again; idempotent)
+
+  // Ownership teardown: ShadowBuildPass::Shutdown only drops its references
+  // (it borrows manager-owned shaders; the pass must never UnloadShader them).
+  // The ResourceManager remains the SOLE GL releaser: unloadAll() unregisters
+  // the registry records and UnloadShaders each program exactly once. The
+  // release ledger asserts both shaders were released — real ownership
+  // teardown, not the old SetHeadless() escape hatch (which masked a
+  // production double-free: pass Shutdown + unloadAll both calling
+  // UnloadShader on the same program -> shader.locs heap corruption).
+  resources.unloadAll();
+  CHECK_EQ(resources.GetShaderReleaseCount(), 2u);
+
+  render::resources::FramebufferManager::Destroy(hdr);
+  render::resources::FullscreenQuad::Shutdown();
+
+  // ---- Registry snapshot: no active-record growth attributable to this test
+  // after teardown (shared FullscreenQuad VAO tracked separately; engine-owned
+  // GPUTimerQueryRing excluded by LeakCheckResourceCount; this fixture's
+  // ResourceManager shader records were unregistered by unloadAll above). ----
+  const size_t quadAfter = CountRegistryRecordsNamed("FullscreenQuadVAO");
+  const size_t nonQuadAfter = LeakCheckResourceCount() - quadAfter;
+  CHECK_EQ(nonQuadAfter, nonQuadBefore);
+}
+
+// ===========================================================================
+// Phase B B4 contract gate: the REAL LightCullingPass through a real
+// RenderGraph::Execute on the hidden 1x1 GL context (2026-08-05).
+//
+// Drives the real production pass (Setup + Execute) with a real
+// QualityTierManager clustered config, a real LightManager light upload and the
+// real ClusteredLightingState buffers, then verifies:
+//   - the compiled plan carries the 6 LightCulling binding-domain imports at
+//     points 0-5 (LightBufferSSBO owner Lighting; the 5 cluster buffers owner
+//     LightCulling; all resizeFollowsCapacity), the LightBounds Host->Compute
+//     transition and the 4 cluster Compute->Fragment transitions at barrierBits
+//     == 0x00002000, and the 6 BindBufferBase observers the production Setup
+//     now declares at the same points 0-5 (matching the import binding points
+//     and the BindingRegistry LightCulling symbols resolved in Execute);
+//   - the real Execute produces deterministic cluster data on an empty
+//     imported-backing snapshot (resolver fails closed with 6 "no imported
+//     backing snapshot" denials; the manual safety net stays authoritative), a
+//     bit-identical result on a valid snapshot of the real handles (the
+//     resolver admits EXACTLY the 6 graph-driven BufferBase operations at
+//     points 0-5 with the real handles; zero runtime diagnostics), and an
+//     unchanged result on a zero-handle snapshot (fail-closed, manual binds
+//     authoritative);
+//   - zero GL errors and no registry growth after teardown.
+//
+// This is a contract-level per-pass gate, NOT production visual evidence (no
+// 1280x720 GO is fabricated, no 1x1 contract fixture is treated as visual
+// proof). Deterministic assertions exclude header.offset (allocated by
+// atomicAdd across the dispatch; the per-cluster counts are deterministic).
+// ===========================================================================
+TEST_CASE(
+    "[GPU-Diagnostic] RenderGraph - B4 real LightCullingPass contract gate on "
+    "real GL") {
+  using namespace NoMoreDay;
+  using namespace NoMoreDay::render::graph;
+
+  if (!CreateMinimalGpuContext()) {
+    FAIL("Cannot create GPU context; skipping real LightCullingPass gate (GL "
+         "4.3 compute unavailable on this host)");
+  }
+
+  // Real production config through the real QualityTierManager singleton:
+  // High tier + clustered v3 lighting (mutates the global config exactly like
+  // the B2/B3 gate and the ShadowPipelineTierFallback integration test).
+  const auto settingsPath = MakeGateSettingsPath("light_culling_gate.json");
+  WriteGateSettingsJson(settingsPath);
+  auto &qm = render::core::QualityTierManager::Get();
+  qm.Initialize(settingsPath.string(), true);
+  qm.ForceTier(render::core::QualityTier::High);
+  {
+    auto &cfg = const_cast<render::core::RenderConfig &>(qm.GetConfig());
+    cfg.v3Enabled = true;
+    cfg.dynamicLightingEnabled = true;
+    cfg.clusteredLightingEnabled = true;
+    cfg.clusteredLightingV4Enabled = true;
+    cfg.clusterTileSize = render::core::kDefaultClusterTileSize;
+    cfg.clusterZSliceCount = render::core::kDefaultClusterZSliceCount;
+    cfg.maxLights = static_cast<int>(kMaxClusteredLights);
+  }
+  REQUIRE(qm.GetConfig().v3Enabled);
+  REQUIRE(qm.GetConfig().clusteredLightingEnabled);
+
+  entt::registry registry;
+  ResourceManager resources;
+
+  const size_t quadBefore = CountRegistryRecordsNamed("FullscreenQuadVAO");
+  const size_t nonQuadBefore = LeakCheckResourceCount() - quadBefore;
+
+  auto hdr = render::resources::FramebufferManager::Create(
+      kShadowGateSize, kShadowGateSize, kGLRgba16f, false);
+  REQUIRE(hdr.IsValid());
+
+  Camera2D camera = {};
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  // One point light at (16,16) radius 40: bounds (-24,-24)-(56,56), layers
+  // [-1,0] which intersects z-slices 3 ([-8,-1]) and 4 ([0,7]) on all 4 XY
+  // tiles (2x2 grid on the 64x64 HDR buffer) -> 8 clusters each pointCount=1,
+  // writeCursor=8, overflow=0 (deterministic; see the light_culling.comp
+  // analysis in the plan). View culling must be disabled for testing because
+  // the 1x1 window would otherwise reject every light.
+  std::vector<components::GPULight> lights(1);
+  lights[0].posX = 16.0f;
+  lights[0].posY = 16.0f;
+  lights[0].radius = 40.0f;
+  lights[0].intensity = 1.0f;
+  lights[0].priority = 50u;
+  lights[0].lightType = static_cast<uint32_t>(components::LightType::PointLight);
+
+  auto &lightManager = render::lighting::LightManager::Get();
+  lightManager.Initialize();
+  lightManager.SetDisableViewCullingForTesting(true);
+  lightManager.UpdateCandidates(lights, camera,
+                                static_cast<int>(kMaxClusteredLights), 1);
+  REQUIRE(lightManager.GetLightBufferId() != 0u);
+  REQUIRE(lightManager.GetActiveLightRecordsCpu().size() == 1u);
+
+  DrainGlErrors();
+
+  uint64_t countsHashEmpty = 0;
+  uint64_t countsHashValid = 0;
+  {
+    auto lightCullingPass = std::make_shared<render::passes::LightCullingPass>();
+    auto consumerPass = std::make_shared<ClusterConsumerPass>();
+
+    RenderGraph graph;
+    graph.AddPass(lightCullingPass);
+    graph.AddPass(consumerPass);
+    graph.Build();
+    REQUIRE(!graph.HasValidationErrors());
+
+    const auto &plan = graph.GetCompiledPlan();
+
+    // ---- B4 compiled imports: 6 for the real pass, LightCulling binding
+    // domain points 0-5, 5 cluster buffers owned by LightCulling and the
+    // LightBuffer by Lighting, all resizeFollowsCapacity. ----
+    {
+      size_t importCount = 0;
+      for (const auto &import : plan.imports) {
+        if (import.passName == "LightCullingPass") {
+          ++importCount;
+        }
+      }
+      CHECK_EQ(importCount, 6u);
+
+      const auto checkImport = [&plan](RenderResourceTag tag,
+                                       uint32_t expectedPoint,
+                                       RenderOwnerTag expectedOwner) {
+        for (const auto &import : plan.imports) {
+          if (import.passName != "LightCullingPass") {
+            continue;
+          }
+          if (import.resourceTag == tag) {
+            CHECK_EQ(import.bindingPoint, expectedPoint);
+            CHECK(import.backingOwner == expectedOwner);
+            CHECK(import.resizeFollowsCapacity);
+            CHECK_EQ(import.kind, ResourceKind::StorageBuffer);
+            return;
+          }
+        }
+        FAIL("missing import for tag");
+      };
+      checkImport(RenderResourceTag::LightBufferSSBO, 0u, RenderOwnerTag::Lighting);
+      checkImport(RenderResourceTag::ClusterHeaderSSBO, 1u, RenderOwnerTag::LightCulling);
+      checkImport(RenderResourceTag::ClusterLightIndexSSBO, 2u, RenderOwnerTag::LightCulling);
+      checkImport(RenderResourceTag::LightBoundsSSBO, 3u, RenderOwnerTag::LightCulling);
+      checkImport(RenderResourceTag::ClusterCounterSSBO, 4u, RenderOwnerTag::LightCulling);
+      checkImport(RenderResourceTag::ClusterPackedLightSSBO, 5u, RenderOwnerTag::LightCulling);
+    }
+
+    // ---- B4 compiled bindings: the REAL pass now declares 6 BindBufferBase
+    // observers at the LightCulling binding-domain points 0-5 (matching the
+    // import binding points and the BindingRegistry symbols resolved in
+    // Execute), so the resolver can directly admit the real 6-point BufferBase
+    // surface. ----
+    {
+      size_t bindingCount = 0;
+      for (const auto &binding : plan.bindings) {
+        if (binding.passName == "LightCullingPass") {
+          ++bindingCount;
+        }
+      }
+      CHECK_EQ(bindingCount, 6u);
+
+      const auto checkBinding = [&plan](RenderResourceTag tag,
+                                        uint32_t expectedPoint) {
+        for (const auto &binding : plan.bindings) {
+          if (binding.passName != "LightCullingPass") {
+            continue;
+          }
+          if (binding.resourceName == ToResourceName(tag)) {
+            CHECK_EQ(binding.kind, ResourceBindingKind::BufferBase);
+            CHECK_EQ(binding.point, expectedPoint);
+            return;
+          }
+        }
+        FAIL("missing binding for tag");
+      };
+      checkBinding(RenderResourceTag::LightBufferSSBO, 0u);
+      checkBinding(RenderResourceTag::ClusterHeaderSSBO, 1u);
+      checkBinding(RenderResourceTag::ClusterLightIndexSSBO, 2u);
+      checkBinding(RenderResourceTag::LightBoundsSSBO, 3u);
+      checkBinding(RenderResourceTag::ClusterCounterSSBO, 4u);
+      checkBinding(RenderResourceTag::ClusterPackedLightSSBO, 5u);
+    }
+
+    // ---- B4 compiled transitions: LightBounds Host->Compute (same pass,
+    // CPU upload before compute read) and the 4 cluster buffers Compute->
+    // Fragment with the storage barrier bits (0x2000). ----
+    {
+      bool lightBoundsTransition = false;
+      size_t clusterFragmentTransitions = 0;
+      for (const auto &transition : plan.transitions) {
+        if (transition.resourceName == "LightBoundsSSBO" &&
+            transition.previousStage == PipelineStage::Host &&
+            transition.nextStage == PipelineStage::Compute) {
+          lightBoundsTransition = true;
+          CHECK(transition.barrierBits != 0u);
+        }
+        const bool isClusterBuffer =
+            transition.resourceName == "ClusterHeaderSSBO" ||
+            transition.resourceName == "ClusterLightIndexSSBO" ||
+            transition.resourceName == "ClusterPackedLightSSBO" ||
+            transition.resourceName == "ClusterCounterSSBO";
+        if (isClusterBuffer &&
+            transition.previousStage == PipelineStage::Compute &&
+            transition.nextStage == PipelineStage::Fragment) {
+          ++clusterFragmentTransitions;
+          CHECK_EQ(transition.barrierBits, kLightCullingStorageBarrierBit);
+        }
+      }
+      REQUIRE(lightBoundsTransition);
+      REQUIRE_EQ(clusterFragmentTransitions, 4u);
+    }
+
+    // ---- Negative validation: no read-before-write / multiple writers /
+    // cycle diagnostics for the real pass graph. ----
+    {
+      bool negativeError = false;
+      for (const auto &diagnostic : graph.GetValidationDiagnostics()) {
+        if (diagnostic.severity ==
+            RenderGraph::ValidationDiagnostic::Severity::Error) {
+          negativeError = true;
+        }
+      }
+      CHECK_FALSE(negativeError);
+    }
+
+    const size_t lightPassIndex =
+        FindCompiledPassIndex(plan, "LightCullingPass");
+    REQUIRE(lightPassIndex != static_cast<size_t>(-1));
+
+    auto &clusterState = render::lighting::ClusteredLightingState::Get();
+
+    // ---- Frame A: empty imported-backing snapshot. The 6 declared observers
+    // have no snapshot handles to admit, so the resolver fails closed (zero
+    // operations, allAdmitted false, 6 "no imported backing snapshot" denials)
+    // and the REAL manual BindBufferBase inside Execute stays authoritative. ----
+    {
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+
+      const auto resolution = graph.ResolvePassBindings(lightPassIndex, context);
+      CHECK_FALSE(resolution.allAdmitted);
+      CHECK(resolution.operations.empty());
+      size_t missingSnapshotDenials = 0;
+      for (const auto &diagnostic : resolution.diagnostics) {
+        if (diagnostic.severity ==
+                RenderGraph::ValidationDiagnostic::Severity::Error &&
+            diagnostic.message.find("no imported backing snapshot") !=
+                std::string::npos) {
+          ++missingSnapshotDenials;
+        }
+      }
+      CHECK_EQ(missingSnapshotDenials, 6u);
+
+      graph.Execute(context);
+
+      CHECK(lightCullingPass->SucceededThisFrame());
+      CHECK(lightCullingPass->IsClusterDataReadyForCurrentFrame());
+      CHECK_EQ(clusterState.GetLastOverflowSum(), 0u);
+      CHECK_EQ(clusterState.GetLastWrittenIndexCount(), 8u);
+      countsHashEmpty =
+          HashClusterCounts(clusterState.GetClusterHeadersReadback());
+      // Non-triviality: the pass really wrote per-cluster counts (8 clusters
+      // with pointCount=1), not the all-zero cleared state.
+      std::vector<components::GPUClusterHeader> zeros(
+          clusterState.GetClusterHeadersReadback().size());
+      CHECK_NE(countsHashEmpty, HashClusterCounts(zeros));
+    }
+
+    // ---- Frame B: valid imported-backing snapshot built from the REAL
+    // handles the pass created during frame A. The resolver now admits EXACTLY
+    // the 6 declared BindBufferBase observers at the LightCulling binding
+    // points 0-5 with the real handles (order follows Setup declaration);
+    // Execute must run with zero runtime diagnostics and produce bit-identical
+    // cluster counts. ----
+    {
+      std::vector<ImportedBackingHandle> validSnapshot = {
+          {RenderResourceTag::LightBufferSSBO, lightManager.GetLightBufferId(),
+           0u, 0u},
+          {RenderResourceTag::ClusterHeaderSSBO,
+           clusterState.GetClusterHeaderBufferId(), 0u, 0u},
+          {RenderResourceTag::ClusterLightIndexSSBO,
+           clusterState.GetClusterLightIndexBufferId(), 0u, 0u},
+          {RenderResourceTag::ClusterPackedLightSSBO,
+           clusterState.GetClusterPackedLightBufferId(), 0u, 0u},
+          {RenderResourceTag::ClusterCounterSSBO,
+           clusterState.GetCounterBufferId(), 0u, 0u},
+          {RenderResourceTag::LightBoundsSSBO,
+           clusterState.GetLightBoundsBufferId(), 0u, 0u},
+      };
+
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.importedBackings = validSnapshot;
+
+      const auto resolution = graph.ResolvePassBindings(lightPassIndex, context);
+      REQUIRE(resolution.allAdmitted);
+      REQUIRE(resolution.operations.size() == 6u);
+      CHECK_EQ(resolution.operations[0].kind,
+               RenderGraph::ResolvedBindingOperation::Kind::BindBufferBase);
+      CHECK_EQ(resolution.operations[0].point, 0u);
+      CHECK_EQ(resolution.operations[0].handle, lightManager.GetLightBufferId());
+      CHECK_EQ(resolution.operations[1].point, 1u);
+      CHECK_EQ(resolution.operations[1].handle,
+               clusterState.GetClusterHeaderBufferId());
+      CHECK_EQ(resolution.operations[2].point, 2u);
+      CHECK_EQ(resolution.operations[2].handle,
+               clusterState.GetClusterLightIndexBufferId());
+      CHECK_EQ(resolution.operations[3].point, 3u);
+      CHECK_EQ(resolution.operations[3].handle,
+               clusterState.GetLightBoundsBufferId());
+      CHECK_EQ(resolution.operations[4].point, 4u);
+      CHECK_EQ(resolution.operations[4].handle,
+               clusterState.GetCounterBufferId());
+      CHECK_EQ(resolution.operations[5].point, 5u);
+      CHECK_EQ(resolution.operations[5].handle,
+               clusterState.GetClusterPackedLightBufferId());
+
+      graph.Execute(context);
+
+      CHECK(graph.GetRuntimeBindingDiagnostics().empty());
+      countsHashValid =
+          HashClusterCounts(clusterState.GetClusterHeadersReadback());
+      CHECK_EQ(countsHashValid, countsHashEmpty);
+      CHECK_EQ(clusterState.GetLastWrittenIndexCount(), 8u);
+    }
+
+    // ---- Frame C: zero-handle snapshot -> the resolver fails closed (zero
+    // operations, allAdmitted false, 6 "zero/invalid handle" denials recorded
+    // at runtime) while the REAL manual binds keep the output identical
+    // (production safety net remains authoritative). ----
+    {
+      std::vector<ImportedBackingHandle> zeroSnapshot = {
+          {RenderResourceTag::LightBufferSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterHeaderSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterLightIndexSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterPackedLightSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterCounterSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::LightBoundsSSBO, 0u, 0u, 0u},
+      };
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.importedBackings = zeroSnapshot;
+
+      const auto resolution = graph.ResolvePassBindings(lightPassIndex, context);
+      CHECK_FALSE(resolution.allAdmitted);
+      CHECK(resolution.operations.empty());
+
+      graph.Execute(context);
+
+      size_t zeroHandleDenials = 0;
+      for (const auto &diagnostic : graph.GetRuntimeBindingDiagnostics()) {
+        if (diagnostic.severity ==
+                RenderGraph::ValidationDiagnostic::Severity::Error &&
+            diagnostic.message.find("zero/invalid handle") !=
+                std::string::npos) {
+          ++zeroHandleDenials;
+        }
+      }
+      CHECK_EQ(zeroHandleDenials, 6u);
+
+      const uint64_t countsHashZero =
+          HashClusterCounts(clusterState.GetClusterHeadersReadback());
+      CHECK_EQ(countsHashZero, countsHashEmpty);
+    }
+
+    // ---- GL error surface: all three frames introduced no GL errors. ----
+    CHECK_EQ(CountAndDrainGlErrors(), 0);
+  }  // graph + shared_ptr pass released here; ~LightCullingPass calls its
+     // (private) Shutdown, which only zeroes the borrowed shader reference.
+
+  // Real owners release their backings.
+  render::lighting::ClusteredLightingState::Get().Shutdown();
+  render::lighting::LightManager::Get().Shutdown();
+
+  // Ownership teardown: LightCullingPass borrows the manager-owned compute
+  // shader (it never UnloadShaders it); ResourceManager is the sole releaser.
+  resources.unloadAll();
+  CHECK_EQ(resources.GetShaderReleaseCount(), 1u);
+
+  render::resources::FramebufferManager::Destroy(hdr);
+
+  // ---- Registry snapshot: no active-record growth attributable to this test
+  // after teardown. ----
+  const size_t quadAfter = CountRegistryRecordsNamed("FullscreenQuadVAO");
+  const size_t nonQuadAfter = LeakCheckResourceCount() - quadAfter;
+  CHECK_EQ(nonQuadAfter, nonQuadBefore);
+}
+
+// ===========================================================================
+// Phase B B4 6-point BufferBase surface gate: the real light_culling compute
+// surface through a graph-admitted 6-point BindBufferBase executor (2026-08-05).
+//
+// The production LightCullingPass now declares the 6 BindBufferBase observers
+// (see TEST_CASE "B4 contract"), but the authoritative proof that graph-driven
+// binds produce bit-identical output to the manual binds on the real 6-point
+// surface still needs an executor that can toggle between the two binding
+// authorities. This gate uses the test-local LightCullingSurfacePass, which
+// mirrors the production Setup surface (6 descriptors with the real
+// Lighting/LightCulling owners, 6 BindBufferBase at points 0-5, 6
+// ImportResource) and the production Execute (same shader, same
+// BeginFrame/UploadLightBounds/uniform/dispatch/barrier/readback), to verify:
+//   - the resolver admits EXACTLY the 6 BindBufferBase operations at points
+//     0-5 whose handles equal the real buffers;
+//   - graph-driven-only and manual-only frames produce deterministic, bit-
+//     identical cluster readbacks (counts + 32B counter + written index range +
+//     written packed range) that are non-trivial;
+//   - a zero-handle snapshot fails closed (allAdmitted false, no operations,
+//     6 zero/invalid-handle diagnostics) while the manual-only frame keeps the
+//     output bit-identical (manual safety net authoritative);
+//   - zero GL errors and no registry growth after teardown.
+// ===========================================================================
+TEST_CASE(
+    "[GPU-Diagnostic] RenderGraph - B4 real 6-point LightCulling BufferBase "
+    "surface executor gate on real GL") {
+  using namespace NoMoreDay;
+  using namespace NoMoreDay::render::graph;
+
+  if (!CreateMinimalGpuContext()) {
+    FAIL("Cannot create GPU context; skipping B4 6-point surface gate (GL 4.3 "
+         "compute unavailable on this host)");
+  }
+
+  const auto settingsPath = MakeGateSettingsPath("light_culling_surface.json");
+  WriteGateSettingsJson(settingsPath);
+  auto &qm = render::core::QualityTierManager::Get();
+  qm.Initialize(settingsPath.string(), true);
+  qm.ForceTier(render::core::QualityTier::High);
+  {
+    auto &cfg = const_cast<render::core::RenderConfig &>(qm.GetConfig());
+    cfg.v3Enabled = true;
+    cfg.dynamicLightingEnabled = true;
+    cfg.clusteredLightingEnabled = true;
+    cfg.clusteredLightingV4Enabled = true;
+    cfg.clusterTileSize = render::core::kDefaultClusterTileSize;
+    cfg.clusterZSliceCount = render::core::kDefaultClusterZSliceCount;
+    cfg.maxLights = static_cast<int>(kMaxClusteredLights);
+  }
+
+  entt::registry registry;
+  ResourceManager resources;
+
+  const size_t quadBefore = CountRegistryRecordsNamed("FullscreenQuadVAO");
+  const size_t nonQuadBefore = LeakCheckResourceCount() - quadBefore;
+
+  auto hdr = render::resources::FramebufferManager::Create(
+      kShadowGateSize, kShadowGateSize, kGLRgba16f, false);
+  REQUIRE(hdr.IsValid());
+
+  Camera2D camera = {};
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  std::vector<components::GPULight> lights(1);
+  lights[0].posX = 16.0f;
+  lights[0].posY = 16.0f;
+  lights[0].radius = 40.0f;
+  lights[0].intensity = 1.0f;
+  lights[0].priority = 50u;
+  lights[0].lightType = static_cast<uint32_t>(components::LightType::PointLight);
+
+  auto &lightManager = render::lighting::LightManager::Get();
+  lightManager.Initialize();
+  lightManager.SetDisableViewCullingForTesting(true);
+  lightManager.UpdateCandidates(lights, camera,
+                                static_cast<int>(kMaxClusteredLights), 1);
+  REQUIRE(lightManager.GetLightBufferId() != 0u);
+
+  DrainGlErrors();
+
+  uint64_t manualCountsHash = 0;
+  uint64_t manualCounterHash = 0;
+  uint64_t manualIndexHash = 0;
+  uint64_t manualPackedHash = 0;
+  {
+    auto &clusterState = render::lighting::ClusteredLightingState::Get();
+
+    // ---- Frame W: warm-up, manual-only authority, EMPTY snapshot. The first
+    // Execute creates the real ClusteredLightingState buffers (BeginFrame ->
+    // EnsureBufferCapacity) and loads the real compute shader through the
+    // ResourceManager. The graph-driven admission is irrelevant here (the
+    // snapshot is empty; the resolver records "no imported backing snapshot"
+    // denials that are drained before the next frame); the manual binds stay
+    // authoritative. ----
+    {
+      auto surfacePass = std::make_shared<LightCullingSurfacePass>(
+          LightCullingSurfacePass::BindingAuthority::ManualOnly);
+
+      RenderGraph graph;
+      graph.AddPass(surfacePass);
+      graph.Build();
+      REQUIRE(!graph.HasValidationErrors());
+
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+
+      graph.Execute(context);
+    }
+
+    // Real buffer handles now exist (created by the warm-up frame).
+    REQUIRE(clusterState.GetClusterHeaderBufferId() != 0u);
+    REQUIRE(clusterState.GetCounterBufferId() != 0u);
+    REQUIRE(clusterState.GetLightBoundsBufferId() != 0u);
+
+    // ---- Frame M: manual-only authority. The surface pass declares the 6
+    // BindBufferBase observers; a valid snapshot built from the REAL handles is
+    // supplied so the resolver admits all six, and Execute performs the manual
+    // binds as the authoritative path. Output is read back as the manual
+    // baseline. ----
+    std::vector<ImportedBackingHandle> validSnapshot = {
+        {RenderResourceTag::LightBufferSSBO, lightManager.GetLightBufferId(),
+         0u, 0u},
+        {RenderResourceTag::ClusterHeaderSSBO,
+         clusterState.GetClusterHeaderBufferId(), 0u, 0u},
+        {RenderResourceTag::ClusterLightIndexSSBO,
+         clusterState.GetClusterLightIndexBufferId(), 0u, 0u},
+        {RenderResourceTag::ClusterPackedLightSSBO,
+         clusterState.GetClusterPackedLightBufferId(), 0u, 0u},
+        {RenderResourceTag::ClusterCounterSSBO,
+         clusterState.GetCounterBufferId(), 0u, 0u},
+        {RenderResourceTag::LightBoundsSSBO,
+         clusterState.GetLightBoundsBufferId(), 0u, 0u},
+    };
+
+    {
+      auto surfacePass = std::make_shared<LightCullingSurfacePass>(
+          LightCullingSurfacePass::BindingAuthority::ManualOnly);
+
+      RenderGraph graph;
+      graph.AddPass(surfacePass);
+      graph.Build();
+      REQUIRE(!graph.HasValidationErrors());
+
+      const size_t surfacePassIndex =
+          FindCompiledPassIndex(graph.GetCompiledPlan(), "LightCullingSurfacePass");
+      REQUIRE(surfacePassIndex != static_cast<size_t>(-1));
+
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.importedBackings = validSnapshot;
+
+      const auto resolution =
+          graph.ResolvePassBindings(surfacePassIndex, context);
+      REQUIRE(resolution.allAdmitted);
+      REQUIRE(resolution.operations.size() == 6u);
+      // The six admitted operations must be the real 6-point surface at points
+      // 0-5 with the real buffer handles (order follows Setup declaration).
+      CHECK_EQ(resolution.operations[0].kind,
+               RenderGraph::ResolvedBindingOperation::Kind::BindBufferBase);
+      CHECK_EQ(resolution.operations[0].point, 0u);
+      CHECK_EQ(resolution.operations[0].handle,
+               lightManager.GetLightBufferId());
+      CHECK_EQ(resolution.operations[1].point, 1u);
+      CHECK_EQ(resolution.operations[1].handle,
+               clusterState.GetClusterHeaderBufferId());
+      CHECK_EQ(resolution.operations[2].point, 2u);
+      CHECK_EQ(resolution.operations[2].handle,
+               clusterState.GetClusterLightIndexBufferId());
+      CHECK_EQ(resolution.operations[3].point, 3u);
+      CHECK_EQ(resolution.operations[3].handle,
+               clusterState.GetLightBoundsBufferId());
+      CHECK_EQ(resolution.operations[4].point, 4u);
+      CHECK_EQ(resolution.operations[4].handle,
+               clusterState.GetCounterBufferId());
+      CHECK_EQ(resolution.operations[5].point, 5u);
+      CHECK_EQ(resolution.operations[5].handle,
+               clusterState.GetClusterPackedLightBufferId());
+
+      graph.Execute(context);
+      CHECK(graph.GetRuntimeBindingDiagnostics().empty());
+
+      const uint32_t written = clusterState.GetLastWrittenIndexCount();
+      CHECK_EQ(written, 8u);
+      manualCountsHash =
+          HashClusterCounts(clusterState.GetClusterHeadersReadback());
+      manualCounterHash = HashCounterBuffer(clusterState.GetCounterBufferId());
+      manualIndexHash = HashIndexRange(clusterState.GetClusterLightIndexBufferId(),
+                                       written);
+      manualPackedHash =
+          HashPackedRange(clusterState.GetClusterPackedLightBufferId(), written);
+    }
+
+    // ---- Frame G: graph-driven-only authority on the SAME surface and the
+    // SAME snapshot. The resolver admits the same 6 operations; Execute relies
+    // on the graph-driven binds (no manual binds). Output must be bit-identical
+    // to the manual baseline and non-trivial. ----
+    {
+      auto surfacePass = std::make_shared<LightCullingSurfacePass>(
+          LightCullingSurfacePass::BindingAuthority::GraphDrivenOnly);
+
+      RenderGraph graph;
+      graph.AddPass(surfacePass);
+      graph.Build();
+      REQUIRE(!graph.HasValidationErrors());
+
+      const size_t surfacePassIndex =
+          FindCompiledPassIndex(graph.GetCompiledPlan(), "LightCullingSurfacePass");
+      REQUIRE(surfacePassIndex != static_cast<size_t>(-1));
+
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.importedBackings = validSnapshot;
+
+      const auto resolution =
+          graph.ResolvePassBindings(surfacePassIndex, context);
+      REQUIRE(resolution.allAdmitted);
+      REQUIRE(resolution.operations.size() == 6u);
+      CHECK_EQ(resolution.operations[0].point, 0u);
+      CHECK_EQ(resolution.operations[0].handle,
+               lightManager.GetLightBufferId());
+      CHECK_EQ(resolution.operations[5].point, 5u);
+      CHECK_EQ(resolution.operations[5].handle,
+               clusterState.GetClusterPackedLightBufferId());
+
+      graph.Execute(context);
+      CHECK(graph.GetRuntimeBindingDiagnostics().empty());
+
+      const uint32_t written = clusterState.GetLastWrittenIndexCount();
+      CHECK_EQ(written, 8u);
+      CHECK_EQ(HashClusterCounts(clusterState.GetClusterHeadersReadback()),
+               manualCountsHash);
+      CHECK_EQ(HashCounterBuffer(clusterState.GetCounterBufferId()),
+               manualCounterHash);
+      CHECK_EQ(HashIndexRange(clusterState.GetClusterLightIndexBufferId(),
+                              written),
+               manualIndexHash);
+      CHECK_EQ(HashPackedRange(clusterState.GetClusterPackedLightBufferId(),
+                               written),
+               manualPackedHash);
+
+      // Non-triviality: the cluster counts (8 clusters with pointCount=1) and
+      // the counter (writeCursor=8) are not the all-zero cleared state.
+      std::vector<components::GPUClusterHeader> zeros(
+          clusterState.GetClusterHeadersReadback().size());
+      CHECK_NE(manualCountsHash, HashClusterCounts(zeros));
+      NoMoreDay::components::GPUClusterCounters zeroCounter = {};
+      CHECK_NE(manualCounterHash,
+               Fnv1a64(&zeroCounter, sizeof(zeroCounter)));
+      CHECK_NE(manualPackedHash, 0u);
+    }
+
+    // ---- Frame Z: zero-handle snapshot fails closed at the resolver (no
+    // operations, allAdmitted false, 6 zero/invalid-handle diagnostics) while
+    // a manual-only Execute still produces the bit-identical baseline (the
+    // manual safety net is authoritative). ----
+    {
+      std::vector<ImportedBackingHandle> zeroSnapshot = {
+          {RenderResourceTag::LightBufferSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterHeaderSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterLightIndexSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterPackedLightSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::ClusterCounterSSBO, 0u, 0u, 0u},
+          {RenderResourceTag::LightBoundsSSBO, 0u, 0u, 0u},
+      };
+
+      auto surfacePass = std::make_shared<LightCullingSurfacePass>(
+          LightCullingSurfacePass::BindingAuthority::GraphDrivenOnly);
+      surfacePass->dispatchEnabled = false;  // denied frame must not dispatch
+
+      RenderGraph graph;
+      graph.AddPass(surfacePass);
+      graph.Build();
+      REQUIRE(!graph.HasValidationErrors());
+
+      const size_t surfacePassIndex =
+          FindCompiledPassIndex(graph.GetCompiledPlan(), "LightCullingSurfacePass");
+      REQUIRE(surfacePassIndex != static_cast<size_t>(-1));
+
+      RenderContext context = {};
+      context.registry = &registry;
+      context.resources = &resources;
+      context.qualityManager = &qm;
+      context.camera = &camera;
+      context.hdrSceneBuffer = hdr;
+      context.importedBackings = zeroSnapshot;
+
+      const auto resolution =
+          graph.ResolvePassBindings(surfacePassIndex, context);
+      CHECK_FALSE(resolution.allAdmitted);
+      CHECK(resolution.operations.empty());
+
+      graph.Execute(context);
+
+      size_t zeroHandleDenials = 0;
+      for (const auto &diagnostic : graph.GetRuntimeBindingDiagnostics()) {
+        if (diagnostic.severity ==
+                RenderGraph::ValidationDiagnostic::Severity::Error &&
+            diagnostic.message.find("zero/invalid handle") !=
+                std::string::npos) {
+          ++zeroHandleDenials;
+        }
+      }
+      CHECK_EQ(zeroHandleDenials, 6u);
+
+      // Manual-only safety net: same surface, manual binds authoritative.
+      auto manualPass = std::make_shared<LightCullingSurfacePass>(
+          LightCullingSurfacePass::BindingAuthority::ManualOnly);
+      RenderGraph manualGraph;
+      manualGraph.AddPass(manualPass);
+      manualGraph.Build();
+      REQUIRE(!manualGraph.HasValidationErrors());
+
+      RenderContext manualContext = {};
+      manualContext.registry = &registry;
+      manualContext.resources = &resources;
+      manualContext.qualityManager = &qm;
+      manualContext.camera = &camera;
+      manualContext.hdrSceneBuffer = hdr;
+      manualContext.importedBackings = zeroSnapshot;
+
+      manualGraph.Execute(manualContext);
+
+      const uint32_t written = clusterState.GetLastWrittenIndexCount();
+      CHECK_EQ(written, 8u);
+      CHECK_EQ(HashClusterCounts(clusterState.GetClusterHeadersReadback()),
+               manualCountsHash);
+      CHECK_EQ(HashCounterBuffer(clusterState.GetCounterBufferId()),
+               manualCounterHash);
+      CHECK_EQ(HashPackedRange(clusterState.GetClusterPackedLightBufferId(),
+                               written),
+               manualPackedHash);
+    }
+
+    // ---- GL error surface: all frames introduced no GL errors. ----
+    CHECK_EQ(CountAndDrainGlErrors(), 0);
+  }
+
+  render::lighting::ClusteredLightingState::Get().Shutdown();
+  render::lighting::LightManager::Get().Shutdown();
+
+  resources.unloadAll();
+  CHECK_EQ(resources.GetShaderReleaseCount(), 1u);
+
+  render::resources::FramebufferManager::Destroy(hdr);
+
+  const size_t quadAfter = CountRegistryRecordsNamed("FullscreenQuadVAO");
+  const size_t nonQuadAfter = LeakCheckResourceCount() - quadAfter;
+  CHECK_EQ(nonQuadAfter, nonQuadBefore);
 }

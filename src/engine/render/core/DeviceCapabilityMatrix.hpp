@@ -31,12 +31,27 @@ struct CapabilityReport {
   std::string DumpReport() const;
 };
 
+// Phase F (RG-4): result of evaluating a CapabilityReport against the
+// production-critical feature set. Missing any required feature fails closed -
+// the renderer must report loudly instead of silently degrading.
+struct ProductionCapabilityCheck {
+  bool passed = false;
+  std::vector<std::string> missingRequirements;
+};
+
 class DeviceCapabilityMatrix {
 public:
   static DeviceCapabilityMatrix &Get();
 
   CapabilityReport ProbeCapabilities();
   const CapabilityReport &GetCachedReport() const { return m_cachedReport; }
+
+  // Evaluates a report against the production-critical requirements:
+  // GL 4.3 core profile, compute shaders, SSBO, image load/store and
+  // glMemoryBarrier. Pure (no GL), so it is unit-testable with a fabricated
+  // report.
+  static ProductionCapabilityCheck CheckProductionRequirements(
+      const CapabilityReport &report);
 
 private:
   DeviceCapabilityMatrix() = default;

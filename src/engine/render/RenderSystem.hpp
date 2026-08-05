@@ -76,6 +76,17 @@ public:
         int width = 0;
         int height = 0;
     };
+    struct JfaDiagnostics {
+        std::string mode;
+        uint32_t dispatchTexelCount = 0;
+        int dirtyRectArea = 0;
+        int expandedRectArea = 0;
+        bool plus2Recovery = false;
+        bool verificationAttempted = false;
+        bool verificationPassed = false;
+        bool verificationRecovery = false;
+        std::string verificationResult;
+    };
     // M0-A R3 occupancy history evidence (GICompositePass R8 ping-pong). The
     // history is updated every real Execute; `historyValid` mirrors
     // HasOccupancyHistory() and `historyResetCount` proves temporal rejection
@@ -90,6 +101,7 @@ public:
     };
     [[nodiscard]] static const std::vector<std::string> &GetLastExecutedPassOrder();
     [[nodiscard]] static GiDistanceFieldInfo GetGiDistanceField();
+    [[nodiscard]] static JfaDiagnostics GetJfaDiagnostics();
     [[nodiscard]] static GiOccupancyInfo GetGiOccupancy();
 
     // Screen Shake API
