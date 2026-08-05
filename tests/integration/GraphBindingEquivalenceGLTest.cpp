@@ -748,8 +748,9 @@ TEST_CASE(
 }
 
 // ===========================================================================
-// B2/B3 real production-path gate: real ShadowBuildPass graph-driven bind +
-// same-pass phase barrier on real GL (2026-08-04)
+// B2/B3 real production-path gate: real ShadowBuildPass graph-driven-only
+// bind + same-pass phase barrier on real GL (2026-08-04, semantics converged
+// 2026-08-05)
 //
 // The B12 fixture above proves the resolver/executor contract on a synthetic
 // mirror pass. This gate goes one level deeper: it drives the REAL
@@ -760,26 +761,28 @@ TEST_CASE(
 //     (ShadowBuildPass Compute->Fragment, bits == Barrier::Image|Barrier::Buffer
 //     == 0x220) and the graph-generated cross-pass transitions
 //     (ShadowOccluderSSBO Host->Compute, ShadowDistanceField Compute->Fragment);
-//   - graph-driven bind == manual bind equivalence on the REAL pass: with a
+//   - graph-driven-only binding is the SOLE binding surface (the manual
+//     BindBufferBase / BindImageTexture inside Execute are removed): with a
 //     valid imported-backing snapshot (built from the real handles the pass
 //     created on the previous frame, mirroring RenderSystem's frame-N snapshot
 //     of frame N-1 backings) the resolver admits exactly the two production
 //     operations (BindBufferBase @ ShadowCS::kOccluderBinding, BindImageTexture
 //     @ ShadowCS::kSdfImageBinding WRITE_ONLY GL_RG16F) and the SDF/mask output
-//     hashes are bit-identical to the manual-fallback frame;
-//   - fail-closed: a missing / zero-handle snapshot is DENIED (runtime
-//     diagnostics, zero graph-issued binds), yet the REAL manual
-//     BindBufferBase/BindImageTexture inside Execute still produce the
-//     identical output -- the production safety net stays authoritative;
+//     is non-sentinel and analytically correct (signed distance -16 at the
+//     occluder center);
+//   - fail-closed: an empty / zero-handle snapshot is DENIED (runtime
+//     diagnostics, zero graph-issued binds) and ShadowBuildPass skips its
+//     dispatch instead of rendering garbage through unbound surfaces (no manual
+//     safety net remains to fall back to), leaving the SDF bit-identical to the
+//     graph-driven frame;
 //   - zero GL errors across the frames and no GPUResourceRegistry active-record
 //     growth attributable to this test after teardown.
 //
 // ARTIFACT / GATE CLASSIFICATION: this is a [GPU-Diagnostic] contract-level
 // per-pass binding + barrier gate. It is NOT production visual evidence (there
 // is no screenshot/hash baseline and the production gate artifact remains NO_GO
-// per B8), and it does NOT authorize removing any manual
-// BindBufferBase/BindImageTexture or the ShadowResolve original
-// compute-to-fragment barrier.
+// per B8), and it does NOT authorize any further production change; it is the
+// graph-driven-only production-path verification for B2/B3.
 // ===========================================================================
 namespace {
 
@@ -914,18 +917,22 @@ size_t LeakCheckResourceCount() {
 // TEST_CASE "B4 contract" drives the REAL LightCullingPass through a real
 // RenderGraph::Execute on the hidden 1x1 GL context and asserts the compiled
 // plan surface (6 imports at the LightCulling binding-domain points 0-5, 6
-// BindBufferBase observers the production Setup now declares at the same
-// points 0-5, LightBounds Host->Compute + 4 cluster Compute->Fragment
-// transitions at 0x2000) plus real cluster readback determinism across
-// empty/valid/zero imported-backing snapshots (empty/zero fail closed, valid
-// admits exactly the 6 graph-driven operations).
+// BindBufferBase observers the production Setup declares at the same points
+// 0-5, LightBounds Host->Compute + 4 cluster Compute->Fragment transitions at
+// 0x2000) plus real cluster readback determinism across empty/valid/zero
+// imported-backing snapshots. Since the production manual binds are removed
+// (2026-08-05), empty/zero snapshots FAIL CLOSED (the pass skips its dispatch;
+// there is no manual safety net) and the valid snapshot is the sole rendering
+// path, admitting exactly the 6 graph-driven operations.
 //
 // TEST_CASE "B4 6-point surface" uses a test-local LightCullingSurfacePass
 // that mirrors the production Execute surface (6 descriptors, 6
 // BindBufferBase observers at points 0-5, 6 ImportResource with the real
-// Lighting/LightCulling owners) so the graph-driven-only vs manual-only
-// equivalence of the real 6-point BufferBase surface can be proven on real
-// GL (bit-identical readback hashes) before any manual bind is removed.
+// Lighting/LightCulling owners). Its ManualOnly authority keeps the fixture's
+// own reference baseline (the mirror pass binds manually inside Execute), so
+// the graph-driven-only vs manual-only equivalence of the real 6-point
+// BufferBase surface can still be proven on real GL (bit-identical readback
+// hashes) at the executor level, independent of the removed production binds.
 // ===========================================================================
 namespace {
 
@@ -1370,8 +1377,6 @@ TEST_CASE(
   occluders[0].radius = 16.0f;
   occluders[0].occluderHeight = 8.0f;
 
-  uint64_t sdfManualHash = 0;
-  uint64_t maskManualHash = 0;
   uint64_t sdfAdmittedHash = 0;
   uint64_t maskAdmittedHash = 0;
 
@@ -1455,10 +1460,13 @@ TEST_CASE(
         FindCompiledPassIndex(plan, "ShadowBuildPass");
     REQUIRE(buildPassIndex != static_cast<size_t>(-1));
 
-    // ---- Frame A: empty snapshot -> graph-driven binds are denied (runtime
-    // diagnostics), while the REAL manual BindBufferBase/BindImageTexture
-    // inside Execute still produce the SDF + mask (production safety net is
-    // authoritative). ----
+    // ---- Frame A: empty snapshot -> the resolver denies the 2-point surface
+    // (allAdmitted false, zero operations, 2 "no imported backing snapshot"
+    // diagnostics) and ShadowBuildPass FAILS CLOSED: it skips the SDF dispatch
+    // because the graph-driven binding was not admitted. The manual binds are
+    // removed, so there is no safety net to fall back to; no GL bind ever
+    // reached the surfaces and no output is produced. ShadowResolvePass follows
+    // (build stage reported a failure), so the mask is not created either. ----
     {
       RenderContext context = {};
       context.registry = &registry;
@@ -1468,6 +1476,11 @@ TEST_CASE(
       context.hdrSceneBuffer = hdr;
       context.occluders = occluders;
       context.occluderCount = 1u;
+
+      const auto resolution =
+          graph.ResolvePassBindings(buildPassIndex, context);
+      CHECK_FALSE(resolution.allAdmitted);
+      CHECK(resolution.operations.empty());
 
       graph.Execute(context);
 
@@ -1482,34 +1495,27 @@ TEST_CASE(
       }
       CHECK_EQ(missingDenials, 2u);
 
-      CHECK(buildPass->SucceededThisFrame());
+      // Fail-closed: no dispatch ran, the pass reports the denial instead of
+      // rendering garbage through unbound surfaces.
+      CHECK(buildPass->DidFailThisFrame());
+      CHECK_FALSE(buildPass->SucceededThisFrame());
+      // Backing objects are created before the guard (OnResize /
+      // UploadOccluders), so the handles exist even though nothing was
+      // dispatched; the resolve pass never created the mask.
       CHECK(buildPass->HasSdfField());
-      CHECK(resolvePass->HasShadowMask());
-
-      std::vector<float> sdfData(
-          static_cast<size_t>(2 * kShadowGateSize * kShadowGateSize),
-          kSentinel);
-      REQUIRE(ReadbackImageTexture(buildPass->GetSdfImageTexture(), sdfData));
-      std::vector<float> maskData(
-          static_cast<size_t>(4 * kShadowGateSize * kShadowGateSize),
-          kSentinel);
-      REQUIRE(ReadbackImageTextureRgba(resolvePass->GetShadowMaskTexture(),
-                                       maskData));
-
-      sdfManualHash =
-          Fnv1a64(sdfData.data(), sdfData.size() * sizeof(float));
-      maskManualHash =
-          Fnv1a64(maskData.data(), maskData.size() * sizeof(float));
-      // Non-triviality: the pass really wrote through its surfaces.
-      CHECK_NE(sdfManualHash, HashAllSentinel(sdfData.size()));
-      CHECK_NE(maskManualHash, HashAllSentinel(maskData.size()));
+      CHECK_FALSE(resolvePass->HasShadowMask());
     }
 
     // ---- Frame B: valid per-frame imported-backing snapshot built from the
     // REAL handles the pass created during frame A (mirrors RenderSystem's
     // frame-N snapshot of frame N-1 backings). The resolver must admit exactly
     // the two production-surface operations and Execute must run with zero
-    // runtime diagnostics; output must be bit-identical to the manual frame. ----
+    // runtime diagnostics. This is now the ONLY rendering path (manual binds
+    // are removed), so the graph-driven output itself is the correctness
+    // baseline: non-sentinel and analytically correct. The ShadowMask snapshot
+    // entry still carries zero handles here (the mask is only created once the
+    // build stage succeeds), but no pass declares a binding observer for
+    // ShadowMask, so the resolver never consults that entry. ----
     const uint32_t occluderHandle = buildPass->GetOccluderBufferId();
     const uint32_t sdfTextureHandle = buildPass->GetSdfImageTexture();
     REQUIRE(occluderHandle != 0u);
@@ -1559,6 +1565,8 @@ TEST_CASE(
       graph.Execute(context);
 
       CHECK(graph.GetRuntimeBindingDiagnostics().empty());
+      CHECK(buildPass->SucceededThisFrame());
+      CHECK(resolvePass->HasShadowMask());
 
       std::vector<float> sdfData(
           static_cast<size_t>(2 * kShadowGateSize * kShadowGateSize),
@@ -1574,15 +1582,28 @@ TEST_CASE(
           Fnv1a64(sdfData.data(), sdfData.size() * sizeof(float));
       maskAdmittedHash =
           Fnv1a64(maskData.data(), maskData.size() * sizeof(float));
-      CHECK_EQ(sdfAdmittedHash, sdfManualHash);
-      CHECK_EQ(maskAdmittedHash, maskManualHash);
+      // Non-triviality: the graph-driven binds alone were effective — the
+      // surfaces were really written.
       CHECK_NE(sdfAdmittedHash, HashAllSentinel(sdfData.size()));
       CHECK_NE(maskAdmittedHash, HashAllSentinel(maskData.size()));
+
+      // Analytic correctness: the signed-distance field must reach exactly
+      // -radius at the occluder center (world (63.5,63.5); with
+      // target=(32,32)/zoom=1 that is texel (31,31)). The minimum over the
+      // whole field is -16.0 (every other texel sits at or outside the radius
+      // boundary), which proves the shader read the bound occluder SSBO and
+      // wrote through the bound image unit.
+      float sdfMin = 1e10f;
+      for (int i = 0; i < kShadowGateSize * kShadowGateSize; ++i) {
+        sdfMin = std::min(sdfMin, sdfData[static_cast<size_t>(i) * 2u]);
+      }
+      CHECK(std::fabs(sdfMin - (-16.0f)) < 1e-3f);
     }
 
     // ---- Frame C: zero-handle snapshot -> the resolver fails closed (no
     // operations, allAdmitted false) and the runtime path records the expected
-    // denial, while the REAL manual binds keep the output identical. ----
+    // denial; ShadowBuildPass skips its dispatch (fail closed, no garbage), so
+    // the SDF surface stays bit-identical to the graph-driven frame B. ----
     {
       std::vector<ImportedBackingHandle> zeroSnapshot = {
           {RenderResourceTag::ShadowOccluderSSBO, 0u, 0u, 0u},
@@ -1615,14 +1636,18 @@ TEST_CASE(
         }
       }
       CHECK_EQ(zeroHandleDenials, 2u);
+      CHECK(buildPass->DidFailThisFrame());
+      CHECK_FALSE(buildPass->SucceededThisFrame());
 
+      // No garbage: the denied frame never dispatched, so the SDF surface is
+      // exactly what the graph-driven frame B wrote.
       std::vector<float> sdfData(
           static_cast<size_t>(2 * kShadowGateSize * kShadowGateSize),
           kSentinel);
       REQUIRE(ReadbackImageTexture(buildPass->GetSdfImageTexture(), sdfData));
       const uint64_t sdfDeniedHash =
           Fnv1a64(sdfData.data(), sdfData.size() * sizeof(float));
-      CHECK_EQ(sdfDeniedHash, sdfManualHash);
+      CHECK_EQ(sdfDeniedHash, sdfAdmittedHash);
     }
 
     // ---- GL error surface: the graph-driven frames introduced no GL errors. ----
@@ -1670,15 +1695,17 @@ TEST_CASE(
 //     transition and the 4 cluster Compute->Fragment transitions at barrierBits
 //     == 0x00002000, and the 6 BindBufferBase observers the production Setup
 //     now declares at the same points 0-5 (matching the import binding points
-//     and the BindingRegistry LightCulling symbols resolved in Execute);
-//   - the real Execute produces deterministic cluster data on an empty
-//     imported-backing snapshot (resolver fails closed with 6 "no imported
-//     backing snapshot" denials; the manual safety net stays authoritative), a
-//     bit-identical result on a valid snapshot of the real handles (the
-//     resolver admits EXACTLY the 6 graph-driven BufferBase operations at
-//     points 0-5 with the real handles; zero runtime diagnostics), and an
-//     unchanged result on a zero-handle snapshot (fail-closed, manual binds
-//     authoritative);
+//     and the BindingRegistry LightCulling symbols);
+//   - graph-driven-only binding is the SOLE binding surface (the 6 manual
+//     BindBufferBase calls inside Execute are removed): on an empty
+//     imported-backing snapshot the resolver fails closed (6 "no imported
+//     backing snapshot" denials) and the pass FAILS CLOSED (no dispatch, no
+//     cluster data — no manual safety net remains); on a valid snapshot of the
+//     real handles the resolver admits EXACTLY the 6 graph-driven BufferBase
+//     operations at points 0-5 with the real handles, zero runtime
+//     diagnostics, and the cluster counts are deterministic and non-trivial;
+//     a zero-handle snapshot fails closed again and leaves the cluster counts
+//     bit-identical (no garbage written);
 //   - zero GL errors and no registry growth after teardown.
 //
 // This is a contract-level per-pass gate, NOT production visual evidence (no
@@ -1757,7 +1784,6 @@ TEST_CASE(
 
   DrainGlErrors();
 
-  uint64_t countsHashEmpty = 0;
   uint64_t countsHashValid = 0;
   {
     auto lightCullingPass = std::make_shared<render::passes::LightCullingPass>();
@@ -1895,7 +1921,11 @@ TEST_CASE(
     // ---- Frame A: empty imported-backing snapshot. The 6 declared observers
     // have no snapshot handles to admit, so the resolver fails closed (zero
     // operations, allAdmitted false, 6 "no imported backing snapshot" denials)
-    // and the REAL manual BindBufferBase inside Execute stays authoritative. ----
+    // and LightCullingPass FAILS CLOSED: it skips the dispatch because the
+    // graph-driven binding was not admitted (the manual binds are removed, so
+    // no safety net remains). No cluster data is produced and nothing is
+    // rendered; BeginFrame already allocated the real cluster buffers before
+    // the guard, so the handles exist for frame B. ----
     {
       RenderContext context = {};
       context.registry = &registry;
@@ -1920,25 +1950,20 @@ TEST_CASE(
 
       graph.Execute(context);
 
-      CHECK(lightCullingPass->SucceededThisFrame());
-      CHECK(lightCullingPass->IsClusterDataReadyForCurrentFrame());
+      CHECK(lightCullingPass->HadFailureThisFrame());
+      CHECK_FALSE(lightCullingPass->SucceededThisFrame());
+      CHECK_FALSE(lightCullingPass->IsClusterDataReadyForCurrentFrame());
       CHECK_EQ(clusterState.GetLastOverflowSum(), 0u);
-      CHECK_EQ(clusterState.GetLastWrittenIndexCount(), 8u);
-      countsHashEmpty =
-          HashClusterCounts(clusterState.GetClusterHeadersReadback());
-      // Non-triviality: the pass really wrote per-cluster counts (8 clusters
-      // with pointCount=1), not the all-zero cleared state.
-      std::vector<components::GPUClusterHeader> zeros(
-          clusterState.GetClusterHeadersReadback().size());
-      CHECK_NE(countsHashEmpty, HashClusterCounts(zeros));
     }
 
     // ---- Frame B: valid imported-backing snapshot built from the REAL
     // handles the pass created during frame A. The resolver now admits EXACTLY
     // the 6 declared BindBufferBase observers at the LightCulling binding
     // points 0-5 with the real handles (order follows Setup declaration);
-    // Execute must run with zero runtime diagnostics and produce bit-identical
-    // cluster counts. ----
+    // Execute must run with zero runtime diagnostics. This is now the ONLY
+    // rendering path (the manual binds are removed), so the graph-driven
+    // cluster counts themselves are the correctness baseline: deterministic,
+    // non-trivial and written through the bound surfaces. ----
     {
       std::vector<ImportedBackingHandle> validSnapshot = {
           {RenderResourceTag::LightBufferSSBO, lightManager.GetLightBufferId(),
@@ -1989,16 +2014,25 @@ TEST_CASE(
       graph.Execute(context);
 
       CHECK(graph.GetRuntimeBindingDiagnostics().empty());
+      CHECK(lightCullingPass->SucceededThisFrame());
+      CHECK(lightCullingPass->IsClusterDataReadyForCurrentFrame());
+      CHECK_EQ(clusterState.GetLastWrittenIndexCount(), 8u);
+      CHECK_EQ(clusterState.GetLastOverflowSum(), 0u);
       countsHashValid =
           HashClusterCounts(clusterState.GetClusterHeadersReadback());
-      CHECK_EQ(countsHashValid, countsHashEmpty);
-      CHECK_EQ(clusterState.GetLastWrittenIndexCount(), 8u);
+      // Non-triviality: the graph-driven binds alone were effective — the
+      // pass really wrote per-cluster counts (8 clusters with pointCount=1),
+      // not the all-zero cleared state.
+      std::vector<components::GPUClusterHeader> zeros(
+          clusterState.GetClusterHeadersReadback().size());
+      CHECK_NE(countsHashValid, HashClusterCounts(zeros));
     }
 
     // ---- Frame C: zero-handle snapshot -> the resolver fails closed (zero
     // operations, allAdmitted false, 6 "zero/invalid handle" denials recorded
-    // at runtime) while the REAL manual binds keep the output identical
-    // (production safety net remains authoritative). ----
+    // at runtime) and LightCullingPass skips its dispatch (fail closed, no
+    // garbage), so the cluster counts stay bit-identical to the graph-driven
+    // frame B. ----
     {
       std::vector<ImportedBackingHandle> zeroSnapshot = {
           {RenderResourceTag::LightBufferSSBO, 0u, 0u, 0u},
@@ -2032,10 +2066,15 @@ TEST_CASE(
         }
       }
       CHECK_EQ(zeroHandleDenials, 6u);
+      CHECK(lightCullingPass->HadFailureThisFrame());
+      CHECK_FALSE(lightCullingPass->SucceededThisFrame());
+      CHECK_FALSE(lightCullingPass->IsClusterDataReadyForCurrentFrame());
 
+      // No garbage: the denied frame never dispatched, so the cluster buffers
+      // are exactly what the graph-driven frame B wrote.
       const uint64_t countsHashZero =
           HashClusterCounts(clusterState.GetClusterHeadersReadback());
-      CHECK_EQ(countsHashZero, countsHashEmpty);
+      CHECK_EQ(countsHashZero, countsHashValid);
     }
 
     // ---- GL error surface: all three frames introduced no GL errors. ----
@@ -2065,23 +2104,27 @@ TEST_CASE(
 // Phase B B4 6-point BufferBase surface gate: the real light_culling compute
 // surface through a graph-admitted 6-point BindBufferBase executor (2026-08-05).
 //
-// The production LightCullingPass now declares the 6 BindBufferBase observers
-// (see TEST_CASE "B4 contract"), but the authoritative proof that graph-driven
-// binds produce bit-identical output to the manual binds on the real 6-point
-// surface still needs an executor that can toggle between the two binding
-// authorities. This gate uses the test-local LightCullingSurfacePass, which
+// The production LightCullingPass declares the 6 BindBufferBase observers (see
+// TEST_CASE "B4 contract") and, since 2026-08-05, graph-driven binding is its
+// sole binding surface. This gate proves at the EXECUTOR level that the
+// graph-driven binds produce bit-identical output to a manual baseline on the
+// real 6-point surface. It uses the test-local LightCullingSurfacePass, which
 // mirrors the production Setup surface (6 descriptors with the real
 // Lighting/LightCulling owners, 6 BindBufferBase at points 0-5, 6
 // ImportResource) and the production Execute (same shader, same
-// BeginFrame/UploadLightBounds/uniform/dispatch/barrier/readback), to verify:
+// BeginFrame/UploadLightBounds/uniform/dispatch/barrier/readback). The mirror
+// pass's ManualOnly authority is the fixture's OWN reference baseline (it binds
+// the real handles manually inside Execute) — it is not a production safety
+// net. This gate verifies:
 //   - the resolver admits EXACTLY the 6 BindBufferBase operations at points
 //     0-5 whose handles equal the real buffers;
 //   - graph-driven-only and manual-only frames produce deterministic, bit-
 //     identical cluster readbacks (counts + 32B counter + written index range +
 //     written packed range) that are non-trivial;
 //   - a zero-handle snapshot fails closed (allAdmitted false, no operations,
-//     6 zero/invalid-handle diagnostics) while the manual-only frame keeps the
-//     output bit-identical (manual safety net authoritative);
+//     6 zero/invalid-handle diagnostics) — the fixture's manual-only authority
+//     still produces the identical reference output, proving the executor-level
+//     equivalence of the two binding surfaces;
 //   - zero GL errors and no registry growth after teardown.
 // ===========================================================================
 TEST_CASE(
@@ -2328,8 +2371,9 @@ TEST_CASE(
 
     // ---- Frame Z: zero-handle snapshot fails closed at the resolver (no
     // operations, allAdmitted false, 6 zero/invalid-handle diagnostics) while
-    // a manual-only Execute still produces the bit-identical baseline (the
-    // manual safety net is authoritative). ----
+    // the fixture's manual-only authority still produces the bit-identical
+    // reference baseline, proving the executor-level equivalence of the two
+    // binding surfaces on the real 6-point surface. ----
     {
       std::vector<ImportedBackingHandle> zeroSnapshot = {
           {RenderResourceTag::LightBufferSSBO, 0u, 0u, 0u},
@@ -2379,7 +2423,8 @@ TEST_CASE(
       }
       CHECK_EQ(zeroHandleDenials, 6u);
 
-      // Manual-only safety net: same surface, manual binds authoritative.
+      // Fixture reference baseline: same surface through the mirror pass's
+      // manual-only authority (its own manual binds, not a production path).
       auto manualPass = std::make_shared<LightCullingSurfacePass>(
           LightCullingSurfacePass::BindingAuthority::ManualOnly);
       RenderGraph manualGraph;

@@ -495,11 +495,29 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_screenSizeLoc, screenSize, RL_SHADER_UNIFORM_VEC2, 1);
   }
 
-  NoMoreDay::utils::GPUUtils::BindBufferBase(RenderConstants::ShadowCS::kOccluderBinding,
-                                             m_occluderBuffer.GetId());
-  NoMoreDay::utils::GPUUtils::BindImageTexture(
-      RenderConstants::ShadowCS::kSdfImageBinding, m_sdfField.colorTexture, 0, false, 0,
-      kGLWriteOnly, kGLRg16f);
+  // B2/B3 final convergence (2026-08-05): in the graph path (the only path
+  // production uses) graph-driven binding is the sole binding surface:
+  // RenderGraph::Execute issued the admitted BindBufferBase / BindImageTexture
+  // operations via ApplyActivePassBindings just before this Execute. When the
+  // resolver could not admit this pass's 2-point surface from the frame's
+  // imported-backing snapshot (missing / zero handles), fail closed: skip the
+  // dispatch rather than render garbage through unbound surfaces. Standalone
+  // Execute (no active graph: direct pass harness) falls back to the manual
+  // binds.
+  if (context.activeGraph != nullptr) {
+    if (!context.AreActivePassBindingsAdmitted()) {
+      rlDisableShader();
+      ReportFailure("graph-driven binding denied: imported backing snapshot "
+                    "missing or invalid for this frame");
+      return;
+    }
+  } else {
+    NoMoreDay::utils::GPUUtils::BindBufferBase(
+        RenderConstants::ShadowCS::kOccluderBinding, m_occluderBuffer.GetId());
+    NoMoreDay::utils::GPUUtils::BindImageTexture(
+        RenderConstants::ShadowCS::kSdfImageBinding, m_sdfField.colorTexture, 0, false,
+        0, kGLWriteOnly, kGLRg16f);
+  }
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
       (static_cast<uint32_t>(width) + (kShadowGroupSize - 1u)) / kShadowGroupSize,
       (static_cast<uint32_t>(height) + (kShadowGroupSize - 1u)) / kShadowGroupSize, 1);

@@ -302,34 +302,6 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     return;
   }
 
-  uint32_t lightListBinding = 0u;
-  uint32_t headerBinding = 0u;
-  uint32_t indexBinding = 0u;
-  uint32_t packedLightBinding = 0u;
-  uint32_t boundsBinding = 0u;
-  uint32_t counterBinding = 0u;
-  if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                         "LIGHT_LIST_IN", lightListBinding) ||
-      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                         "CLUSTER_HEADER_OUT", headerBinding) ||
-      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                         "CLUSTER_INDEX_OUT", indexBinding) ||
-      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                         "CLUSTER_LIGHT_OUT", packedLightBinding) ||
-      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                         "LIGHT_BOUNDS_IN", boundsBinding) ||
-      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
-                                         "CLUSTER_COUNTER", counterBinding)) {
-    ReportFailure("failed to resolve light culling bindings");
-    return;
-  }
-
-  const uint32_t lightBufferId = lighting::LightManager::Get().GetLightBufferId();
-  if (lightBufferId == 0u) {
-    ReportFailure("light buffer unavailable");
-    return;
-  }
-
   rlEnableShader(m_lightCullingShader.id);
   const int clusterX = static_cast<int>(grid.tilesX);
   const int clusterY = static_cast<int>(grid.tilesY);
@@ -369,17 +341,62 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_maxTotalClusteredLightsLoc, &maxTotal, RL_SHADER_UNIFORM_INT, 1);
   }
 
-  NoMoreDay::utils::GPUUtils::BindBufferBase(lightListBinding, lightBufferId);
-  NoMoreDay::utils::GPUUtils::BindBufferBase(headerBinding,
-                                             clusterState.GetClusterHeaderBufferId());
-  NoMoreDay::utils::GPUUtils::BindBufferBase(indexBinding,
-                                             clusterState.GetClusterLightIndexBufferId());
-  NoMoreDay::utils::GPUUtils::BindBufferBase(
-      packedLightBinding, clusterState.GetClusterPackedLightBufferId());
-  NoMoreDay::utils::GPUUtils::BindBufferBase(boundsBinding,
-                                             clusterState.GetLightBoundsBufferId());
-  NoMoreDay::utils::GPUUtils::BindBufferBase(counterBinding,
-                                             clusterState.GetCounterBufferId());
+  // B4 final convergence (2026-08-05): in the graph path (the only path
+  // production uses) graph-driven binding is the sole binding surface:
+  // RenderGraph::Execute issued the admitted 6 BindBufferBase operations via
+  // ApplyActivePassBindings just before this Execute. When the resolver could
+  // not admit this pass's 6-point surface from the frame's imported-backing
+  // snapshot (missing / zero handles), fail closed: skip the dispatch rather
+  // than render garbage through unbound SSBOs. Standalone Execute (no active
+  // graph: direct pass harness) falls back to the manual binds.
+  if (context.activeGraph != nullptr) {
+    if (!context.AreActivePassBindingsAdmitted()) {
+      rlDisableShader();
+      ReportFailure("graph-driven binding denied: imported backing snapshot "
+                    "missing or invalid for this frame");
+      return;
+    }
+  } else {
+    uint32_t lightListBinding = 0u;
+    uint32_t headerBinding = 0u;
+    uint32_t indexBinding = 0u;
+    uint32_t packedLightBinding = 0u;
+    uint32_t boundsBinding = 0u;
+    uint32_t counterBinding = 0u;
+    if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           "LIGHT_LIST_IN", lightListBinding) ||
+        !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           "CLUSTER_HEADER_OUT", headerBinding) ||
+        !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           "CLUSTER_INDEX_OUT", indexBinding) ||
+        !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           "CLUSTER_LIGHT_OUT", packedLightBinding) ||
+        !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           "LIGHT_BOUNDS_IN", boundsBinding) ||
+        !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                           "CLUSTER_COUNTER", counterBinding)) {
+      rlDisableShader();
+      ReportFailure("failed to resolve light culling bindings");
+      return;
+    }
+    const uint32_t lightBufferId = lighting::LightManager::Get().GetLightBufferId();
+    if (lightBufferId == 0u) {
+      rlDisableShader();
+      ReportFailure("light buffer unavailable");
+      return;
+    }
+    NoMoreDay::utils::GPUUtils::BindBufferBase(lightListBinding, lightBufferId);
+    NoMoreDay::utils::GPUUtils::BindBufferBase(headerBinding,
+                                               clusterState.GetClusterHeaderBufferId());
+    NoMoreDay::utils::GPUUtils::BindBufferBase(indexBinding,
+                                               clusterState.GetClusterLightIndexBufferId());
+    NoMoreDay::utils::GPUUtils::BindBufferBase(
+        packedLightBinding, clusterState.GetClusterPackedLightBufferId());
+    NoMoreDay::utils::GPUUtils::BindBufferBase(boundsBinding,
+                                               clusterState.GetLightBoundsBufferId());
+    NoMoreDay::utils::GPUUtils::BindBufferBase(counterBinding,
+                                               clusterState.GetCounterBufferId());
+  }
 
   NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
       DivUp(grid.tilesX, kComputeGroupSizeX), DivUp(grid.tilesY, kComputeGroupSizeY),

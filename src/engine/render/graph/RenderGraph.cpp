@@ -623,9 +623,10 @@ void RenderGraph::Execute(RenderContext &context) {
     // declarations against the imported backing snapshot and issue the real GL
     // binds via the existing GPUUtils APIs, immediately before pass Execute.
     // The graph never owns GL handles (they come from the RenderContext
-    // snapshot), and manual binds inside Execute remain authoritative and
-    // re-bind the same values (behavior-equivalent duplicates). Denied or
-    // unsupported bindings are never bound here.
+    // snapshot). Since B2-B4 convergence (2026-08-05) this is the sole binding
+    // surface for the migrated passes; passes fail closed inside their own
+    // Execute when the admission was incomplete. Denied or unsupported
+    // bindings are never bound here.
     ApplyActivePassBindings(context);
     node.pass->Execute(context);
     m_activeNodeIndex = static_cast<size_t>(-1);

@@ -3,7 +3,6 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
-#include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/passes/ShadowBuildPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
@@ -213,10 +212,15 @@ void ShadowResolvePass::Execute(graph::RenderContext &context) {
     }
   }
 
-  // Keep the producer-to-consumer synchronization until graph backing/import
-  // ownership and phase-aware barriers are implemented.
-  core::ApplyComputeToFragmentBarrierTemplate();
-
+  // The SDF Compute -> Fragment transition is now graph-generated:
+  // ShadowBuildPass writes ShadowDistanceField (Compute) and this pass reads it
+  // (Fragment), so the compiled plan emits the cross-pass transition and
+  // RenderGraph::Execute issues it (with non-zero barrier bits, verified by the
+  // B2/B3 gate) before this pass runs. The previous manual
+  // compute-to-fragment barrier is removed (B3 final convergence, 2026-08-05).
+  // The sampler texture bind below remains manual: the fragment shader samples
+  // ShadowDistanceField as a regular texture, which the graph-driven binding
+  // surface does not cover.
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, m_shadowMask.fbo);
   NoMoreDay::utils::GPUUtils::Viewport(0, 0, m_shadowMask.width, m_shadowMask.height);
 

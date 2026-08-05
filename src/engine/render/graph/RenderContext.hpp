@@ -121,10 +121,27 @@ struct RenderContext {
   // allocation, resize, release, or ownership change, and the graph never owns
   // GL handles. Returns true when every supported binding was admitted and
   // bound; false (with a recorded runtime diagnostic) when any was denied or
-  // unsupported. Manual binds inside pass Execute stay authoritative and
-  // re-bind the same values (behavior-equivalent duplicates).
+  // unsupported. Since B2-B4 convergence (2026-08-05) graph-driven binding is
+  // the sole binding surface for these passes; the manual binds they used to
+  // keep in Execute are removed.
   bool ApplyActivePassBindings() {
     return activeGraph != nullptr && activeGraph->ApplyActivePassBindings(*this);
+  }
+
+  // B2-B4 final convergence (2026-08-05): true when the graph-driven binding
+  // surface of the currently executing pass was fully admitted against this
+  // frame's imported-backing snapshot (or the pass declares no bindings —
+  // vacuous admission). Pure query: resolves against the same snapshot
+  // RenderGraph::Execute already used in ApplyActivePassBindings, issues no GL
+  // calls and records no diagnostics. A pass calls it from inside its own
+  // Execute to FAIL CLOSED (skip its dispatch) when the graph could not admit
+  // its binding surface, instead of rendering garbage through unbound surfaces.
+  // Returns false when no graph is active (no binding contract in effect);
+  // callers must gate on activeGraph != nullptr and handle the standalone path
+  // explicitly.
+  bool AreActivePassBindingsAdmitted() const {
+    return activeGraph != nullptr &&
+           activeGraph->ResolveActivePassBindings(*this).allAdmitted;
   }
 
   bool IsValid() const {
