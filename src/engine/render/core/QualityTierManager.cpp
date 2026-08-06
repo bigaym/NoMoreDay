@@ -1532,7 +1532,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.dynamicLightingEnabled = true;
     m_baseConfig.maxParticles = 60000;
     m_baseConfig.maxLights = 256;
-    m_baseConfig.ambientIntensity = 0.3f;
+    m_baseConfig.ambientIntensity = 0.32f;
     m_baseConfig.ambientColorR = 0.15f;
     m_baseConfig.ambientColorG = 0.15f;
     m_baseConfig.ambientColorB = 0.2f;
@@ -1543,7 +1543,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.bloomKnee = 0.1f;
     m_baseConfig.fxaaEnabled = true;
     m_baseConfig.vignetteEnabled = true;
-    m_baseConfig.vignetteIntensity = 0.2f;
+    m_baseConfig.vignetteIntensity = 0.01f;
     m_baseConfig.vignetteRadius = 0.75f;
     m_baseConfig.particleTexturesEnabled = true;
     m_baseConfig.subEmitterEnabled = false;
@@ -1559,7 +1559,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.hotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.colorGradingEnabled = false;
     m_baseConfig.colorGradingLutSize = 0;
-    m_baseConfig.colorGradingIntensity = 1.0f;
+    m_baseConfig.colorGradingIntensity = 0.03f;
     m_baseConfig.volumetricLightEnabled = false;
     m_baseConfig.volumetricSampleCount = 0;
     m_baseConfig.volumetricScattering = 0.0f;
@@ -1593,7 +1593,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.dynamicLightingEnabled = true;
     m_baseConfig.maxParticles = 120000;
     m_baseConfig.maxLights = 1024;
-    m_baseConfig.ambientIntensity = 0.25f;
+    m_baseConfig.ambientIntensity = 0.36f;
     m_baseConfig.ambientColorR = 0.15f;
     m_baseConfig.ambientColorG = 0.15f;
     m_baseConfig.ambientColorB = 0.2f;
@@ -1604,7 +1604,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.bloomKnee = 0.1f;
     m_baseConfig.fxaaEnabled = true;
     m_baseConfig.vignetteEnabled = true;
-    m_baseConfig.vignetteIntensity = 0.3f;
+    m_baseConfig.vignetteIntensity = 0.02f;
     m_baseConfig.vignetteRadius = 0.75f;
     m_baseConfig.particleTexturesEnabled = true;
     m_baseConfig.subEmitterEnabled = true;
@@ -1620,7 +1620,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.hotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.colorGradingEnabled = true;
     m_baseConfig.colorGradingLutSize = 16;
-    m_baseConfig.colorGradingIntensity = 1.0f;
+    m_baseConfig.colorGradingIntensity = 0.06f;
     m_baseConfig.volumetricLightEnabled = false;
     m_baseConfig.volumetricSampleCount = 0;
     m_baseConfig.volumetricScattering = 0.0f;
@@ -1654,7 +1654,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.dynamicLightingEnabled = true;
     m_baseConfig.maxParticles = 200000;
     m_baseConfig.maxLights = 4096;
-    m_baseConfig.ambientIntensity = 0.2f;
+    m_baseConfig.ambientIntensity = 0.4f;
     m_baseConfig.ambientColorR = 0.15f;
     m_baseConfig.ambientColorG = 0.15f;
     m_baseConfig.ambientColorB = 0.2f;
@@ -1665,7 +1665,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.bloomKnee = 0.1f;
     m_baseConfig.fxaaEnabled = true;
     m_baseConfig.vignetteEnabled = true;
-    m_baseConfig.vignetteIntensity = 0.35f;
+    m_baseConfig.vignetteIntensity = 0.03f;
     m_baseConfig.vignetteRadius = 0.75f;
     m_baseConfig.particleTexturesEnabled = true;
     m_baseConfig.subEmitterEnabled = true;
@@ -1681,7 +1681,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.hotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.colorGradingEnabled = true;
     m_baseConfig.colorGradingLutSize = 32;
-    m_baseConfig.colorGradingIntensity = 1.0f;
+    m_baseConfig.colorGradingIntensity = 0.09f;
     m_baseConfig.volumetricLightEnabled = true;
     m_baseConfig.volumetricSampleCount = 48;
     m_baseConfig.volumetricScattering = 0.16f;

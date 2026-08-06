@@ -46,15 +46,15 @@ TEST_CASE("[Unit] Lighting - QualityTier Config") {
   qm.ForceTier(render::core::QualityTier::Medium);
   CHECK(qm.GetConfig().dynamicLightingEnabled == true);
   CHECK(qm.GetConfig().maxLights == 256);
-  CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.3f));
+  CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.32f));
 
   qm.ForceTier(render::core::QualityTier::High);
   CHECK(qm.GetConfig().maxLights == 1024);
-  CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.25f));
+  CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.36f));
 
   qm.ForceTier(render::core::QualityTier::Ultra);
   CHECK(qm.GetConfig().maxLights == 4096);
-  CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.2f));
+  CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.4f));
 }
 
 TEST_CASE("[Unit] Lighting - LightManager Low Tier Skip") {

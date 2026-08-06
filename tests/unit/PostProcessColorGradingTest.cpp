@@ -9,14 +9,19 @@ TEST_CASE("[Unit] PostProcess ColorGrading - QualityTier Switch Path") {
   qualityManager.ForceTier(QualityTier::Low);
   CHECK(!qualityManager.GetConfig().colorGradingEnabled);
   CHECK(qualityManager.GetConfig().colorGradingLutSize == 0);
+  CHECK(qualityManager.GetConfig().vignetteEnabled == false);
 
   qualityManager.ForceTier(QualityTier::High);
   CHECK(qualityManager.GetConfig().colorGradingEnabled);
   CHECK(qualityManager.GetConfig().colorGradingLutSize == 16);
+  CHECK(qualityManager.GetConfig().colorGradingIntensity == doctest::Approx(0.06f));
+  CHECK(qualityManager.GetConfig().vignetteIntensity == doctest::Approx(0.02f));
 
   qualityManager.ForceTier(QualityTier::Ultra);
   CHECK(qualityManager.GetConfig().colorGradingEnabled);
   CHECK(qualityManager.GetConfig().colorGradingLutSize == 32);
+  CHECK(qualityManager.GetConfig().colorGradingIntensity == doctest::Approx(0.09f));
+  CHECK(qualityManager.GetConfig().vignetteIntensity == doctest::Approx(0.03f));
 }
 
 TEST_CASE("[Unit] PostProcess ColorGrading - LUT Size Boundaries") {

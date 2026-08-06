@@ -45,7 +45,7 @@
 
 ## Tools
 
-- **Primary: `codebase-memory-mcp` graph tools** for ALL code retrieval — definitions, search, call chains, data flow, impact analysis, and architecture understanding. Start every code investigation with `search_graph`, `trace_path`, `search_code`, or `get_architecture`. Only fall back to `grep`, `glob`, or `Read` when graph tools produce empty or insufficient results (configuration files, generated code, unindexed scripts, or confirmed graph gaps).
+- Must use `codebase-memory-mcp` graph tools for ALL code retrieval — definitions, search, call chains, data flow, impact analysis, and architecture understanding first. Only fall back to `grep`, `glob`, or `Read` when graph tools can not provide enough info.
 - Use the terminal only when no specialized tool fits. For compilation, testing, or other high-output commands, do not emit full output to context; filter it or redirect it to a text file.
 
 ### Memory, Context, And Evidence
