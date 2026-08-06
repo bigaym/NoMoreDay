@@ -2,6 +2,7 @@
 #include "game/data/BiomeRegistry.hpp"
 #include <array>
 #include <filesystem>
+#include <fstream>
 #include <stdexcept>
 #include <string>
 
@@ -76,4 +77,32 @@ TEST_CASE("[Unit] BiomeRegistry - V2 Load And Feature Flags") {
   CHECK(abyss.hasFeature(BiomeFeature::LimitedVision));
   CHECK(abyss.hasFeature(BiomeFeature::VisualFilter));
   CHECK(abyss.visionRadius == doctest::Approx(150.0f));
+}
+
+TEST_CASE("[Unit] Abyss fog filter - preserves scene and only softens edge") {
+  constexpr std::array<const char *, 4> kCandidates = {
+      "assets/shaders/filters/abyss_fog.fs",
+      "../assets/shaders/filters/abyss_fog.fs",
+      "../../assets/shaders/filters/abyss_fog.fs",
+      "../../../assets/shaders/filters/abyss_fog.fs",
+  };
+
+  std::string source;
+  for (const char *candidate : kCandidates) {
+    std::ifstream in(candidate, std::ios::binary);
+    if (!in) {
+      continue;
+    }
+    source.assign(std::istreambuf_iterator<char>(in),
+                  std::istreambuf_iterator<char>());
+    break;
+  }
+
+  REQUIRE_FALSE(source.empty());
+  CHECK(source.find("smoothstep(effectiveRadius * 0.7") != std::string::npos);
+  CHECK(source.find("mix(base.rgb, fogColor, edgeStrength)") !=
+        std::string::npos);
+  CHECK(source.find("mix(fogColor, base.rgb, visibility)") ==
+        std::string::npos);
+  CHECK(source.find("sin(fragTexCoord") == std::string::npos);
 }

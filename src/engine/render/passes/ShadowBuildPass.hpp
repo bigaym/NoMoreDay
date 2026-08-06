@@ -28,6 +28,15 @@ public:
   bool Initialize(ResourceManager &resources);
   void Shutdown();
   void OnResize(int width, int height);
+
+  // Force allocation of the lazily-created backing resources (sdf field, atlas,
+  // occluder buffer) at the given resolution/capacity so a per-frame
+  // imported-backing snapshot never observes zero handles on the first frame.
+  // Idempotent; mirrors the allocation criteria used inside Execute.
+  void EnsureBackingResources(const NoMoreDay::components::GPUShadowCaster *occluders,
+                              uint32_t occluderCount, int width, int height,
+                              int atlasSize);
+
   void SetPreparePass(const ShadowPreparePass *preparePass) {
     m_preparePass = preparePass;
   }

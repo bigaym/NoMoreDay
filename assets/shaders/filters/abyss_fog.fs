@@ -21,19 +21,14 @@ void main() {
     // Calculate distance to player in pixels
     float dist = length(fragPos - playerPos);
     
-    // Smooth transition for vision
-    // visionRadius is in world units or pixels? Spec says radius.
-    // If it's world units, we need to multiply by zoom.
-    float effectiveRadius = visionRadius; 
-    float visibility = 1.0 - smoothstep(effectiveRadius * 0.6, effectiveRadius, dist);
-    
-    // Add some animated noise to the fog edge
-    float noise = sin(fragTexCoord.x * 20.0 + time) * cos(fragTexCoord.y * 20.0 - time * 0.5) * 0.05;
-    visibility = clamp(visibility + noise, 0.0, 1.0);
+    // FogOfWar owns the actual visibility mask. Keep this filter as a subtle
+    // edge treatment so limited-vision biomes do not apply a second opaque fog.
+    float effectiveRadius = max(visionRadius, 1.0);
+    float edge = smoothstep(effectiveRadius * 0.7, effectiveRadius, dist);
 
-    // Deep abyss color
-    vec3 fogColor = vec3(0.02, 0.01, 0.04);
-    
-    // Mix scene with fog
-    finalColor = vec4(mix(fogColor, base.rgb, visibility), base.a);
+    // Use a neutral, low-strength tint. This preserves scene colors and alpha
+    // while softening the hard grid boundary produced by the fog texture.
+    vec3 fogColor = vec3(0.12, 0.12, 0.14);
+    float edgeStrength = edge * 0.35;
+    finalColor = vec4(mix(base.rgb, fogColor, edgeStrength), base.a);
 }

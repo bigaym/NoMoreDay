@@ -39,6 +39,15 @@ public:
   bool BeginFrame(uint32_t frameIndex, uint32_t screenWidth, uint32_t screenHeight,
                   uint32_t tileSize, uint32_t zSliceCount,
                   uint32_t lightCountEstimate);
+
+  // Force allocation of the cluster SSBOs at the given grid capacity without
+  // touching any per-frame state. Used by RenderSystem to pre-allocate the
+  // backing before the per-frame imported-backing snapshot is captured, so the
+  // graph never observes zero handles on the first offscreen-HDR frame.
+  bool EnsureBuffersAllocated(uint32_t clusterCount, uint32_t maxLightBounds) {
+    return EnsureBufferCapacity(clusterCount, maxLightBounds);
+  }
+
   bool UploadLightBounds(std::span<const components::GPULightBounds> lightBounds);
   bool ReadBackClusterHeaders();
   bool ReadBackClusterLightIndices();

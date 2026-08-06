@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
 #include "rlgl.h"
@@ -133,8 +134,10 @@ void FogOfWarSystem::updateVisibility(const Position &playerPos,
   int groupsX = (m_width + (COMPUTE_GROUP_SIZE - 1)) / COMPUTE_GROUP_SIZE;
   int groupsY = (m_height + (COMPUTE_GROUP_SIZE - 1)) / COMPUTE_GROUP_SIZE;
 
-  // 使用带屏障的分派
-  NoMoreDay::utils::GPUUtils::DispatchCompute(groupsX, groupsY, 1);
+  // The compute shader writes both the visibility SSBO and fog image, which
+  // are consumed immediately by CPU readback and the following texture draw.
+  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(groupsX, groupsY, 1);
+  NoMoreDay::render::core::ApplyComputeToFragmentBarrierTemplate();
 
   rlDisableShader();
 

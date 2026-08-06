@@ -1517,6 +1517,42 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.worldWidth = frame.worldWidth;
   graphContext.worldHeight = frame.worldHeight;
   graphContext.tileWorldSize = frame.tileWorldSize;
+
+  // Ensure lazy-backed shadow/cluster resources exist before the
+  // imported-backing snapshot below is captured. On the first offscreen-HDR
+  // frame these handles are still zero (they are allocated inside pass
+  // Execute), which makes the graph reject ShadowBuild/LightCulling bindings
+  // and skip lighting for that frame.
+  if (useHdrSceneBuffer && !offscreenV3SafeMode && s_hdrSceneBuffer.IsValid()) {
+    const auto &backingConfig =
+        NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+    const int backingWidth = s_hdrSceneBuffer.width;
+    const int backingHeight = s_hdrSceneBuffer.height;
+    if (g_shadowBuildPass != nullptr) {
+      g_shadowBuildPass->EnsureBackingResources(
+          s_occluderBuffer.empty() ? nullptr : s_occluderBuffer.data(),
+          static_cast<uint32_t>(s_occluderBuffer.size()), backingWidth,
+          backingHeight,
+          (backingConfig.shadowMode ==
+           NoMoreDay::render::core::ShadowMode::Hybrid)
+              ? static_cast<int>(backingConfig.shadowAtlasSize)
+              : 0);
+    }
+    const auto backingClusterGrid =
+        NoMoreDay::render::lighting::ClusteredLightingState::
+            ComputeClusterGridDimensions(
+                static_cast<uint32_t>(std::max(0, backingWidth)),
+                static_cast<uint32_t>(std::max(0, backingHeight)),
+                backingConfig.clusterTileSize, backingConfig.clusterZSliceCount);
+    NoMoreDay::render::lighting::ClusteredLightingState::Get()
+        .EnsureBuffersAllocated(
+            backingClusterGrid.clusterCount,
+            static_cast<uint32_t>(
+                NoMoreDay::render::lighting::LightManager::Get()
+                    .GetActiveLightRecordsCpu()
+                    .size()));
+  }
+
   const auto addImportedBacking = [&graphContext](
       NoMoreDay::render::graph::RenderResourceTag tag, uint32_t buffer,
       uint32_t texture, uint32_t framebuffer) {

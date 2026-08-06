@@ -41,6 +41,7 @@
 - New dependencies, frameworks, or tools: also load `conductor/tech-stack.md` and follow the design workflow.
 - New features follow design -> planning -> implementation -> testing. Bugs follow debugging -> implementation -> testing. Documentation changes use the design or planning workflow as appropriate and check links and indexes.
 - See `conductor/code_standard.md` and `conductor/code_styleguides/` for detailed code standards.
+- Use `RelWithDebInfo` with `build.bat` for build config, never `debug`.
 
 ## Tools
 

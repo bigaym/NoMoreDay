@@ -282,6 +282,21 @@ void ShadowBuildPass::OnResize(const int width, const int height) {
   ReclassifyShadowFramebuffer(m_sdfField);
 }
 
+void ShadowBuildPass::EnsureBackingResources(
+    const NoMoreDay::components::GPUShadowCaster *occluders,
+    uint32_t occluderCount, int width, int height, int atlasSize) {
+  if (width <= 0 || height <= 0) {
+    return;
+  }
+  if (!m_sdfField.IsValid() || m_cachedWidth != width || m_cachedHeight != height) {
+    OnResize(width, height);
+  }
+  if (atlasSize > 0) {
+    EnsureAtlasSize(atlasSize);
+  }
+  UploadOccluders(occluders, occluderCount);
+}
+
 void ShadowBuildPass::EnsureAtlasSize(const int atlasSize) {
   const int clampedAtlasSize = std::max(1, atlasSize);
   if (!m_shadowAtlas.IsValid()) {
