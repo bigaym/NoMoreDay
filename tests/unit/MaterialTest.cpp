@@ -71,7 +71,66 @@ TEST_CASE("[Unit] Material - Schema v1 Compatibility Loading") {
   manager.Shutdown();
   manager.Initialize();
 
-  const int loaded = manager.LoadFromJson("assets/data/materials_vfx.json");
+  const auto path = MakeTempPath("tmp_materials_schema_v1_compat.json");
+  WriteTextFile(path, R"json(
+{
+  "material_schema_version": 1,
+  "materials": [
+    {
+      "name": "FireExplosion",
+      "baseColor": [1.0, 0.4, 0.1, 1.0],
+      "emissive": [1.0, 0.6, 0.2],
+      "emissiveIntensity": 3.0,
+      "distortion": 0.3,
+      "blendMode": "Additive",
+      "shader": "Fire",
+      "textureSlots": [-1, -1, -1, -1]
+    },
+    {
+      "name": "IceShatter",
+      "baseColor": [0.3, 0.7, 1.0, 0.85],
+      "emissive": [0.4, 0.7, 1.0],
+      "emissiveIntensity": 1.5,
+      "distortion": 0.0,
+      "blendMode": "Alpha",
+      "shader": "Ice",
+      "textureSlots": [-1, -1, -1, -1]
+    },
+    {
+      "name": "PoisonCloud",
+      "baseColor": [0.45, 0.9, 0.25, 0.7],
+      "emissive": [0.35, 0.8, 0.2],
+      "emissiveIntensity": 0.9,
+      "distortion": 0.1,
+      "blendMode": "Alpha",
+      "shader": "Default",
+      "textureSlots": [-1, -1, -1, -1]
+    },
+    {
+      "name": "ShadowMist",
+      "baseColor": [0.16, 0.08, 0.26, 0.9],
+      "emissive": [0.25, 0.1, 0.35],
+      "emissiveIntensity": 0.75,
+      "distortion": 0.45,
+      "blendMode": "Multiply",
+      "shader": "Dissolve",
+      "textureSlots": [-1, -1, -1, -1]
+    },
+    {
+      "name": "HolyLight",
+      "baseColor": [0.98, 0.95, 0.74, 0.95],
+      "emissive": [1.0, 0.95, 0.7],
+      "emissiveIntensity": 2.2,
+      "distortion": 0.0,
+      "blendMode": "Additive",
+      "shader": "Hologram",
+      "textureSlots": [-1, -1, -1, -1]
+    }
+  ]
+}
+)json");
+
+  const int loaded = manager.LoadFromJson(path.string());
   CHECK(loaded >= 5);
   CHECK(manager.GetMaterialCount() >= 13);
 
@@ -91,6 +150,7 @@ TEST_CASE("[Unit] Material - Schema v1 Compatibility Loading") {
   CHECK(fire.ao == doctest::Approx(1.0f));
   CHECK(fire.detailNormalScale == doctest::Approx(1.0f));
 
+  CleanupPath(path);
   manager.Shutdown();
 }
 

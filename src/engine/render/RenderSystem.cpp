@@ -286,7 +286,7 @@ bool IsHdrPostProcessRequested(
 bool IsHdrScenePipelineRequested(
     const NoMoreDay::render::core::RenderConfig &config) {
   return config.dynamicLightingEnabled || config.volumetricLightEnabled ||
-         IsHdrPostProcessRequested(config);
+         config.v3Enabled || IsHdrPostProcessRequested(config);
 }
 
 // Phase D (RG-1): GI pass sizing on same-resolution (re)enable is now driven by

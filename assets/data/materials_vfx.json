@@ -1,5 +1,5 @@
 {
-  "material_schema_version": 1,
+  "material_schema_version": 3,
   "materials": [
     {
       "name": "FireExplosion",
@@ -9,7 +9,14 @@
       "distortion": 0.3,
       "blendMode": "Additive",
       "shader": "Fire",
-      "textureSlots": [-1, -1, -1, -1]
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "specular": 0.2,
+      "ao": 1.0,
+      "heightBias": 0.0,
+      "detailNormalScale": 1.0
     },
     {
       "name": "IceShatter",
@@ -19,7 +26,14 @@
       "distortion": 0.0,
       "blendMode": "Alpha",
       "shader": "Ice",
-      "textureSlots": [-1, -1, -1, -1]
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "specular": 0.2,
+      "ao": 1.0,
+      "heightBias": 0.0,
+      "detailNormalScale": 1.0
     },
     {
       "name": "PoisonCloud",
@@ -29,7 +43,14 @@
       "distortion": 0.1,
       "blendMode": "Alpha",
       "shader": "Default",
-      "textureSlots": [-1, -1, -1, -1]
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "specular": 0.2,
+      "ao": 1.0,
+      "heightBias": 0.0,
+      "detailNormalScale": 1.0
     },
     {
       "name": "ShadowMist",
@@ -39,7 +60,14 @@
       "distortion": 0.45,
       "blendMode": "Multiply",
       "shader": "Dissolve",
-      "textureSlots": [-1, -1, -1, -1]
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "specular": 0.2,
+      "ao": 1.0,
+      "heightBias": 0.0,
+      "detailNormalScale": 1.0
     },
     {
       "name": "HolyLight",
@@ -49,7 +77,14 @@
       "distortion": 0.0,
       "blendMode": "Additive",
       "shader": "Hologram",
-      "textureSlots": [-1, -1, -1, -1]
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "specular": 0.2,
+      "ao": 1.0,
+      "heightBias": 0.0,
+      "detailNormalScale": 1.0
     }
   ]
 }
