@@ -57,7 +57,12 @@ public:
     rlUpdateShaderBuffer(m_id, data, size, offset);
   }
 
-  // Optimize for high-frequency updates (avoid GPU sync stalls)
+  // Optimize for high-frequency updates (avoid GPU sync stalls). Capacity is
+  // grow-only: the backing store is never shrunk below its current allocation.
+  // Shrinking to the exact per-frame payload size makes the caller's
+  // `sz > GetSize()` check fire on the next frame's +1 count, forcing a full
+  // Release()+Create (glDeleteBuffers+glGenBuffers+glBufferData) cycle on the
+  // render hot path - a NVIDIA driver-level crash trigger under battle load.
   void OrphanAndUpload(const void *data, size_t size,
                        int usage = RL_DYNAMIC_DRAW) {
     if (m_id == 0)
@@ -69,19 +74,24 @@ public:
     // Bind
     Bind(target);
 
-    // Orphan (Reallocate storage, driver discards old sync requirements)
-    utils::GPUUtils::BufferData(target, size, nullptr, (uint32_t)usage);
-    utils::GPUUtils::BufferSubData(target, 0, size, data);
+    // Grow-only capacity: when the payload outgrows the current allocation,
+    // keep the doubling headroom used by Create().
+    if (size > m_size) {
+      m_size = size * 2;
 
-    // W5.4 (RG-3 contract): the orphan reallocated the GL backing store, so the
-    // size ledger and the observer record must stay in sync with the new
-    // capacity. UpdateResourceSize is a no-op on an equal size and saturated on
-    // inconsistency, so this can never corrupt the aggregate counters.
-    if (size != m_size) {
-      m_size = size;
+      // W5.4 (RG-3 contract): the orphan reallocated the GL backing store, so
+      // the size ledger and the observer record must stay in sync with the new
+      // capacity. UpdateResourceSize is a no-op on an equal size and saturated
+      // on inconsistency, so this can never corrupt the aggregate counters.
       NoMoreDay::render::resources::GPUResourceRegistry::Get().UpdateResourceSize(
           m_id, NoMoreDay::render::graph::ResourceKind::StorageBuffer, m_size);
     }
+
+    // Orphan at current capacity: reallocate storage (driver discards old sync
+    // requirements) without ever shrinking below the existing allocation, then
+    // upload the payload in place.
+    utils::GPUUtils::BufferData(target, m_size, nullptr, (uint32_t)usage);
+    utils::GPUUtils::BufferSubData(target, 0, size, data);
   }
 
   void BindBase(unsigned int index) const {
