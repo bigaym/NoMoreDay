@@ -231,22 +231,8 @@ void LevelManager::spawnLevelEntities() {
 void LevelManager::update(float dt, entt::registry &registry,
                           const Position &playerPos) {
   if (m_mapSystem && m_enemySystem && m_fogSystem) {
-    // 更新战争迷雾 (GPU 计算)
-    float viewRadius = 200.0f; // 默认值
-    auto view = registry.view<const PlayerTag, const VisionComponent>();
-    for (auto [entity, vision] : view.each()) {
-      viewRadius = vision.radius;
-    }
-    const auto &biomeConfig =
-        NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiome);
-    if (biomeConfig.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
-        biomeConfig.visionRadius > 0.0f) {
-      viewRadius = std::min(viewRadius, biomeConfig.visionRadius);
-    }
-    m_fogSystem->updateVisibility(playerPos, viewRadius);
-
-    // GPU FogOfWarSystem 直接生成纹理, 无需同步到 MapSystem
-    // 渲染时 FogSystem 和 MapSystem 独立渲染
+    // 战争迷雾更新由 GameplayState 根据当前相机屏幕区域调用
+    // (视野 = 整个屏幕范围)
 
     // 更新敌人生成状态
     m_enemySystem->updateEnemySpawning(playerPos, registry, dt,

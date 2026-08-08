@@ -45,11 +45,14 @@ public:
     void initialize(ResourceManager& resources, int width, int height);
     
     /**
-     * @brief 基于玩家位置更新可见性 (GPU 计算)
-     * @param playerPos 玩家世界坐标
-     * @param viewRadius 视野半径 (像素)
+     * @brief 基于屏幕可见区域更新可见性 (GPU 计算)
+     * @param viewMinX 可见区域最小世界坐标 X
+     * @param viewMinY 可见区域最小世界坐标 Y
+     * @param viewMaxX 可见区域最大世界坐标 X
+     * @param viewMaxY 可见区域最大世界坐标 Y
      */
-    void updateVisibility(const Position& playerPos, float viewRadius);
+    void updateVisibility(float viewMinX, float viewMinY, float viewMaxX,
+                          float viewMaxY);
     
     /**
      * @brief 渲染战争迷雾

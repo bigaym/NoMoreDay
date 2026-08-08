@@ -38,7 +38,10 @@ TEST_CASE("[Performance] FogOfWarSystem - updateVisibility 256x256") {
         1200.0f + static_cast<float>((i % 5) * 20),
         1200.0f + static_cast<float>(((i + 2) % 5) * 20),
     };
-    fog.updateVisibility(playerPos, fog_of_war_benchmark_detail::kViewRadius);
+    fog.updateVisibility(playerPos.x - fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.y - fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.x + fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.y + fog_of_war_benchmark_detail::kViewRadius);
     glFinish();
   }
 
@@ -51,7 +54,10 @@ TEST_CASE("[Performance] FogOfWarSystem - updateVisibility 256x256") {
     };
 
     ScopedTimer timer(samples);
-    fog.updateVisibility(playerPos, fog_of_war_benchmark_detail::kViewRadius);
+    fog.updateVisibility(playerPos.x - fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.y - fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.x + fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.y + fog_of_war_benchmark_detail::kViewRadius);
     glFinish();
   }
 
@@ -71,7 +77,10 @@ TEST_CASE("[Performance] FogOfWarSystem - syncToCPU") {
                  fog_of_war_benchmark_detail::kMapSize);
 
   // Prime with one update.
-  fog.updateVisibility({1280.0f, 1280.0f}, fog_of_war_benchmark_detail::kViewRadius);
+  fog.updateVisibility(1280.0f - fog_of_war_benchmark_detail::kViewRadius,
+                       1280.0f - fog_of_war_benchmark_detail::kViewRadius,
+                       1280.0f + fog_of_war_benchmark_detail::kViewRadius,
+                       1280.0f + fog_of_war_benchmark_detail::kViewRadius);
   glFinish();
 
   std::vector<double> samples;
@@ -82,7 +91,10 @@ TEST_CASE("[Performance] FogOfWarSystem - syncToCPU") {
         1100.0f + static_cast<float>(((i + 1) % 6) * 16),
     };
 
-    fog.updateVisibility(playerPos, fog_of_war_benchmark_detail::kViewRadius);
+    fog.updateVisibility(playerPos.x - fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.y - fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.x + fog_of_war_benchmark_detail::kViewRadius,
+                         playerPos.y + fog_of_war_benchmark_detail::kViewRadius);
     glFinish();
 
     ScopedTimer timer(samples);

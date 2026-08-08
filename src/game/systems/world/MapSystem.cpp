@@ -58,17 +58,17 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height,
   std::mt19937 gen(seed);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-  // 1. 鍒濆鍖?
+  // 1. 初始化
   using namespace NoMoreDay::Constants::Generator::Cave;
   for (auto &tile : map.grid) {
     tile.type =
         (dist(gen) < INITIAL_WALL_PROB) ? Tile::Type::WALL : Tile::Type::FLOOR;
   }
 
-  // 杈呭姪 buffer
+  // 辅助 buffer
   std::vector<Tile> buffer = map.grid;
 
-  // 2. 骞虫粦杩唬 (鍙岀紦鍐?
+  // 2. 平滑迭代 (双缓冲)
   for (int i = 0; i < iterations; ++i) {
     auto &src = (i % 2 == 0) ? map.grid : buffer;
     auto &dst = (i % 2 == 0) ? buffer : map.grid;
@@ -79,13 +79,13 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height,
     map.grid = std::move(buffer);
   }
 
-  // 3. 鐢熸垚闅滅鐗?(浣跨敤绉嶅瓙鐢熼暱娉?
+  // 3. 生成障碍物(使用种子生长法)
   GenerateObstacles(map.grid, width, height, gen());
 
-  // 4. 杈圭晫澶勭悊
+  // 4. 边界处理
   ApplyBoundaries(map.grid, width, height);
 
-  // 5. 纭繚 100% 杩為€氭€?(闃叉澶у潡闅滅鐗╁垏鏂矾寰?
+  // 5. 确保 100% 连通性(防止大块障碍物切断路径)
   EnsureConnectivity(map.grid, width, height);
 
   // 6. Place Exits
@@ -175,20 +175,20 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
   std::uniform_int_distribution<int> yDist(5, h - 6);
   using namespace NoMoreDay::Constants::Generator::Cave;
   std::uniform_int_distribution<int> sizeDist(
-      ROCK_SIZE_MIN, ROCK_SIZE_MAX); // 璋冩暣姣忎釜宀╁潡鐨勭洰鏍囬潰绉?
-  // 1. 纭畾宀╁潡鏁伴噺
+      ROCK_SIZE_MIN, ROCK_SIZE_MAX); // 调整每个岩块的目标面积
+  // 1. 确定岩块数量
   using namespace NoMoreDay::Constants::Generator::Cave;
   int numRocks = (w * h) / ROCK_DENSITY_DIVISOR;
   if (numRocks < 10)
     numRocks = ROCK_MIN_COUNT;
-  // 2. 鐢熸垚宸ㄥ瀷宀╁潡绉嶅瓙
+  // 2. 生成巨型岩块种子
   for (int i = 0; i < numRocks; ++i) {
     int cx = xDist(gen);
     int cy = yDist(gen);
     int targetArea = sizeDist(gen);
     int currentArea = 0;
 
-    // 浣跨敤 BFS 鏂瑰紡鎵╁紶鈥滃博浣撯€?
+    // 使用 BFS 方式扩张"岩体"
     std::queue<int> q;
     q.push(cy * w + cx);
     std::vector<int> rockTiles;
@@ -207,7 +207,7 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
       int x = curr % w;
       int y = curr / w;
 
-      // 鍚戝洓鍛ㄦ墿寮狅紝鍔犲叆涓€鐐归殢鏈烘€т互浜х敓涓嶈鍒欏舰鐘?
+      // 向四周扩张，加入一点随机性以产生不规则形状
       const int dx[] = {0, 0, 1, -1};
       const int dy[] = {1, -1, 0, 0};
       for (int d = 0; d < 4; ++d) {
@@ -216,7 +216,7 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
         if (nx >= 2 && nx < w - 2 && ny >= 2 && ny < h - 2) {
           using namespace NoMoreDay::Constants::Generator::Cave;
           std::uniform_int_distribution<int> chance(0, 100);
-          if (chance(gen) < ROCK_EXPANSION_CHANCE) { // 淇濊瘉绱у噾
+          if (chance(gen) < ROCK_EXPANSION_CHANCE) { // 保证紧凑
             q.push(ny * w + nx);
           }
         }
@@ -224,19 +224,19 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
     }
   }
 
-  // 3. 寮哄姏骞虫粦 璁╁博鍧楄竟缂樺渾娑︿笖鍚堝苟涓磋繎鍧?
+  // 3. 强力平滑 让岩块边缘圆润且合并临近块
   using namespace NoMoreDay::Constants::Generator::Cave;
   for (int i = 0; i < ROCK_SMOOTH_ITERATIONS; ++i) {
     std::vector<Tile> src = grid;
     SmoothIteration(src, grid, w, h);
   }
 
-  // 4. 娓呯悊娈嬬暀鐨勬瀬灏忓矝灞?
+  // 4. 清理残留的极小岛屿
   using namespace NoMoreDay::Constants::Generator::Cave;
   RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_WALL, Tile::Type::WALL,
                      Tile::Type::FLOOR);
 
-  // 5. 濉厖澶у博鍧楀唴閮ㄧ殑灏忓瓟娲?
+  // 5. 填充大岩块内部的小孔洞
   RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_FLOOR, Tile::Type::FLOOR,
                      Tile::Type::WALL);
 }
@@ -250,7 +250,7 @@ void CaveMapGenerator::RemoveSmallRegions(std::vector<Tile> &grid, int w, int h,
     for (int x = 0; x < w; ++x) {
       int idx = y * w + x;
       if (grid[idx].type == typeToRemove && !visited[idx]) {
-        // BFS 鎵弿杩為€氬尯鍩?
+        // BFS 扫描连通区域
         std::vector<int> component;
         std::queue<int> q;
         q.push(idx);
@@ -279,7 +279,7 @@ void CaveMapGenerator::RemoveSmallRegions(std::vector<Tile> &grid, int w, int h,
           }
         }
 
-        // 濡傛灉闈㈢Н杩囧皬锛屾姽骞?
+        // 如果面积过小，抹平
         if (component.size() < (size_t)threshold) {
           for (int i : component) {
             grid[i].type = fillType;
@@ -292,7 +292,7 @@ void CaveMapGenerator::RemoveSmallRegions(std::vector<Tile> &grid, int w, int h,
 
 void CaveMapGenerator::EnsureConnectivity(std::vector<Tile> &grid, int w,
                                           int h) {
-  // 鎵惧埌鏈€澶х殑鍙璧板尯鍩燂紝灏嗗叾浣欎笉鍙揪鐨勫彲琛岃蛋鍖哄煙鍏ㄩ儴濉垚澧?
+  // 找到最大的可行走区域，将其余不可达的可行走区域全部填成墙
   std::vector<bool> visited(w * h, false);
   std::vector<int> bestRegion;
 
@@ -334,7 +334,7 @@ void CaveMapGenerator::EnsureConnectivity(std::vector<Tile> &grid, int w,
     }
   }
 
-  // 灏嗛潪鏈€澶у尯鍩熺殑 FLOOR 鍏ㄩ儴濉垚澧欙紝淇濊瘉 100% 杩為€氭€?
+  // 将非最大区域的 FLOOR 全部填成墙，保证 100% 连通性
   std::vector<bool> isBest(w * h, false);
   for (int idx : bestRegion)
     isBest[idx] = true;
@@ -349,13 +349,13 @@ void CaveMapGenerator::EnsureConnectivity(std::vector<Tile> &grid, int w,
 // --- MapSystem Implementation ---
 
 void MapSystem::generateCaveMap(int width, int height) {
-  // 浣跨敤鍏蜂綋鐨勭敓鎴愬櫒瀹炰緥
+  // 使用具体的生成器实例
   CaveMapGenerator generator;
   const auto &biome =
       NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
   auto mapData =
       generator.Generate(width, height, m_gen(), biome.wallProbability,
-                         biome.smoothIterations); // 浣跨敤闅忔満绉嶅瓙
+                         biome.smoothIterations); // 使用随机种子
 
   m_mapData.width = mapData.width;
   m_mapData.height = mapData.height;
@@ -363,11 +363,11 @@ void MapSystem::generateCaveMap(int width, int height) {
   MarkAirWalls(m_mapData.grid,
                biome.hasFeature(NoMoreDay::BiomeFeature::AirWall));
 
-  // 鍒濆鍖栨祦鍦哄ぇ灏?
+  // 初始化流场大小
   m_flowField.resize(m_mapData.width * m_mapData.height);
   m_distanceField.resize(m_mapData.width * m_mapData.height);
 
-  // 鍒濆鍖栫紦瀛?CostMap
+  // 初始化缓存 CostMap
   using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
@@ -460,7 +460,7 @@ void MapSystem::generateTownMap(int width, int height) {
   initializeBiomeInteractionLayers(biome);
 }
 
-// 鐢熸垚鎷煎浘鍦板浘
+// 生成拼图地图
 void MapSystem::generateMosaicMap(int width, int height,
                                   const NoMoreDay::MosaicGrid &grid,
                                   const NoMoreDay::ResonanceResult &resonance,
@@ -468,7 +468,7 @@ void MapSystem::generateMosaicMap(int width, int height,
   NoMoreDay::MosaicMapGenerator generator;
   generator.SetMosaicData(grid, resonance, registry);
 
-  // 鍋囪 biome 鐢?resonance 缁撴灉鍐冲畾锛屾垨鑰呮殏鏃堕粯璁?cave
+  // 假设 biome 由 resonance 结果决定，或者暂时默认 cave
   m_currentBiomeId =
       (resonance.primaryBiome == NoMoreDay::BiomeID::None)
           ? "cave"
@@ -476,7 +476,7 @@ void MapSystem::generateMosaicMap(int width, int height,
   const auto &biome =
       NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
 
-  // 鐢熸垚鍦板浘
+  // 生成地图
   uint32_t seed = m_gen();
   if (registry && registry->ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
       const auto& state = registry->ctx().get<NoMoreDay::ActiveDimensionalState>();
@@ -493,11 +493,11 @@ void MapSystem::generateMosaicMap(int width, int height,
   MarkAirWalls(m_mapData.grid,
                biome.hasFeature(NoMoreDay::BiomeFeature::AirWall));
 
-  // 鍒濆鍖栨祦鍦哄ぇ灏?
+  // 初始化流场大小
   m_flowField.resize(m_mapData.width * m_mapData.height);
   m_distanceField.resize(m_mapData.width * m_mapData.height);
 
-  // 鍒濆鍖栫紦瀛?CostMap
+  // 初始化缓存 CostMap
   using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
@@ -634,7 +634,7 @@ float MapSystem::getSpeedMultiplierAtWorld(float worldX, float worldY) const {
 }
 
 void MapSystem::render(const Camera2D &camera) const {
-  // 绠€鍗曠殑瑙嗛敟鍓旈櫎
+  // 简单的视锥剔除
   using namespace NoMoreDay::Constants::World;
   using namespace NoMoreDay::Constants::World::Map;
   int startX =
@@ -662,7 +662,7 @@ void MapSystem::render(const Camera2D &camera) const {
   const auto &biome =
       NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
 
-  // 娓叉煋鎵€鏈夌摝鐗?- GPU FogOfWarSystem 璐熻矗鍦ㄩ《灞傜粯鍒惰糠闆鹃伄缃?
+  // 渲染所有瓦片- GPU FogOfWarSystem 负责在顶层绘制迷雾遮蔽
   for (int y = startY; y < endY; ++y) {
     for (int x = startX; x < endX; ++x) {
       const Tile &tile = m_mapData.grid[y * m_mapData.width + x];
@@ -719,21 +719,21 @@ void MapSystem::render(const Camera2D &camera) const {
   }
 }
 
-// --- 瀵昏矾绠楁硶瀹炵幇 (The "Black Magic") ---
+// --- 寻路算法实现 (The "Black Magic") ---
 
 void MapSystem::updateFlowField(const Position &targetPos) {
   using namespace NoMoreDay::Constants::World;
   int targetX = static_cast<int>(targetPos.x / GRID_TILE_SIZE);
   int targetY = static_cast<int>(targetPos.y / GRID_TILE_SIZE);
 
-  // 浼樺寲锛氬鏋滅洰鏍囩摝鐗囨病鏈夊彉鍖栵紝涓嶉噸鏂拌绠?
+  // 优化：如果目标瓦片没有变化，不重新计算
   if (targetX == static_cast<int>(m_lastFlowTarget.x) &&
       targetY == static_cast<int>(m_lastFlowTarget.y)) {
     return;
   }
   m_lastFlowTarget = {(float)targetX, (float)targetY};
 
-  // 1. 鐢熸垚绉垎鍦?(Integration Field) - Dijkstra / BFS
+  // 1. 生成积分场(Integration Field) - Dijkstra / BFS
   std::fill(m_distanceField.begin(), m_distanceField.end(),
             std::numeric_limits<int>::max());
   std::queue<int> queue;
@@ -744,7 +744,7 @@ void MapSystem::updateFlowField(const Position &targetPos) {
     queue.push(targetIdx);
   }
 
-  // 闄愬埗鎼滅储娣卞害浠ヤ紭鍖栨€ц兘
+  // 限制搜索深度以优化性能
   using namespace NoMoreDay::Constants::World::Map;
   const int MAX_DEPTH = FLOW_FIELD_MAX_DEPTH;
 
@@ -759,7 +759,7 @@ void MapSystem::updateFlowField(const Position &targetPos) {
     if (currentDist >= MAX_DEPTH)
       continue;
 
-    // 妫€鏌?4 涓偦灞?
+    // 检查 4 个邻居
     const int dirs[4][2] = {{0, 1}, {0, -1}, {1, 0}, {-1, 0}};
     for (auto &dir : dirs) {
       int nx = cx + dir[0];
@@ -776,8 +776,8 @@ void MapSystem::updateFlowField(const Position &targetPos) {
     }
   }
 
-  // 2. 鐢熸垚娴佸満 (Flow Field)
-  // 瀵规瘡涓牸瀛愶紝鎸囧悜璺濈鏈€灏忕殑閭诲眳
+  // 2. 生成流场 (Flow Field)
+  // 对每个格子，指向距离最小的邻居
   for (int y = 0; y < m_mapData.height; ++y) {
     for (int x = 0; x < m_mapData.width; ++x) {
       int idx = y * m_mapData.width + x;
@@ -820,8 +820,8 @@ Vector2 MapSystem::getFlowDirection(const Position &pos) const {
 
 Position MapSystem::getPathNextStep(const Position &start,
                                     const Position &end) const {
-  // 绠€鍗曠殑 A* 瀹炵幇锛屽彧杩斿洖涓嬩竴姝ョ殑浣嶇疆
-  // 涓轰簡鎬ц兘锛岃繖閲屼娇鐢ㄧ畝鍖栫殑璐績鎼滅储鎴栧皬鑼冨洿 A*
+  // 简单的 A* 实现，只返回下一步的位置
+  // 为了性能，这里使用简化的贪心搜索或小范围 A*
 
   using namespace NoMoreDay::Constants::World;
   int startX = static_cast<int>(start.x / GRID_TILE_SIZE);
@@ -832,9 +832,9 @@ Position MapSystem::getPathNextStep(const Position &start,
   if (startX == endX && startY == endY)
     return end;
 
-  // 绠€鍗曠殑璐績锛氭鏌ュ摢涓偦灞呯缁堢偣鏇磋繎涓斿彲琛岃蛋
-  // 娉ㄦ剰锛氳繖鍙兘浼氶櫡鍏ュ眬閮ㄦ渶浼橈紝浣嗗浜?杩斿洖鍑虹敓鐐?閫氬父瓒冲锛?
-  // 濡傛灉闇€瑕佹洿寮哄．鐨勯€昏緫锛屽彲浠ユ浛鎹负瀹屾暣鐨?A*
+  // 简单的贪心：检查哪个邻居离终点更近且可行走
+  // 注意：这可能会陷入局部最优，但对于返回出生点通常足够
+  // 如果需要更强壮的逻辑，可以替换为完整的 A*
 
   float minCost = std::numeric_limits<float>::max();
   Position nextStep = start;
@@ -865,28 +865,28 @@ Position MapSystem::getPathNextStep(const Position &start,
   return found ? nextStep : start;
 }
 
-// --- 鍗犱綅绗﹀疄鐜?(FogOfWarSystem 宸茬粡鏈夎嚜宸辩殑瀹炵幇鏂囦欢) ---
+// --- 占位符实现(FogOfWarSystem 已经有自己的实现文件) ---
 void MapSystem::renderFog(const Camera2D &camera) const {
-  // 姝ゅ嚱鏁板湪 FogOfWarSystem 涓疄鐜帮紝杩欓噷鍙槸涓轰簡鎺ュ彛瀹屾暣鎬?
-  // 瀹為檯璋冪敤鏄湪 Game::render 涓洿鎺ヨ皟鐢?FogOfWarSystem::renderFog
+  // 此函数在 FogOfWarSystem 中实现，这里只是为了接口完整性
+  // 实际调用是在 Game::render 中直接调用 FogOfWarSystem::renderFog
 }
 
 void MapSystem::updateVisibility(const Position &playerPos, float viewRadius) {
-  // 瀹為檯閫昏緫鍦?FogOfWarSystem 涓?
+  // 实际逻辑在 FogOfWarSystem 中
 }
 
 void MapSystem::ensureConnectivity(std::vector<Tile> &grid, int width,
                                    int height) {
-  // 宸茬粡鍦?CaveMapGenerator 涓鐞?
+  // 已经在 CaveMapGenerator 中处理完成
 }
 
 void MapSystem::floodFill(int startX, int startY, std::vector<bool> &visited,
                           std::vector<int> &regionMap, int regionId) {
-  // 杈呭姪鍑芥暟
+  // 辅助函数
 }
 
 void MapSystem::updateFogTexture() {
-  // 杈呭姪鍑芥暟
+  // 辅助函数
 }
 
 
@@ -990,7 +990,7 @@ void MapSystem::initializeBiomeInteractionLayers(
   }
 }
 void MapSystem::initializeFogTexture(int width, int height) {
-  // 杈呭姪鍑芥暟
+  // 辅助函数
 }
 
 entt::entity MapSystem::spawnDynamicObstacle(entt::registry &registry,

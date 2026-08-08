@@ -91,18 +91,24 @@ void FogOfWarSystem::initialize(ResourceManager &resources, int width,
   LOG_INFO("GPU FogOfWarSystem initialized successfully.");
 }
 
-void FogOfWarSystem::updateVisibility(const Position &playerPos,
-                                      float viewRadius) {
+void FogOfWarSystem::updateVisibility(float viewMinX, float viewMinY,
+                                      float viewMaxX, float viewMaxY) {
   if (!m_initialized || m_fogShader.id == 0)
     return;
 
   // 转换世界坐标到网格坐标
   using namespace NoMoreDay::Constants::World;
   using namespace NoMoreDay::Constants::World::Fog;
-  float playerGridX = playerPos.x / GRID_TILE_SIZE;
-  float playerGridY = playerPos.y / GRID_TILE_SIZE;
-  float gridRadius =
-      (viewRadius / GRID_TILE_SIZE) + VIEW_RADIUS_BUFFER; // 额外缓冲
+  float gridMinX = viewMinX / GRID_TILE_SIZE;
+  float gridMinY = viewMinY / GRID_TILE_SIZE;
+  float gridMaxX = viewMaxX / GRID_TILE_SIZE;
+  float gridMaxY = viewMaxY / GRID_TILE_SIZE;
+
+  // 额外缓冲，避免屏幕边缘暴露未探索迷雾
+  gridMinX -= VIEW_RADIUS_BUFFER;
+  gridMinY -= VIEW_RADIUS_BUFFER;
+  gridMaxX += VIEW_RADIUS_BUFFER;
+  gridMaxY += VIEW_RADIUS_BUFFER;
 
   // 启用 Compute Shader
   rlEnableShader(m_fogShader.id);
@@ -110,15 +116,13 @@ void FogOfWarSystem::updateVisibility(const Position &playerPos,
   // 设置 Uniform
   int locWidth = rlGetLocationUniform(m_fogShader.id, "width");
   int locHeight = rlGetLocationUniform(m_fogShader.id, "height");
-  int locPlayerPos = rlGetLocationUniform(m_fogShader.id, "playerGridPos");
-  int locRadius = rlGetLocationUniform(m_fogShader.id, "gridRadius");
+  int locViewRect = rlGetLocationUniform(m_fogShader.id, "viewRect");
 
   rlSetUniform(locWidth, &m_width, RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(locHeight, &m_height, RL_SHADER_UNIFORM_INT, 1);
 
-  float playerPosArray[2] = {playerGridX, playerGridY};
-  rlSetUniform(locPlayerPos, playerPosArray, RL_SHADER_UNIFORM_VEC2, 1);
-  rlSetUniform(locRadius, &gridRadius, RL_SHADER_UNIFORM_FLOAT, 1);
+  float viewRectArray[4] = {gridMinX, gridMinY, gridMaxX, gridMaxY};
+  rlSetUniform(locViewRect, viewRectArray, RL_SHADER_UNIFORM_VEC4, 1);
 
   // 绑定 SSBO
   m_visibilityBuffer.BindBase(NoMoreDay::RenderConstants::FogOfWarCS::VISIBILITY_BUFFER);

@@ -825,6 +825,16 @@ bool GameplayState::OnUpdate(float dt) {
     m_camera.offset.y += roundf(shake.y);
   }
 
+  // 更新战争迷雾: 视野 = 整个屏幕可见区域 (基于当前相机)
+  if (m_context->levelManager->isInitialized()) {
+    auto &fogSystem = m_context->levelManager->getFogSystem();
+    const Vector2 topLeft = GetScreenToWorld2D({0.0f, 0.0f}, m_camera);
+    const Vector2 bottomRight = GetScreenToWorld2D(
+        {(float)GetScreenWidth(), (float)GetScreenHeight()}, m_camera);
+    fogSystem.updateVisibility(topLeft.x, topLeft.y, bottomRight.x,
+                               bottomRight.y);
+  }
+
   // 4. AI
   {
     NoMoreDay::utils::ScopedTimer timer("AI Update", 200);
