@@ -1,7 +1,7 @@
 #include "game/systems/ui/AstrolabeRenderer.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "game/systems/skill/AstrolabeSystem.hpp"
-#include "game/systems/skill/TalentLayoutService.hpp"
+#include "game/data/TalentLayoutService.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
 #include "rlgl.h"

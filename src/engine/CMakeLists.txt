@@ -1,83 +1,31 @@
 # Engine layer: rendering, GPU, resource, physics, and VFX systems.
-# PUBLIC definitions, include paths, and system libraries propagate up to the
-# Game, App, and executable targets (behavioral equivalent of the former
-# aggregate NoMoreDayCore target).
-add_library(NoMoreDayEngine STATIC
-    physics/SIMDSpatialGrid.cpp
-    render/core/AdaptiveQualityController.cpp
-    render/core/BindingRegistry.cpp
-    render/core/DeviceCapabilityMatrix.cpp
-    render/core/QualityTierManager.cpp
-    render/debug/GLDebugCallback.cpp
-    render/debug/GPUTimerQueryRing.cpp
-    render/debug/ProfilerHudRenderer.cpp
-    render/debug/RenderProfiler.cpp
-    render/debug/ShaderReloadGovernance.cpp
-    render/gi/JFADistanceFieldEvaluator.cpp
-    render/GPUABIContract.cpp
-    render/GPUEntitySystem.cpp
-    render/GPUFlowFieldSystem.cpp
-    render/GPULootSystem.cpp
-    render/GPUParticleSystem.cpp
-    render/GPUSkillEffectSystem.cpp
-    render/GPUTextSystem.cpp
-    render/GPUUtils.cpp
-    render/graph/RenderGraph.cpp
-    render/lighting/ClusteredLightingState.cpp
-    render/lighting/GlobalHeightField.cpp
-    render/lighting/LightManager.cpp
-    render/LootTextBatcher.cpp
-    render/MaterialManager.cpp
-    render/MDIRenderer.cpp
-    render/particle/ForceFieldManager.cpp
-    render/particle/ParticleTextureManager.cpp
-    render/passes/CompositePass.cpp
-    render/passes/DistortionPass.cpp
-    render/passes/FluidSimulationPass.cpp
-    render/passes/GICompositePass.cpp
-    render/passes/GPULootPass.cpp
-    render/passes/GPUTextPass.cpp
-    render/passes/HeightShadowPass.cpp
-    render/passes/JFAPass.cpp
-    render/passes/LightCullingPass.cpp
-    render/passes/LightingPass.cpp
-    render/passes/OccluderExtractPass.cpp
-    render/passes/PostProcessPass.cpp
-    render/passes/RadianceCascadesPass.cpp
-    render/passes/ScenePass.cpp
-    render/passes/ShadowBuildPass.cpp
-    render/passes/ShadowPreparePass.cpp
-    render/passes/ShadowResolvePass.cpp
-    render/passes/UIWorldPass.cpp
-    render/passes/VFXEmissionSnapshotPass.cpp
-    render/passes/VFXPass.cpp
-    render/passes/VolumetricLightPass.cpp
-    render/PersistentBuffer.cpp
-    render/PopupRenderer.cpp
-    render/RenderSystem.cpp
-    render/resource/MSDFAtlasLoader.cpp
-    render/resource/TextureArrayManager.cpp
-    render/resources/FramebufferManager.cpp
-    render/resources/FullscreenQuad.cpp
-    render/resources/GPUResourceRegistry.cpp
-    render/resources/TransientResourcePool.cpp
-    render/shadow/OccluderCollector.cpp
-    render/shadow/ShadowAtlasAllocator.cpp
-    render/shadow/ShadowSDFMath.cpp
-    render/trail/GPUTrailRenderer.cpp
-    render/validation/GPUHardwareValidationGate.cpp
-    resource/AssetLoadingSystem.cpp
-    resource/ResourceManager.cpp
-    vfx/VFXBudgetEstimator.cpp
-    vfx/VFXSequenceManager.cpp
-)
+#
+# NoMoreDayEngine is a source-free aggregate over the five Engine sub-projects.
+# It PUBLIC-links every sub-target so the shared compile surface (src include
+# root, SYSTEM third-party includes, GRAPHICS_API_OPENGL_43,
+# WIN32_LEAN_AND_MEAN/NOGDI/NOUSER/NOMINMAX, /arch:AVX2 /Oi /Ot /Ob2 /GF,
+# COMBAT_DEFENSE_DEBUG / COMBAT_TELEMETRY_ENABLED, winmm/opengl32/dbghelp)
+# propagates up to the Game, App, and executable targets — the behavioral
+# equivalent of the former single NoMoreDayEngine static library.
+#
+# Sub-project dependency order (bottom-up, acyclic):
+#   NoMoreDayEngineRenderCore
+#     <- NoMoreDayEngineResource
+#       <- NoMoreDayEnginePasses
+#         <- NoMoreDayEngineSystems   (R1 scan: RenderSystem drives passes)
+#   NoMoreDayEngineVfx                (links RenderCore only)
+#     <- NoMoreDayEngine (aggregate)
+#
+# The subdirectory order below mirrors that dependency order so each
+# target_link_libraries references an already-defined target.
 
-# ResourceManager.cpp performs raw OS file I/O and must not enter the PCH or
-# Unity build units.
-set_source_files_properties(resource/ResourceManager.cpp PROPERTIES
-    SKIP_PRECOMPILE_HEADERS ON
-    SKIP_UNITY_BUILD_INCLUSION ON
-)
+add_subdirectory(render)
+add_subdirectory(resource)
+add_subdirectory(render/passes)
+add_subdirectory(render/systems)
+add_subdirectory(vfx)
+
+add_library(NoMoreDayEngine STATIC)
 
 add_dependencies(NoMoreDayEngine GenerateTags)
 
@@ -93,6 +41,11 @@ target_include_directories(NoMoreDayEngine SYSTEM PUBLIC
 
 target_link_libraries(NoMoreDayEngine
     PUBLIC
+    NoMoreDayEngineRenderCore
+    NoMoreDayEngineResource
+    NoMoreDayEnginePasses
+    NoMoreDayEngineSystems
+    NoMoreDayEngineVfx
     NoMoreDayCore
     raylib
     glfw
@@ -102,8 +55,6 @@ target_link_libraries(NoMoreDayEngine
     xsimd
 )
 target_link_libraries(NoMoreDayEngine PRIVATE NoMoreDayAnalyzeFlags)
-
-set_target_properties(NoMoreDayEngine PROPERTIES UNITY_BUILD OFF)
 
 if(WIN32)
     # winmm/opengl32 are also provided by raylib's interface; kernel32/gdi32/

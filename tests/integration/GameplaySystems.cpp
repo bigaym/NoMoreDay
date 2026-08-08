@@ -22,7 +22,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/ShadowSystem.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
-#include "game/systems/world/MovementStanceSystem.hpp"
+#include "game/systems/combat/MovementStanceSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/InventorySystem.hpp"

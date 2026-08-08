@@ -1,7 +1,7 @@
 #include "game/persistence/SaveManager.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/persistence/GlobalSaveData.hpp"
-#include "game/persistence/SharedStash.hpp"
+#include "game/systems/item/SharedStash.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/PlayerState.hpp"

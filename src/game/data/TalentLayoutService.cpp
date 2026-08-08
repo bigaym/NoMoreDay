@@ -1,4 +1,4 @@
-#include "game/systems/skill/TalentLayoutService.hpp"
+#include "game/data/TalentLayoutService.hpp"
 #include <cmath>
 #include <algorithm>
 #include <map>

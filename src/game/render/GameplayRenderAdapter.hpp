@@ -22,20 +22,6 @@ namespace NoMoreDay {
  */
 class GameplayRenderAdapter : public render::GameplayRenderHooks {
 public:
-  // Shared Visibility Cache (moved from RenderSystem::VisibleItemCache).
-  struct VisibleItemCache {
-    struct ItemData {
-      entt::entity entity;
-      Rectangle worldRect; // World Space Bounds for Label
-    };
-    static std::vector<ItemData> visibleItems;
-    static void Clear() { visibleItems.clear(); }
-  };
-
-  // Loot Label Spatial Optimization grid (moved from RenderSystem).
-  static std::unique_ptr<systems::SIMDSpatialGrid> s_itemGrid;
-  static bool s_itemGridDirty;
-
   void SetContext(const NoMoreDay::SharedContext *context) {
     m_context = context;
   }

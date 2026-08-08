@@ -1,5 +1,5 @@
 #include "game/data/TalentLoader.hpp"
-#include "game/systems/skill/TalentLayoutService.hpp"
+#include "game/data/TalentLayoutService.hpp"
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>

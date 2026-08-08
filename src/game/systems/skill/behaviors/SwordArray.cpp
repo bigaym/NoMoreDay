@@ -10,8 +10,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -182,10 +181,16 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
       DamagePool base;
       base.Add(Tag::Physical, 20.0f); // Default for Skill 6
 
-      DamagePipeline::CalculateBatch(registry, array.owner, targets, kSkillId,
-                                     base,
-                                     Tag::Area | Tag::SwordSkill | Tag::Hit,
-                                     entity);
+      for (auto target_ent : targets) {
+        DamageRequest batchRequest;
+        batchRequest.attacker = array.owner;
+        batchRequest.defender = target_ent;
+        batchRequest.skill_id = kSkillId;
+        batchRequest.base_pool = base;
+        batchRequest.additional_tags = Tag::Area | Tag::SwordSkill | Tag::Hit;
+        batchRequest.source_entity = entity;
+        ResolveDamageBatch(registry, batchRequest);
+      }
 
       for (auto target_ent : targets) {
         if (array.has_slow) {
@@ -246,8 +251,7 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
                   Tag::Area | Tag::SwordSkill | Tag::Hit;
               executeReq.source_entity = entity;
               executeReq.skip_mitigation = true;
-              (void)DamagePipeline::Execute(registry, executeReq, array.owner,
-                                            true);
+              (void)ResolveDamage(registry, executeReq, array.owner);
             }
           }
         }

@@ -10,4 +10,3 @@ target_precompile_headers(NoMoreDayApp PRIVATE ${CMAKE_SOURCE_DIR}/src/pch.hpp)
 
 target_link_libraries(NoMoreDayApp PUBLIC NoMoreDayGame)
 
-set_target_properties(NoMoreDayApp PROPERTIES UNITY_BUILD OFF)

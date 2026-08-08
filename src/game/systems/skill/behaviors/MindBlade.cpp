@@ -18,7 +18,6 @@
 #include "game/components/Combat.hpp"
 #include "game/components/Common.hpp" // Added for Position, Vector2
 #include "game/components/Projectile.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raymath.h"

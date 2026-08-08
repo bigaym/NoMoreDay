@@ -4,7 +4,6 @@ project(NoMoreDay VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_UNITY_BUILD OFF)
 
 if(NOT MSVC)
     message(FATAL_ERROR "[Toolchain] NoMoreDay requires MSVC. GCC/MinGW/Clang toolchains are unsupported.")
@@ -137,7 +136,6 @@ endif()
 set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/spdlog)
-set_target_properties(spdlog PROPERTIES UNITY_BUILD OFF)
 
 # 2. Raylib
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -147,10 +145,6 @@ set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
 set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "Force OpenGL 4.3" FORCE)
 
 add_subdirectory(third_party/raylib)
-
-# Raylib's internal C files are not compatible with Unity Build due to macro and symbol conflicts.
-# We must disable Unity Build specifically for the raylib target.
-set_target_properties(raylib PROPERTIES UNITY_BUILD OFF)
 
 # 3. EnTT
 add_subdirectory(third_party/entt)
@@ -207,9 +201,6 @@ target_link_libraries(SkillBehaviors PRIVATE
     NoMoreDayAnalyzeFlags
 )
 target_precompile_headers(SkillBehaviors PRIVATE src/game/pch.hpp)
-
-# Enable Unity Build for Skills
-set_target_properties(SkillBehaviors PROPERTIES UNITY_BUILD ON)
 
 # --- Layered Static Libraries ---
 # Each layer owns an explicit source manifest (no GLOB_RECURSE). The PUBLIC

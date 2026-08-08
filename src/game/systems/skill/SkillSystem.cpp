@@ -18,9 +18,8 @@
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
@@ -990,7 +989,7 @@ void SkillSystem::InitHooks() {
                 counterRequest.additional_tags = Tag::Hit | Tag::Melee;
                 counterRequest.source_entity = exec_ent;
                 const auto counterResult =
-                    DamagePipeline::Execute(registry, counterRequest, victim);
+                    ResolveDamage(registry, counterRequest, victim);
 
                 LOG_INFO(
                     "Phantom Flash Counter resolved: victim={} attacker={} "

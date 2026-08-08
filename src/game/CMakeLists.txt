@@ -1,150 +1,72 @@
 # Game layer: gameplay systems, states, UI, world, item, combat, and skill logic.
+#
+# M4 completes the bottom-up split (design §5.3 Phase C): every physical
+# subdirectory is now its own standalone static sub-target, and the aggregate
+# NoMoreDayGame becomes a source-less library that PUBLIC-links all of them.
+# NoMoreDayGame remains the target name referenced by check_module_boundaries.py
+# and CTest. The contract STATIC library (contracts/impl) is added early so it
+# can link the bottom sub-targets it sits above; the middle band comes next,
+# then combat (depends on skill/world/stats/combat_v2), then the top band
+# (scene/persistence/input/render/states/ui), which is the widest dependency fan.
+#
 # Skill behavior OBJECT files are linked PUBLIC so static registration objects
 # reach the final executable and test binaries.
-add_library(NoMoreDayGame STATIC
-    combat_v2/CombatV2RuntimeFacade.cpp
-    combat_v2/ConditionCompiler.cpp
-    combat_v2/ConditionIR.cpp
-    combat_v2/DamageKernel.cpp
-    combat_v2/ModifierGraph.cpp
-    combat_v2/ModifierSourceAdapters.cpp
-    combat_v2/TagBitset.cpp
-    combat_v2/TagDomain.cpp
-    data/AstrolabeRegistry.cpp
-    data/BiomeRegistry.cpp
-    data/BladeMasteryRegistry.cpp
-    data/BuffRegistry.cpp
-    data/MonsterAffixRegistry.cpp
-    data/ResonanceCalculator.cpp
-    data/SkillRegistry.cpp
-    data/TalentLoader.cpp
-    persistence/SaveManager.cpp
-    persistence/SharedStash.cpp
-    render/EmissiveStampAdapter.cpp
-    render/GameplayRenderAdapter.cpp
-    render/GPUEntitySync.cpp
-    render/GPULootAdapter.cpp
-    render/HeightFieldAdapter.cpp
-    render/LightAdapter.cpp
-    render/OccluderProjector.cpp
-    scene/SceneManager.cpp
-    scene/StateManager.cpp
-    states/DimensionalLevelSelectState.cpp
-    states/GameplayState.cpp
-    states/HeirloomVaultState.cpp
-    states/InventoryState.cpp
-    states/LoadingState.cpp
-    states/MainMenuState.cpp
-    states/MosaicEditorState.cpp
-    states/NightmareFloorState.cpp
-    states/PauseState.cpp
-    states/SettingsState.cpp
-    systems/ai/AISystem.cpp
-    systems/ai/EnemyAIBehaviors.cpp
-    systems/ai/EnemyBehavior.cpp
-    systems/combat/AilmentEngine.cpp
-    systems/combat/BossFrameworkSystem.cpp
-    systems/combat/CombatAntiMeta.cpp
-    systems/combat/CombatEventDispatcher.cpp
-    systems/combat/CombatHistorySystem.cpp
-    systems/combat/CombatSystem.cpp
-    systems/combat/CombatTelemetry.cpp
-    systems/combat/DamageMitigationService.cpp
-    systems/combat/DamagePipeline.cpp
-    systems/combat/EffectSystem.cpp
-    systems/combat/EliteModifierSystem.cpp
-    systems/combat/EndgameModifierContract.cpp
-    systems/combat/HazardSystem.cpp
-    systems/combat/ProcBudgetManager.cpp
-    systems/combat/ProgressionSystem.cpp
-    systems/combat/StatsSystem.cpp
-    systems/combat/VisualFXSystem.cpp
-    systems/combat/XPAwardingSystem.cpp
-    systems/input/InputSystem.cpp
-    systems/item/CraftingSystem.cpp
-    systems/item/DropSystem.cpp
-    systems/item/FragmentDropSystem.cpp
-    systems/item/InventorySystem.cpp
-    systems/item/ItemEquipValidationService.cpp
-    systems/item/ItemFactory.cpp
-    systems/item/LootFilter.cpp
-    systems/item/LootGridSystem.cpp
-    systems/item/MaterialRegistry.cpp
-    systems/item/RunewordSystem.cpp
-    systems/item/SalvageSystem.cpp
-    systems/item/StashSystem.cpp
-    systems/modifier/EquipmentModifierAdapter.cpp
-    systems/modifier/MapModifierAdapter.cpp
-    systems/modifier/ModifierEvaluator.cpp
-    systems/modifier/ModifierRuntimeRegistry.cpp
-    systems/modifier/ModifierSchemaV2Validation.cpp
-    systems/modifier/MonsterModifierAdapter.cpp
-    systems/modifier/SkillSpecModifierAdapter.cpp
-    systems/modifier/TalentModifierAdapter.cpp
-    systems/nemesis/FactionAggroSystem.cpp
-    systems/nemesis/NemesisGenerator.cpp
-    systems/physics/PhysicsSystem.cpp
-    systems/render/AirWallRenderer.cpp
-    systems/skill/AstrolabeSystem.cpp
-    systems/skill/BehaviorInjectionRegistry.cpp
-    systems/skill/BladeMasteryService.cpp
-    systems/skill/BladeResourceService.cpp
-    systems/skill/ProjectileSystem.cpp
-    systems/skill/ShadowSystem.cpp
-    systems/skill/SkillCastConstraintService.cpp
-    systems/skill/SkillDisplayPreviewService.cpp
-    systems/skill/SkillSystem.cpp
-    systems/skill/SummonAISystem.cpp
-    systems/skill/SummonCombatBridge.cpp
-    systems/skill/SummonLifecycleSystem.cpp
-    systems/skill/SummonSystem.cpp
-    systems/skill/TalentLayoutService.cpp
-    systems/stats/AttributePipeline.cpp
-    systems/ui/AstrolabeRenderer.cpp
-    systems/ui/BladeMasteryUITheme.cpp
-    systems/ui/MonsterHealthBarSystem.cpp
-    systems/ui/PlayerHUD.cpp
-    systems/ui/SwordIntentWidget.cpp
-    systems/ui/UIAnimationSystem.cpp
-    systems/ui/UIAstrolabe.cpp
-    systems/ui/UICharacter.cpp
-    systems/ui/UICrafting.cpp
-    systems/ui/UIInventory.cpp
-    systems/ui/UIMinimap.cpp
-    systems/ui/UIPanelDragService.cpp
-    systems/ui/UIRenderer.cpp
-    systems/ui/UISkillHub.cpp
-    systems/ui/UISkillSpecRenderer.cpp
-    systems/ui/UISkillTalentTree.cpp
-    systems/ui/UIStash.cpp
-    systems/ui/UISystem.cpp
-    systems/vfx/GhostSystem.cpp
-    systems/vfx/HoloBladeRenderSystem.cpp
-    systems/vfx/SwordIntentVisualSystem.cpp
-    systems/vfx/TrailSystem.cpp
-    systems/world/BiomeMapGenerator.cpp
-    systems/world/EnemySpawnSystem.cpp
-    systems/world/FogOfWarSystem.cpp
-    systems/world/LevelManager.cpp
-    systems/world/MapAffixCalculator.cpp
-    systems/world/MapAffixRegistry.cpp
-    systems/world/MapSystem.cpp
-    systems/world/MazeBiomeStrategy.cpp
-    systems/world/MosaicMapGenerator.cpp
-    systems/world/MovementStanceSystem.cpp
-    systems/world/OpenBiomeStrategy.cpp
-    systems/world/PortalSystem.cpp
-    systems/world/SpecialBiomeStrategy.cpp
-    systems/world/TilemapCollisionSystem.cpp
-    utils/MonsterScaling.cpp
-    vfx/VFXSequencerSystem.cpp
-)
+
+add_subdirectory(contracts)      # NoMoreDayGameContractsCore (INTERFACE)
+add_subdirectory(ui_shared)      # NoMoreDayGameUiShared (ring 2 break: item/render/ui interchange)
+add_subdirectory(data)           # NoMoreDayGameData
+add_subdirectory(utils)          # NoMoreDayGameUtils
+add_subdirectory(stats)          # NoMoreDayGameStats
+add_subdirectory(combat_v2)      # NoMoreDayGameCombatV2
+add_subdirectory(contracts/impl) # NoMoreDayGameContracts (STATIC)
+add_subdirectory(systems/modifier)   # NoMoreDayGameModifier (middle)
+add_subdirectory(systems/skill)      # NoMoreDayGameSkill (middle)
+add_subdirectory(systems/world)      # NoMoreDayGameWorld (middle)
+add_subdirectory(systems/item)       # NoMoreDayGameItem (middle)
+add_subdirectory(systems/physics)    # NoMoreDayGamePhysics (middle)
+add_subdirectory(systems/ai)         # NoMoreDayGameAi (middle)
+add_subdirectory(systems/vfx)        # NoMoreDayGameVfx (middle)
+add_subdirectory(systems/nemesis)    # NoMoreDayGameNemesis (middle)
+add_subdirectory(systems/combat)     # NoMoreDayGameCombat (upper)
+add_subdirectory(scene)              # NoMoreDayGameScene (top)
+add_subdirectory(persistence)        # NoMoreDayGamePersistence (top)
+add_subdirectory(systems/ui)         # NoMoreDayGameUi (top)
+add_subdirectory(systems/input)      # NoMoreDayGameInput (top)
+add_subdirectory(render)             # NoMoreDayGameRender (top)
+add_subdirectory(states)             # NoMoreDayGameStates (top)
+
+add_library(NoMoreDayGame STATIC)
 
 add_dependencies(NoMoreDayGame GenerateTags)
 
 target_precompile_headers(NoMoreDayGame PRIVATE ${CMAKE_SOURCE_DIR}/src/game/pch.hpp)
 
-target_link_libraries(NoMoreDayGame PUBLIC NoMoreDayEngine)
+# PUBLIC bottom-up order mirrors the add_subdirectory order: contracts above
+# data/utils/stats/combat_v2, middle band above combat, top band last,
+# aggregate above engine/skill behaviors.
+target_link_libraries(NoMoreDayGame PUBLIC
+    NoMoreDayGameContractsCore
+    NoMoreDayGameContracts
+    NoMoreDayGameUiShared
+    NoMoreDayGameData
+    NoMoreDayGameUtils
+    NoMoreDayGameStats
+    NoMoreDayGameCombatV2
+    NoMoreDayGameModifier
+    NoMoreDayGameSkill
+    NoMoreDayGameWorld
+    NoMoreDayGameItem
+    NoMoreDayGamePhysics
+    NoMoreDayGameAi
+    NoMoreDayGameVfx
+    NoMoreDayGameNemesis
+    NoMoreDayGameCombat
+    NoMoreDayGameScene
+    NoMoreDayGamePersistence
+    NoMoreDayGameUi
+    NoMoreDayGameInput
+    NoMoreDayGameRender
+    NoMoreDayGameStates
+    NoMoreDayEngine
+)
 target_link_libraries(NoMoreDayGame PUBLIC SkillBehaviors)
-
-set_target_properties(NoMoreDayGame PROPERTIES UNITY_BUILD OFF)

@@ -16,4 +16,4 @@ endif()
 
 # The MS-1 contract reserves src/pch.hpp for the aggregate layer and forbids a
 # Core PCH that references Engine, Game, or App headers.
-set_target_properties(NoMoreDayCore PROPERTIES UNITY_BUILD OFF)
+

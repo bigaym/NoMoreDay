@@ -10,34 +10,6 @@ add_executable(NoMoreDayTests
     ${TEST_SOURCES}
 )
 
-# Keep new V5 JFA tests out of Unity amalgamation to avoid TU-local helper
-# collisions with existing contract test helpers.
-set_source_files_properties(
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/RenderGraphV5ContractsIntegrationTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/ReleaseGateIntegrationTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/ShadowPipelineTierFallbackIntegrationTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatReleaseGateBenchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatCorePerfBaselineTests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/FluidSPHReferenceTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/JFADistanceFieldEvaluatorTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/CombatCoreParityHarnessTests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/ConditionIRTests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/SkillSpecModifierAdapterTests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/TalentModifierAdapterTests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/TagDomainV2Tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatTelemetryBenchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/FluidSimulationBenchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/MaterialLightingBenchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/PostProcessBenchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/performance/RadianceCascadesBenchmark.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/GPUHardwareValidationGateTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/GraphBindingEquivalenceGLTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/PhaseGRegistrySnapshotGLTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/unit/AdaptiveQualityControllerTest.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/integration/S7PairedGiDeltaTest.cpp
-    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
-)
-
 target_include_directories(NoMoreDayTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(NoMoreDayTests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/doctest
@@ -46,9 +18,8 @@ target_include_directories(NoMoreDayTests SYSTEM PRIVATE
 
 target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayCore NoMoreDayEngine NoMoreDayGame NoMoreDayApp)
 
-# Enable Unity Build for Tests
+# Run tests with an explicit runtime output directory.
 set_target_properties(NoMoreDayTests PROPERTIES
-    UNITY_BUILD ON
     RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_BIN_DIR}"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${OUTPUT_BIN_DIR}"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${OUTPUT_BIN_DIR}"

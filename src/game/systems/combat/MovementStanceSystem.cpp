@@ -1,4 +1,4 @@
-#include "game/systems/world/MovementStanceSystem.hpp"
+#include "game/systems/combat/MovementStanceSystem.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"

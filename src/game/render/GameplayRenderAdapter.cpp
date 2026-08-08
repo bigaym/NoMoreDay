@@ -25,7 +25,7 @@
 #include "game/data/BiomeRegistry.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/item/LootFilter.hpp"
-#include "game/systems/ui/UISystem.hpp"
+#include "game/ui_shared/UiShared.hpp"
 #include "game/systems/vfx/HoloBladeRenderSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
@@ -37,25 +37,18 @@
 
 namespace NoMoreDay {
 
-// Static definitions for the shared visibility cache + loot grid
-// (formerly RenderSystem::VisibleItemCache::visibleItems / s_itemGrid).
-std::vector<GameplayRenderAdapter::VisibleItemCache::ItemData>
-    GameplayRenderAdapter::VisibleItemCache::visibleItems;
-std::unique_ptr<systems::SIMDSpatialGrid> GameplayRenderAdapter::s_itemGrid;
-bool GameplayRenderAdapter::s_itemGridDirty = true;
+// Static definitions for the shared visibility cache + loot grid now live in
+// NoMoreDayGameUiShared (UiShared.cpp) — design §5.3 ring 2 break.
 
-void GameplayRenderAdapter::Init() {
-  s_itemGrid = std::make_unique<systems::SIMDSpatialGrid>(256, 256, 128.0f);
-  s_itemGridDirty = true;
-}
+void GameplayRenderAdapter::Init() { UiShared::Init(); }
 
-void GameplayRenderAdapter::Shutdown() { s_itemGrid = nullptr; }
+void GameplayRenderAdapter::Shutdown() { UiShared::Shutdown(); }
 
 void GameplayRenderAdapter::BuildFrameData(render::GameplayRenderFrame &frame) {
   m_cameraZoom =
       (m_context->settings != nullptr) ? m_context->settings->cameraZoom : 1.5f;
   m_fontScale = (m_cameraZoom > 1e-4f) ? (1.0f / m_cameraZoom) : 1.0f;
-  m_font = UISystem::GetFont();
+  m_font = UiShared::GlobalFont();
 
   auto playerView = frame.registry.view<PlayerTag, Position>();
   if (playerView.begin() != playerView.end()) {
@@ -615,7 +608,7 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
   }
 
   NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
-  VisibleItemCache::Clear();
+  UiShared::VisibleItemCache::Clear();
   if (frame.labelBuffer != nullptr) {
     frame.labelBuffer->clear();
   }
@@ -652,8 +645,8 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
   static std::vector<LabelCandidate> s_candidates;
   s_candidates.clear();
 
-  if (s_itemGrid) {
-    s_itemGrid->query(
+  if (UiShared::s_itemGrid) {
+    UiShared::s_itemGrid->query(
         {frame.camera.target.x, frame.camera.target.y}, 1000.0f,
         [&](entt::entity entity, const Vector2 &pos) -> bool {
           if (labelCount >= 64) {
@@ -673,7 +666,7 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
               return true;
             }
 
-            Color rarityColor = UISystem::GetRarityColor(item->rarity);
+            Color rarityColor = UiShared::GetRarityColor(item->rarity);
             float scale = 1.0f;
             bool emphasized = false;
             if (filterResult) {
@@ -793,7 +786,7 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
         ++safety;
       }
 
-      const bool hovered = (cand.entity == UISystem::State.hoveredItem);
+      const bool hovered = (cand.entity == UiShared::HoveredItem());
       components::GPULabelInstance inst;
       inst.position = {cand.currentRect.x, cand.currentRect.y};
       inst.size = {cand.currentRect.width, cand.currentRect.height};
@@ -805,7 +798,7 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
       if (frame.labelBuffer != nullptr) {
         frame.labelBuffer->push_back(inst);
       }
-      VisibleItemCache::visibleItems.push_back(
+      UiShared::VisibleItemCache::visibleItems.push_back(
           {cand.entity, cand.currentRect});
 
       if (IsFontValid(frame.font) && frame.glyphBuffer != nullptr) {

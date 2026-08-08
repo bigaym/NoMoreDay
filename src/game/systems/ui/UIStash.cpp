@@ -6,7 +6,8 @@
 #include "game/systems/item/StashSystem.hpp"
 #include "game/systems/ui/UIRenderer.hpp"
 #include "game/systems/item/InventorySystem.hpp"
-#include "game/persistence/SharedStash.hpp" // ADDED
+#include "game/systems/item/SharedStash.hpp" // SharedStash moved to systems/item (M4 ring 1)
+#include "game/ui_shared/UiShared.hpp"
 #include "raylib.h"
 #include <algorithm>
 #include <cstring>
@@ -228,7 +229,7 @@ void UIStash::Draw(entt::registry& registry) {
             }
 
             if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
-                UISystem::State.hoveredItem = item;
+                UiShared::HoveredItem() = item;
             }
             
             // Drag Start

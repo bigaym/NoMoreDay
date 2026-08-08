@@ -1,6 +1,6 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "core/logging/Logger.hpp"
-#include "game/render/GameplayRenderAdapter.hpp"
+#include "game/ui_shared/UiShared.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
@@ -64,6 +64,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
 #ifdef TEST_HEADLESS
   LOG_INFO("UISystem: Headless mode, skipping font loading.");
   State.globalFont = GetFontDefault();
+  UiShared::SetGlobalFont(State.globalFont);
   return;
 #endif
 
@@ -143,6 +144,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
       if (State.globalFont.texture.id != 0) {
         SetTextureFilter(State.globalFont.texture, TEXTURE_FILTER_BILINEAR);
         LoadEmojiFallbackFont();
+        UiShared::SetGlobalFont(State.globalFont);
         LOG_INFO("UISystem: Successfully loaded Chinese font from '{}'", path);
         return;
       } else {
@@ -157,6 +159,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
             "default font (??? for Chinese).");
   if (State.globalFont.texture.id == 0)
     State.globalFont = GetFontDefault();
+  UiShared::SetGlobalFont(State.globalFont);
   LoadEmojiFallbackFont();
 
   UIAstrolabe::Initialize();
@@ -164,6 +167,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
 
 void UISystem::Shutdown() {
   State.globalFont = {0};
+  UiShared::SetGlobalFont(State.globalFont);
   State.emojiFont = {0};
   UIMinimap::Cleanup();
   AssetLoadingSystem::Shutdown();
@@ -532,7 +536,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
 
   State.isMouseOverUI = false;
   SetMouseCursor(MOUSE_CURSOR_DEFAULT);
-  State.hoveredItem = entt::null;
+  UiShared::HoveredItem() = entt::null;
   State.hoveredSkillSlot = -1;
   State.hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
   State.hoveredBuffIdx = -1;
@@ -566,7 +570,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   DrawBuffs(registry);
 
   // 3. Ground Interaction highlights (drawn below overlays)
-  if (!IsModalInputCaptured() && State.hoveredItem == entt::null) {
+  if (!IsModalInputCaptured() && UiShared::HoveredItem() == entt::null) {
 
     // Phase 1 Optimization: Use shared cache from RenderSystem
     // Use Mouse World Position to check against Item World Rects directly
@@ -583,10 +587,10 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
     }
 
     // Iterate ONLY visible items (Already culled by RenderSystem)
-    for (const auto& itemData : GameplayRenderAdapter::VisibleItemCache::visibleItems) {
+    for (const auto& itemData : UiShared::VisibleItemCache::visibleItems) {
         // Simple AABB Check in World Space
         if (CheckCollisionPointRec(mouseWorldPos, itemData.worldRect)) {
-            State.hoveredItem = itemData.entity;
+            UiShared::HoveredItem() = itemData.entity;
 
             // Interaction: Pickup
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
@@ -600,7 +604,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
 
                      if (distSq <= 180.0f * 180.0f) {
                         if (InventorySystem::pickUpItem(registry, playerEntity, itemData.entity)) {
-                            State.hoveredItem = entt::null;
+  UiShared::HoveredItem() = entt::null;
                         } else {
                             State.showMessageBox = true;
                             utils::FormatToBuffer(State.messageBoxText,
@@ -629,8 +633,8 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   entt::entity currentHoverItem = entt::null;
   int currentHoverBuffIdx = -1;
 
-  if (State.hoveredItem != entt::null && registry.valid(State.hoveredItem)) {
-      currentHoverItem = State.hoveredItem;
+  if (UiShared::HoveredItem() != entt::null && registry.valid(UiShared::HoveredItem())) {
+      currentHoverItem = UiShared::HoveredItem();
   } else if (State.hoveredSkillId != NoMoreDay::INVALID_SKILL_ID) {
       currentHoverSkillId = State.hoveredSkillId;
   } else if (State.hoveredSkillSlot != -1) {

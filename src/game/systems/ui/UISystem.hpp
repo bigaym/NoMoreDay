@@ -5,6 +5,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/systems/ui/UICommon.hpp"
 #include "game/systems/ui/UIRenderer.hpp"
+#include "game/ui_shared/UiShared.hpp"
 
 class LevelManager; 
 namespace NoMoreDay { namespace systems { class SpatialHashGrid; } }
@@ -25,9 +26,11 @@ public:
         static void DrawDraggingPhantom(entt::registry& registry);
     
     // --- Resource Access ---
-    static Font GetFont() { return State.globalFont; }
+    // Font/Rarity lookups are delegated to NoMoreDayGameUiShared so the render
+    // adapter can read them without depending on the UI target (design §5.3).
+    static Font GetFont() { return NoMoreDay::UiShared::GlobalFont(); }
     static Font GetEmojiFont() { return State.emojiFont; }
-    static Color GetRarityColor(NoMoreDay::Rarity rarity) { return NoMoreDay::UIRenderer::GetRarityColor(rarity); }
+    static Color GetRarityColor(NoMoreDay::Rarity rarity) { return NoMoreDay::UiShared::GetRarityColor(rarity); }
 
     // --- Drawing Helpers (Delegated to UIRenderer) ---
     static void DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel = nullptr, bool highlighted = false, bool isLocked = false, float alpha = 1.0f);

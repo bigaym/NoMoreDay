@@ -13,8 +13,7 @@
 #include "game/components/Stats.hpp"
 #include "game/components/vfx/VisualGhostComponent.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raylib.h"
 
@@ -601,7 +600,7 @@ void ProjectileSystem::Update(entt::registry &registry,
             counterRequest.base_pool = counterPool;
             counterRequest.additional_tags = Tag::Hit | Tag::Melee;
             counterRequest.source_entity = target;
-            (void)DamagePipeline::Execute(registry, counterRequest, target);
+            (void)ResolveDamage(registry, counterRequest, target);
             if (ward->has_agile_counter) {
               SkillSystem::GainSwordIntent(registry, target, 1, 4);
             }
@@ -639,7 +638,7 @@ void ProjectileSystem::Update(entt::registry &registry,
       request.base_pool = base;
       request.additional_tags = hit_tags;
       request.source_entity = projEnt;
-      (void)DamagePipeline::Execute(registry, request, act.instigator);
+      (void)ResolveDamage(registry, request, act.instigator);
       {
         components::GPULight flash = {};
         flash.posX = act.pos.x;

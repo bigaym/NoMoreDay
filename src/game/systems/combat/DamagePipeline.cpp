@@ -14,6 +14,7 @@
 #include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/combat_v2/CombatV2RuntimeFacade.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // ShadowCast
@@ -1593,5 +1594,36 @@ DamageResult DamagePipeline::Settle(const DamagePool &pool,
                                     Tag hit_tags) {
   return {};
 }
+
+// ---------------------------------------------------------------------------
+// Hook registration (static-init, before main): gameplay domains resolve
+// damage through ResolveDamage / ResolveDamageBatch without a compile-time
+// dependency on the combat domain.
+// ---------------------------------------------------------------------------
+namespace {
+
+class DamageResolutionHookRegistrar {
+public:
+  DamageResolutionHookRegistrar() {
+    DamageResolutionHooks hooks;
+    hooks.execute = [](entt::registry &registry, const DamageRequest &request,
+                       entt::entity target) {
+      return DamagePipeline::Execute(registry, request, target, true);
+    };
+    hooks.calculateBatch = [](entt::registry &registry,
+                              const DamageRequest &request) {
+      DamagePipeline::CalculateBatch(
+          registry, request.attacker, std::vector<entt::entity>{request.defender},
+          request.skill_id, request.base_pool, request.additional_tags,
+          request.source_entity);
+      return std::vector<DamageResult>{};
+    };
+    RegisterDamageResolutionHooks(hooks);
+  }
+};
+
+DamageResolutionHookRegistrar g_damageResolutionHookRegistrar;
+
+} // namespace
 
 } // namespace NoMoreDay

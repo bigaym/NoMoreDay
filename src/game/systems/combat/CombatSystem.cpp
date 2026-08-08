@@ -19,7 +19,7 @@
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/systems/world/MovementStanceSystem.hpp"
+#include "game/systems/combat/MovementStanceSystem.hpp"
 #include <algorithm>
 #include <cmath>
 

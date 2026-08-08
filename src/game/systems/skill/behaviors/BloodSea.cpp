@@ -11,7 +11,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 
 #include <algorithm>
@@ -288,7 +288,7 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
     request.base_pool = BuildBloodSeaDamagePool(field, target_damage);
     request.additional_tags = BuildBloodSeaDamageTags();
     request.source_entity = field_entity;
-    const auto result = DamagePipeline::Execute(registry, request, field.owner, true);
+    const auto result = ResolveDamage(registry, request, field.owner);
     total_applied_damage += result.damage.total_damage;
 
     if (field.aftershock_bonus_mult > 0.0f) {
@@ -296,7 +296,7 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
       aftershock.base_pool =
           BuildBloodSeaDamagePool(field, target_damage * field.aftershock_bonus_mult);
       const auto aftershock_result =
-          DamagePipeline::Execute(registry, aftershock, field.owner, true);
+          ResolveDamage(registry, aftershock, field.owner);
       total_applied_damage += aftershock_result.damage.total_damage;
     }
 

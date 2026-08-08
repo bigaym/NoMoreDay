@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include "game/systems/skill/TalentLayoutService.hpp"
+#include "game/data/TalentLayoutService.hpp"
 #include "game/data/TalentData.hpp"
 #include "game/data/TalentLoader.hpp"
 #include <cmath>

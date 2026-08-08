@@ -1,7 +1,7 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
-#include "game/render/GameplayRenderAdapter.hpp"
+#include "game/ui_shared/UiShared.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/MaterialBankComponent.hpp"
@@ -110,7 +110,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
 
             LOG_INFO("Material System: Auto-banked '{}' x{} (Total: {})", itemComp->name, itemComp->quantity, newCount);
             registry.destroy(item);
-            GameplayRenderAdapter::s_itemGridDirty = true;
+            UiShared::s_itemGridDirty = true;
             return true;
         }
     }
@@ -150,7 +150,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
                     }
 
                     registry.destroy(item);
-                    GameplayRenderAdapter::s_itemGridDirty = true;
+                    UiShared::s_itemGridDirty = true;
                     return true;
                 }
             }
@@ -229,7 +229,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
     LOG_INFO("背包: 角色 {} 拾取了物品 '{}' ({})",
              (uint32_t)character, itemComp ? itemComp->name : "未知", (uint32_t)item);
 
-    GameplayRenderAdapter::s_itemGridDirty = true;
+    UiShared::s_itemGridDirty = true;
     return true;
 }
 
@@ -266,7 +266,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         registry.emplace<LocalLevelTag>(droppedEntity); // Ensure it's cleaned up on scene change
         registry.emplace<LootTag>(droppedEntity); // Optimization for spatial grid
         registry.emplace<LabelCacheComponent>(droppedEntity); // Pre-calculate for render
-        GameplayRenderAdapter::s_itemGridDirty = true;
+        UiShared::s_itemGridDirty = true;
 
         // 恢复视觉效果 (简单处理：根据类型给颜色，或者复制原实体的 Sprite 如果有)
         if (registry.any_of<SpriteComponent>(item))
@@ -306,7 +306,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         registry.emplace_or_replace<Radius>(item, 15.0f);
         registry.emplace_or_replace<LootTag>(item); // Optimization for spatial grid
         registry.get_or_emplace<LabelCacheComponent>(item).Invalidate(); // Ensure re-render
-        GameplayRenderAdapter::s_itemGridDirty = true;
+        UiShared::s_itemGridDirty = true;
 
         // 恢复视觉效果 (如果之前被移除了)
         if (!registry.any_of<SpriteComponent>(item) && !registry.any_of<ColorComponent>(item))
@@ -1079,7 +1079,7 @@ void InventorySystem::update(entt::registry &registry, float dt)
 
                     LOG_DEBUG("InventorySystem: Picked up {} gold. Total: {}", goldComp.amount, inventory.gold);
                     registry.destroy(goldEntity);
-                    GameplayRenderAdapter::s_itemGridDirty = true;
+                    UiShared::s_itemGridDirty = true;
                 }
                 else
                 {

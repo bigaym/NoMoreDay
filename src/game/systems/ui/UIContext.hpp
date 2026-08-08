@@ -74,7 +74,8 @@ namespace NoMoreDay {
         bool isDraggingSkill = false;
 
         // Interaction State
-        entt::entity hoveredItem = entt::null;
+        // NOTE: hoveredItem lives in NoMoreDayGameUiShared (UiShared::HoveredItem())
+        // since the render adapter reads it too (design §5.3 ring 2 break).
         int hoveredSkillSlot = -1; // 0-4
         uint32_t hoveredSkillId = INVALID_SKILL_ID; // standalone skill UI hover target
         int hoveredBuffIdx = -1;

@@ -13,7 +13,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 
 #include <algorithm>
@@ -307,7 +307,7 @@ void ApplySingleHit(entt::registry &registry, const entt::entity attacker,
   request.base_pool = BuildHeavenlyDamagePool(attunement, damage);
   request.additional_tags = BuildDamageTags(attunement);
   request.source_entity = source_entity;
-  (void)DamagePipeline::Execute(registry, request, attacker, true);
+  (void)ResolveDamage(registry, request, attacker);
 }
 
 void ApplyMeteorCoreSlow(entt::registry &registry, const entt::entity target,
@@ -872,7 +872,7 @@ void HeavenlySwordDescent::HandleLinkedHit(entt::registry &registry,
     request.base_pool = BuildHeavenlyDamagePool(field.attunement, 18.0f);
     request.additional_tags = BuildDamageTags(field.attunement);
     request.source_entity = field_entity;
-    (void)DamagePipeline::Execute(registry, request, field.owner, true);
+    (void)ResolveDamage(registry, request, field.owner);
   }
 }
 

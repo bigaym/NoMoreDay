@@ -6,7 +6,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
@@ -310,7 +310,7 @@ DamageExecutionResult ApplySlashDamage(entt::registry &registry,
     request.additional_tags = request.additional_tags | Tag::Critical;
   }
   request.source_entity = owner;
-  auto result = DamagePipeline::Execute(registry, request, owner, true);
+  auto result = ResolveDamage(registry, request, owner);
 
   if (ownerStats != nullptr) {
     ownerStats->crit_chance = oldCritChance;

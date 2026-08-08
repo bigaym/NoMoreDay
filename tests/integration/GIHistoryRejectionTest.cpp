@@ -17,9 +17,8 @@
 // M0-A R3 contract tests for the GICompositePass occupancy/depth history
 // disocclusion rejection plus the R2 emissive-snapshot-version rejection.
 //
-// NOTE: this file is compiled under UNITY_BUILD (tests/CMakeLists.txt does not
-// exclude it), so all helpers below use the R3GI_ prefix to avoid collisions
-// with other translation units merged into the same unity TU.
+// Helpers use the R3GI_ prefix to keep TU-local names namespaced and
+// collision-free.
 //
 // These tests are local contract verification only; they never imply a
 // production GO verdict.

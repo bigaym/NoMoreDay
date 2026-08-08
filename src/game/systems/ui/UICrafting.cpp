@@ -12,6 +12,7 @@
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/SalvageSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/ui_shared/UiShared.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -174,7 +175,7 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
       }
     }
     if (m_forgeItem != entt::null) {
-      state.hoveredItem = entt::null;
+      UiShared::HoveredItem() = entt::null;
       UIRenderer::DrawTooltip(state.globalFont, registry, m_forgeItem, alpha);
     }
   }
@@ -261,7 +262,7 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
         }
       }
       if (target != entt::null) {
-        state.hoveredItem = entt::null;
+        UiShared::HoveredItem() = entt::null;
         UIRenderer::DrawTooltip(state.globalFont, registry, target, alpha);
       }
     }
@@ -551,7 +552,7 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
       }
     }
     if (m_salvageItem != entt::null) {
-      state.hoveredItem = entt::null;
+      UiShared::HoveredItem() = entt::null;
       UIRenderer::DrawTooltip(state.globalFont, registry, m_salvageItem, alpha);
     }
   }

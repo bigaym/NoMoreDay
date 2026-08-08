@@ -13,6 +13,7 @@
 #include "game/systems/ui/UIRenderer.hpp"
 #include "game/systems/item/CraftingSystem.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
+#include "game/ui_shared/UiShared.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/StashSystem.hpp"
 #include "raylib.h"
@@ -252,7 +253,7 @@ void UIInventory::Draw(entt::registry& registry) {
         float offset = (equipSlotSize * (slotScale - 1.0f)) / 2.0f;
 
         if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
-            UISystem::State.hoveredItem = item;
+            UiShared::HoveredItem() = item;
         }
 
         // Quick Unequip
@@ -467,7 +468,7 @@ void UIInventory::Draw(entt::registry& registry) {
             bool isHovered = CheckCollisionPointRec(mousePos, {x, y, invSlotSize, invSlotSize}) && CheckCollisionPointRec(mousePos, {invX, invY, invW, invH});
 
             if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
-                UISystem::State.hoveredItem = item;
+                UiShared::HoveredItem() = item;
             }
 
             // Drag Start
@@ -802,7 +803,7 @@ void UIInventory::Draw(entt::registry& registry) {
         bool isHovered = CheckCollisionPointRec(mousePos, {x, y, bagSlotSize, bagSlotSize});
 
         if (isHovered && bagItem != entt::null && UISystem::State.draggedItem == entt::null) {
-            UISystem::State.hoveredItem = bagItem;
+            UiShared::HoveredItem() = bagItem;
         }
 
         // Drag Start from Bag Slot

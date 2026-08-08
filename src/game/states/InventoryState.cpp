@@ -3,6 +3,7 @@
 #include "game/systems/ui/UIInventory.hpp"
 #include "game/scene/StateManager.hpp"
 #include "game/systems/ui/UIRenderer.hpp" // Direct renderer access
+#include "game/ui_shared/UiShared.hpp"
 
 namespace NoMoreDay {
 
@@ -61,7 +62,7 @@ namespace NoMoreDay {
         auto& registry = *m_context->registry;
         
         // Reset per-frame state
-        UISystem::State.hoveredItem = entt::null;
+        UiShared::HoveredItem() = entt::null;
         SetMouseCursor(MOUSE_CURSOR_DEFAULT);
 
         // 1. Draw Inventory Panel
@@ -73,8 +74,8 @@ namespace NoMoreDay {
         // Since UIInventory::Draw might populate 'hoveredItem', we draw tooltip after.
         
         // Tooltip
-        if (UISystem::State.hoveredItem != entt::null && registry.valid(UISystem::State.hoveredItem)) {
-            UIRenderer::DrawTooltip(UISystem::State.globalFont, registry, UISystem::State.hoveredItem);
+        if (UiShared::HoveredItem() != entt::null && registry.valid(UiShared::HoveredItem())) {
+            UIRenderer::DrawTooltip(UISystem::State.globalFont, registry, UiShared::HoveredItem());
         }
 
         // Context Menu

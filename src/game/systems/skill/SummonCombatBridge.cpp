@@ -5,8 +5,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/DamageResolutionHooks.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
 #include <raymath.h>
@@ -225,7 +224,7 @@ void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
     request.additional_tags = Tag::Melee | Tag::Hit;
     request.source_entity = summon;
 
-    const auto result = DamagePipeline::Execute(registry, request, summon);
+    const auto result = ResolveDamage(registry, request, summon);
 
     if (result.damage.total_damage > 0.0f) {
       CombatEventDispatcher::Dispatch(
