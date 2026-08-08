@@ -23,7 +23,7 @@ Execute the four-pillar hardening program with strict gates and auditable progre
 
 ## Repository verification commands
 
-Use only repo-supported commands from `F:\NoMoreDay`:
+Use only repo-supported commands from `D:\PRJ\NoMoreDay`:
 
 - `./build.bat check`
 - `./build.bat debug`

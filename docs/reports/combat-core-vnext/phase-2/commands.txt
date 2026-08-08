@@ -1,4 +1,4 @@
-Phase-2 package P2-C gate commands (run from F:\NoMoreDay)
+Phase-2 package P2-C gate commands (run from D:\PRJ\NoMoreDay)
 
 1) ./build.bat check
 2) ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure

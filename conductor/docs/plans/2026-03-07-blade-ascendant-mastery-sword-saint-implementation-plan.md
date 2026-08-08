@@ -291,7 +291,7 @@ At the end of this plan the repo should support:
 
 ## Verification Commands
 
-Run from repo root `F:\NoMoreDay`.
+Run from repo root `D:\PRJ\NoMoreDay`.
 
 ### Narrow checks while developing
 - `./build.bat debug`

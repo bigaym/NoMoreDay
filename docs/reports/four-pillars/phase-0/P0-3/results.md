@@ -9,7 +9,7 @@
 ## Results snapshot
 
 - Mapping prerequisite check: `PASS`
-  - `[Mapping Check] OK: third_party -> F:\NoMoreDay\third_party`
+  - `[Mapping Check] OK: third_party -> D:\PRJ\NoMoreDay\third_party`
 - Legacy reintroduction gate: `PASS`
   - Baseline total/files: `222/71`
   - Current total/files: `222/71`

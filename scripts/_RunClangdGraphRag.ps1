@@ -1,7 +1,7 @@
 param(
     [string]$ApiKey,
     [string]$ApiKeyEnvName = "SI_API_KEY",
-    [string]$ProjectRoot = "F:\NoMoreDay",
+    [string]$ProjectRoot = "D:\PRJ\NoMoreDay",
     [string]$RagRoot = "F:\devtools\clangd-graph-rag",
     [string]$CondaEnv = "ai",
     [string]$SummaryModel = "Qwen/Qwen3-8B",

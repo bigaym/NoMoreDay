@@ -2,8 +2,8 @@
 setlocal
 
 :: 设置 cv2pdb.exe 的绝对路径
-set "CV2PDB=F:\NoMoreDay\third_party\cv2pdb-0.54\cv2pdb.exe"
-set "TARGET_DIR=F:\NoMoreDay\build\bin"
+set "CV2PDB=D:\PRJ\NoMoreDay\third_party\cv2pdb-0.54\cv2pdb.exe"
+set "TARGET_DIR=D:\PRJ\NoMoreDay\build\bin"
 
 if not exist "%CV2PDB%" (
     echo [Error] cv2pdb.exe not found at: "%CV2PDB%"

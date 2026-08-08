@@ -63,7 +63,7 @@
                 "-ExecutionPolicy",
                 "Bypass",
                 "-File",
-                "F:\\NoMoreDay\\scripts\\_LaunchClangdGraphRagMcp.ps1"
+                "D:\\PRJ\\NoMoreDay\\scripts\\_LaunchClangdGraphRagMcp.ps1"
             ],
             "enabled": false
         },

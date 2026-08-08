@@ -17,7 +17,7 @@
 
 - Requirement checked: `third_party` availability in current worktree context
 - Output excerpt:
-  - `[Mapping Check] OK: third_party -> F:\NoMoreDay\third_party`
+  - `[Mapping Check] OK: third_party -> D:\PRJ\NoMoreDay\third_party`
   - `[Mapping Check] PASS: all required mappings are available.`
 
 ## Notes

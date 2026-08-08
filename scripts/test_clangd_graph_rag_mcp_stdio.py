@@ -17,7 +17,7 @@ async def run_test() -> int:
             "-ExecutionPolicy",
             "Bypass",
             "-File",
-            r"F:\NoMoreDay\scripts\_LaunchClangdGraphRagMcp.ps1",
+            r"D:\PRJ\NoMoreDay\scripts\_LaunchClangdGraphRagMcp.ps1",
         ],
     )
 

@@ -24,7 +24,7 @@
   win32_window.c
   win32_monitor.c
   wgl_context.c
-  glfw.vcxproj -> F:\NoMoreDay\build\release-lto\third_party\raylib\raylib\external\glfw\src\glfw.dir\Release\glfw.lib
+  glfw.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\third_party\raylib\raylib\external\glfw\src\glfw.dir\Release\glfw.lib
   Building Custom Rule F:/NoMoreDay/third_party/spdlog/CMakeLists.txt
   Building Custom Rule F:/NoMoreDay/third_party/raylib/src/CMakeLists.txt
   stdout_sinks.cpp
@@ -42,8 +42,8 @@
   utils.c
   rshapes.c
     正在创建库 F:/NoMoreDay/build/release-lto/third_party/spdlog/Release/spdlog.lib 和对象 F:/NoMoreDay/build/release-lto/third_party/spdlog/Release/spdlog.exp
-  spdlog.vcxproj -> F:\NoMoreDay\build\release-lto\third_party\spdlog\Release\spdlog.dll
-  raylib.vcxproj -> F:\NoMoreDay\build\release-lto\third_party\raylib\raylib\Release\raylib.lib
+  spdlog.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\third_party\spdlog\Release\spdlog.dll
+  raylib.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\third_party\raylib\raylib\Release\raylib.lib
   Building Custom Rule F:/NoMoreDay/CMakeLists.txt
   正在扫描源以查找模块依赖项...
   BladeWard.cpp
@@ -68,13 +68,13 @@
   InfiniteBlades.cpp
   BloodSea.cpp
   BladeBoomerang.cpp
-F:\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(242,37): warning C4834: 放弃具有 [[nodiscard]] 属性的函数的返回值 [F:\NoMoreDay\build\release-lto\SkillBehaviors.vcxproj]
+D:\PRJ\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(242,37): warning C4834: 放弃具有 [[nodiscard]] 属性的函数的返回值 [D:\PRJ\NoMoreDay\build\release-lto\SkillBehaviors.vcxproj]
   (编译源文件“../../src/game/systems/skill/behaviors/HeavenlySwordDescent.cpp”)
   
-F:\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(252,39): warning C4834: 放弃具有 [[nodiscard]] 属性的函数的返回值 [F:\NoMoreDay\build\release-lto\SkillBehaviors.vcxproj]
+D:\PRJ\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(252,39): warning C4834: 放弃具有 [[nodiscard]] 属性的函数的返回值 [D:\PRJ\NoMoreDay\build\release-lto\SkillBehaviors.vcxproj]
   (编译源文件“../../src/game/systems/skill/behaviors/HeavenlySwordDescent.cpp”)
   
-F:\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(261,37): warning C4834: 放弃具有 [[nodiscard]] 属性的函数的返回值 [F:\NoMoreDay\build\release-lto\SkillBehaviors.vcxproj]
+D:\PRJ\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(261,37): warning C4834: 放弃具有 [[nodiscard]] 属性的函数的返回值 [D:\PRJ\NoMoreDay\build\release-lto\SkillBehaviors.vcxproj]
   (编译源文件“../../src/game/systems/skill/behaviors/HeavenlySwordDescent.cpp”)
   
   PhantomFlash.cpp
@@ -83,7 +83,7 @@ F:\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(261,37): 
   RendingWave.cpp
   MindBlade.cpp
   SkillBehaviorRegistry.cpp
-  SkillBehaviors.vcxproj -> F:\NoMoreDay\build\release-lto\SkillBehaviors.dir\Release\SkillBehaviors.lib
+  SkillBehaviors.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\SkillBehaviors.dir\Release\SkillBehaviors.lib
   Building Custom Rule F:/NoMoreDay/src/core/CMakeLists.txt
   正在扫描源以查找模块依赖项...
   1>Generating TagRegistry.hpp from tags.json...
@@ -94,7 +94,7 @@ F:\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(261,37): 
   正在编译...
   Logger.cpp
   CrashHandler.cpp
-  NoMoreDayCore.vcxproj -> F:\NoMoreDay\build\release-lto\src\core\Release\NoMoreDayCore.lib
+  NoMoreDayCore.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\src\core\Release\NoMoreDayCore.lib
   Building Custom Rule F:/NoMoreDay/src/engine/CMakeLists.txt
   正在扫描源以查找模块依赖项...
   AdaptiveQualityController.cpp
@@ -174,9 +174,9 @@ F:\NoMoreDay\src\game\systems\skill\behaviors\HeavenlySwordDescent.cpp(261,37): 
   SIMDSpatialGrid.cpp
   ProfilerHudRenderer.cpp
   BindingRegistry.cpp
-F:\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9): warning C4005: “NOMINMAX”: 宏重定义 [F:\NoMoreDay\build\release-lto\src\engine\NoMoreDayEngine.vcxproj]
+D:\PRJ\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9): warning C4005: “NOMINMAX”: 宏重定义 [D:\PRJ\NoMoreDay\build\release-lto\src\engine\NoMoreDayEngine.vcxproj]
   (编译源文件“../../../../src/engine/render/core/QualityTierManager.cpp”)
-      F:\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9):
+      D:\PRJ\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9):
       之前在命令行上声明的“NOMINMAX”
   
   GPUFlowFieldSystem.cpp
@@ -238,7 +238,7 @@ F:\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9): warning C4005: 
   AssetLoadingSystem.cpp
   VFXBudgetEstimator.cpp
   VFXSequenceManager.cpp
-  NoMoreDayEngine.vcxproj -> F:\NoMoreDay\build\release-lto\src\engine\Release\NoMoreDayEngine.lib
+  NoMoreDayEngine.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\src\engine\Release\NoMoreDayEngine.lib
   Building Custom Rule F:/NoMoreDay/src/game/CMakeLists.txt
   正在扫描源以查找模块依赖项...
   TagBitset.cpp
@@ -515,14 +515,14 @@ F:\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9): warning C4005: 
   TilemapCollisionSystem.cpp
   MonsterScaling.cpp
   VFXSequencerSystem.cpp
-  NoMoreDayGame.vcxproj -> F:\NoMoreDay\build\release-lto\src\game\Release\NoMoreDayGame.lib
+  NoMoreDayGame.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\src\game\Release\NoMoreDayGame.lib
   Building Custom Rule F:/NoMoreDay/src/app/CMakeLists.txt
   正在扫描源以查找模块依赖项...
   Game.cpp
   正在编译...
   cmake_pch.cxx
   Game.cpp
-  NoMoreDayApp.vcxproj -> F:\NoMoreDay\build\release-lto\src\app\Release\NoMoreDayApp.lib
+  NoMoreDayApp.vcxproj -> D:\PRJ\NoMoreDay\build\release-lto\src\app\Release\NoMoreDayApp.lib
   Building Custom Rule F:/NoMoreDay/tests/CMakeLists.txt
   Building Custom Rule F:/NoMoreDay/CMakeLists.txt
   正在扫描源以查找模块依赖项...
@@ -746,7 +746,7 @@ F:\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9): warning C4005: 
   All 72969 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   已完成代码的生成
   GameplaySystems.cpp
-  NoMoreDay.vcxproj -> F:\NoMoreDay\bin\NoMoreDay.exe
+  NoMoreDay.vcxproj -> D:\PRJ\NoMoreDay\bin\NoMoreDay.exe
   Copying DLLs to bin directory...
   MaterialLightingIntegrationTest.cpp
   MDIRenderTest.cpp
@@ -919,5 +919,5 @@ F:\NoMoreDay\src\engine\render\core\QualityTierManager.cpp(3,9): warning C4005: 
   Previous IPDB not found, fall back to full compilation.
   All 81668 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   已完成代码的生成
-  NoMoreDayTests.vcxproj -> F:\NoMoreDay\bin\NoMoreDayTests.exe
+  NoMoreDayTests.vcxproj -> D:\PRJ\NoMoreDay\bin\NoMoreDayTests.exe
   Building Custom Rule F:/NoMoreDay/CMakeLists.txt

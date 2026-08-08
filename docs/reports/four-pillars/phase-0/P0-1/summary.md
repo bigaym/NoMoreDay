@@ -37,7 +37,7 @@ Total marker matches: 222
 - Command: `python scripts/check_worktree_mapping.py`
 - Result: pass
 - Key output:
-  - `[Mapping Check] OK: third_party -> F:\NoMoreDay\third_party`
+  - `[Mapping Check] OK: third_party -> D:\PRJ\NoMoreDay\third_party`
   - `[Mapping Check] PASS: all required mappings are available.`
 
 ## Reproduction

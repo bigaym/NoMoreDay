@@ -24,7 +24,7 @@ Date: 2026-08-01. Batch scope: GPU entity rendering core (GPUEntitySystem + GPUE
 
 - `python scripts/check_module_boundaries.py`: PASS `51/51` observed/ledger direct quoted edges; 17 files. Breakdown: LegacyLowerPch -> Game (MS-7) 5; NoMoreDayEngine -> App (MS-6) 8; NoMoreDayEngine -> Game (MS-6) 38.
 
-## Verification (all executed; logs under `F:\NoMoreDay\logs\`)
+## Verification (all executed; logs under `D:\PRJ\NoMoreDay\logs\`)
 
 1. `python scripts/check_module_boundaries.py` -> `[Module Boundary] Observed/ledger edges: 51/51; files: 17` and `[Module Boundary] PASS: ledger and observed reverse edges match.` (exit 0).
 2. `python -m unittest tests.python.ModuleBoundaryCheckerTest` -> `Ran 6 tests in 0.569s`, `OK` (exit 0).

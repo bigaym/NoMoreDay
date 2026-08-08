@@ -10,7 +10,7 @@
 
 ## 构建命令
 
-从仓库根目录 `F:\NoMoreDay` 执行：
+从仓库根目录 `D:\PRJ\NoMoreDay` 执行：
 
 ```powershell
 ./build.bat
