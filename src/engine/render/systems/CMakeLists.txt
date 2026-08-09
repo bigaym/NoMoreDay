@@ -14,6 +14,7 @@ add_library(NoMoreDayEngineSystems STATIC
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUParticleSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUSkillEffectSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUTextSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/GlyphCache.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/LootTextBatcher.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/PopupRenderer.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/RenderSystem.cpp

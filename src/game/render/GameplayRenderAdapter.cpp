@@ -3,6 +3,7 @@
 #include "game/render/GPULootAdapter.hpp"
 #include "game/render/HeightFieldAdapter.hpp"
 #include "game/render/LightAdapter.hpp"
+#include "game/render/LootLabelBudget.hpp"
 #include "game/render/OccluderProjector.hpp"
 
 #include "core/logging/Logger.hpp"
@@ -631,7 +632,6 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
   const Rectangle viewRect = {vTL.x - 100, vTL.y - 100, (vBR.x - vTL.x) + 200,
                               (vBR.y - vTL.y) + 200};
 
-  int labelCount = 0;
   struct LabelCandidate {
     entt::entity entity;
     Vector2 pos;
@@ -641,15 +641,23 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
     std::string text;
     bool isGold = false;
     Rectangle currentRect;
+    NoMoreDay::Rarity rarity = NoMoreDay::Rarity::Common;
+    float distSq = 0.0f;
+    int amount = 0;
+    bool emphasized = false;
   };
   static std::vector<LabelCandidate> s_candidates;
   s_candidates.clear();
+
+  const Vector2 playerRef = m_hasPlayer ? m_playerPos : frame.camera.target;
+  constexpr int kMaxCollectCandidates = 256;
+  int collectedCount = 0;
 
   if (UiShared::s_itemGrid) {
     UiShared::s_itemGrid->query(
         {frame.camera.target.x, frame.camera.target.y}, 1000.0f,
         [&](entt::entity entity, const Vector2 &pos) -> bool {
-          if (labelCount >= 64) {
+          if (collectedCount >= kMaxCollectCandidates) {
             return false;
           }
           if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) {
@@ -661,10 +669,6 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
             const auto *filterResult =
                 frame.registry.try_get<NoMoreDay::LootFilterResultComponent>(
                     entity);
-            if (labelCount > 32 && item->rarity < NoMoreDay::Rarity::Rare &&
-                (!filterResult || filterResult->scale <= 1.0f)) {
-              return true;
-            }
 
             Color rarityColor = UiShared::GetRarityColor(item->rarity);
             float scale = 1.0f;
@@ -683,7 +687,7 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
             auto &labelCache =
                 frame.registry
                     .get_or_emplace<LabelCacheComponent>(entity);
-            ++labelCount;
+            ++collectedCount;
             int fSize = static_cast<int>(18.0f * scale * m_fontScale);
             if (fSize < 12) {
               fSize = 12;
@@ -701,14 +705,20 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
               labelCache.lastFontSize = fSize;
               labelCache.lastRarityHash = static_cast<uint32_t>(item->rarity);
               labelCache.isValid = true;
+              // Layout may have changed; invalidate cached glyph templates.
+              labelCache.glyphTemplates.clear();
+              labelCache.cachedGlyphs.clear();
             }
 
             const Vector2 tSize = labelCache.cachedSize;
             const Rectangle bg = {pos.x - tSize.x / 2 - 4,
                                   pos.y - 30.0f * scale - 2, tSize.x + 8,
                                   tSize.y + 4};
-            s_candidates.push_back(
-                {entity, pos, tSize, rarityColor, scale, item->name, false, bg});
+            const float dx = pos.x - playerRef.x;
+            const float dy = pos.y - playerRef.y;
+            s_candidates.push_back({entity, pos, tSize, rarityColor, scale,
+                                    item->name, false, bg, item->rarity,
+                                    dx * dx + dy * dy, 0, emphasized});
 
             if ((item->rarity >= NoMoreDay::Rarity::Rare || emphasized) &&
                 enableLootBeams && frame.beamBuffer != nullptr) {
@@ -721,13 +731,10 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
             }
           } else if (const auto *gold = frame.registry.try_get<GoldComponent>(
                          entity)) {
-            if (labelCount > 48 && gold->amount < 100) {
-              return true;
-            }
             auto &labelCache =
                 frame.registry
                     .get_or_emplace<LabelCacheComponent>(entity);
-            ++labelCount;
+            ++collectedCount;
             int fSize = static_cast<int>(16.0f * m_fontScale);
             if (fSize < 10) {
               fSize = 10;
@@ -747,16 +754,55 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
                                 static_cast<float>(fSize)};
               labelCache.lastFontSize = fSize;
               labelCache.isValid = true;
+              // Layout may have changed; invalidate cached glyph templates.
+              labelCache.glyphTemplates.clear();
+              labelCache.cachedGlyphs.clear();
             }
 
             const Vector2 tSize = labelCache.cachedSize;
             const Rectangle bg = {pos.x - tSize.x / 2 - 4, pos.y - 25.0f - 2,
                                   tSize.x + 8, tSize.y + 4};
+            const float dx = pos.x - playerRef.x;
+            const float dy = pos.y - playerRef.y;
             s_candidates.push_back({entity, pos, tSize, GOLD, 1.0f,
-                                    labelCache.cachedText, true, bg});
+                                    labelCache.cachedText, true, bg,
+                                    NoMoreDay::Rarity::Common, dx * dx + dy * dy,
+                                    static_cast<int>(gold->amount), false});
           }
           return true;
         });
+  }
+
+  // Budget selection by priority (design §4.1): collect-then-prioritize so the
+  // 64/32/48 rules act on the importance-ordered stream, not grid traversal
+  // order (root cause: aborting the whole query at labelCount>=64 starved the
+  // bottom-right region).
+  if (!s_candidates.empty()) {
+    std::vector<NoMoreDay::render::LootLabelCandidate> budgetCandidates;
+    budgetCandidates.reserve(s_candidates.size());
+    for (size_t i = 0; i < s_candidates.size(); ++i) {
+      const LabelCandidate &cand = s_candidates[i];
+      NoMoreDay::render::LootLabelCandidate bc;
+      bc.isGold = cand.isGold;
+      bc.emphasized = cand.emphasized;
+      bc.rarityOrdinal = static_cast<int>(cand.rarity);
+      bc.distSq = cand.distSq;
+      bc.goldAmount = cand.amount;
+      bc.scale = cand.scale;
+      bc.visible = true;
+      bc.stableKey = static_cast<uint64_t>(i);
+      budgetCandidates.push_back(bc);
+    }
+    const auto selected =
+        NoMoreDay::render::LootLabelBudget::SelectLootLabels(budgetCandidates);
+    std::vector<LabelCandidate> kept;
+    kept.reserve(selected.size());
+    for (const auto &sel : selected) {
+      if (sel.stableKey < s_candidates.size()) {
+        kept.push_back(s_candidates[static_cast<size_t>(sel.stableKey)]);
+      }
+    }
+    s_candidates.swap(kept);
   }
 
   if (!s_candidates.empty()) {
@@ -808,9 +854,33 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
         if (fSize < 10) {
           fSize = 10;
         }
-        ::NoMoreDay::render::LootTextBatcher::BatchString(
-            frame.font, cand.text, {cand.currentRect.x + 4, cand.currentRect.y + 2},
-            static_cast<float>(fSize), cand.color, *frame.glyphBuffer);
+        // Cached-template path: rebuild glyph layout templates only when the
+        // cached size is stale (font size or text changed), then translate the
+        // origin-relative cached instances to the final rect each frame.
+        auto *labelCache = frame.registry.try_get<LabelCacheComponent>(cand.entity);
+        if (labelCache != nullptr &&
+            labelCache->glyphTemplates.size() == 0) {
+          labelCache->glyphTemplates.clear();
+          labelCache->cachedGlyphs.clear();
+          ::NoMoreDay::render::LootTextBatcher::BuildTemplates(
+              frame.font, cand.text, static_cast<float>(fSize),
+              labelCache->glyphTemplates);
+          ::NoMoreDay::render::LootTextBatcher::BatchString(
+              frame.font, cand.text, {0.0f, 0.0f},
+              static_cast<float>(fSize), RAYWHITE, labelCache->cachedGlyphs);
+          labelCache->lastFontSize = fSize;
+        }
+        if (labelCache != nullptr && labelCache->glyphTemplates.size() > 0) {
+          ::NoMoreDay::render::LootTextBatcher::WriteInstances(
+              labelCache->glyphTemplates, labelCache->cachedGlyphs,
+              {cand.currentRect.x + 4, cand.currentRect.y + 2},
+              ColorToInt(cand.color), *frame.glyphBuffer);
+        } else {
+          ::NoMoreDay::render::LootTextBatcher::BatchString(
+              frame.font, cand.text,
+              {cand.currentRect.x + 4, cand.currentRect.y + 2},
+              static_cast<float>(fSize), cand.color, *frame.glyphBuffer);
+        }
       }
     }
   }

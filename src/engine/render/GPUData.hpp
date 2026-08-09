@@ -692,6 +692,20 @@ static_assert(sizeof(GPUGlyphInstance) == 48,
               "GPUGlyphInstance struct must be exactly 48 bytes for SSBO alignment");
 
 /**
+ * @brief Per-glyph layout template (text-origin-relative, GPU-ready).
+ * Produced by LootTextBatcher::BuildTemplates and re-emitted at any origin by
+ * WriteInstances. Contains no screen coordinates, so the same template set can
+ * be cached and reused across frames without re-running glyph lookup.
+ */
+struct GlyphTemplate {
+  Vector2 size = {0.0f, 0.0f};    // Glyph size in pixels (scaled)
+  Vector2 uvMin = {0.0f, 0.0f};   // Top-left UV
+  Vector2 uvMax = {0.0f, 0.0f};   // Bottom-right UV
+  Vector2 offset = {0.0f, 0.0f};  // Render bounds relative to text origin (scaled)
+  float advanceX = 0.0f;          // Full cursor step after this glyph (scaled + spacing)
+};
+
+/**
  * @brief Centralized Color Manager for VFX
  * 颜色管理器：统一管理游戏内的特效颜色
  */

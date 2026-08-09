@@ -1,10 +1,12 @@
 #pragma once
 
 #include "raylib.h"
+#include "engine/render/GPUData.hpp"
 #include <array>
 #include <cstdint>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
+#include <vector>
 
 namespace NoMoreDay::Constants
 {
@@ -781,6 +783,11 @@ struct LabelCacheComponent {
     int lastFontSize = 0;
     uint32_t lastRarityHash = 0;
     bool isValid = false;
+
+    // 字形布局模板（相对文本原点，不含屏幕坐标），由 LootTextBatcher::BuildTemplates 产出
+    std::vector<NoMoreDay::components::GlyphTemplate> glyphTemplates;
+    // 相对 (0,0) 的绝对坐标字形实例，由 WriteInstances 平移 origin 后复用
+    std::vector<NoMoreDay::components::GPUGlyphInstance> cachedGlyphs;
 
     // Helper to force re-validation
     void Invalidate() { isValid = false; }
