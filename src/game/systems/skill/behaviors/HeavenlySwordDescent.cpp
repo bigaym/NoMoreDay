@@ -12,8 +12,8 @@
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
-#include "game/systems/combat/CombatEvents.hpp"
-#include "game/systems/combat/DamageResolutionHooks.hpp"
+#include "game/contracts/CombatEvents.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 
 #include <algorithm>

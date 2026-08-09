@@ -1,6 +1,6 @@
 #include "game/systems/skill/SummonLifecycleSystem.hpp"
 #include "game/components/SkillDefs.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include <algorithm>
 #include <vector>
 

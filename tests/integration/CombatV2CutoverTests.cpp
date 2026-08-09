@@ -4,7 +4,7 @@
 #include "game/combat_v2/CombatV2RuntimeFacade.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 
 #include <limits>

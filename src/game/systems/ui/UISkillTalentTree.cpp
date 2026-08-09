@@ -5,7 +5,7 @@
 #include "game/systems/ui/BladeMasteryUITheme.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatAntiMeta.hpp"
+#include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/systems/ui/UIRenderer.hpp"

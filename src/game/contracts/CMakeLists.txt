@@ -1,9 +1,9 @@
 # NoMoreDayGameContractsCore: the game contract-headers INTERFACE target.
 #
 # Pure header contract surface: CombatEvents.hpp, CombatFormula.hpp,
-# DamagePipelineTypes.hpp, and DamageResolutionHooks.hpp (all physically
-# located under systems/combat per the design §5.1, reached via the src
-# include root). It carries the shared compile surface (src include root,
+# DamagePipelineTypes.hpp, and DamageResolutionHooks.hpp (physically located
+# in contracts/ after M1 convergence, reached via the src include root). It
+# carries the shared compile surface (src include root,
 # SYSTEM third-party includes, GRAPHICS_API_OPENGL_43,
 # WIN32_LEAN_AND_MEAN/NOGDI/NOUSER/NOMINMAX, /arch:AVX2 /Oi /Ot /Ob2 /GF,
 # COMBAT_DEFENSE_DEBUG / COMBAT_TELEMETRY_ENABLED) so bottom sub-targets and

@@ -12,7 +12,7 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/persistence/SaveManager.hpp"
 #include "game/data/BladeMasteryRegistry.hpp"
 #include "game/data/ResonanceCalculator.hpp"

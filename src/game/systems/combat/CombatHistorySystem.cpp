@@ -2,7 +2,7 @@
 #include "game/components/Common.hpp"
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/TagRegistry.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include <cmath>
 
 

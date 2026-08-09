@@ -2,7 +2,7 @@
 
 #include "core/logging/Logger.hpp"
 #include "game/components/Common.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 
 #include <algorithm>
 

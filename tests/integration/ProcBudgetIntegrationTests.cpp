@@ -2,8 +2,8 @@
 
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/ProcBudgetManager.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/ProcBudgetManager.hpp"
 #include <array>
 
 namespace NoMoreDay {

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file RendingWave.cpp
  * @brief 瑁傜┖鏂?(ID 2) - 鎶曞皠鐗╂妧鑳借涓哄疄鐜?
  *
@@ -23,8 +23,8 @@
 #include "game/components/Projectile.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "raymath.h"

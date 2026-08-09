@@ -1,4 +1,4 @@
-#include "game/systems/combat/CombatAntiMeta.hpp"
+#include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "core/logging/Logger.hpp"
 #include <algorithm>
 #include <cmath>

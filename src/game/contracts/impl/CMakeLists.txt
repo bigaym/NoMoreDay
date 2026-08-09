@@ -15,12 +15,12 @@
 # final link without exposing engine APIs through the contract interface.
 
 add_library(NoMoreDayGameContracts STATIC
-    ${CMAKE_SOURCE_DIR}/src/game/systems/combat/CombatAntiMeta.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/systems/combat/CombatEventDispatcher.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/systems/combat/CombatTelemetry.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/systems/combat/ProcBudgetManager.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/systems/combat/StatsSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/systems/combat/DamageResolutionHooks.cpp
+    CombatAntiMeta.cpp
+    CombatEventDispatcher.cpp
+    CombatTelemetry.cpp
+    ProcBudgetManager.cpp
+    StatsSystem.cpp
+    DamageResolutionHooks.cpp
 )
 
 target_include_directories(NoMoreDayGameContracts PUBLIC ${CMAKE_SOURCE_DIR}/src)

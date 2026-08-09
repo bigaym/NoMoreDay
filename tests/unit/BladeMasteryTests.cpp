@@ -4,7 +4,7 @@
 #include "game/components/Progression.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/data/BladeMasteryRegistry.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 

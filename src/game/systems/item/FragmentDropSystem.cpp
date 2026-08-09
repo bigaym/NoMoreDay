@@ -7,8 +7,8 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/CombatEvents.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/CombatEvents.hpp"
 #include "game/systems/world/LevelManager.hpp"
 
 namespace NoMoreDay {

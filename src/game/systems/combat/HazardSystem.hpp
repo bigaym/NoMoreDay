@@ -4,7 +4,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/Buff.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "core/logging/Logger.hpp"
 #include <entt/entt.hpp>
 

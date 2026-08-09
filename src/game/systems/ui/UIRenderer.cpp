@@ -6,7 +6,7 @@
 #include "game/data/BuffRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/systems/ui/UISystem.hpp"

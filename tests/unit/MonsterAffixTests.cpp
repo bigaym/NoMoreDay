@@ -6,10 +6,10 @@
 #include "game/components/Stats.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp" // Added this include
-#include "game/systems/combat/CombatEvents.hpp"
+#include "game/contracts/CombatEvents.hpp"
 #include "game/systems/combat/EliteModifierSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 
 #include <algorithm>

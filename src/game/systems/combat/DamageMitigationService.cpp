@@ -1,7 +1,7 @@
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
-#include "game/systems/combat/CombatFormula.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/CombatFormula.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include <algorithm>
 #include <bit>

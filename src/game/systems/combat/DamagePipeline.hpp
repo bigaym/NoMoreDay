@@ -1,7 +1,7 @@
 #pragma once
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/DamagePipelineTypes.hpp"
+#include "game/contracts/DamagePipelineTypes.hpp"
 #include <entt/entt.hpp>
 #include <taskflow/taskflow.hpp>
 #include <vector>

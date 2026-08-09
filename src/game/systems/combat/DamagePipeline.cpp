@@ -7,17 +7,17 @@
 #include "game/components/Projectile.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/CombatAntiMeta.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
-#include "game/systems/combat/CombatFormula.hpp" // Added
+#include "game/contracts/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/combat_v2/CombatV2RuntimeFacade.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
-#include "game/systems/combat/DamageResolutionHooks.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // ShadowCast
 #include "spdlog/spdlog.h"
 #include <algorithm>

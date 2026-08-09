@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/systems/combat/CombatEvents.hpp"
+#include "game/contracts/CombatEvents.hpp"
 #include <array>
 #include <atomic>
 #include <cstdint>

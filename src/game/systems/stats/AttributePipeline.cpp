@@ -20,7 +20,7 @@
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
-#include "game/systems/combat/CombatFormula.hpp"
+#include "game/contracts/CombatFormula.hpp"
 #include "game/systems/modifier/EquipmentModifierAdapter.hpp"
 #include "game/systems/modifier/MapModifierAdapter.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"

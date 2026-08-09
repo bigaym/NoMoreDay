@@ -1,4 +1,4 @@
-#include "game/systems/combat/ProcBudgetManager.hpp"
+#include "game/contracts/impl/ProcBudgetManager.hpp"
 
 #include "spdlog/spdlog.h"
 #include <algorithm>

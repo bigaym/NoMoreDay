@@ -2,7 +2,7 @@
 
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/FactionComponent.hpp"
-#include "game/systems/combat/CombatEvents.hpp"
+#include "game/contracts/CombatEvents.hpp"
 #include <entt/entt.hpp>
 
 

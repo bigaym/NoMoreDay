@@ -4,7 +4,7 @@
 #include "TestCommon.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <algorithm>
 #include <vector>

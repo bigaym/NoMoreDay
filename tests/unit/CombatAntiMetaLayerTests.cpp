@@ -6,9 +6,9 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatAntiMeta.hpp"
+#include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 
 namespace NoMoreDay {
 namespace {

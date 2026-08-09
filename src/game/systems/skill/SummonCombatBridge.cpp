@@ -3,9 +3,9 @@
 #include "game/components/AIComponent.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/SkillDefs.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
-#include "game/systems/combat/DamageResolutionHooks.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
 #include <raymath.h>

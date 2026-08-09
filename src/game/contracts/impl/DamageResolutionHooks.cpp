@@ -1,4 +1,4 @@
-#include "game/systems/combat/DamageResolutionHooks.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 
 #include "core/logging/Logger.hpp"
 

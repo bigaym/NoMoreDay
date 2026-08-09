@@ -22,7 +22,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/vfx/HoloBladeComponent.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 

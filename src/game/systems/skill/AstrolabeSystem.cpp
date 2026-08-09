@@ -1,5 +1,5 @@
 #include "game/systems/skill/AstrolabeSystem.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 
 namespace NoMoreDay {
 

@@ -8,7 +8,7 @@
 #include "game/components/MaterialBankComponent.hpp"
 #include "game/components/MapFragmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/EffectComponent.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include <cmath>
 #include <limits>
 #include <algorithm>

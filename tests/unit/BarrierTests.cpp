@@ -4,7 +4,7 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include <entt/entt.hpp>
 
 

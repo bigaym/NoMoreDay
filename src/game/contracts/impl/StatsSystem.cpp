@@ -1,4 +1,4 @@
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "core/utils/FrameRateUtils.hpp" // Frame-rate independent utilities
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
@@ -18,9 +18,9 @@
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"       // Added
-#include "game/systems/combat/CombatFormula.hpp" // Added for Formula Refactor
-#include "game/systems/combat/CombatTelemetry.hpp"
-#include "game/systems/combat/CombatAntiMeta.hpp"
+#include "game/contracts/CombatFormula.hpp" // Added for Formula Refactor
+#include "game/contracts/impl/CombatTelemetry.hpp"
+#include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <Taskflow/algorithm/for_each.hpp>

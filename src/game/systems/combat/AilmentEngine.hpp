@@ -1,7 +1,7 @@
 #pragma once
 
 #include "game/components/Buff.hpp"
-#include "game/systems/combat/CombatEvents.hpp"
+#include "game/contracts/CombatEvents.hpp"
 #include <optional>
 #include <string_view>
 #include <unordered_map>

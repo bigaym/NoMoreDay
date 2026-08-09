@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <shared_mutex>
 #include <entt/entt.hpp>
-#include "CombatEvents.hpp"
+#include "game/contracts/CombatEvents.hpp"
 
 namespace NoMoreDay {
 

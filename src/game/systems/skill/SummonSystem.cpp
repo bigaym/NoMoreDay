@@ -1,6 +1,6 @@
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/components/SkillDefs.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/skill/SummonAISystem.hpp"
 #include "game/systems/skill/SummonLifecycleSystem.hpp"
 

@@ -14,7 +14,7 @@
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"

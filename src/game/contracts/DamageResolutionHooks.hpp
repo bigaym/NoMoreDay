@@ -1,5 +1,5 @@
 #pragma once
-#include "game/systems/combat/DamagePipelineTypes.hpp"
+#include "game/contracts/DamagePipelineTypes.hpp"
 #include <entt/entt.hpp>
 #include <functional>
 #include <vector>

@@ -9,7 +9,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <string>

@@ -1,4 +1,4 @@
-#include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
 
 #include "spdlog/spdlog.h"
 #include <algorithm>

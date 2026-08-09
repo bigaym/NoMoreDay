@@ -17,8 +17,8 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/MonsterAffixRegistry.hpp" // For MonsterAffixComponent
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/CombatEvents.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/CombatEvents.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 #include "game/systems/world/MapSystem.hpp"

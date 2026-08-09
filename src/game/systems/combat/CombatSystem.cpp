@@ -15,9 +15,9 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/CombatFormula.hpp" // Added
+#include "game/contracts/CombatFormula.hpp" // Added
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"

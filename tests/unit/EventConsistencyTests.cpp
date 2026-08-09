@@ -3,7 +3,7 @@
 #include "game/components/Projectile.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <unordered_map>
 #include <vector>

@@ -17,7 +17,7 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/AstrolabeSystem.hpp"    
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/ShadowSystem.hpp"

@@ -1,9 +1,9 @@
-#include "CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/combat/ProcBudgetManager.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/contracts/impl/ProcBudgetManager.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
 #include "core/logging/Logger.hpp"
 #include <algorithm>
 

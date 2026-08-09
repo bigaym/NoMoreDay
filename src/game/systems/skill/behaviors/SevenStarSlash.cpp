@@ -6,7 +6,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/DamageResolutionHooks.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"

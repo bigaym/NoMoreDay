@@ -1,6 +1,6 @@
 #include "TestCommon.hpp"
 
-#include "game/systems/combat/ProcBudgetManager.hpp"
+#include "game/contracts/impl/ProcBudgetManager.hpp"
 
 namespace NoMoreDay {
 

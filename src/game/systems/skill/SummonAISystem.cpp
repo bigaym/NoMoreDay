@@ -3,7 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/SkillDefs.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/skill/SummonCombatBridge.hpp"
 #include <algorithm>
 #include <cmath>

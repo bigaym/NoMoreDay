@@ -5,7 +5,7 @@
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 
 namespace NoMoreDay {
 

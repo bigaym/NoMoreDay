@@ -7,7 +7,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/data/SkillContract.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
 #include <array>

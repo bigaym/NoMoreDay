@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/systems/combat/CombatFormula.hpp"
+#include "game/contracts/CombatFormula.hpp"
 
 namespace NoMoreDay {
 

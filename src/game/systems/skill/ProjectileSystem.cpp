@@ -14,7 +14,7 @@
 #include "game/components/Stats.hpp"
 #include "game/components/vfx/VisualGhostComponent.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
-#include "game/systems/combat/DamageResolutionHooks.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raylib.h"
 

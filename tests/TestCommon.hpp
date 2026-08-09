@@ -12,10 +12,10 @@ struct LoggerScope {
   ~LoggerScope() { /* tools::Logger::Shutdown(); */ }
 };
 
-#include "game/systems/combat/CombatEventDispatcher.hpp"
-#include "game/systems/combat/CombatTelemetry.hpp"
-#include "game/systems/combat/ProcBudgetManager.hpp"
-#include "game/systems/combat/StatsSystem.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatTelemetry.hpp"
+#include "game/contracts/impl/ProcBudgetManager.hpp"
+#include "game/contracts/impl/StatsSystem.hpp"
 
 // RAII Helper for Logger and ItemFactory
 struct TestSetupScope {

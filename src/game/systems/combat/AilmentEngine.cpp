@@ -3,7 +3,7 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
-#include "game/systems/combat/ProcBudgetManager.hpp"
+#include "game/contracts/impl/ProcBudgetManager.hpp"
 #include <atomic>
 #include <algorithm>
 #include <fstream>

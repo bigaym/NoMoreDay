@@ -8,7 +8,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
