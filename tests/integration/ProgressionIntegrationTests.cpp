@@ -1,11 +1,11 @@
 #include "doctest.h"
 
-#include "game/components/Common.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/ProgressionSystem.hpp"
 #include "game/systems/combat/XPAwardingSystem.hpp"
 

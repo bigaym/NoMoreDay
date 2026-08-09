@@ -1,6 +1,6 @@
 #include "doctest.h"
-#include "game/data/BiomeRegistry.hpp"
-#include "game/data/BiomeTypes.hpp"
+#include "game/foundation/data/BiomeRegistry.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
 #include "game/systems/world/BiomeMapGenerator.hpp"
 #include <array>
 #include <filesystem>

@@ -1,5 +1,5 @@
 #include "game/systems/world/BiomeStrategies.hpp"
-#include "game/data/BiomeTypes.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
 #include <algorithm>
 #include <random>
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <entt/entt.hpp>
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "SkillBehaviorBase.hpp"
 
 namespace NoMoreDay::systems {

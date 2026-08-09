@@ -1,22 +1,22 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
-#include "game/ui_shared/UiShared.hpp"
+#include "game/foundation/ui_shared/UiShared.hpp"
 #include "game/systems/item/ItemConstants.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
-#include "game/components/MaterialBankComponent.hpp"
-#include "game/components/MapFragmentComponent.hpp" // ADDED THIS LINE
-#include "game/components/EffectComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "game/foundation/components/MaterialBankComponent.hpp"
+#include "game/foundation/components/MapFragmentComponent.hpp" // ADDED THIS LINE
+#include "game/foundation/components/EffectComponent.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include <cmath>
 #include <limits>
 #include <algorithm>
 #include <map>
 #include <vector>
-#include "game/systems/ui/UICrafting.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/systems/ui/UISystem.hpp"
+#include "game/application/ui/UICrafting.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/application/ui/UISystem.hpp"
 #include "game/systems/item/ItemEquipValidationService.hpp"
 
 using namespace NoMoreDay;

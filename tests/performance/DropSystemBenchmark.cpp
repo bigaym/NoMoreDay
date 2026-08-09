@@ -2,10 +2,10 @@
 
 #include "TestCommon.hpp"
 #include <entt/entt.hpp>
-#include "game/components/Common.hpp"
-#include "game/components/ItemComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/PlayerState.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/PlayerState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/DropSystem.hpp"
 #include <iostream>

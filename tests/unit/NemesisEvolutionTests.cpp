@@ -1,8 +1,8 @@
 #include "TestCommon.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Combat.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/data/PlayerCombatHistory.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Combat.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/data/PlayerCombatHistory.hpp"
 #include "game/systems/combat/CombatHistorySystem.hpp"
 #include "game/systems/nemesis/NemesisGenerator.hpp"
 

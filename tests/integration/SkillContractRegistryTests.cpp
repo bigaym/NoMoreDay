@@ -1,6 +1,6 @@
 #include "TestCommon.hpp"
-#include "game/data/SkillContract.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/data/SkillContract.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>

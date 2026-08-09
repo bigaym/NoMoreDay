@@ -1,8 +1,8 @@
 #include "doctest.h"
 
-#include "game/combat_v2/ConditionCompiler.hpp"
-#include "game/combat_v2/ConditionIR.hpp"
-#include "game/combat_v2/TagDomain.hpp"
+#include "game/foundation/combat_v2/ConditionCompiler.hpp"
+#include "game/foundation/combat_v2/ConditionIR.hpp"
+#include "game/foundation/combat_v2/TagDomain.hpp"
 
 namespace {
 

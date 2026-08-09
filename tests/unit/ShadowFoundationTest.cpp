@@ -3,7 +3,7 @@
 #include "engine/render/GPUData.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/shadow/ShadowAtlasAllocator.hpp"
-#include "game/components/ShadowCasterComponent.hpp"
+#include "game/foundation/components/ShadowCasterComponent.hpp"
 
 #include <cstddef>
 #include <type_traits>

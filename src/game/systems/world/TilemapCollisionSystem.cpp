@@ -1,5 +1,5 @@
 #include "game/systems/world/TilemapCollisionSystem.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/world/WorldConstants.hpp"
 #include "game/systems/physics/PhysicsConstants.hpp"
 #include <cmath>

@@ -1,9 +1,9 @@
 #include "doctest.h"
 
 #include "TestCommon.hpp"
-#include "game/combat_v2/CombatV2RuntimeFacade.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/combat_v2/CombatV2RuntimeFacade.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 

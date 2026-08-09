@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../../data/MapAffix.hpp"
-#include "../../data/MosaicData.hpp"
+#include "../../foundation/data/MapAffix.hpp"
+#include "../../foundation/data/MosaicData.hpp"
 #include <vector>
 #include <array>
 #include <entt/entt.hpp>

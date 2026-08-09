@@ -1,8 +1,8 @@
 #pragma once
 
-#include "game/components/Stats.hpp"
-#include "game/data/SkillContract.hpp"
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillContract.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 
 namespace NoMoreDay {
 

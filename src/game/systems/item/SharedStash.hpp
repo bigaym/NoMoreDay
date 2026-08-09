@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/StashComponent.hpp"
+#include "game/foundation/components/StashComponent.hpp"
 #include "game/systems/item/StashConfig.hpp"
 #include <vector>
 #include <entt/entt.hpp>

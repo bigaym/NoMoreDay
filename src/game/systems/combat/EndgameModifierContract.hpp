@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/EndgameModifiers.hpp"
+#include "game/foundation/components/EndgameModifiers.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>

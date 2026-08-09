@@ -1,9 +1,9 @@
 #pragma once
 #include "doctest.h"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
-#include "game/registry/GroupRegistry.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/registry/GroupRegistry.hpp"
 #include <entt/entt.hpp>
 
 

@@ -1,6 +1,6 @@
 #pragma once
-#include "game/components/Stats.hpp"
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include <entt/entity/registry.hpp>
 #include <unordered_map>
 #include <shared_mutex>

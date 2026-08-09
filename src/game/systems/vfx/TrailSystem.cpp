@@ -1,6 +1,6 @@
 #include "game/systems/vfx/TrailSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/vfx/MotionTrailComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/vfx/MotionTrailComponent.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"

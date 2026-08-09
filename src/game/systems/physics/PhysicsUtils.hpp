@@ -1,6 +1,6 @@
 #pragma once
 #include <entt/entt.hpp>
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include <raylib.h>
 #include <cmath>
 

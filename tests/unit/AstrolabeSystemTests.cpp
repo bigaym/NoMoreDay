@@ -1,8 +1,8 @@
 #include "doctest.h"
 #include "game/systems/skill/AstrolabeSystem.hpp"
-#include "game/data/TalentData.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/data/TalentData.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <entt/entt.hpp>
 
 using namespace NoMoreDay;

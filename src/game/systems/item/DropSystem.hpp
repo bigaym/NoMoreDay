@@ -3,8 +3,8 @@
 #include <vector>
 #include <queue>
 #include "raylib.h"
-#include "game/components/Common.hpp"
-#include "game/data/BiomeTypes.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
 
 namespace NoMoreDay {
 

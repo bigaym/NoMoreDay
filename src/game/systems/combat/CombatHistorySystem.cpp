@@ -1,7 +1,7 @@
 #include "game/systems/combat/CombatHistorySystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/data/PlayerCombatHistory.hpp"
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/data/PlayerCombatHistory.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include <cmath>
 

@@ -1,13 +1,13 @@
 #include "TestCommon.hpp"
-#include "game/components/ItemComponent.hpp"
-#include "game/components/EquipmentComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
 #include "game/systems/item/ItemConstants.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/item/InventorySystem.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/InventoryComponent.hpp"
-#include "game/systems/ui/UISystem.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/application/ui/UISystem.hpp"
 
 TEST_CASE("[Unit] ItemLevelScaling - Scaling and Requirements") {
     TestSetupScope scope;

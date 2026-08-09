@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/EquipmentComponent.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
 
 namespace NoMoreDay {
 

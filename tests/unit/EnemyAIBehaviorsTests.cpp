@@ -1,8 +1,8 @@
 #include "TestCommon.hpp"
 
-#include "game/components/AIComponent.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/EnemyComponent.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
 
 namespace NoMoreDay {

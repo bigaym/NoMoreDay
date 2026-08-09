@@ -14,10 +14,10 @@
 #include "engine/render/GPUParticleSystem.hpp" // Added
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/GPUData.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Combat.hpp"
-#include "game/components/Common.hpp" // Added for Position, Vector2
-#include "game/components/Projectile.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Combat.hpp"
+#include "game/foundation/components/Common.hpp" // Added for Position, Vector2
+#include "game/foundation/components/Projectile.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raymath.h"

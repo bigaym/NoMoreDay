@@ -1,6 +1,6 @@
 #pragma once
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/contracts/DamagePipelineTypes.hpp"
 #include <entt/entt.hpp>
 #include <taskflow/taskflow.hpp>

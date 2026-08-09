@@ -1,8 +1,8 @@
 #pragma once
 #include <entt/entt.hpp>
-#include "game/components/ItemComponent.hpp"
-#include "game/components/InventoryComponent.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 #include <algorithm>
 

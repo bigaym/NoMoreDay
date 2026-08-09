@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/data/MonsterAffixRegistry.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 

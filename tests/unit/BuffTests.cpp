@@ -1,7 +1,7 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "game/data/BuffRegistry.hpp"
-#include "game/components/Buff.hpp"
+#include "game/foundation/data/BuffRegistry.hpp"
+#include "game/foundation/components/Buff.hpp"
 
 namespace NoMoreDay {
 

@@ -2,12 +2,12 @@
 #include "core/logging/Logger.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
-#include "game/components/MapComponent.hpp"
-#include "game/components/StashComponent.hpp"
-#include "game/data/BiomeRegistry.hpp"
-#include "game/data/MosaicData.hpp"
-#include "game/data/BiomeTypes.hpp"
-#include "game/components/WorldState.hpp"
+#include "game/foundation/components/MapComponent.hpp"
+#include "game/foundation/components/StashComponent.hpp"
+#include "game/foundation/data/BiomeRegistry.hpp"
+#include "game/foundation/data/MosaicData.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
+#include "game/foundation/components/WorldState.hpp"
 #include "game/systems/world/WorldConstants.hpp"
 #include <algorithm>
 

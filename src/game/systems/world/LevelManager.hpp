@@ -1,9 +1,9 @@
 #pragma once
 
-#include "game/components/Common.hpp"
-#include "game/data/MosaicData.hpp"
-#include "game/data/BiomeTypes.hpp"
-#include "game/render/AirWallRenderer.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/data/MosaicData.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
+#include "game/application/render/AirWallRenderer.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"

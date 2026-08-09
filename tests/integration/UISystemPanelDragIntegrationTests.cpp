@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/systems/ui/UISystem.hpp"
+#include "game/application/ui/UISystem.hpp"
 
 namespace NoMoreDay {
 

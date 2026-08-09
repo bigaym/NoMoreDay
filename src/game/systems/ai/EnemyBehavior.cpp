@@ -1,4 +1,4 @@
-#include "game/components/EnemyComponent.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
 
 // 实现 EnemyArchetype 中声明的静态行为函数
 // 这些函数目前作为占位符，以满足链接器要求。

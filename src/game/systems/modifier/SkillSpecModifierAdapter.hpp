@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 
 #include <array>
 #include <cstdint>

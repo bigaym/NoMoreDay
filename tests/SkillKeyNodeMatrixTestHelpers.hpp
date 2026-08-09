@@ -1,12 +1,12 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/data/SkillContract.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillContract.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>

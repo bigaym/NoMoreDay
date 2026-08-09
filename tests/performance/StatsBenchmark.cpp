@@ -2,11 +2,11 @@
 
 #include "doctest.h"
 #include "game/contracts/impl/StatsSystem.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/EquipmentComponent.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/Buff.hpp"
-#include "game/data/AstrolabeRegistry.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/data/AstrolabeRegistry.hpp"
 #include <chrono>
 #include <vector>
 #include <cstdio>

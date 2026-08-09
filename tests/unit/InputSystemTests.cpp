@@ -1,8 +1,8 @@
 #include "TestCommon.hpp"
-#include "game/components/Common.hpp"
-#include "game/systems/input/InputSystem.hpp"
-#include "game/systems/ui/UIAstrolabe.hpp"
-#include "game/systems/ui/UISystem.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/application/input/InputSystem.hpp"
+#include "game/application/ui/UIAstrolabe.hpp"
+#include "game/application/ui/UISystem.hpp"
 
 namespace {
 

@@ -3,7 +3,7 @@
 #include <functional>
 #include <unordered_map>
 #include <entt/entt.hpp>
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 
 namespace NoMoreDay {
 

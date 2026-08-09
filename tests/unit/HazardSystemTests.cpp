@@ -1,8 +1,8 @@
 #include "TestCommon.hpp"
 #include "game/systems/combat/HazardSystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
-#include "game/components/HazardComponents.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/HazardComponents.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 
 using namespace NoMoreDay;

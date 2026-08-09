@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include <entt/entt.hpp>
 

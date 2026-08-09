@@ -1,8 +1,8 @@
 #pragma once
 
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <entt/entt.hpp>
 #include <raylib.h>
 

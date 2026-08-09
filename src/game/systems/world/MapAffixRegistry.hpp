@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../data/MapAffix.hpp"
+#include "../../foundation/data/MapAffix.hpp"
 #include <string>
 #include <string_view>
 #include <vector>

@@ -1,11 +1,11 @@
 #pragma once
 
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/DestructibleTileComponent.hpp"
-#include "game/components/MapComponent.hpp"
-#include "game/components/SpawnerWallComponent.hpp"
-#include "game/components/SpeedZoneComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/DestructibleTileComponent.hpp"
+#include "game/foundation/components/MapComponent.hpp"
+#include "game/foundation/components/SpawnerWallComponent.hpp"
+#include "game/foundation/components/SpeedZoneComponent.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <memory>

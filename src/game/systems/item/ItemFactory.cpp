@@ -6,11 +6,11 @@
 #include "engine/resource/RuneAssetRegistry.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/systems/item/ItemConstants.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
-#include "game/components/WorldState.hpp"
+#include "game/foundation/components/WorldState.hpp"
 #include <algorithm>
 #include <fstream>
 #include <map>

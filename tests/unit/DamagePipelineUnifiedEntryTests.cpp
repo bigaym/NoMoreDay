@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"

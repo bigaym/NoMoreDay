@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include <algorithm>
 #include <cmath>
 #include <entt/entt.hpp>

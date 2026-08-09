@@ -1,7 +1,7 @@
 #pragma once
-#include "game/components/ItemComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/SerializedItem.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SerializedItem.hpp"
 #include <entt/entt.hpp>
 #include <map>
 #include <string>

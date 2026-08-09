@@ -5,7 +5,7 @@
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
 #include "game/systems/vfx/VFXSequencerSystem.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 
 #include <array>
 #include <cstdlib>

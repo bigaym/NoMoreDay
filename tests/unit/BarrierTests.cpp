@@ -1,7 +1,7 @@
 #pragma once
 #include "doctest.h"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"

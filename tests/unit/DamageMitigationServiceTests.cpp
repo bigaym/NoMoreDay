@@ -1,8 +1,8 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
 
 namespace NoMoreDay {

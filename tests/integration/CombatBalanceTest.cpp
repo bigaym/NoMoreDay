@@ -1,9 +1,9 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 

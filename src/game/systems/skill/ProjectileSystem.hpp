@@ -3,8 +3,8 @@
 #include "game/systems/world/WorldConstants.hpp"
 #include "engine/render/SIMDSpatialGrid.hpp"
 #include <entt/entt.hpp>
-#include "game/components/Projectile.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/Common.hpp"
 #include <taskflow/taskflow.hpp>
 
 

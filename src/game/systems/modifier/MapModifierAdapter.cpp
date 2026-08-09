@@ -1,7 +1,7 @@
 #include "game/systems/modifier/MapModifierAdapter.hpp"
 
-#include "game/data/MapAffix.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/data/MapAffix.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
 
 #include <cstdint>

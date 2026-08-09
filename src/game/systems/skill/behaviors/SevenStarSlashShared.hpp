@@ -1,10 +1,10 @@
 #pragma once
 
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 

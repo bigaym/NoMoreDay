@@ -1,9 +1,9 @@
 #include "TestCommon.hpp"
 #include "doctest.h"
-#include "game/components/AdvancedAffixComponents.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/AdvancedAffixComponents.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 
 namespace NoMoreDay {

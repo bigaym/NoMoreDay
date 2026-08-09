@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
 #include "game/systems/modifier/ModifierRuntimeRegistry.hpp"
 #include "game/systems/modifier/ModifierRuntimeTypes.hpp"

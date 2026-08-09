@@ -1,7 +1,7 @@
 #include "doctest.h"
 
-#include "game/combat_v2/ModifierGraph.hpp"
-#include "game/combat_v2/ModifierSourceAdapters.hpp"
+#include "game/foundation/combat_v2/ModifierGraph.hpp"
+#include "game/foundation/combat_v2/ModifierSourceAdapters.hpp"
 
 #include <cstddef>
 #include <limits>

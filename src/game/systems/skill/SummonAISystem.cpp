@@ -1,8 +1,8 @@
 #include "game/systems/skill/SummonAISystem.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/skill/SummonCombatBridge.hpp"
 #include <algorithm>

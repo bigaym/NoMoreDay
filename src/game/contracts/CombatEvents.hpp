@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <entt/entity/entity.hpp>
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 
 namespace NoMoreDay {
 

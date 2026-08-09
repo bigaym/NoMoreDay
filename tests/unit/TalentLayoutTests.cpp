@@ -1,8 +1,8 @@
 #include "doctest.h"
-#include "game/data/TalentLayoutService.hpp"
-#include "game/data/TalentData.hpp"
-#include "game/data/TalentLoader.hpp"
-#include "game/data/AstrolabeConstants.hpp"
+#include "game/foundation/data/TalentLayoutService.hpp"
+#include "game/foundation/data/TalentData.hpp"
+#include "game/foundation/data/TalentLoader.hpp"
+#include "game/foundation/data/AstrolabeConstants.hpp"
 #include <cmath>
 
 using namespace NoMoreDay;

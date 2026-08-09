@@ -2,7 +2,7 @@
 #include <unordered_map>
 #include <functional>
 #include <entt/entt.hpp>
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 
 namespace NoMoreDay {
 

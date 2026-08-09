@@ -265,7 +265,7 @@ constexpr int MAX_GLYPHS = 4096; // 批量文字渲染上限
 } // namespace GPU
 
 namespace ParticleConfig {
-// GPU 粒子系统参数 (自 game/components/Common.hpp Constants::Render 下沉)
+// GPU 粒子系统参数 (自 game/foundation/components/Common.hpp Constants::Render 下沉)
 constexpr int PARTICLE_STAGING_RESERVE = 10000; // 每帧允许申请的粒子缓冲保留量
 constexpr int WORKGROUP_SIZE_PARTICLES = 256;   // GPU计算粒子时的线程工作组大小
 constexpr float MAX_DELTA_TIME_PARTICLES =

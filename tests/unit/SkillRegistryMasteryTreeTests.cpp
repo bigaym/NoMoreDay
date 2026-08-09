@@ -1,6 +1,6 @@
 #include "TestCommon.hpp"
 
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 
 namespace NoMoreDay {
 

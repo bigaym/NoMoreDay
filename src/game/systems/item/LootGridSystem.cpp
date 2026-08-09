@@ -1,7 +1,7 @@
 #include "game/systems/item/LootGridSystem.hpp"
-#include "game/ui_shared/UiShared.hpp"
+#include "game/foundation/ui_shared/UiShared.hpp"
 #include "engine/render/SIMDSpatialGrid.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 
 namespace NoMoreDay::systems {
 

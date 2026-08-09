@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/data/MosaicData.hpp"
+#include "game/foundation/data/MosaicData.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include <entt/entt.hpp>
 

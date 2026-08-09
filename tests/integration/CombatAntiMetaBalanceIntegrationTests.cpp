@@ -1,10 +1,10 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <algorithm>
 #include <array>

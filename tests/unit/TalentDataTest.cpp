@@ -1,6 +1,6 @@
 #include "doctest.h"
-#include "game/data/TalentData.hpp"
-#include "game/data/TalentLoader.hpp"
+#include "game/foundation/data/TalentData.hpp"
+#include "game/foundation/data/TalentLoader.hpp"
 
 using namespace NoMoreDay;
 

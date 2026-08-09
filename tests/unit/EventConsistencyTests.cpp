@@ -1,8 +1,8 @@
 #include "TestCommon.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Projectile.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <unordered_map>

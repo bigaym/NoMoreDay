@@ -1,8 +1,8 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/PlayerState.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/PlayerState.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/physics/PhysicsSystem.hpp"
 #include <cmath>

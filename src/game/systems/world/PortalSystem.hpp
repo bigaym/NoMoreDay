@@ -1,7 +1,7 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "game/scene/SceneManager.hpp"
+#include "game/application/scene/SceneManager.hpp"
 #include "raylib.h"
 
 // Forward declarations

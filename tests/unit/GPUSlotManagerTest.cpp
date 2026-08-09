@@ -1,6 +1,6 @@
 #include "doctest.h"
-#include "game/render/GPUEntitySync.hpp"
-#include "game/components/Common.hpp"
+#include "game/application/render/GPUEntitySync.hpp"
+#include "game/foundation/components/Common.hpp"
 #include <entt/entt.hpp>
 
 using namespace NoMoreDay::render;

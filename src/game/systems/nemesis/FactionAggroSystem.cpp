@@ -1,7 +1,7 @@
 #include "game/systems/nemesis/FactionAggroSystem.hpp"
 #include "core/logging/Logger.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/data/NemesisDataStore.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/data/NemesisDataStore.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 
 

@@ -7,7 +7,7 @@
 #include "engine/vfx/VFXBudgetEstimator.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
 #include "game/systems/vfx/VFXSequencerSystem.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 
 #include <entt/entt.hpp>
 

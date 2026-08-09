@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/components/Progression.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 
 namespace NoMoreDay::systems {
 

@@ -1,7 +1,7 @@
 #include "doctest.h"
 
-#include "game/components/Stats.hpp"
-#include "game/data/MonsterAffixRegistry.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 

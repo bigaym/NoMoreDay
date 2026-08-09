@@ -1,7 +1,7 @@
 #include "doctest.h"
 #include "game/systems/world/TilemapCollisionSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 
 TEST_CASE("[Unit] TilemapCollisionSystem - Walkability Logic") {
     MapSystem mapSystem;

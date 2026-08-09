@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/Progression.hpp"
+#include "game/foundation/components/Progression.hpp"
 
 #include <cstdint>
 #include <span>

@@ -1,7 +1,7 @@
 #include "TestCommon.hpp"
 #include "engine/render/GPULootSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/render/GPULootAdapter.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/application/render/GPULootAdapter.hpp"
 
 namespace NoMoreDay::render {
 

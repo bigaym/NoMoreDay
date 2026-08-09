@@ -7,16 +7,16 @@
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
-#include "game/components/AIComponent.hpp" // For EnemyTag
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp" // For Position
-#include "game/components/EffectComponent.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/AIComponent.hpp" // For EnemyTag
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp" // For Position
+#include "game/foundation/components/EffectComponent.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
-#include "game/components/PlayerState.hpp" // For DashComponent
-#include "game/components/Projectile.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/PlayerState.hpp" // For DashComponent
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"

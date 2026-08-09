@@ -1,6 +1,6 @@
 #pragma once
-#include "game/components/ItemComponent.hpp"
-#include "game/components/ItemStats.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/ItemStats.hpp"
 #include <entt/entt.hpp>
 #include <map>
 #include <nlohmann/json.hpp>

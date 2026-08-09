@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/systems/ui/UIPanelDragService.hpp"
+#include "game/application/ui/UIPanelDragService.hpp"
 
 namespace NoMoreDay {
 

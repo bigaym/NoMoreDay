@@ -12,16 +12,16 @@
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Projectile.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 
 
 #include "core/logging/Logger.hpp"
-#include "game/components/SkillDefs.hpp" // For SwordIntent
+#include "game/foundation/components/SkillDefs.hpp" // For SwordIntent
 #include "raymath.h"
 
 

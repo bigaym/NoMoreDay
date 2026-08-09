@@ -1,6 +1,6 @@
 #pragma once
 #include <entt/entity/registry.hpp>
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Stats.hpp"
 
 namespace NoMoreDay {
 

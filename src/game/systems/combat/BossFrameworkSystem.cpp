@@ -1,7 +1,7 @@
 #include "game/systems/combat/BossFrameworkSystem.hpp"
 
-#include "game/components/AIComponent.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <algorithm>
 #include <cmath>
 #include <vector>

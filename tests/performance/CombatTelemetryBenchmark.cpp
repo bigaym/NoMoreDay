@@ -2,8 +2,8 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <algorithm>

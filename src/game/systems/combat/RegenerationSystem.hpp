@@ -1,8 +1,8 @@
 #pragma once
 
 #include <entt/entt.hpp>
-#include "game/components/Stats.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay {

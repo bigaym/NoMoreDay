@@ -2,9 +2,9 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/data/BiomeRegistry.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/data/BiomeRegistry.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include "game/systems/world/WorldConstants.hpp"

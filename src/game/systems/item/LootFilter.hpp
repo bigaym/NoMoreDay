@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/components/ItemComponent.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/Common.hpp"
 #include <string>
 #include <vector>
 #include <optional>

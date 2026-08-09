@@ -1,12 +1,12 @@
 #include "doctest.h"
-#include "game/components/Progression.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/EquipmentComponent.hpp"
-#include "game/data/AstrolabeRegistry.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/data/AstrolabeRegistry.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
-#include "game/stats/AttributePipeline.hpp"
+#include "game/foundation/stats/AttributePipeline.hpp"
 #include <entt/entt.hpp>
 
 using namespace NoMoreDay;

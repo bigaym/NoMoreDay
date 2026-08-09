@@ -15,9 +15,9 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/LightComponent.hpp"
-#include "game/render/LightAdapter.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/LightComponent.hpp"
+#include "game/application/render/LightAdapter.hpp"
 
 #include <cstdint>
 #include <memory>

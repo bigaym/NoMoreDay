@@ -1,7 +1,7 @@
 #include "doctest.h"
 
-#include "game/components/WorldState.hpp"
-#include "game/data/BiomeTypes.hpp"
+#include "game/foundation/components/WorldState.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
 
 using namespace NoMoreDay;
 

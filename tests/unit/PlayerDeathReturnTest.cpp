@@ -2,9 +2,9 @@
 
 #include <entt/entt.hpp>
 
-#include "game/components/Common.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 
 TEST_CASE("[Unit] CombatSystem - Player death restores HP/MP without KilledTag") {

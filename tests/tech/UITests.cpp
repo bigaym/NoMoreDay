@@ -1,28 +1,28 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "game/systems/ui/UISystem.hpp"
-#include "game/systems/ui/UIAnimationSystem.hpp"
-#include "game/systems/ui/UISkillSpecRenderer.hpp"
-#include "game/components/UIAnimationComponent.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/InventoryComponent.hpp"
-#include "game/components/ItemComponent.hpp"
+#include "game/application/ui/UISystem.hpp"
+#include "game/application/ui/UIAnimationSystem.hpp"
+#include "game/application/ui/UISkillSpecRenderer.hpp"
+#include "game/foundation/components/UIAnimationComponent.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/systems/ui/UISkillHub.hpp"
-#include "game/systems/ui/UISkillTalentTree.hpp"
+#include "game/application/ui/UISkillHub.hpp"
+#include "game/application/ui/UISkillTalentTree.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/data/SkillRegistry.hpp"
-#include "game/data/BladeMasteryRegistry.hpp"
-#include "game/components/vfx/SwordIntentVisualComponent.hpp"
-#include "game/systems/ui/MonsterHealthBarSystem.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
+#include "game/foundation/data/BladeMasteryRegistry.hpp"
+#include "game/foundation/components/vfx/SwordIntentVisualComponent.hpp"
+#include "game/application/ui/MonsterHealthBarSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/Buff.hpp"
-#include "game/systems/ui/PlayerHUD.hpp"
-#include "game/systems/ui/SwordIntentWidget.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/application/ui/PlayerHUD.hpp"
+#include "game/application/ui/SwordIntentWidget.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -63,9 +63,9 @@ TEST_CASE("[Tech] SkillUI - Context Menu State") {
 TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope uses exactly one pair") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::string source;
@@ -101,9 +101,9 @@ TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope uses exactly one pai
 TEST_CASE("[Tech] SkillUI - tooltip helpers anchor hierarchy and wrapping") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::string source;
@@ -144,9 +144,9 @@ TEST_CASE("[Tech] SkillUI - tooltip layout reserves footer separation") {
 TEST_CASE("[Tech] SkillUI - tooltip shell and clamp precede badge drawing") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::string source;
@@ -184,9 +184,9 @@ TEST_CASE("[Tech] SkillUI - tooltip shell and clamp precede badge drawing") {
 TEST_CASE("[Tech] SkillUI - tooltip title and badges use dedicated readable text treatment") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::string source;
@@ -213,9 +213,9 @@ TEST_CASE("[Tech] SkillUI - tooltip title and badges use dedicated readable text
 TEST_CASE("[Tech] SkillUI - quantitative tooltip percent formatting uses whole-percent values") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::string source;
@@ -242,9 +242,9 @@ TEST_CASE("[Tech] SkillUI - quantitative tooltip percent formatting uses whole-p
 TEST_CASE("[Tech] InventoryUI - button text uses shared emoji fallback path") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UIRenderer.cpp"),
-        fs::path("../src/game/systems/ui/UIRenderer.cpp"),
-        fs::path("../../src/game/systems/ui/UIRenderer.cpp")
+        fs::path("src/game/application/ui/UIRenderer.cpp"),
+        fs::path("../src/game/application/ui/UIRenderer.cpp"),
+        fs::path("../../src/game/application/ui/UIRenderer.cpp")
     };
 
     std::string source;
@@ -278,9 +278,9 @@ TEST_CASE("[Tech] InventoryUI - button text uses shared emoji fallback path") {
 TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags through transactional swap path") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UIInventory.cpp"),
-        fs::path("../src/game/systems/ui/UIInventory.cpp"),
-        fs::path("../../src/game/systems/ui/UIInventory.cpp")
+        fs::path("src/game/application/ui/UIInventory.cpp"),
+        fs::path("../src/game/application/ui/UIInventory.cpp"),
+        fs::path("../../src/game/application/ui/UIInventory.cpp")
     };
 
     std::string source;
@@ -314,9 +314,9 @@ TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags thr
 TEST_CASE("[Tech] InventoryUI - gameplay fallback does not clear drags while inventory overlay is active") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/states/GameplayState.cpp"),
-        fs::path("../src/game/states/GameplayState.cpp"),
-        fs::path("../../src/game/states/GameplayState.cpp")
+        fs::path("src/game/application/states/GameplayState.cpp"),
+        fs::path("../src/game/application/states/GameplayState.cpp"),
+        fs::path("../../src/game/application/states/GameplayState.cpp")
     };
 
     std::string source;
@@ -346,10 +346,10 @@ TEST_CASE("[Tech] InventoryUI - gameplay fallback does not clear drags while inv
 TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree chrome") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 4> candidates = {
-        fs::path("src/game/systems/ui/UISkillHub.cpp"),
-        fs::path("src/game/systems/ui/UISkillSpecRenderer.hpp"),
-        fs::path("src/game/systems/ui/UISkillSpecRenderer.cpp"),
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillHub.cpp"),
+        fs::path("src/game/application/ui/UISkillSpecRenderer.hpp"),
+        fs::path("src/game/application/ui/UISkillSpecRenderer.cpp"),
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::array<std::string, 4> sources;
@@ -381,9 +381,9 @@ TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree ch
 TEST_CASE("[Tech] SkillUI - mastery hub exposes Heavenly Sword attunement controls") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillHub.cpp"),
-        fs::path("../src/game/systems/ui/UISkillHub.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillHub.cpp")
+        fs::path("src/game/application/ui/UISkillHub.cpp"),
+        fs::path("../src/game/application/ui/UISkillHub.cpp"),
+        fs::path("../../src/game/application/ui/UISkillHub.cpp")
     };
 
     std::string source;
@@ -414,9 +414,9 @@ TEST_CASE("[Tech] SkillUI - mastery hub exposes Heavenly Sword attunement contro
 TEST_CASE("[Tech] SkillUI - mastery hub locks all Blade Ascendant signature skills consistently") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillHub.cpp"),
-        fs::path("../src/game/systems/ui/UISkillHub.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillHub.cpp")
+        fs::path("src/game/application/ui/UISkillHub.cpp"),
+        fs::path("../src/game/application/ui/UISkillHub.cpp"),
+        fs::path("../../src/game/application/ui/UISkillHub.cpp")
     };
 
     std::string source;
@@ -754,9 +754,9 @@ TEST_CASE("[Tech] BuffUI - Blood Sea uses buff lane icon and runtime tooltip ove
     namespace fs = std::filesystem;
 
     const std::array<fs::path, 3> buffRegistryCandidates = {
-        fs::path("src/game/data/BuffRegistry.cpp"),
-        fs::path("../src/game/data/BuffRegistry.cpp"),
-        fs::path("../../src/game/data/BuffRegistry.cpp")
+        fs::path("src/game/foundation/data/BuffRegistry.cpp"),
+        fs::path("../src/game/foundation/data/BuffRegistry.cpp"),
+        fs::path("../../src/game/foundation/data/BuffRegistry.cpp")
     };
     const std::array<fs::path, 3> bloodSeaCandidates = {
         fs::path("src/game/systems/skill/behaviors/BloodSea.cpp"),
@@ -764,9 +764,9 @@ TEST_CASE("[Tech] BuffUI - Blood Sea uses buff lane icon and runtime tooltip ove
         fs::path("../../src/game/systems/skill/behaviors/BloodSea.cpp")
     };
     const std::array<fs::path, 3> tooltipCandidates = {
-        fs::path("src/game/systems/ui/UIRenderer.cpp"),
-        fs::path("../src/game/systems/ui/UIRenderer.cpp"),
-        fs::path("../../src/game/systems/ui/UIRenderer.cpp")
+        fs::path("src/game/application/ui/UIRenderer.cpp"),
+        fs::path("../src/game/application/ui/UIRenderer.cpp"),
+        fs::path("../../src/game/application/ui/UIRenderer.cpp")
     };
 
     const auto readSource = [](const auto& candidates) {
@@ -805,9 +805,9 @@ TEST_CASE("[Tech] BuffUI - Blood Sea uses buff lane icon and runtime tooltip ove
 TEST_CASE("[Tech] SkillUI - SwordIntentWidget status text uses UI font rendering") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/SwordIntentWidget.cpp"),
-        fs::path("../src/game/systems/ui/SwordIntentWidget.cpp"),
-        fs::path("../../src/game/systems/ui/SwordIntentWidget.cpp")
+        fs::path("src/game/application/ui/SwordIntentWidget.cpp"),
+        fs::path("../src/game/application/ui/SwordIntentWidget.cpp"),
+        fs::path("../../src/game/application/ui/SwordIntentWidget.cpp")
     };
 
     std::string source;
@@ -837,9 +837,9 @@ TEST_CASE("[Tech] SkillUI - SwordIntentWidget status text uses UI font rendering
 TEST_CASE("[Tech] Blood Sea - field render path is specialized") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/render/GameplayRenderAdapter.cpp"),
-        fs::path("../src/game/render/GameplayRenderAdapter.cpp"),
-        fs::path("../../src/game/render/GameplayRenderAdapter.cpp")
+        fs::path("src/game/application/render/GameplayRenderAdapter.cpp"),
+        fs::path("../src/game/application/render/GameplayRenderAdapter.cpp"),
+        fs::path("../../src/game/application/render/GameplayRenderAdapter.cpp")
     };
 
     std::string source;
@@ -935,9 +935,9 @@ TEST_CASE("[Tech] UIRenderer - Tooltip Logic Smoke Test") {
 TEST_CASE("[Tech] SkillUI - tooltip uses static preview payload") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UIRenderer.cpp"),
-        fs::path("../src/game/systems/ui/UIRenderer.cpp"),
-        fs::path("../../src/game/systems/ui/UIRenderer.cpp")
+        fs::path("src/game/application/ui/UIRenderer.cpp"),
+        fs::path("../src/game/application/ui/UIRenderer.cpp"),
+        fs::path("../../src/game/application/ui/UIRenderer.cpp")
     };
 
     std::string source;
@@ -965,9 +965,9 @@ TEST_CASE("[Tech] SkillUI - tooltip uses static preview payload") {
 TEST_CASE("[Tech] SkillUI - specialization tooltip renders quantitative lines") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
-        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+        fs::path("src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/application/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/application/ui/UISkillTalentTree.cpp")
     };
 
     std::string source;

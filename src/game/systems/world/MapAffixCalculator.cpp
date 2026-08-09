@@ -1,9 +1,9 @@
 #include "MapAffixCalculator.hpp"
 #include "MapAffixRegistry.hpp"
 #include "core/logging/Logger.hpp"
-#include "../../data/MosaicData.hpp"
-#include "../../components/MapFragmentComponent.hpp"
-#include "../../components/ItemComponent.hpp" 
+#include "../../foundation/data/MosaicData.hpp"
+#include "../../foundation/components/MapFragmentComponent.hpp"
+#include "../../foundation/components/ItemComponent.hpp" 
 #include <cmath>
 #include <algorithm>
 

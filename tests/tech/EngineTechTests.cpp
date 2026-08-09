@@ -5,7 +5,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/components/EffectComponent.hpp"
+#include "game/foundation/components/EffectComponent.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/item/DropSystem.hpp"
 #include "game/systems/item/InventorySystem.hpp"

@@ -1,9 +1,9 @@
 #include "SharedStash.hpp"
 #include "game/systems/item/StashConfig.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/ItemComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
 #include "game/systems/item/ItemFactory.hpp"
-#include "game/data/StashData.hpp"
+#include "game/foundation/data/StashData.hpp"
 
 namespace NoMoreDay {
 

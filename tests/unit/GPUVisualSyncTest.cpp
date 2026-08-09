@@ -1,8 +1,8 @@
 #include "doctest.h"
-#include "game/render/GPUEntitySync.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/application/render/GPUEntitySync.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <entt/entt.hpp>
 
 using namespace NoMoreDay;

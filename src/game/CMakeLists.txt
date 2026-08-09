@@ -13,11 +13,7 @@
 # reach the final executable and test binaries.
 
 add_subdirectory(contracts)      # NoMoreDayGameContractsCore (INTERFACE)
-add_subdirectory(ui_shared)      # NoMoreDayGameUiShared (ring 2 break: item/render/ui interchange)
-add_subdirectory(data)           # NoMoreDayGameData
-add_subdirectory(utils)          # NoMoreDayGameUtils
-add_subdirectory(stats)          # NoMoreDayGameStats
-add_subdirectory(combat_v2)      # NoMoreDayGameCombatV2
+add_subdirectory(foundation)     # band: foundation (ui_shared/data/utils/stats/combat_v2)
 add_subdirectory(contracts/impl) # NoMoreDayGameContracts (STATIC)
 add_subdirectory(systems/modifier)   # NoMoreDayGameModifier (middle)
 add_subdirectory(systems/skill)      # NoMoreDayGameSkill (middle)
@@ -28,12 +24,7 @@ add_subdirectory(systems/ai)         # NoMoreDayGameAi (middle)
 add_subdirectory(systems/vfx)        # NoMoreDayGameVfx (middle)
 add_subdirectory(systems/nemesis)    # NoMoreDayGameNemesis (middle)
 add_subdirectory(systems/combat)     # NoMoreDayGameCombat (upper)
-add_subdirectory(scene)              # NoMoreDayGameScene (top)
-add_subdirectory(persistence)        # NoMoreDayGamePersistence (top)
-add_subdirectory(systems/ui)         # NoMoreDayGameUi (top)
-add_subdirectory(systems/input)      # NoMoreDayGameInput (top)
-add_subdirectory(render)             # NoMoreDayGameRender (top)
-add_subdirectory(states)             # NoMoreDayGameStates (top)
+add_subdirectory(application)      # band: application (scene/persistence/ui/input/render/states)
 
 add_library(NoMoreDayGame STATIC)
 

@@ -1,9 +1,9 @@
 #include "TestCommon.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/data/AstrolabeRegistry.hpp"
-#include "game/stats/AttributePipeline.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/AstrolabeRegistry.hpp"
+#include "game/foundation/stats/AttributePipeline.hpp"
 
 TEST_SUITE("AstrolabeLogic") {
 

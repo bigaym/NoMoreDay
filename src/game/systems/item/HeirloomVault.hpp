@@ -3,8 +3,8 @@
 #pragma once
 
 #include "core/logging/Logger.hpp"
-#include "game/components/HeirloomComponent.hpp"
-#include "game/components/ItemComponent.hpp"
+#include "game/foundation/components/HeirloomComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
 #include "game/systems/item/HeirloomScaling.hpp"
 #include <concepts>
 #include <filesystem>

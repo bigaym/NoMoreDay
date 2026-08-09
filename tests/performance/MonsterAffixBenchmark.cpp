@@ -3,9 +3,9 @@
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/MonsterAffixRegistry.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include <algorithm>
 #include <array>

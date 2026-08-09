@@ -1,8 +1,8 @@
 #include "doctest.h"
 
-#include "game/components/Stats.hpp"
-#include "game/components/WorldState.hpp"
-#include "game/data/MapAffix.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/WorldState.hpp"
+#include "game/foundation/data/MapAffix.hpp"
 #include "game/systems/modifier/MapModifierAdapter.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 

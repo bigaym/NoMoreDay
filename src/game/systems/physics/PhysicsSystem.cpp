@@ -1,12 +1,12 @@
 #include "game/systems/physics/PhysicsSystem.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/physics/PhysicsConstants.hpp"
 #include "game/systems/world/WorldConstants.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/Projectile.hpp"
-#include "game/components/AdvancedAffixComponents.hpp"
-#include "game/components/PlayerState.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/AdvancedAffixComponents.hpp"
+#include "game/foundation/components/PlayerState.hpp"
 #include "game/systems/world/MapSystem.hpp" // Added
 #include "game/systems/world/TilemapCollisionSystem.hpp" // Added
 #include "raymath.h"

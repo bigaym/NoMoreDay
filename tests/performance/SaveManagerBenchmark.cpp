@@ -2,14 +2,14 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/persistence/SaveManager.hpp"
-#include "game/components/EquipmentComponent.hpp"
-#include "game/components/InventoryComponent.hpp"
-#include "game/components/ItemComponent.hpp"
-#include "game/components/PlayerProfile.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/StashComponent.hpp"
-#include "game/data/PlayerCombatHistory.hpp"
+#include "game/application/persistence/SaveManager.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/PlayerProfile.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/StashComponent.hpp"
+#include "game/foundation/data/PlayerCombatHistory.hpp"
 #include <array>
 #include <vector>
 

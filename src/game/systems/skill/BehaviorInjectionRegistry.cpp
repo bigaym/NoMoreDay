@@ -1,7 +1,7 @@
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include <spdlog/spdlog.h>
 
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 
 namespace NoMoreDay {
 

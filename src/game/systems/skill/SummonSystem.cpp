@@ -1,5 +1,5 @@
 #include "game/systems/skill/SummonSystem.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/skill/SummonAISystem.hpp"
 #include "game/systems/skill/SummonLifecycleSystem.hpp"

@@ -2,27 +2,27 @@
 
 #include "core/logging/Logger.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/AdvancedAffixComponents.hpp" // For TeleportationComponent, etc
-#include "game/components/Buff.hpp"
-#include "game/components/Combat.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EliteModifierComponents.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/HazardComponents.hpp" // For HazardComponent
-#include "game/components/NemesisComponent.hpp" // Added for Tier scaling
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/AdvancedAffixComponents.hpp" // For TeleportationComponent, etc
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Combat.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EliteModifierComponents.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/HazardComponents.hpp" // For HazardComponent
+#include "game/foundation/components/NemesisComponent.hpp" // Added for Tier scaling
 #include "core/utils/ScopedTimer.hpp" // Explicit include for ScopedTimer
 
 #include "core/utils/Branchless.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/MonsterAffixRegistry.hpp" // For MonsterAffixComponent
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp" // For MonsterAffixComponent
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/CombatEvents.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 #include "game/systems/world/MapSystem.hpp"
-#include "game/utils/EntityUtils.hpp"
+#include "game/foundation/utils/EntityUtils.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include <algorithm>
 #include <cmath>

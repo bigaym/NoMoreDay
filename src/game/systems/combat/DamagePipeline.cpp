@@ -1,19 +1,19 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
-#include "game/components/AdvancedAffixComponents.hpp" // InvulnerableComponent, SuppressorComponent
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/PlayerState.hpp" // PhantomFlashComponent
-#include "game/components/Projectile.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/AdvancedAffixComponents.hpp" // InvulnerableComponent, SuppressorComponent
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/PlayerState.hpp" // PhantomFlashComponent
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
-#include "game/combat_v2/CombatV2RuntimeFacade.hpp"
+#include "game/foundation/combat_v2/CombatV2RuntimeFacade.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"

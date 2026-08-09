@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/data/BiomeRegistry.hpp"
+#include "game/foundation/data/BiomeRegistry.hpp"
 #include <cstdint>
 #include <vector>
 

@@ -1,6 +1,6 @@
 #include "doctest.h"
-#include "game/components/SkillDefs.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <entt/entt.hpp>
 

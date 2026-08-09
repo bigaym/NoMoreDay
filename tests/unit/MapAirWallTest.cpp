@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include "game/data/BiomeRegistry.hpp"
+#include "game/foundation/data/BiomeRegistry.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include <array>
 #include <filesystem>

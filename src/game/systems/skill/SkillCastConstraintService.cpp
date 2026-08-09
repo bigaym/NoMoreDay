@@ -1,7 +1,7 @@
 #include "game/systems/skill/SkillCastConstraintService.hpp"
 
 #include "core/logging/Logger.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 
 #include <algorithm>
 

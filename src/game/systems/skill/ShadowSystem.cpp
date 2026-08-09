@@ -1,7 +1,7 @@
 #include "game/systems/skill/ShadowSystem.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/components/Combat.hpp"
+#include "game/foundation/components/Combat.hpp"
 
 namespace NoMoreDay {
 

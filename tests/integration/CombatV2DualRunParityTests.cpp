@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/combat_v2/CombatV2RuntimeFacade.hpp"
+#include "game/foundation/combat_v2/CombatV2RuntimeFacade.hpp"
 
 #include <limits>
 

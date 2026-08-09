@@ -1,9 +1,9 @@
 #include "TestCommon.hpp"
 
-#include "game/components/PlayerState.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/data/BladeMasteryRegistry.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"

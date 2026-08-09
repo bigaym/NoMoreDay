@@ -1,10 +1,10 @@
 #include "TestCommon.hpp"
 #include "game/systems/physics/SpatialGrid.hpp" // For SpatialHashGrid
-#include "game/components/AdvancedAffixComponents.hpp"
-#include "game/components/EliteModifierComponents.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/MonsterAffixRegistry.hpp"
+#include "game/foundation/components/AdvancedAffixComponents.hpp"
+#include "game/foundation/components/EliteModifierComponents.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp" // Added this include
 #include "game/contracts/CombatEvents.hpp"
 #include "game/systems/combat/EliteModifierSystem.hpp"

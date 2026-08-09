@@ -1,6 +1,6 @@
 # Directory Structure Reorganization Design
 
-> **Status:** draft 2026-08-09
+> **Status:** implemented 2026-08-10
 > **Primary objective:** reorganize the physical directory structure so that (a) every CMake sub-target owns exactly one physical directory whose name matches the target (方案 A: directory == target), and (b) the `src/game` tree is grouped into explicit dependency bands (方案 B: contracts / foundation / systems / application) that make dependency direction visible and give future modules a rule-based home.
 > **Related:** [Fine-Grained Module Split](./fine-grained-module-split-design.md) established the 5 Engine / 20 Game sub-targets; its §5.4 explicitly deferred physical relocation ("physical relocation follows, matching the modular-split convention"). This design executes that convergence, plus a banded layout, in multiple independently verifiable milestones.
 
@@ -200,6 +200,7 @@ Each milestone ends with: `build.bat` (RelWithDebInfo) clean, `ctest --test-dir 
 - `git mv` `persistence/ render/ scene/ states/` → `application/`; `git mv` `systems/ui/` `systems/input/` → `application/`; rewrite includes (5+16+28+21+93+2).
 - `git mv` `AchievementSystem.hpp` `LeaderboardSystem.hpp` from `systems/progression/` → `application/states/`; rewrite 1 include; delete `systems/progression/`.
 - **Closure checks:** grep zero absolute-path source entries; directory==target 1:1 assertion (each sub-target's dir holds exactly its sources); `check_module_boundaries.py` passes; full `ctest -L ci`; update `docs/designs/fine-grained-module-split-design.md` §5.4 note (physical convergence done) and this document status.
+- **Status:** completed 2026-08-10 — 8 `git mv` moves (`persistence/ render/ scene/ states/` → `application/`; `systems/ui/` → `application/ui`; `systems/input/` → `application/input`; `AchievementSystem.hpp` `LeaderboardSystem.hpp` → `application/states/`), `systems/progression/` deleted, 257 include rewrites, `application/CMakeLists.txt` wrapper + single-band fold in `src/game/CMakeLists.txt`. Closure checks all green: zero residual old-prefix includes (incl. relative forms), zero absolute game-side `add_library` source entries, all 22 game sub-targets directory==target 1:1, `check_module_boundaries.py` passes; `build.bat` + `ctest -L unit/integration/ci` + `build.bat check` all green.
 
 Each milestone is an atomic unit; no milestone may start before the previous one is green. Milestones M4–M6 may each be split further (e.g., M5 components alone) if a single milestone's include-rewrite count is judged too large in review.
 

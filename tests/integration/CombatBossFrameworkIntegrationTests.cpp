@@ -1,9 +1,9 @@
 #include "TestCommon.hpp"
 
-#include "game/components/AIComponent.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/BossFrameworkSystem.hpp"
 

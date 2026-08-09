@@ -1,9 +1,9 @@
 
 #include "doctest.h"
 #include "game/systems/ai/AISystem.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EnemyComponent.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"

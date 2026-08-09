@@ -130,7 +130,7 @@ inline Tag ParseTagList(const std::vector<std::string>& tags) {
 
 if __name__ == "__main__":
     json_path = os.path.join("assets", "data", "tags.json")
-    output_path = os.path.join("src", "game", "data", "TagRegistry.hpp")
+    output_path = os.path.join("src", "game", "foundation", "data", "TagRegistry.hpp")
 
     # Ensure directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

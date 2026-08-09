@@ -1,12 +1,12 @@
 #include "game/systems/ai/AISystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EliteModifierComponents.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EliteModifierComponents.hpp"
 #include "game/systems/ai/AIConstants.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/NemesisComponent.hpp"
-#include "game/registry/GroupRegistry.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/NemesisComponent.hpp"
+#include "game/foundation/registry/GroupRegistry.hpp"
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
 #include <algorithm>
 #include <cmath>

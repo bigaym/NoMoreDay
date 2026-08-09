@@ -1,5 +1,5 @@
 #pragma once
-#include "game/components/MapFragmentComponent.hpp"
+#include "game/foundation/components/MapFragmentComponent.hpp"
 #include <entt/entt.hpp>
 #include <mutex>
 #include <vector>

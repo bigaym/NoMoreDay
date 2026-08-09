@@ -7,9 +7,9 @@
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/LightComponent.hpp"
-#include "game/render/LightAdapter.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/LightComponent.hpp"
+#include "game/application/render/LightAdapter.hpp"
 
 #include "GLFW/glfw3.h"
 

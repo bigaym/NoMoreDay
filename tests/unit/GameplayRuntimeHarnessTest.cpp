@@ -2,11 +2,11 @@
 
 #include "integration/GameplayRuntimeHarness.hpp"
 
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EffectComponent.hpp"
-#include "game/components/LightComponent.hpp"
-#include "game/components/ShadowCasterComponent.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EffectComponent.hpp"
+#include "game/foundation/components/LightComponent.hpp"
+#include "game/foundation/components/ShadowCasterComponent.hpp"
 
 namespace {
 

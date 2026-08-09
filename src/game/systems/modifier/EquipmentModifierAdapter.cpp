@@ -1,9 +1,9 @@
 #include "game/systems/modifier/EquipmentModifierAdapter.hpp"
 
-#include "game/components/EquipmentComponent.hpp"
-#include "game/components/ItemComponent.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/data/SkillRegistry.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/ModifierRuntimeRegistry.hpp"
 

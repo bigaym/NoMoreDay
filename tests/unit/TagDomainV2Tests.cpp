@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/combat_v2/TagDomain.hpp"
+#include "game/foundation/combat_v2/TagDomain.hpp"
 
 TEST_CASE("[Unit] TagDomainV2 - canonical and alias resolve to same ID") {
     NoMoreDay::CombatV2::TagDomain domain;

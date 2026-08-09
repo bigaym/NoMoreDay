@@ -1,5 +1,5 @@
 #pragma once
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <string>

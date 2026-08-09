@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/ModifierRuntimeTypes.hpp"

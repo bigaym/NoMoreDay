@@ -1,6 +1,6 @@
 #include "doctest.h"
-#include "game/utils/MonsterScaling.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/utils/MonsterScaling.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
 #include <cmath>
 

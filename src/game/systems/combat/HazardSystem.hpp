@@ -1,9 +1,9 @@
 #pragma once
 
-#include "game/components/HazardComponents.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/Buff.hpp"
+#include "game/foundation/components/HazardComponents.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/Buff.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "core/logging/Logger.hpp"
 #include <entt/entt.hpp>

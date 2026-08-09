@@ -1,7 +1,7 @@
 #include "game/systems/skill/BladeResourceService.hpp"
 
 #include "core/logging/Logger.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 
 #include <algorithm>

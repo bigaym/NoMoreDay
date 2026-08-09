@@ -3,11 +3,11 @@
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Projectile.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include <algorithm>
 #include <random>

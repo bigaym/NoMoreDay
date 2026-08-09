@@ -1,8 +1,8 @@
 #include "game/systems/skill/BladeMasteryService.hpp"
 
-#include "game/components/PlayerState.hpp"
-#include "game/data/BladeMasteryRegistry.hpp"
-#include "game/data/TalentData.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/data/BladeMasteryRegistry.hpp"
+#include "game/foundation/data/TalentData.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 
 namespace NoMoreDay::systems {

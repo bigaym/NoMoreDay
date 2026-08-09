@@ -3,8 +3,8 @@
 #include <functional>
 #include <taskflow/taskflow.hpp>
 #include "raylib.h"
-#include "game/data/TagRegistry.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
 
 namespace NoMoreDay {

@@ -18,14 +18,14 @@
 
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EffectComponent.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Projectile.hpp"
-#include "game/components/SkillDefs.hpp" // For ActiveSkillsComponent
-#include "game/components/vfx/MotionTrailComponent.hpp"
-#include "game/components/vfx/SwordIntentVisualComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EffectComponent.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/SkillDefs.hpp" // For ActiveSkillsComponent
+#include "game/foundation/components/vfx/MotionTrailComponent.hpp"
+#include "game/foundation/components/vfx/SwordIntentVisualComponent.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // Added for SkillExecution definition
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"

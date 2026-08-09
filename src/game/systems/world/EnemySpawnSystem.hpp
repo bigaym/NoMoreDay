@@ -1,8 +1,8 @@
 #pragma once
 
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/world/MapSystem.hpp"
-#include "game/data/BiomeTypes.hpp"
+#include "game/foundation/data/BiomeTypes.hpp"
 #include <entt/entt.hpp>
 #include <map>
 #include <random>

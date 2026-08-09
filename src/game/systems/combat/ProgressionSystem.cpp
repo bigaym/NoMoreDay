@@ -1,7 +1,7 @@
 #include "game/systems/combat/ProgressionSystem.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <cmath>
 #include <algorithm>
 

@@ -11,17 +11,17 @@
 #include <raylib.h>
 #include "core/math/UUID.hpp"
 
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/InventoryComponent.hpp"
-#include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Progression.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/systems/ui/UISystem.hpp" // Include UISystem
-#include "game/components/MaterialBankComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Progression.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/application/ui/UISystem.hpp" // Include UISystem
+#include "game/foundation/components/MaterialBankComponent.hpp"
 
 // 定义 Concept：检查类型 T 是否支持 nlohmann/json 序列化
 template<typename T>

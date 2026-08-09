@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/WorldState.hpp"
+#include "game/foundation/components/WorldState.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 
 namespace NoMoreDay {

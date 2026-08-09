@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/SharedContext.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -12,9 +12,9 @@
 #include "engine/render/RenderContext.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/render/GPUEntityAdapter.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/application/render/GPUEntityAdapter.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>

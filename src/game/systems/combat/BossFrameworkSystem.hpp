@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/EnemyComponent.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include <entt/entt.hpp>
 

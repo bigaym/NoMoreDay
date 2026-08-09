@@ -2,10 +2,10 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Combat.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Combat.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <array>
 #include <string>

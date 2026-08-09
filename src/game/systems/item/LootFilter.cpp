@@ -1,5 +1,5 @@
 #include "game/systems/item/LootFilter.hpp"
-#include "game/components/ItemStats.hpp"
+#include "game/foundation/components/ItemStats.hpp"
 #include <fstream>
 #include <iostream>
 #include <algorithm>

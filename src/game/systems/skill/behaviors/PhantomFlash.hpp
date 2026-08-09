@@ -1,4 +1,4 @@
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
 #include <entt/entt.hpp>
 

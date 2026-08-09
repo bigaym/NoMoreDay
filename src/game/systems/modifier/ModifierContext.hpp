@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 
 #include <cstdint>
 #include <vector>

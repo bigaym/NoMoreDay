@@ -1,9 +1,9 @@
 #include "TestCommon.hpp"
 #include "game/systems/physics/SpatialGrid.hpp" // For SpatialHashGrid
-#include "game/components/AdvancedAffixComponents.hpp"
-#include "game/components/NemesisComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/MonsterAffixRegistry.hpp"
+#include "game/foundation/components/AdvancedAffixComponents.hpp"
+#include "game/foundation/components/NemesisComponent.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/nemesis/NemesisGenerator.hpp"
 #include <entt/entt.hpp>

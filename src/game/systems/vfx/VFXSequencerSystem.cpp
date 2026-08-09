@@ -10,8 +10,8 @@
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/vfx/MotionTrailComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/vfx/MotionTrailComponent.hpp"
 
 #include <algorithm>
 #include <array>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/FactionComponent.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/FactionComponent.hpp"
 #include "game/contracts/CombatEvents.hpp"
 #include <entt/entt.hpp>
 

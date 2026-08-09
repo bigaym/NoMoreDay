@@ -1,11 +1,11 @@
 #pragma once
 #include <entt/entt.hpp>
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "raylib.h"
 
-#include "game/components/Stats.hpp"
-#include "game/components/Combat.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/Combat.hpp"
 
 #ifndef COMBAT_LEGACY_CALC_ENABLED
 #define COMBAT_LEGACY_CALC_ENABLED 0

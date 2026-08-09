@@ -1,6 +1,6 @@
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
 
 #include <cmath>

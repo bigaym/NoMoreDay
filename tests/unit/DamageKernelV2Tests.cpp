@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/combat_v2/DamageKernel.hpp"
+#include "game/foundation/combat_v2/DamageKernel.hpp"
 
 #include <limits>
 #include <vector>

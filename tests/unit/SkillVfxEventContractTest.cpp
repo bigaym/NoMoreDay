@@ -2,7 +2,7 @@
 
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
 #include <nlohmann/json.hpp>

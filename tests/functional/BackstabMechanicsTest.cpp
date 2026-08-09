@@ -1,8 +1,8 @@
 #include "TestCommon.hpp"
 #include "doctest.h"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
 #include "game/systems/world/TilemapCollisionSystem.hpp"
 

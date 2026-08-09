@@ -166,7 +166,7 @@ message(STATUS "Found Python3 interpreter at: ${Python3_EXECUTABLE}")
 
 set(TAG_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/gen_tags.py")
 set(TAG_JSON "${CMAKE_SOURCE_DIR}/assets/data/tags.json")
-set(TAG_HEADER "${CMAKE_SOURCE_DIR}/src/game/data/TagRegistry.hpp")
+set(TAG_HEADER "${CMAKE_SOURCE_DIR}/src/game/foundation/data/TagRegistry.hpp")
 
 add_custom_command(
     OUTPUT ${TAG_HEADER}

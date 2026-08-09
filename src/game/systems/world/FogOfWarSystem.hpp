@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <cstdint>
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "engine/render/ComputeBuffer.hpp"
 #include "raylib.h"
 

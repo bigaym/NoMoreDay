@@ -1,6 +1,6 @@
 #include "doctest.h"
-#include "game/components/Common.hpp"
-#include "game/data/BiomeRegistry.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/data/BiomeRegistry.hpp"
 #include "game/systems/world/BiomeMapGenerator.hpp"
 #include <array>
 #include <chrono>

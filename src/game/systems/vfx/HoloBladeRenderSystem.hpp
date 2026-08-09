@@ -1,5 +1,5 @@
 #pragma once
-#include "game/SharedContext.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include <entt/entt.hpp>
 
 

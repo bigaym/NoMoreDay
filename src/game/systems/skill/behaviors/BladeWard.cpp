@@ -7,10 +7,10 @@
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EffectComponent.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EffectComponent.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay::skills {

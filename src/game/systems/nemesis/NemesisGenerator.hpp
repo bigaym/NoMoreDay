@@ -1,9 +1,9 @@
 #pragma once
 
-#include "game/components/Common.hpp"
-#include "game/components/FactionComponent.hpp"
-#include "game/components/NemesisComponent.hpp"
-#include "game/data/MonsterAffixRegistry.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/FactionComponent.hpp"
+#include "game/foundation/components/NemesisComponent.hpp"
+#include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include <entt/entt.hpp>
 #include <string>
 #include <vector>

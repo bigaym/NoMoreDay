@@ -1,6 +1,6 @@
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/ModifierRuntimeRegistry.hpp"
 

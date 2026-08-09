@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/components/SkillDefs.hpp"
-#include "game/data/SkillContract.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillContract.hpp"
 
 #include <cstdint>
 #include <vector>

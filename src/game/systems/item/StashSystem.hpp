@@ -2,7 +2,7 @@
 #include <entt/entt.hpp>
 #include <string>
 #include <vector>
-#include "game/components/StashComponent.hpp"
+#include "game/foundation/components/StashComponent.hpp"
 
 namespace NoMoreDay {
 

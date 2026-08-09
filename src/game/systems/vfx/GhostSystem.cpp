@@ -1,6 +1,6 @@
 #include "GhostSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/vfx/VisualGhostComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/vfx/VisualGhostComponent.hpp"
 
 namespace NoMoreDay::systems {
 

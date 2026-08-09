@@ -1,7 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
-#include "game/data/TalentData.hpp"
-#include "game/components/Progression.hpp"
+#include "game/foundation/data/TalentData.hpp"
+#include "game/foundation/components/Progression.hpp"
 
 namespace NoMoreDay {
 

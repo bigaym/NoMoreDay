@@ -1,7 +1,7 @@
 #pragma once
 
-#include "game/components/ItemStats.hpp"
-#include "game/data/TagRegistry.hpp"
+#include "game/foundation/components/ItemStats.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
 
 #include <entt/entt.hpp>

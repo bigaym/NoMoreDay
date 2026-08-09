@@ -1,7 +1,7 @@
 #pragma once
 #include "doctest.h"
 #include "engine/render/SIMDSpatialGrid.hpp"
-#include "game/components/Common.hpp"
+#include "game/foundation/components/Common.hpp"
 #include <vector>
 #include <entt/entt.hpp>
 

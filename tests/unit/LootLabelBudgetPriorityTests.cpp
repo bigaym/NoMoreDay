@@ -1,6 +1,6 @@
 #pragma once
 #include "doctest.h"
-#include "game/render/LootLabelBudget.hpp"
+#include "game/application/render/LootLabelBudget.hpp"
 #include <vector>
 
 TEST_SUITE("LootLabelBudget") {

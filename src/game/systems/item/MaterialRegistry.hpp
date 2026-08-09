@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include <nlohmann/json_fwd.hpp>
-#include "game/components/ItemComponent.hpp" 
+#include "game/foundation/components/ItemComponent.hpp" 
 
 namespace NoMoreDay {
 

@@ -1,6 +1,6 @@
 #include "TestCommon.hpp"
 
-#include "game/systems/ui/BladeMasteryUITheme.hpp"
+#include "game/application/ui/BladeMasteryUITheme.hpp"
 
 using namespace NoMoreDay;
 

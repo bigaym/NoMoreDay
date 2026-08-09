@@ -9,8 +9,8 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/vfx/VFXTypes.hpp"
-#include "game/components/Common.hpp"
-#include "game/render/EmissiveStampAdapter.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/application/render/EmissiveStampAdapter.hpp"
 
 #include "GLFW/glfw3.h"
 

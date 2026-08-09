@@ -1,6 +1,6 @@
 #pragma once
 
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include <cstdint>
 #include <entt/entt.hpp>

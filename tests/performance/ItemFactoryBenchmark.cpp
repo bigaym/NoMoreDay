@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/components/ItemComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include <vector>
 

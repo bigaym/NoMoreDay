@@ -2,10 +2,10 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "game/render/GPUEntitySync.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/application/render/GPUEntitySync.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <chrono>
 #include <vector>
 

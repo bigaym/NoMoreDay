@@ -1,17 +1,17 @@
 #include "game/systems/combat/XPAwardingSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/PlayerState.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/WorldState.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
+#include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/WorldState.hpp"
 #include "game/systems/combat/ProgressionSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include <vector>
 #include <queue>
-#include "game/utils/MonsterScaling.hpp"
+#include "game/foundation/utils/MonsterScaling.hpp"
 
 namespace NoMoreDay {
 

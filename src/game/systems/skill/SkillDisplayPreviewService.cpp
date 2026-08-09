@@ -1,8 +1,8 @@
 #include "game/systems/skill/SkillDisplayPreviewService.hpp"
-#include "game/data/SkillRegistry.hpp"
-#include "game/data/TagRegistry.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 
 namespace NoMoreDay {

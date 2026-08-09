@@ -5,10 +5,10 @@
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/SkillDefs.hpp"
-#include "game/components/vfx/SwordIntentVisualComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/vfx/SwordIntentVisualComponent.hpp"
 #include "raymath.h"
 
 #include <algorithm>

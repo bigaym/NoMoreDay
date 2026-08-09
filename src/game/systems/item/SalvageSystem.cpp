@@ -1,10 +1,10 @@
 #include "game/systems/item/SalvageSystem.hpp"
 #include "engine/audio/AudioSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EffectComponent.hpp"
-#include "game/components/ItemComponent.hpp"
-#include "game/components/InventoryComponent.hpp"
-#include "game/components/MaterialBankComponent.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EffectComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/MaterialBankComponent.hpp"
 #include <spdlog/spdlog.h>
 #include <raylib.h>
 

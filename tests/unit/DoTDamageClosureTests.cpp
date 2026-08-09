@@ -1,9 +1,9 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
