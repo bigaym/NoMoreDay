@@ -2,6 +2,7 @@
 #include "TestCommon.hpp"
 #include "doctest.h"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/lighting/LightManager.hpp"
 #include <raylib.h>
 
 #include <filesystem>
@@ -55,6 +56,10 @@ int main(int argc, char **argv) {
   int res = context.run();
 
   tools::Logger::Shutdown();
+
+  // Release GPU-backed singletons while the GL context is alive (mirrors RenderSystem::Shutdown).
+  render::lighting::LightManager::Get().Shutdown();
+
   CloseWindow();
   return res;
 }

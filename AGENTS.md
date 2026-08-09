@@ -36,6 +36,8 @@
 - Implementation: load `docs/workflows/implementation.md`; complete atomic tasks and apply its code rules as needed.
 - Testing: load `docs/workflows/testing.md`; choose adequate coverage and retain evidence.
 - Debugging: load `docs/workflows/debugging.md`; document, reproduce, fix, and prevent regression.
+- Performance: load `docs/workflows/performance.md`; profile CPU hotspots with Tracy and GPU frames with RenderDoc (tools at `%NMD_DEVTOOLS%`), record results and baselines.
+- External tools referenced via user-level env vars with `NMD_` prefix (`NMD_TRACY`, `NMD_RENDERDOC`, `NMD_WINDBG_CDB`, `NMD_VS_DIR`, `NMD_DEVTOOLS`); PowerShell `$env:NMD_*`, cmd `%NMD_*%`.
 - Review: load `docs/workflows/review.md`; conclude `提交` or `修改` against design and plan, and write reports under `docs/reviews/`.
 - Rendering/GPU: also load `conductor/specs/rendering_engine_v5_master_spec.md` and `conductor/rendering_system_progress.md`.
 - New dependencies, frameworks, or tools: also load `conductor/tech-stack.md` and follow the design workflow.
