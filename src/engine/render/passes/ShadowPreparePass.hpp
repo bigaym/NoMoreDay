@@ -3,6 +3,7 @@
 #include "engine/render/GPUData.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/shadow/ShadowAtlasAllocator.hpp"
+#include "engine/render/shadow/StableLightIdTracker.hpp"
 
 #include "raylib.h"
 
@@ -67,6 +68,9 @@ public:
 private:
   void EnsureAllocator(uint32_t atlasSize);
   void ComputeAtlasRect(uint32_t tileIndex, float outRect[4]) const noexcept;
+  [[nodiscard]] uint64_t
+  ComputeLightFingerprint(const components::GPULight &light) const noexcept;
+  void AssignStableLightIds(std::vector<ShadowPreparedLight> &ranked);
 
   uint32_t m_frameIndex = 0;
   uint32_t m_atlasOverflowCount = 0;
@@ -77,6 +81,7 @@ private:
   uint32_t m_lastLoggedOverflow = 0;
   std::vector<ShadowPreparedLight> m_preparedLights;
   shadow::ShadowAtlasAllocator m_atlasAllocator = shadow::ShadowAtlasAllocator(1, 0);
+  shadow::StableLightIdTracker m_lightIdTracker;
 };
 
 } // namespace NoMoreDay::render::passes

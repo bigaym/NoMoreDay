@@ -38,6 +38,7 @@ add_library(NoMoreDayEngineRenderCore STATIC
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/OccluderCollector.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/ShadowAtlasAllocator.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/ShadowSDFMath.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/StableLightIdTracker.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/validation/GPUHardwareValidationGate.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUABIContract.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUUtils.cpp

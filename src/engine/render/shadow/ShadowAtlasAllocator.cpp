@@ -52,18 +52,21 @@ ShadowAtlasAllocator::AcquireTile(const ShadowTileRequest &request) {
 
   const uint32_t tileIndex = *candidate;
   const TileRecord &victim = m_tiles[tileIndex];
-  if (!victim.occupied || request.priorityScore <= victim.priorityScore) {
+  if (!victim.occupied || request.priorityScore < victim.priorityScore) {
     return {};
   }
 
   ResetPendingEvictionCountersExcept(tileIndex);
-  uint32_t &counter = m_pendingEvictionCounters[tileIndex];
-  ++counter;
-  if (counter <= m_evictionHysteresisFrames) {
-    return {};
+  const bool staleVictim = m_currentFrame - victim.lastUsedFrame >
+                           kStaleTileEvictionFrames;
+  if (!staleVictim) {
+    uint32_t &counter = m_pendingEvictionCounters[tileIndex];
+    ++counter;
+    if (counter <= m_evictionHysteresisFrames) {
+      return {};
+    }
+    counter = 0u;
   }
-
-  counter = 0u;
   const uint32_t evictedLightId = victim.lightId;
   (void)m_lightToTile.erase(evictedLightId);
   AssignTile(tileIndex, request);
@@ -87,6 +90,25 @@ bool ShadowAtlasAllocator::ReleaseTile(const uint32_t lightId) noexcept {
     return true;
   }
   return false;
+}
+
+void ShadowAtlasAllocator::SweepStaleTiles(
+    const uint32_t currentFrame,
+    const uint32_t retentionFrames) noexcept {
+  if (retentionFrames == 0u) {
+    return;
+  }
+  for (uint32_t tileIndex = 0; tileIndex < m_tiles.size(); ++tileIndex) {
+    const TileRecord &record = m_tiles[tileIndex];
+    if (!record.occupied) {
+      continue;
+    }
+    if (currentFrame - record.lastUsedFrame >= retentionFrames) {
+      (void)m_lightToTile.erase(record.lightId);
+      m_tiles[tileIndex] = {};
+      m_pendingEvictionCounters[tileIndex] = 0u;
+    }
+  }
 }
 
 void ShadowAtlasAllocator::Clear() noexcept {

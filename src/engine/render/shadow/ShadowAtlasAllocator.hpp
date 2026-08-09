@@ -7,6 +7,12 @@
 
 namespace NoMoreDay::render::shadow {
 
+// A victim tile whose light has not been requested for more than this many
+// frames is treated as dead weight and evicted immediately, skipping the
+// hysteresis delay. Prevents expired transient/VFX lights from blocking live
+// lights while keeping the thrash-guard for genuinely active tiles.
+constexpr uint32_t kStaleTileEvictionFrames = 5;
+
 struct ShadowTileRequest {
   uint32_t lightId = 0;
   float priorityScore = 0.0f;
@@ -30,6 +36,8 @@ public:
   [[nodiscard]] ShadowTileAllocation
   AcquireTile(const ShadowTileRequest &request);
   [[nodiscard]] bool ReleaseTile(uint32_t lightId) noexcept;
+  void SweepStaleTiles(uint32_t currentFrame,
+                       uint32_t retentionFrames) noexcept;
   void Clear() noexcept;
 
   [[nodiscard]] uint32_t GetTileCount() const noexcept { return m_tileCount; }

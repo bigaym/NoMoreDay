@@ -151,6 +151,49 @@ std::vector<ShadowPreparedLight> ShadowPreparePass::RankTopNForAtlas(
   return ranked;
 }
 
+uint64_t ShadowPreparePass::ComputeLightFingerprint(
+    const components::GPULight &light) const noexcept {
+  const float cellSize = static_cast<float>(std::max(m_atlasTileSize, 1u));
+  const int64_t cellX =
+      static_cast<int64_t>(std::floor(light.posX / cellSize));
+  const int64_t cellY =
+      static_cast<int64_t>(std::floor(light.posY / cellSize));
+  const uint32_t radiusBucket = static_cast<uint32_t>(
+      std::clamp(light.radius / cellSize, 0.0f, 1023.0f));
+  const uint32_t intensityBucket = static_cast<uint32_t>(
+      std::clamp(light.intensity * 8.0f, 0.0f, 1023.0f));
+
+  uint64_t hash = 1469598103934665603ull; // FNV-1a 64 offset basis
+  const auto mix = [&hash](const uint64_t v) noexcept {
+    hash ^= v;
+    hash *= 1099511628211ull;
+  };
+  mix(static_cast<uint64_t>(cellX));
+  mix(static_cast<uint64_t>(cellY));
+  mix(light.lightType);
+  mix(light.priority & 0xFFu);
+  mix(radiusBucket);
+  mix(intensityBucket);
+  mix(static_cast<uint64_t>(static_cast<uint8_t>(light.colorR * 255.0f)));
+  mix(static_cast<uint64_t>(static_cast<uint8_t>(light.colorG * 255.0f)));
+  mix(static_cast<uint64_t>(static_cast<uint8_t>(light.colorB * 255.0f)));
+  if (hash == 0ull) {
+    hash = 1ull;
+  }
+  return hash;
+}
+
+void ShadowPreparePass::AssignStableLightIds(
+    std::vector<ShadowPreparedLight> &ranked) {
+  for (auto &light : ranked) {
+    light.lightId =
+        m_lightIdTracker.Resolve(ComputeLightFingerprint(light.gpuLight),
+                                 m_frameIndex);
+  }
+  m_lightIdTracker.Prune(m_frameIndex,
+                         RenderConstants::Shadow::kStableLightRetentionFrames);
+}
+
 void ShadowPreparePass::Execute(graph::RenderContext &context) {
   ++m_frameIndex;
   m_preparedLights.clear();
@@ -168,6 +211,8 @@ void ShadowPreparePass::Execute(graph::RenderContext &context) {
 
   EnsureAllocator(config.shadowAtlasSize);
   m_atlasAllocator.BeginFrame(m_frameIndex);
+  m_atlasAllocator.SweepStaleTiles(
+      m_frameIndex, RenderConstants::Shadow::kAtlasTileRetentionFrames);
 
   const float screenWidth = static_cast<float>(GetScreenWidth());
   const float screenHeight = static_cast<float>(GetScreenHeight());
@@ -179,8 +224,9 @@ void ShadowPreparePass::Execute(graph::RenderContext &context) {
     inputs.push_back(
         {.sourceIndex = i, .priority = activeLights[i].priority, .gpuLight = activeLights[i].gpuLight});
   }
-  const auto ranked = RankTopNForAtlas(inputs, *context.camera, screenWidth,
-                                       screenHeight, config.maxShadowedLights);
+  auto ranked = RankTopNForAtlas(inputs, *context.camera, screenWidth,
+                                 screenHeight, config.maxShadowedLights);
+  AssignStableLightIds(ranked);
 
   auto &lightManager = NoMoreDay::render::lighting::LightManager::Get();
   lightManager.ClearShadowMapIndices();

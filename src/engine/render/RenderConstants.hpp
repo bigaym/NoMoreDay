@@ -281,6 +281,12 @@ constexpr uint32_t kMaxShadowCasters = 8192;
 constexpr float kShadowChunkSize = 512.0f;
 constexpr float kCameraNeighborhoodRadius = 1024.0f;
 constexpr uint32_t kAtlasEvictionHysteresis = 2;
+// Atlas tiles are reclaimed after this many frames of no reuse so tiles freed
+// by vanished/reordered lights do not accumulate into a full-atlas overflow.
+constexpr uint32_t kAtlasTileRetentionFrames = 60;
+// Stable light fingerprints are kept this many frames so returning lights reuse
+// their previous tile id; must stay >= kAtlasTileRetentionFrames.
+constexpr uint32_t kStableLightRetentionFrames = 120;
 } // namespace Shadow
 
 namespace ShadowCS {

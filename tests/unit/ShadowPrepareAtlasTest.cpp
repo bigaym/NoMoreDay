@@ -131,3 +131,80 @@ TEST_CASE("[Unit] Shadow Atlas - Hysteresis produces predictable overflow attemp
   CHECK(finalAllocation.evictedLightId == 1u);
   CHECK(overflowCount == 2u);
 }
+
+TEST_CASE("[Unit] Shadow Atlas - Sweep releases tiles not reused within retention") {
+  using NoMoreDay::render::shadow::ShadowAtlasAllocator;
+
+  ShadowAtlasAllocator allocator(2u, 0u);
+  allocator.BeginFrame(1u);
+  REQUIRE(allocator.AcquireTile({.lightId = 10u, .priorityScore = 2.0f}).success);
+  REQUIRE(allocator.AcquireTile({.lightId = 20u, .priorityScore = 2.0f}).success);
+  REQUIRE(allocator.GetAllocatedTileCount() == 2u);
+
+  allocator.BeginFrame(2u);
+  REQUIRE(allocator.AcquireTile({.lightId = 10u, .priorityScore = 2.0f}).success);
+
+  allocator.BeginFrame(6u);
+  allocator.SweepStaleTiles(6u, 5u);
+  CHECK(allocator.GetAllocatedTileCount() == 1u);
+
+  const auto reacquire =
+      allocator.AcquireTile({.lightId = 20u, .priorityScore = 2.0f});
+  REQUIRE(reacquire.success);
+  CHECK_FALSE(reacquire.evicted);
+  CHECK_FALSE(reacquire.reusedExisting);
+  CHECK(allocator.GetAllocatedTileCount() == 2u);
+}
+
+TEST_CASE("[Unit] Shadow Atlas - Sweep is a no-op with zero retention") {
+  using NoMoreDay::render::shadow::ShadowAtlasAllocator;
+
+  ShadowAtlasAllocator allocator(1u, 0u);
+  allocator.BeginFrame(1u);
+  REQUIRE(allocator.AcquireTile({.lightId = 1u, .priorityScore = 1.0f}).success);
+
+  allocator.BeginFrame(100u);
+  allocator.SweepStaleTiles(100u, 0u);
+  CHECK(allocator.GetAllocatedTileCount() == 1u);
+}
+
+TEST_CASE("[Unit] Shadow Atlas - Equal priority evicts lowest with sweep-friendly retry") {
+  using NoMoreDay::render::shadow::ShadowAtlasAllocator;
+
+  ShadowAtlasAllocator allocator(1u, 2u);
+  allocator.BeginFrame(1u);
+  REQUIRE(allocator.AcquireTile({.lightId = 1u, .priorityScore = 1.0f}).success);
+
+  allocator.BeginFrame(2u);
+  const auto first = allocator.AcquireTile({.lightId = 2u, .priorityScore = 1.0f});
+  CHECK_FALSE(first.success);
+
+  allocator.BeginFrame(3u);
+  const auto second = allocator.AcquireTile({.lightId = 2u, .priorityScore = 1.0f});
+  CHECK_FALSE(second.success);
+
+  allocator.BeginFrame(4u);
+  const auto third = allocator.AcquireTile({.lightId = 2u, .priorityScore = 1.0f});
+  REQUIRE(third.success);
+  CHECK(third.evicted);
+  CHECK(third.evictedLightId == 1u);
+}
+
+TEST_CASE("[Unit] Shadow Atlas - Stale victims evict immediately without hysteresis") {
+  using NoMoreDay::render::shadow::ShadowAtlasAllocator;
+
+  ShadowAtlasAllocator allocator(1u, 10u);
+  allocator.BeginFrame(1u);
+  REQUIRE(allocator.AcquireTile({.lightId = 1u, .priorityScore = 1.0f}).success);
+
+  for (uint32_t frame = 2u; frame <= 10u; ++frame) {
+    allocator.BeginFrame(frame);
+  }
+
+  allocator.BeginFrame(11u);
+  const auto allocation =
+      allocator.AcquireTile({.lightId = 2u, .priorityScore = 1.0f});
+  REQUIRE(allocation.success);
+  CHECK(allocation.evicted);
+  CHECK(allocation.evictedLightId == 1u);
+}
