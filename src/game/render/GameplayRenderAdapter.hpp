@@ -1,6 +1,6 @@
 #pragma once
 #include "game/SharedContext.hpp"
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include "engine/render/GameplayRenderHooks.hpp"
 #include <entt/entt.hpp>
 #include <memory>

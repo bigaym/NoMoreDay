@@ -1,4 +1,4 @@
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include <limits>
 
 namespace NoMoreDay::systems {

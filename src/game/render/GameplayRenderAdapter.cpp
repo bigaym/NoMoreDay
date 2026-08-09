@@ -10,7 +10,7 @@
 #include "core/logging/Logger.hpp"
 #include "core/utils/FmtBuffer.hpp"
 #include "core/utils/ScopedTimer.hpp"
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/LootTextBatcher.hpp"

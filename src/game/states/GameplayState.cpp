@@ -82,7 +82,7 @@
 #include "game/systems/world/MapAffixCalculator.hpp"
 #include "game/systems/world/MapAffixRegistry.hpp"
 #include "game/systems/combat/MovementStanceSystem.hpp"
-#include "game/vfx/VFXSequencerSystem.hpp"
+#include "game/systems/vfx/VFXSequencerSystem.hpp"
 #include "game/systems/SerializationSystem.hpp"
 
 #include <filesystem>

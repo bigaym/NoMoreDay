@@ -3,7 +3,7 @@
 #include "game/components/Stats.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
+#include "game/stats/AttributePipeline.hpp"
 
 TEST_SUITE("AstrolabeLogic") {
 

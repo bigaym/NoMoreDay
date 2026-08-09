@@ -1,5 +1,6 @@
 // src/engine/audio/AudioSystem.hpp
 // 音效系统 - 封装 Raylib 音频 API
+// 本目录 (src/engine/audio/) 为未来 NoMoreDayEngineAudio 模块的保留目录,请勿移动或合并。
 #pragma once
 
 #include "core/logging/Logger.hpp"

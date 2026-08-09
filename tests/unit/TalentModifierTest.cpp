@@ -6,7 +6,7 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
+#include "game/stats/AttributePipeline.hpp"
 #include <entt/entt.hpp>
 
 using namespace NoMoreDay;

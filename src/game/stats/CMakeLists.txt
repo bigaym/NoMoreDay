@@ -1,12 +1,12 @@
 # NoMoreDayGameStats: the game stats/attribute static library.
 #
-# Owns systems/stats/AttributePipeline.cpp. It depends on the contract headers
+# Owns stats/AttributePipeline.cpp. It depends on the contract headers
 # (CombatFormula.hpp via NoMoreDayGameContractsCore) and on the data/utility
 # layers (SkillRegistry, MonsterScaling). Modifier- and blade-service symbols
 # it references live in the NoMoreDayGame aggregate and resolve at final link.
 
 add_library(NoMoreDayGameStats STATIC
-    ${CMAKE_SOURCE_DIR}/src/game/systems/stats/AttributePipeline.cpp
+    AttributePipeline.cpp
 )
 
 target_include_directories(NoMoreDayGameStats PUBLIC ${CMAKE_SOURCE_DIR}/src)

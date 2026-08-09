@@ -4,7 +4,7 @@
 # game layer. Additional game utilities land here in later milestones.
 
 add_library(NoMoreDayGameUtils STATIC
-    ${CMAKE_SOURCE_DIR}/src/game/utils/MonsterScaling.cpp
+    MonsterScaling.cpp
 )
 
 target_include_directories(NoMoreDayGameUtils PUBLIC ${CMAKE_SOURCE_DIR}/src)

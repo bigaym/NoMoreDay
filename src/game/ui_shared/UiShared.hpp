@@ -6,7 +6,7 @@
 #include <entt/entt.hpp>
 #include <raylib.h>
 
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include "game/components/ItemComponent.hpp"
 
 namespace NoMoreDay {

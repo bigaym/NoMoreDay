@@ -1,7 +1,7 @@
 #pragma once
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/world/WorldConstants.hpp"
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include <entt/entt.hpp>
 #include "game/components/Projectile.hpp"
 #include "game/components/Common.hpp"

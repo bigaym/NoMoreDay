@@ -12,7 +12,7 @@
 # Game/App/tests receive the identical compile environment as before the split.
 
 add_library(NoMoreDayEngineRenderCore STATIC
-    ${CMAKE_SOURCE_DIR}/src/engine/physics/SIMDSpatialGrid.cpp
+    SIMDSpatialGrid.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/core/AdaptiveQualityController.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/core/BindingRegistry.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/core/DeviceCapabilityMatrix.cpp

@@ -1,6 +1,6 @@
 #pragma once
 #include "doctest.h"
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include "game/components/Common.hpp"
 #include <vector>
 #include <chrono>

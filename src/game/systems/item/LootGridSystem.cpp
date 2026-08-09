@@ -1,6 +1,6 @@
 #include "game/systems/item/LootGridSystem.hpp"
 #include "game/ui_shared/UiShared.hpp"
-#include "engine/physics/SIMDSpatialGrid.hpp"
+#include "engine/render/SIMDSpatialGrid.hpp"
 #include "game/components/Common.hpp"
 
 namespace NoMoreDay::systems {

@@ -11,7 +11,7 @@
 #include "game/components/Progression.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/systems/skill/AstrolabeSystem.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
+#include "game/stats/AttributePipeline.hpp"
 #include "raymath.h"
 #include <algorithm>
 

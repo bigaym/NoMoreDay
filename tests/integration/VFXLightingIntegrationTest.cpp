@@ -4,7 +4,7 @@
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
-#include "game/vfx/VFXSequencerSystem.hpp"
+#include "game/systems/vfx/VFXSequencerSystem.hpp"
 #include "game/components/Common.hpp"
 
 #include <array>

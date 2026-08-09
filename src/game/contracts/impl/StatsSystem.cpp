@@ -21,7 +21,7 @@
 #include "game/contracts/CombatFormula.hpp" // Added for Formula Refactor
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/contracts/impl/CombatAntiMeta.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
+#include "game/stats/AttributePipeline.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <Taskflow/algorithm/for_each.hpp>
 #include <Taskflow/taskflow.hpp>

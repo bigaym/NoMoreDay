@@ -1,7 +1,7 @@
 # NoMoreDayGameRender: the rendering static library (top layer, M4).
 # Owns EmissiveStampAdapter, GameplayRenderAdapter, GPUEntitySync,
 # GPULootAdapter, HeightFieldAdapter, LightAdapter, OccluderProjector
-# (render/) plus systems/render/AirWallRenderer.cpp (absolute path).
+# (render/) plus render/AirWallRenderer.cpp.
 # GameplayRenderAdapter talks to combat (MonsterAffixSystem), item
 # (LootFilter), ui_shared (UiShared: loot grid / font / rarity / hovered item),
 # vfx (HoloBladeRenderSystem/SwordIntent/TrailSystem), world
@@ -18,7 +18,7 @@ add_library(NoMoreDayGameRender STATIC
     HeightFieldAdapter.cpp
     LightAdapter.cpp
     OccluderProjector.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/systems/render/AirWallRenderer.cpp
+    AirWallRenderer.cpp
 )
 
 target_include_directories(NoMoreDayGameRender PUBLIC ${CMAKE_SOURCE_DIR}/src)

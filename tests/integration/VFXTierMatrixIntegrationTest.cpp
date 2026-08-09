@@ -6,7 +6,7 @@
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
-#include "game/vfx/VFXSequencerSystem.hpp"
+#include "game/systems/vfx/VFXSequencerSystem.hpp"
 #include "game/components/Common.hpp"
 
 #include <chrono>

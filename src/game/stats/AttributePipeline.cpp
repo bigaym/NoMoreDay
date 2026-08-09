@@ -1,4 +1,4 @@
-#include "game/systems/stats/AttributePipeline.hpp"
+#include "game/stats/AttributePipeline.hpp"
 #include "core/utils/FrameRateUtils.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"

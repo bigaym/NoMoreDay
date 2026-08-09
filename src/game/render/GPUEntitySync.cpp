@@ -8,7 +8,7 @@
 #include "game/components/ItemComponent.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
+#include "game/stats/AttributePipeline.hpp"
 
 namespace NoMoreDay::render {
 

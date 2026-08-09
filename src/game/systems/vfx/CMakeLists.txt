@@ -1,14 +1,14 @@
 # NoMoreDayGameVfx: the VFX static library (middle layer, M4).
 # Owns GhostSystem, HoloBladeRenderSystem, SwordIntentVisualSystem,
-# TrailSystem (systems/vfx) plus VFXSequencerSystem.cpp (src/game/vfx,
-# referenced by absolute path). Depends on engine only (design §5.4).
+# TrailSystem (systems/vfx) plus VFXSequencerSystem.cpp (systems/vfx).
+# Depends on engine only (design §5.4).
 
 add_library(NoMoreDayGameVfx STATIC
     GhostSystem.cpp
     HoloBladeRenderSystem.cpp
     SwordIntentVisualSystem.cpp
     TrailSystem.cpp
-    ${CMAKE_SOURCE_DIR}/src/game/vfx/VFXSequencerSystem.cpp
+    VFXSequencerSystem.cpp
 )
 
 target_include_directories(NoMoreDayGameVfx PUBLIC ${CMAKE_SOURCE_DIR}/src)
