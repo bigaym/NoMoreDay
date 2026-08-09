@@ -2,7 +2,6 @@
 #include "core/logging/Logger.hpp"
 #include "game/ui_shared/UiShared.hpp"
 #include "game/components/Common.hpp"
-#include "game/components/LightComponent.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/EnemyComponent.hpp"
@@ -80,8 +79,6 @@ BiomeID ResolveCurrentBiome(entt::registry &registry) {
   return BiomeID::None;
 }
 
-void TryAttachDropLight(entt::registry &registry, entt::entity itemEntity);
-
 FragmentElement ResolveCurrentFragmentElement(entt::registry &registry) {
   if (!registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
     return FragmentElement::None;
@@ -125,7 +122,6 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
         registry.emplace<LocalLevelTag>(fragment);
         registry.emplace<LootTag>(fragment);
         registry.emplace_or_replace<LabelCacheComponent>(fragment);
-        TryAttachDropLight(registry, fragment);
         UiShared::s_itemGridDirty = true;
       }
       continue;
@@ -146,48 +142,6 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
   }
 }
 
-void TryAttachDropLight(entt::registry &registry, entt::entity itemEntity) {
-  const auto *itemComp = registry.try_get<ItemComponent>(itemEntity);
-  if (itemComp == nullptr || itemComp->rarity < Rarity::Rare) {
-    return;
-  }
-
-  LightComponent light = {};
-  light.type = components::LightType::PointLight;
-  light.radius = 60.0f;
-  light.intensity = 0.8f;
-  light.priority = 64;
-  light.enabled = true;
-  light.flicker = false;
-
-  switch (itemComp->rarity) {
-  case Rarity::Rare:
-    light.colorR = 1.0f;
-    light.colorG = 0.85f;
-    light.colorB = 0.25f;
-    break;
-  case Rarity::Legendary:
-    light.colorR = 1.0f;
-    light.colorG = 0.55f;
-    light.colorB = 0.1f;
-    light.intensity = 1.0f;
-    break;
-  case Rarity::Mythic:
-  case Rarity::Ancient:
-    light.colorR = 1.0f;
-    light.colorG = 0.25f;
-    light.colorB = 0.25f;
-    light.intensity = 1.2f;
-    break;
-  default:
-    light.colorR = 0.8f;
-    light.colorG = 0.8f;
-    light.colorB = 0.8f;
-    break;
-  }
-
-  registry.emplace_or_replace<LightComponent>(itemEntity, light);
-}
 } // namespace
 
 // Static member initialization
@@ -286,7 +240,6 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
               registry.emplace<Radius>(item, 15.0f);
               registry.emplace<LocalLevelTag>(item);
               registry.emplace<LootTag>(item); // Optimization for spatial grid
-              TryAttachDropLight(registry, item);
 
               // Visual Effect & Filter
               auto effect = registry.create();
@@ -454,7 +407,6 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
           registry.emplace<Radius>(item, 15.0f);
           registry.emplace<LocalLevelTag>(item);
           registry.emplace<LootTag>(item); // Optimization for spatial grid
-          TryAttachDropLight(registry, item);
 
           // Spawn Visual Effect
           auto effect = registry.create();

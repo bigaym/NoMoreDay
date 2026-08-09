@@ -2,6 +2,7 @@
 
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
+#include "game/systems/item/LootFilter.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -104,6 +105,12 @@ LightProjection LightAdapter::BuildLightCandidates(entt::registry &registry,
   for (const entt::entity entity : view) {
     const auto &[position, light] = view.get<Position, LightComponent>(entity);
     if (!light.enabled) {
+      continue;
+    }
+
+    if (const auto *lootResult =
+            registry.try_get<LootFilterResultComponent>(entity);
+        lootResult != nullptr && !lootResult->visible) {
       continue;
     }
 

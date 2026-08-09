@@ -9,6 +9,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
 #include "game/render/LightAdapter.hpp"
+#include "game/systems/item/LootFilter.hpp"
 
 #include <cstddef>
 #include <span>
@@ -275,4 +276,51 @@ TEST_CASE("[Unit] Lighting - LightType Mapping Spot Ambient Point") {
         static_cast<uint32_t>(components::LightType::PointLight));
   CHECK(pointGpu.dirX == doctest::Approx(1.0f));
   CHECK(pointGpu.dirY == doctest::Approx(0.0f));
+}
+
+TEST_CASE("[Unit] Lighting - LightAdapter skips hidden loot items") {
+  entt::registry registry;
+
+  const entt::entity visibleLoot = registry.create();
+  registry.emplace<Position>(visibleLoot, 10.0f, 10.0f);
+  registry.emplace<LightComponent>(visibleLoot);
+  auto &visibleResult =
+      registry.emplace<LootFilterResultComponent>(visibleLoot);
+  visibleResult.visible = true;
+
+  const entt::entity hiddenLoot = registry.create();
+  registry.emplace<Position>(hiddenLoot, 20.0f, 20.0f);
+  registry.emplace<LightComponent>(hiddenLoot);
+  auto &hiddenResult = registry.emplace<LootFilterResultComponent>(hiddenLoot);
+  hiddenResult.visible = false;
+
+  const entt::entity plainLight = registry.create();
+  registry.emplace<Position>(plainLight, 30.0f, 30.0f);
+  registry.emplace<LightComponent>(plainLight);
+
+  Camera2D camera = {};
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  auto &manager = render::lighting::LightManager::Get();
+  manager.Shutdown();
+  const auto projection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 8, projection.ecsLights);
+
+  REQUIRE(manager.GetActiveLightCount() == 2);
+  const auto &lights = manager.GetActiveLightsCpu();
+  REQUIRE(lights.size() == 2);
+  bool sawVisibleLoot = false;
+  bool sawPlainLight = false;
+  for (const auto &light : lights) {
+    if (light.posX == doctest::Approx(10.0f)) {
+      sawVisibleLoot = true;
+    }
+    if (light.posX == doctest::Approx(30.0f)) {
+      sawPlainLight = true;
+    }
+  }
+  CHECK(sawVisibleLoot);
+  CHECK(sawPlainLight);
 }

@@ -2,6 +2,7 @@
 
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/vfx/VFXBudgetEstimator.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
@@ -842,4 +843,75 @@ TEST_CASE("[Unit] VFXSequencer - V3 Templates Load And Budget Within Threshold")
   }
 
   manager.Shutdown();
+}
+
+TEST_CASE("[Unit] VFXSequencer - ActiveLight Follows Host Entity Position") {
+  const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_active_light_follow");
+  const std::filesystem::path file = dir / "light_follow.json";
+  WriteTextFile(file,
+                R"({
+  "vfx_schema_version": 1,
+  "name": "LightFollow",
+  "duration": 0.5,
+  "minTier": "Low",
+  "events": [
+    { "time": 0.00, "type": "Light", "anchor": "Caster",
+      "params": { "radius": 40.0, "intensity": 1.0, "duration": 0.5 } }
+  ]
+})");
+
+  render::MaterialManager::Get().Shutdown();
+  render::MaterialManager::Get().Initialize();
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+  REQUIRE(manager.LoadFromJson(dir.string()) == 1);
+  render::core::QualityTierManager::Get().ForceTier(
+      render::core::QualityTier::High);
+
+  auto &lightManager = render::lighting::LightManager::Get();
+  lightManager.Shutdown();
+  lightManager.SetDisableViewCullingForTesting(true);
+
+  entt::registry registry;
+  const entt::entity entity = registry.create();
+  registry.emplace<Position>(entity, 100.0f, 100.0f);
+  manager.Play(registry, entity, "LightFollow", entt::null, false);
+
+  vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
+
+  Camera2D camera = {};
+  camera.target = {100.0f, 100.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  constexpr float kDt = 1.0f / 60.0f;
+  vfx::VFXSequencerSystem::Update(registry, kDt);
+
+  registry.get<Position>(entity).x = 300.0f;
+  registry.get<Position>(entity).y = 200.0f;
+  camera.target = {300.0f, 200.0f};
+
+  vfx::VFXSequencerSystem::Update(registry, kDt);
+
+  lightManager.UpdateCandidates({}, camera, 8, 0);
+  bool sawFollowed = false;
+  bool sawStalePosition = false;
+  for (const auto &light : lightManager.GetActiveLightsCpu()) {
+    if (light.posX == doctest::Approx(300.0f) &&
+        light.posY == doctest::Approx(200.0f)) {
+      sawFollowed = true;
+    }
+    if (light.posX == doctest::Approx(100.0f) &&
+        light.posY == doctest::Approx(100.0f)) {
+      sawStalePosition = true;
+    }
+  }
+  CHECK(sawFollowed);
+  CHECK(sawStalePosition == false);
+
+  manager.Shutdown();
+  render::MaterialManager::Get().Shutdown();
+  CleanupDir(dir);
 }

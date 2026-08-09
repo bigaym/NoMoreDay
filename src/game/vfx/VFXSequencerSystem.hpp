@@ -35,7 +35,8 @@ private:
                               const ParticleEventParams &params);
   static void ExecuteTrail(entt::registry &registry, entt::entity source,
                            const TrailEventParams &params);
-  static void ExecuteLight(entt::registry &registry, Vector2 worldPos,
+  static void ExecuteLight(entt::registry &registry, entt::entity source,
+                           AnchorType anchor, Vector2 worldPos,
                            const LightEventParams &params);
   static void ExecuteShake(const ShakeEventParams &params);
   static void ExecuteDistortion(Vector2 worldPos,

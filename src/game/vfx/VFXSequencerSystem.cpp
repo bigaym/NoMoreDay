@@ -34,6 +34,8 @@ struct ActiveLightRuntime {
   Vector2 position = {0.0f, 0.0f};
   LightEventParams params = {};
   float elapsed = 0.0f;
+  entt::entity source = entt::null;
+  AnchorType anchor = AnchorType::Caster;
 };
 
 struct ActiveDistortionRuntime {
@@ -425,7 +427,24 @@ void EmitTransientLight(const Vector2 &position, const LightEventParams &params,
   render::lighting::LightManager::Get().AddTransientLight(light);
 }
 
-void UpdateActiveLights(float dt) {
+Vector2 ResolveActiveLightPosition(entt::registry &registry,
+                                   const ActiveLightRuntime &runtime) {
+  if (runtime.anchor == AnchorType::World || !registry.valid(runtime.source)) {
+    return runtime.position;
+  }
+  if (runtime.anchor == AnchorType::Caster) {
+    return EntityPositionOr(registry, runtime.source, runtime.position);
+  }
+
+  if (const auto *player =
+          registry.try_get<VFXPlayerComponent>(runtime.source)) {
+    return ResolveAnchor(registry, runtime.source, *player, runtime.anchor);
+  }
+
+  return runtime.position;
+}
+
+void UpdateActiveLights(entt::registry &registry, float dt) {
   if (g_activeLights.empty()) {
     return;
   }
@@ -441,7 +460,8 @@ void UpdateActiveLights(float dt) {
 
     const float envelope = ComputeLightEnvelope(runtime.elapsed, runtime.params);
     if (envelope > 0.0f) {
-      EmitTransientLight(runtime.position, runtime.params, envelope);
+      EmitTransientLight(ResolveActiveLightPosition(registry, runtime),
+                         runtime.params, envelope);
     }
     remaining.push_back(runtime);
   }
@@ -619,7 +639,7 @@ void VFXSequencerSystem::Update(entt::registry &registry, float dt) {
   UpdateShadowPulseRuntimes(dt);
   UpdateLightProfileBlendRuntimes(dt);
   UpdateMaterialPhaseShiftRuntimes(dt);
-  UpdateActiveLights(dt);
+  UpdateActiveLights(registry, dt);
   UpdateActiveDistortions(dt);
   UpdateMaterialSwapRuntimes(registry, dt);
 
@@ -759,7 +779,7 @@ void VFXSequencerSystem::DispatchEvent(entt::registry &registry, entt::entity so
     break;
   case EventType::Light:
     if (const auto *params = std::get_if<LightEventParams>(&event.params)) {
-      ExecuteLight(registry, worldPos, *params);
+      ExecuteLight(registry, source, event.anchor, worldPos, *params);
     }
     break;
   case EventType::Shake:
@@ -891,7 +911,8 @@ void VFXSequencerSystem::ExecuteTrail(entt::registry &registry, entt::entity sou
   }
 }
 
-void VFXSequencerSystem::ExecuteLight(entt::registry &registry, Vector2 worldPos,
+void VFXSequencerSystem::ExecuteLight(entt::registry &registry, entt::entity source,
+                                      AnchorType anchor, Vector2 worldPos,
                                       const LightEventParams &params) {
   (void)registry;
   EmitTransientLight(worldPos, params, ComputeLightEnvelope(0.0f, params));
@@ -901,6 +922,8 @@ void VFXSequencerSystem::ExecuteLight(entt::registry &registry, Vector2 worldPos
     runtime.position = worldPos;
     runtime.params = params;
     runtime.elapsed = 0.0f;
+    runtime.source = source;
+    runtime.anchor = anchor;
     g_activeLights.push_back(runtime);
   }
 }
