@@ -1,4 +1,5 @@
 #include "game/states/MainMenuState.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/persistence/SaveManager.hpp"
 #include "game/scene/StateManager.hpp"
 #include "game/states/GameplayState.hpp"

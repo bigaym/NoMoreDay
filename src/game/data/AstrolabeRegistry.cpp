@@ -1,5 +1,6 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/TalentLoader.hpp"
+#include "game/data/AstrolabeConstants.hpp"
 #include "game/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 

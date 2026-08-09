@@ -1,4 +1,5 @@
 #include "SharedStash.hpp"
+#include "game/systems/item/StashConfig.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/systems/item/ItemFactory.hpp"

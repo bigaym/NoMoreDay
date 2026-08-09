@@ -257,10 +257,10 @@ inline constexpr uint32_t ToGL(Barrier b) { return static_cast<uint32_t>(b); }
 
 // === Convenience Constants ===
 namespace GPU {
-constexpr int MAX_ENTITIES = 200000;
-constexpr int MAX_PARTICLES = 200000;
-constexpr int MAX_SKILL_EFFECTS = 1024;
-constexpr int MAX_POPUPS = 2048;
+// 运行时容量: 与 GPUParticleSystem::Init / GPUSkillEffectSystem::Init 在
+// app/Game.cpp 传入的容量一致, 修改容量时须同步两处。
+constexpr int MAX_PARTICLES = 100000;
+constexpr int MAX_SKILL_EFFECTS = 10000;
 constexpr int MAX_GLYPHS = 4096; // 批量文字渲染上限
 } // namespace GPU
 

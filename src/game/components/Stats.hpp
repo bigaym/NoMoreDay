@@ -61,13 +61,14 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrimaryStats, strength, dexterity,
 // 这是战斗系统直接读取的最终面板。
 // 所有的 Buff、装备词缀、天赋加成都在 StatsSystem 中计算并“烘焙”进这里。
 // NOTE: tag_stat_cache moved to StatsSystem to keep CombatStats as POD for SIMD
-using namespace NoMoreDay::Constants::Combat;
 struct alignas(32) CombatStats {
   // --- 生存资源 ---
-  float health = DEFAULT_MAX_HEALTH;
-  float max_health = DEFAULT_MAX_HEALTH;
-  float mana = DEFAULT_MAX_MANA;
-  float max_mana = DEFAULT_MAX_MANA;
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_MAX_HEALTH 保持同步
+  float health = 100000.0f;
+  float max_health = 100000.0f;
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_MAX_MANA 保持同步
+  float mana = 100000.0f;
+  float max_mana = 100000.0f;
 
   // --- 护盾机制 (Hybrid Barrier: ES + Ward) ---
   float barrier = 0.0f;           // 当前护盾值
@@ -110,13 +111,17 @@ struct alignas(32) CombatStats {
                                                         1.0f, 1.0f, 1.0f};
 
   // D. 暴击体系 (Crit)
-  float crit_chance = DEFAULT_CRIT_CHANCE;
-  float crit_damage = DEFAULT_CRIT_DAMAGE;
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_CRIT_CHANCE 保持同步
+  float crit_chance = 0.05f;
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_CRIT_DAMAGE 保持同步
+  float crit_damage = 1.50f;
 
   // E. 速度与穿透
-  float attack_speed = DEFAULT_ATTACK_SPEED;
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_ATTACK_SPEED 保持同步
+  float attack_speed = 1.0f;
   float cast_speed = 1.0f; // 施法速度
-  float accuracy = DEFAULT_ACCURACY;
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_ACCURACY 保持同步
+  float accuracy = 0.97f;
   float armor_pen = 0.0f; // 护甲穿透 (固定值或百分比，视设计而定)
   float knockback = 0.0f; // 击退力度
 
@@ -145,7 +150,8 @@ struct alignas(32) CombatStats {
   int cached_area_level = 1;
 
   // --- 特殊机制 ---
-  float move_speed = DEFAULT_MOVE_SPEED; // 移动速度 (pixels/sec)
+  // 与 NoMoreDay::Constants::Combat::DEFAULT_MOVE_SPEED 保持同步
+  float move_speed = 100.0f; // 移动速度 (pixels/sec)
   float life_steal = 0.0f;               // 吸血 %
   float life_on_hit = 0.0f;              // 击回
   float mana_on_hit = 0.0f;              // 蓝回

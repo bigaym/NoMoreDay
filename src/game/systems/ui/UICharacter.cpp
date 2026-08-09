@@ -4,6 +4,7 @@
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
+#include "game/systems/combat/CombatConstants.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "raylib.h"

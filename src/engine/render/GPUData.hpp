@@ -15,9 +15,8 @@ inline constexpr uint32_t GPU_ABI_COMPAT_MIN_VERSION =
 
 namespace NoMoreDay::Constants::GPU {
   // Texture Array Constraints
-  constexpr int TEXTURE_LAYER_SIZE = 128;       // Standardized sprite size (px)
-  constexpr int MAX_TEXTURE_LAYERS = 256;       // Max sprites in primary array
-  constexpr int SDF_CIRCLE_TYPE = -1;           // Special type for SDF rendering
+  constexpr int TEXTURE_LAYER_SIZE = 128; // Standardized sprite size (px)
+  constexpr int SDF_CIRCLE_TYPE = -1;     // Special type for SDF rendering
   constexpr int MAX_FORCE_FIELDS = 16;
   constexpr int MAX_TRAILS = 512;
   constexpr int MAX_TRAIL_POINTS_PER_TRAIL = 64;

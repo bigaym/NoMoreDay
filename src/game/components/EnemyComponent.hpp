@@ -4,6 +4,7 @@
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/TagRegistry.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
+#include "game/systems/world/EnemyConstants.hpp"
 #include <array>
 #include <cstddef>
 #include <cstdint>

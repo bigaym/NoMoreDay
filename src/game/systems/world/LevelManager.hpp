@@ -2,6 +2,7 @@
 
 #include "game/components/Common.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/systems/render/AirWallRenderer.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"

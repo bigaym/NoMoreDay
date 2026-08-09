@@ -5,6 +5,7 @@
 #include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include "rlgl.h"
 #include <cmath>
 

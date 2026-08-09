@@ -24,7 +24,7 @@ struct DamageQueue {
 // 攻击运行时状态 (替代 WeaponComponent 的 cooldownTimer)
 struct AttackState {
     float cooldownTimer = 0.0f;
-    float baseAttackInterval = NoMoreDay::Constants::Combat::System::DEFAULT_ATTACK_COOLDOWN; // 基础攻击间隔 (秒)
+    float baseAttackInterval = 1.0f; // NoMoreDay::Constants::Combat::System::DEFAULT_ATTACK_COOLDOWN 基础攻击间隔 (秒)
 };
 
 } // namespace NoMoreDay

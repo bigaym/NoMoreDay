@@ -2,6 +2,7 @@
 #include "game/data/TalentLayoutService.hpp"
 #include "game/data/TalentData.hpp"
 #include "game/data/TalentLoader.hpp"
+#include "game/data/AstrolabeConstants.hpp"
 #include <cmath>
 
 using namespace NoMoreDay;

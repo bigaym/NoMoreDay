@@ -6,6 +6,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "game/components/AIComponent.hpp"
+#include "game/systems/skill/ProjectileConstants.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/HazardComponents.hpp"

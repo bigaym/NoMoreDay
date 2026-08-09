@@ -1,4 +1,5 @@
 #include "game/systems/world/PortalSystem.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/persistence/SaveManager.hpp"
 #include "engine/render/GPUParticleSystem.hpp"

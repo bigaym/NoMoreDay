@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/components/MapComponent.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "raylib.h"
 #include <memory>
 #include <string>

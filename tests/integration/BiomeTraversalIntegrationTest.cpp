@@ -4,6 +4,7 @@
 #include "game/data/BiomeRegistry.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include <array>
 #include <filesystem>
 #include <stdexcept>

@@ -1,5 +1,6 @@
 #include "game/systems/render/AirWallRenderer.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include <utility>
 
 namespace NoMoreDay {

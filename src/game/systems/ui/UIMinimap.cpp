@@ -3,6 +3,8 @@
 #include "game/systems/ui/UIRenderer.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/EnemyConstants.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/WorldState.hpp" // Added
 #include "game/data/AffixMapping.hpp"

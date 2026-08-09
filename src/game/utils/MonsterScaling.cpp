@@ -1,6 +1,7 @@
 #include "game/utils/MonsterScaling.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Combat.hpp" // For ARMOR_BASE
+#include "game/systems/combat/CombatConstants.hpp"
 #include <cmath>
 #include <algorithm>
 

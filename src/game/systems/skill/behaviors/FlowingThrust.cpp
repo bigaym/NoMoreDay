@@ -32,6 +32,7 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUData.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
 #include "raymath.h"
@@ -448,7 +449,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         proj_ent,
         elementalConv.IsActive()
             ? elementalConv.projectile_color
-            : NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT);
+            : NoMoreDay::components::Colors::BLADE_CYAN);
 
     auto &proj = registry.emplace<Projectile>(proj_ent);
     proj.owner = owner;

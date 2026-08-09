@@ -6,7 +6,9 @@
 #include "game/components/StashComponent.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/components/WorldState.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include <algorithm>
 
 

@@ -6,6 +6,7 @@
 #include <future>
 #include "game/systems/world/LevelManager.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/data/BiomeTypes.hpp"
 
 namespace NoMoreDay {
 

@@ -1,5 +1,6 @@
 #include "doctest.h"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>

@@ -1,4 +1,5 @@
 #include "game/data/TalentLayoutService.hpp"
+#include "game/data/AstrolabeConstants.hpp"
 #include <cmath>
 #include <algorithm>
 #include <map>

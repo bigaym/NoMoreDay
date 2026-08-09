@@ -4,7 +4,9 @@
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/render/GPUEntitySync.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include <cstdint>
 

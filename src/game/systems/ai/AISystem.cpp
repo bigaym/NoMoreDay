@@ -3,6 +3,7 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EliteModifierComponents.hpp"
+#include "game/systems/ai/AIConstants.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/NemesisComponent.hpp"
 #include "game/registry/GroupRegistry.hpp"

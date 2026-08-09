@@ -5,6 +5,7 @@
 #include "game/render/LightAdapter.hpp"
 #include "game/render/LootLabelBudget.hpp"
 #include "game/render/OccluderProjector.hpp"
+#include "game/data/BiomeTypes.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "core/utils/FmtBuffer.hpp"
@@ -17,6 +18,7 @@
 #include "engine/render/core/QualityTierManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/Projectile.hpp"

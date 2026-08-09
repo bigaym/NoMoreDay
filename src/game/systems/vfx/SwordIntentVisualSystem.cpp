@@ -1,6 +1,7 @@
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUData.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
@@ -65,7 +66,7 @@ Color LerpColor(const Color &a, const Color &b, float t) {
 }
 
 Color ResolveIntentColor(const int stacks, const int maxStacks) {
-  const Color base = NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT;
+  const Color base = NoMoreDay::components::Colors::BLADE_CYAN;
   const Color peak = Color{255, 235, 120, 255};
   if (maxStacks <= 0) {
     return base;

@@ -1,6 +1,8 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/WorldConstants.hpp"
+#include "game/systems/world/MapGeneratorConstants.hpp"
 #include "game/components/WorldState.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/data/BiomeRegistry.hpp"

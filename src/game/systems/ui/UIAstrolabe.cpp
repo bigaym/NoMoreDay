@@ -2,6 +2,7 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "game/data/TalentLoader.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
+#include "game/data/AstrolabeConstants.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/systems/ui/UIRenderer.hpp"

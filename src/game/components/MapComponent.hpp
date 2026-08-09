@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/components/Common.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include <cstdint>
 #include <vector>
 

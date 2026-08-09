@@ -5,6 +5,7 @@
 #include "engine/resource/EquipmentAssetRegistry.hpp"
 #include "engine/resource/RuneAssetRegistry.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
+#include "game/systems/item/ItemConstants.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"

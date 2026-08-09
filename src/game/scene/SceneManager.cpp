@@ -3,6 +3,8 @@
 #include "game/components/WorldState.hpp"
 #include "game/systems/world/TilemapCollisionSystem.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/WorldConstants.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/components/AIComponent.hpp"

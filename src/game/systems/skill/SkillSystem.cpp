@@ -598,7 +598,7 @@ void SkillSystem::InitHooks() {
                 .lifeTime = 0.4f,
                 .startScale = 0.2f,
                 .endScale = 1.8f,
-                .color = NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT});
+                .color = NoMoreDay::components::Colors::BLADE_CYAN});
       }
     }
   });

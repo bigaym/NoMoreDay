@@ -4,6 +4,7 @@
 #include "game/systems/physics/PhysicsUtils.hpp"
 #include "core/utils/Branchless.hpp"
 #include "game/scene/SceneManager.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp"
@@ -13,6 +14,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/combat/CombatConstants.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/CombatFormula.hpp" // Added

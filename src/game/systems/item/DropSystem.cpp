@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "game/ui_shared/UiShared.hpp"
 #include "game/components/Common.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/EnemyComponent.hpp"

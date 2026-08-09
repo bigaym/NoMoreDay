@@ -1,4 +1,5 @@
 #include "game/systems/world/BiomeMapGenerator.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include <algorithm>
 #include <queue>
 #include <random>

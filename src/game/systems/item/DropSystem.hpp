@@ -4,6 +4,7 @@
 #include <queue>
 #include "raylib.h"
 #include "game/components/Common.hpp"
+#include "game/data/BiomeTypes.hpp"
 
 namespace NoMoreDay {
 

@@ -1,6 +1,7 @@
 #include "TestCommon.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/EquipmentComponent.hpp"
+#include "game/systems/item/ItemConstants.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/components/PlayerState.hpp"

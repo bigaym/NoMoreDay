@@ -2,6 +2,7 @@
 
 #include "TestCommon.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/combat/CombatConstants.hpp"
 #include "game/systems/combat/CombatFormula.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include <algorithm>

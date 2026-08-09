@@ -3,6 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/MapComponent.hpp"
 #include "game/components/ShadowCasterComponent.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 
 #include <algorithm>
 #include <cmath>

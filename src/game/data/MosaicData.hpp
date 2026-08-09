@@ -1,5 +1,6 @@
 #pragma once
 #include "game/components/Common.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/components/MapFragmentComponent.hpp"
 #include <array>
 #include <entt/entt.hpp>

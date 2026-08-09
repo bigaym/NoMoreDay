@@ -13,6 +13,7 @@
 #include "game/components/MapFragmentComponent.hpp" // Added for Fragment Check
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"
 #include "game/states/InventoryState.hpp"
@@ -25,6 +26,7 @@
 #include "game/systems/world/MapSystem.hpp"    // Explicit include
 #include "game/systems/world/PortalSystem.hpp" // Moved up
 #include "game/systems/world/TilemapCollisionSystem.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 
 // Utilities (formerly in PCH)
 #include "core/utils/ScopedTimer.hpp"
@@ -32,6 +34,7 @@
 
 // Systems
 #include "game/systems/input/InputSystem.hpp"
+#include "game/systems/physics/PhysicsConstants.hpp"
 #include "game/systems/physics/PhysicsSystem.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
@@ -44,6 +47,7 @@
 #include "game/components/WorldState.hpp"
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
+#include "game/systems/combat/CombatConstants.hpp"
 #include "game/systems/combat/CombatHistorySystem.hpp"
 #include "game/systems/combat/BossFrameworkSystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
@@ -673,6 +677,8 @@ bool GameplayState::OnUpdate(float dt) {
     auto &vel = playerView2.get<Velocity>(entity);
     auto &pos = playerView2.get<Position>(entity);
     auto &dash = playerView2.get<DashComponent>(entity);
+
+    using namespace NoMoreDay::Constants::Combat; // Cap::CDR etc.
 
     if (IsKeyPressed(KEY_SPACE))
       input.dash = true;

@@ -9,6 +9,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatAntiMeta.hpp"
+#include "game/systems/combat/CombatConstants.hpp"
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"

@@ -5,6 +5,7 @@
 #include "../data/MapAffix.hpp"
 #include "../data/MosaicData.hpp" 
 #include "Common.hpp"
+#include "game/data/BiomeTypes.hpp"
 
 namespace nlohmann {
 template <>

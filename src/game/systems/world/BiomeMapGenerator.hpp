@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/data/BiomeTypes.hpp"
 #include "game/systems/world/BiomeStrategies.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include <memory>

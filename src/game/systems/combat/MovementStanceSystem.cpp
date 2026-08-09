@@ -3,6 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/MovementConstants.hpp"
 #include "core/logging/Logger.hpp"
 #include <cmath>
 

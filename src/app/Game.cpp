@@ -6,6 +6,7 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/RenderConstants.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/GPUTextSystem.hpp"
 #include "engine/render/RenderSystem.hpp" // ADDED
@@ -298,7 +299,7 @@ void Game::init() {
 
     // 2. GPU Particle System (Indirect Drawing)
     NoMoreDay::systems::GPUParticleSystem::Get().Init(
-        NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
+        NoMoreDay::RenderConstants::GPU::MAX_PARTICLES);
 
     m_gpuEntitySystem.Init(m_resourceManager, 30000);
     m_gpuEntityAdapter.Init(30000, &m_registry, m_gpuEntitySystem);
@@ -315,7 +316,7 @@ void Game::init() {
                                                        256);
     // Initialize GPU Skill Effect System (Global)
     NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(
-        m_resourceManager, NoMoreDay::Constants::Render::MAX_SKILL_EFFECTS);
+        m_resourceManager, NoMoreDay::RenderConstants::GPU::MAX_SKILL_EFFECTS);
 
     // Initialize GPU Damage Popup System
     NoMoreDay::render::PopupRenderer::Get().Init();

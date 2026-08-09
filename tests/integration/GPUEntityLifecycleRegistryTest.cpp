@@ -179,30 +179,39 @@ TEST_CASE("[Integration] W5 - GPUEntitySystem lifecycle balances registry observ
   }
 
   // Every GPUEntitySystem-owned observer record must be gone after shutdown.
-  // Check concrete handles first, then fall back to the name-based filter so a
-  // mismatched handle cannot hide a wrapper-owned record (ComputeBuffer /
-  // PersistentBuffer / PersistentBufferMapping).
+  // Compare (kind, handle) together: GL object namespaces are independent
+  // (ShaderProgram / VertexArray / VertexBuffer / StorageBuffer all start their
+  // ids at 1 in a fresh context), so a bare handle comparison would falsely
+  // match a ResourceManager-owned compute shader whose program id collides
+  // numerically with a GPUEntitySystem VAO/VBO id. Fall back to the name-based
+  // filter so a mismatched handle cannot hide a wrapper-owned record
+  // (ComputeBuffer / PersistentBuffer / PersistentBufferMapping).
   bool entityHandlesGone = true;
   for (const auto &rec : registry.GetActiveResources()) {
-    if (rec.handle == shaderHandle || rec.handle == vaoHandle ||
-        rec.handle == vboHandle || W5IsEntityRecord(rec)) {
+    const bool matchesShader = rec.kind == ResourceKind::ShaderProgram &&
+                               rec.handle == shaderHandle;
+    const bool matchesVAO = rec.kind == ResourceKind::VertexArray &&
+                            rec.handle == vaoHandle;
+    const bool matchesVBO = rec.kind == ResourceKind::VertexBuffer &&
+                            rec.handle == vboHandle;
+    if (matchesShader || matchesVAO || matchesVBO || W5IsEntityRecord(rec)) {
       entityHandlesGone = false;
     }
   }
   CHECK(entityHandlesGone);
 
-  // Aggregate counters return to the pre-Init baseline (zero after Reset):
-  // no active records and no tracked bytes remain from this system.
+  // The five compute shaders stay with ResourceManager (never double-released
+  // by GPUEntitySystem). Release them through the owner, as Game::cleanup does,
+  // then assert the aggregate counters return to the pre-Init baseline (zero
+  // after Reset): no active records and no tracked bytes remain from this
+  // system.
+  resources.unloadAll();
+
   const GPUResourceSnapshot afterShutdown = registry.TakeSnapshot();
   CHECK(afterShutdown.activeResourceCount == baseline.activeResourceCount);
   CHECK(afterShutdown.currentTotalBytes == baseline.currentTotalBytes);
   CHECK(afterShutdown.totalDestroyedCount - baseline.totalDestroyedCount >=
         createdByInit);
-
-  // The five compute shaders stay with ResourceManager (never double-released
-  // by GPUEntitySystem). Release them through the owner, as Game::cleanup does,
-  // and only then drain GL diagnostics so shader unload errors surface here.
-  resources.unloadAll();
 
   const std::vector<GLenum> errors = W5DrainGlErrors();
   for (GLenum err : errors) {
@@ -329,12 +338,15 @@ TEST_CASE("[Integration] W5 - GPUEntitySystem partial-init failure rolls back to
     system.Shutdown();
   }
 
-  // Aggregate counters returned to the pre-Init baseline.
+  // The partially acquired compute shaders stay with ResourceManager (never
+  // double-released by GPUEntitySystem). Release them through the owner, as
+  // Game::cleanup does, then assert the aggregate counters returned to the
+  // pre-Init baseline.
+  resources.unloadAll();
+
   const GPUResourceSnapshot afterRollback = registry.TakeSnapshot();
   CHECK(afterRollback.activeResourceCount == baseline.activeResourceCount);
   CHECK(afterRollback.currentTotalBytes == baseline.currentTotalBytes);
-
-  resources.unloadAll();
 
   const std::vector<GLenum> errors = W5DrainGlErrors();
   for (GLenum err : errors) {

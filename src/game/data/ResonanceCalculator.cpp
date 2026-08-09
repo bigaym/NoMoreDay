@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include <algorithm>
 #include <array>
 #include <unordered_map>

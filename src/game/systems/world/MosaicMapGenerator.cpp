@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "game/components/MapFragmentComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/MapGeneratorConstants.hpp"
 #include <algorithm>
 #include <queue>
 #include <random>

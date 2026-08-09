@@ -17,6 +17,7 @@
 #include "game/data/BladeMasteryRegistry.hpp"
 #include "game/data/ResonanceCalculator.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "game/systems/item/HeirloomVault.hpp"
 #include "game/components/PlayerProfile.hpp"
 #include "raylib.h"

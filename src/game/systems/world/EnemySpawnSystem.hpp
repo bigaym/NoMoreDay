@@ -2,6 +2,7 @@
 
 #include "game/components/Common.hpp"
 #include "game/systems/world/MapSystem.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include <entt/entt.hpp>
 #include <map>
 #include <random>

@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/ui_shared/UiShared.hpp"
+#include "game/systems/item/ItemConstants.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/MaterialBankComponent.hpp"

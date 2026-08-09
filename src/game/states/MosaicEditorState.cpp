@@ -1,4 +1,5 @@
 #include "game/states/MosaicEditorState.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/scene/StateManager.hpp"
 #include "game/components/ItemComponent.hpp"

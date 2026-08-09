@@ -1,4 +1,5 @@
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/BiomeTypes.hpp"
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <cctype>

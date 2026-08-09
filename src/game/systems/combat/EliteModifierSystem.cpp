@@ -8,6 +8,7 @@
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/combat/CombatConstants.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include <algorithm>
 #include <cmath>
