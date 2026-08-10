@@ -26,12 +26,9 @@ constexpr const char *kKawaseDownFragmentShader =
     "assets/shaders/postprocess/kawase_down.frag";
 constexpr const char *kKawaseUpFragmentShader =
     "assets/shaders/postprocess/kawase_up.frag";
-constexpr const char *kTonemapFragmentShader = "assets/shaders/postprocess/tonemap.frag";
+constexpr const char *kCombinedFragmentShader =
+    "assets/shaders/postprocess/postprocess_combined.frag";
 constexpr const char *kFxaaFragmentShader = "assets/shaders/postprocess/fxaa.frag";
-constexpr const char *kVignetteFragmentShader =
-    "assets/shaders/postprocess/vignette.frag";
-constexpr const char *kColorGradingFragmentShader =
-    "assets/shaders/postprocess/color_grading.frag";
 
 void BindFramebufferAndViewport(const resources::FramebufferHandle &handle) {
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, handle.fbo);
@@ -82,15 +79,12 @@ bool PostProcessPass::Initialize() {
       LoadShader(kFullscreenVertexShader, kBrightExtractFragmentShader);
   m_kawaseDownShader = LoadShader(kFullscreenVertexShader, kKawaseDownFragmentShader);
   m_kawaseUpShader = LoadShader(kFullscreenVertexShader, kKawaseUpFragmentShader);
-  m_tonemapShader = LoadShader(kFullscreenVertexShader, kTonemapFragmentShader);
+  m_combinedShader = LoadShader(kFullscreenVertexShader, kCombinedFragmentShader);
   m_fxaaShader = LoadShader(kFullscreenVertexShader, kFxaaFragmentShader);
-  m_vignetteShader = LoadShader(kFullscreenVertexShader, kVignetteFragmentShader);
-  m_colorGradingShader =
-      LoadShader(kFullscreenVertexShader, kColorGradingFragmentShader);
 
   if (m_brightExtractShader.id == 0 || m_kawaseDownShader.id == 0 ||
-      m_kawaseUpShader.id == 0 || m_tonemapShader.id == 0 || m_fxaaShader.id == 0 ||
-      m_vignetteShader.id == 0 || m_colorGradingShader.id == 0) {
+      m_kawaseUpShader.id == 0 || m_combinedShader.id == 0 ||
+      m_fxaaShader.id == 0) {
     LOG_ERROR("PostProcessPass shader initialization failed");
     Shutdown();
     return false;
@@ -98,16 +92,21 @@ bool PostProcessPass::Initialize() {
 
   m_bloomThresholdLoc = GetShaderLocation(m_brightExtractShader, "uThreshold");
   m_bloomKneeLoc = GetShaderLocation(m_brightExtractShader, "uKnee");
-  m_bloomIntensityLoc = GetShaderLocation(m_tonemapShader, "uBloomIntensity");
-  m_tonemapExposureLoc = GetShaderLocation(m_tonemapShader, "uExposure");
+  m_bloomIntensityLoc = GetShaderLocation(m_combinedShader, "uBloomIntensity");
+  m_tonemapExposureLoc = GetShaderLocation(m_combinedShader, "uExposure");
   m_fxaaTexelSizeLoc = GetShaderLocation(m_fxaaShader, "uTexelSize");
-  m_vignetteIntensityLoc = GetShaderLocation(m_vignetteShader, "uIntensity");
-  m_vignetteRadiusLoc = GetShaderLocation(m_vignetteShader, "uRadius");
-  m_colorGradingSceneLoc = GetShaderLocation(m_colorGradingShader, "uSceneTexture");
-  m_colorGradingLutLoc = GetShaderLocation(m_colorGradingShader, "uLutTexture");
+  m_vignetteIntensityLoc =
+      GetShaderLocation(m_combinedShader, "uVignetteIntensity");
+  m_vignetteRadiusLoc = GetShaderLocation(m_combinedShader, "uVignetteRadius");
+  m_vignetteEnabledLoc = GetShaderLocation(m_combinedShader, "uVignetteEnabled");
   m_colorGradingIntensityLoc =
-      GetShaderLocation(m_colorGradingShader, "uIntensity");
-  m_colorGradingLutSizeLoc = GetShaderLocation(m_colorGradingShader, "uLutSize");
+      GetShaderLocation(m_combinedShader, "uGradingIntensity");
+  m_colorGradingLutSizeLoc = GetShaderLocation(m_combinedShader, "uLutSize");
+  m_colorGradingEnabledLoc =
+      GetShaderLocation(m_combinedShader, "uColorGradingEnabled");
+  m_combinedHdrSceneLoc = GetShaderLocation(m_combinedShader, "uHDRScene");
+  m_combinedBloomLoc = GetShaderLocation(m_combinedShader, "uBloomTexture");
+  m_combinedLutLoc = GetShaderLocation(m_combinedShader, "uLutTexture");
 
   if (!LoadColorGradingLUT(16)) {
     LOG_WARN("PostProcessPass: failed to preload neutral LUT");
@@ -121,14 +120,11 @@ bool PostProcessPass::ReloadShaders() {
   Shader brightExtract = LoadShader(kFullscreenVertexShader, kBrightExtractFragmentShader);
   Shader kawaseDown = LoadShader(kFullscreenVertexShader, kKawaseDownFragmentShader);
   Shader kawaseUp = LoadShader(kFullscreenVertexShader, kKawaseUpFragmentShader);
-  Shader tonemap = LoadShader(kFullscreenVertexShader, kTonemapFragmentShader);
+  Shader combined = LoadShader(kFullscreenVertexShader, kCombinedFragmentShader);
   Shader fxaa = LoadShader(kFullscreenVertexShader, kFxaaFragmentShader);
-  Shader vignette = LoadShader(kFullscreenVertexShader, kVignetteFragmentShader);
-  Shader colorGrading = LoadShader(kFullscreenVertexShader, kColorGradingFragmentShader);
 
   if (brightExtract.id == 0 || kawaseDown.id == 0 || kawaseUp.id == 0 ||
-      tonemap.id == 0 || fxaa.id == 0 || vignette.id == 0 ||
-      colorGrading.id == 0) {
+      combined.id == 0 || fxaa.id == 0) {
     if (brightExtract.id != 0) {
       UnloadShader(brightExtract);
     }
@@ -138,17 +134,11 @@ bool PostProcessPass::ReloadShaders() {
     if (kawaseUp.id != 0) {
       UnloadShader(kawaseUp);
     }
-    if (tonemap.id != 0) {
-      UnloadShader(tonemap);
+    if (combined.id != 0) {
+      UnloadShader(combined);
     }
     if (fxaa.id != 0) {
       UnloadShader(fxaa);
-    }
-    if (vignette.id != 0) {
-      UnloadShader(vignette);
-    }
-    if (colorGrading.id != 0) {
-      UnloadShader(colorGrading);
     }
     LOG_WARN("PostProcessPass: shader reload failed, keeping previous program");
     return false;
@@ -163,39 +153,36 @@ bool PostProcessPass::ReloadShaders() {
   if (m_kawaseUpShader.id != 0) {
     UnloadShader(m_kawaseUpShader);
   }
-  if (m_tonemapShader.id != 0) {
-    UnloadShader(m_tonemapShader);
+  if (m_combinedShader.id != 0) {
+    UnloadShader(m_combinedShader);
   }
   if (m_fxaaShader.id != 0) {
     UnloadShader(m_fxaaShader);
-  }
-  if (m_vignetteShader.id != 0) {
-    UnloadShader(m_vignetteShader);
-  }
-  if (m_colorGradingShader.id != 0) {
-    UnloadShader(m_colorGradingShader);
   }
 
   m_brightExtractShader = brightExtract;
   m_kawaseDownShader = kawaseDown;
   m_kawaseUpShader = kawaseUp;
-  m_tonemapShader = tonemap;
+  m_combinedShader = combined;
   m_fxaaShader = fxaa;
-  m_vignetteShader = vignette;
-  m_colorGradingShader = colorGrading;
 
   m_bloomThresholdLoc = GetShaderLocation(m_brightExtractShader, "uThreshold");
   m_bloomKneeLoc = GetShaderLocation(m_brightExtractShader, "uKnee");
-  m_bloomIntensityLoc = GetShaderLocation(m_tonemapShader, "uBloomIntensity");
-  m_tonemapExposureLoc = GetShaderLocation(m_tonemapShader, "uExposure");
+  m_bloomIntensityLoc = GetShaderLocation(m_combinedShader, "uBloomIntensity");
+  m_tonemapExposureLoc = GetShaderLocation(m_combinedShader, "uExposure");
   m_fxaaTexelSizeLoc = GetShaderLocation(m_fxaaShader, "uTexelSize");
-  m_vignetteIntensityLoc = GetShaderLocation(m_vignetteShader, "uIntensity");
-  m_vignetteRadiusLoc = GetShaderLocation(m_vignetteShader, "uRadius");
-  m_colorGradingSceneLoc = GetShaderLocation(m_colorGradingShader, "uSceneTexture");
-  m_colorGradingLutLoc = GetShaderLocation(m_colorGradingShader, "uLutTexture");
+  m_vignetteIntensityLoc =
+      GetShaderLocation(m_combinedShader, "uVignetteIntensity");
+  m_vignetteRadiusLoc = GetShaderLocation(m_combinedShader, "uVignetteRadius");
+  m_vignetteEnabledLoc = GetShaderLocation(m_combinedShader, "uVignetteEnabled");
   m_colorGradingIntensityLoc =
-      GetShaderLocation(m_colorGradingShader, "uIntensity");
-  m_colorGradingLutSizeLoc = GetShaderLocation(m_colorGradingShader, "uLutSize");
+      GetShaderLocation(m_combinedShader, "uGradingIntensity");
+  m_colorGradingLutSizeLoc = GetShaderLocation(m_combinedShader, "uLutSize");
+  m_colorGradingEnabledLoc =
+      GetShaderLocation(m_combinedShader, "uColorGradingEnabled");
+  m_combinedHdrSceneLoc = GetShaderLocation(m_combinedShader, "uHDRScene");
+  m_combinedBloomLoc = GetShaderLocation(m_combinedShader, "uBloomTexture");
+  m_combinedLutLoc = GetShaderLocation(m_combinedShader, "uLutTexture");
 
   LOG_INFO("PostProcessPass: shader hot reloaded");
   return true;
@@ -214,21 +201,13 @@ void PostProcessPass::Shutdown() {
     UnloadShader(m_kawaseUpShader);
     m_kawaseUpShader = {};
   }
-  if (m_tonemapShader.id != 0) {
-    UnloadShader(m_tonemapShader);
-    m_tonemapShader = {};
+  if (m_combinedShader.id != 0) {
+    UnloadShader(m_combinedShader);
+    m_combinedShader = {};
   }
   if (m_fxaaShader.id != 0) {
     UnloadShader(m_fxaaShader);
     m_fxaaShader = {};
-  }
-  if (m_vignetteShader.id != 0) {
-    UnloadShader(m_vignetteShader);
-    m_vignetteShader = {};
-  }
-  if (m_colorGradingShader.id != 0) {
-    UnloadShader(m_colorGradingShader);
-    m_colorGradingShader = {};
   }
   if (m_colorGradingLut.id != 0) {
     UnloadTexture(m_colorGradingLut);
@@ -392,20 +371,62 @@ void PostProcessPass::ExecuteBloom(const graph::RenderContext &context) {
   }
 }
 
-void PostProcessPass::ExecuteTonemap(const graph::RenderContext &context) {
+void PostProcessPass::ExecuteCombined(const graph::RenderContext &context) {
   const auto &config = context.qualityManager->GetConfig();
   BindFramebufferAndViewport(m_ldrBuffer);
 
   if (m_bloomIntensityLoc >= 0) {
-    SetShaderValue(m_tonemapShader, m_bloomIntensityLoc, &config.bloomIntensity,
+    SetShaderValue(m_combinedShader, m_bloomIntensityLoc, &config.bloomIntensity,
                    SHADER_UNIFORM_FLOAT);
   }
   const float exposure = config.adaptiveQuality.exposure;
   if (m_tonemapExposureLoc >= 0) {
-    SetShaderValue(m_tonemapShader, m_tonemapExposureLoc, &exposure,
+    SetShaderValue(m_combinedShader, m_tonemapExposureLoc, &exposure,
                    SHADER_UNIFORM_FLOAT);
   }
 
+  const int vignetteEnabled = config.vignetteEnabled ? 1 : 0;
+  if (m_vignetteEnabledLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_vignetteEnabledLoc, &vignetteEnabled,
+                   SHADER_UNIFORM_INT);
+  }
+  if (m_vignetteIntensityLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_vignetteIntensityLoc,
+                   &config.vignetteIntensity, SHADER_UNIFORM_FLOAT);
+  }
+  if (m_vignetteRadiusLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_vignetteRadiusLoc, &config.vignetteRadius,
+                   SHADER_UNIFORM_FLOAT);
+  }
+
+  int colorGradingEnabled = 0;
+  if (config.colorGradingEnabled && config.colorGradingLutSize > 0) {
+    if (m_colorGradingLut.id == 0 || m_cachedLutSize != config.colorGradingLutSize) {
+      if (LoadColorGradingLUT(config.colorGradingLutSize)) {
+        colorGradingEnabled = 1;
+      }
+    } else {
+      colorGradingEnabled = 1;
+    }
+  }
+  if (m_colorGradingEnabledLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_colorGradingEnabledLoc,
+                   &colorGradingEnabled, SHADER_UNIFORM_INT);
+  }
+  const float gradingIntensity = std::clamp(config.colorGradingIntensity, 0.0f, 1.0f);
+  if (m_colorGradingIntensityLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_colorGradingIntensityLoc,
+                   &gradingIntensity, SHADER_UNIFORM_FLOAT);
+  }
+  const int lutSize = m_cachedLutSize;
+  if (m_colorGradingLutSizeLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_colorGradingLutSizeLoc, &lutSize,
+                   SHADER_UNIFORM_INT);
+  }
+
+  const int hdrUnit = 0;
+  const int bloomUnit = 1;
+  const int lutUnit = 2;
   NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
   NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D,
                                           context.hdrSceneBuffer.colorTexture);
@@ -414,15 +435,22 @@ void PostProcessPass::ExecuteTonemap(const graph::RenderContext &context) {
       kGLTexture2D,
       m_bloomMips.empty() ? context.hdrSceneBuffer.colorTexture
                           : m_bloomMips.front().fbo.colorTexture);
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0 + 2);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, m_colorGradingLut.id);
 
-  BeginShaderMode(m_tonemapShader);
-  const int hdrUnit = 0;
-  const int bloomUnit = 1;
-  SetShaderValue(m_tonemapShader, GetShaderLocation(m_tonemapShader, "uHDRScene"),
-                 &hdrUnit, SHADER_UNIFORM_INT);
-  SetShaderValue(m_tonemapShader,
-                 GetShaderLocation(m_tonemapShader, "uBloomTexture"), &bloomUnit,
-                 SHADER_UNIFORM_INT);
+  BeginShaderMode(m_combinedShader);
+  if (m_combinedHdrSceneLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_combinedHdrSceneLoc, &hdrUnit,
+                   SHADER_UNIFORM_INT);
+  }
+  if (m_combinedBloomLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_combinedBloomLoc, &bloomUnit,
+                   SHADER_UNIFORM_INT);
+  }
+  if (m_combinedLutLoc >= 0) {
+    SetShaderValue(m_combinedShader, m_combinedLutLoc, &lutUnit,
+                   SHADER_UNIFORM_INT);
+  }
   resources::FullscreenQuad::Draw();
   EndShaderMode();
 }
@@ -437,24 +465,6 @@ void PostProcessPass::ExecuteFXAA(const graph::RenderContext &context) {
     SetShaderValue(m_fxaaShader, m_fxaaTexelSizeLoc, texelSize, SHADER_UNIFORM_VEC2);
   }
   DrawFullscreen(m_fxaaShader, m_ldrBuffer.colorTexture);
-
-  std::swap(m_ldrBuffer, m_pingPongBuffer);
-  std::swap(m_ldrBufferPooled, m_pingPongBufferPooled);
-}
-
-void PostProcessPass::ExecuteVignette(const graph::RenderContext &context) {
-  const auto &config = context.qualityManager->GetConfig();
-  BindFramebufferAndViewport(m_pingPongBuffer);
-
-  if (m_vignetteIntensityLoc >= 0) {
-    SetShaderValue(m_vignetteShader, m_vignetteIntensityLoc,
-                   &config.vignetteIntensity, SHADER_UNIFORM_FLOAT);
-  }
-  if (m_vignetteRadiusLoc >= 0) {
-    SetShaderValue(m_vignetteShader, m_vignetteRadiusLoc, &config.vignetteRadius,
-                   SHADER_UNIFORM_FLOAT);
-  }
-  DrawFullscreen(m_vignetteShader, m_ldrBuffer.colorTexture);
 
   std::swap(m_ldrBuffer, m_pingPongBuffer);
   std::swap(m_ldrBufferPooled, m_pingPongBufferPooled);
@@ -493,54 +503,6 @@ bool PostProcessPass::LoadColorGradingLUT(int lutSize) {
   m_colorGradingLut = loaded;
   m_cachedLutSize = loadedSize;
   return true;
-}
-
-void PostProcessPass::ExecuteColorGrading(const graph::RenderContext &context) {
-  const auto &config = context.qualityManager->GetConfig();
-  if (!config.colorGradingEnabled || config.colorGradingLutSize <= 0 ||
-      m_colorGradingShader.id == 0) {
-    return;
-  }
-  if (m_colorGradingLut.id == 0 || m_cachedLutSize != config.colorGradingLutSize) {
-    if (!LoadColorGradingLUT(config.colorGradingLutSize)) {
-      return;
-    }
-  }
-
-  BindFramebufferAndViewport(m_pingPongBuffer);
-
-  const int sceneUnit = 0;
-  const int lutUnit = 1;
-  const float intensity = std::clamp(config.colorGradingIntensity, 0.0f, 1.0f);
-  const int lutSize = m_cachedLutSize;
-
-  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
-  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, m_ldrBuffer.colorTexture);
-  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0 + 1);
-  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, m_colorGradingLut.id);
-
-  BeginShaderMode(m_colorGradingShader);
-  if (m_colorGradingSceneLoc >= 0) {
-    SetShaderValue(m_colorGradingShader, m_colorGradingSceneLoc, &sceneUnit,
-                   SHADER_UNIFORM_INT);
-  }
-  if (m_colorGradingLutLoc >= 0) {
-    SetShaderValue(m_colorGradingShader, m_colorGradingLutLoc, &lutUnit,
-                   SHADER_UNIFORM_INT);
-  }
-  if (m_colorGradingIntensityLoc >= 0) {
-    SetShaderValue(m_colorGradingShader, m_colorGradingIntensityLoc, &intensity,
-                   SHADER_UNIFORM_FLOAT);
-  }
-  if (m_colorGradingLutSizeLoc >= 0) {
-    SetShaderValue(m_colorGradingShader, m_colorGradingLutSizeLoc, &lutSize,
-                   SHADER_UNIFORM_INT);
-  }
-  resources::FullscreenQuad::Draw();
-  EndShaderMode();
-
-  std::swap(m_ldrBuffer, m_pingPongBuffer);
-  std::swap(m_ldrBufferPooled, m_pingPongBufferPooled);
 }
 
 void PostProcessPass::Execute(graph::RenderContext &context) {
@@ -583,14 +545,8 @@ void PostProcessPass::Execute(graph::RenderContext &context) {
   if (config.bloomEnabled && !m_bloomMips.empty()) {
     ExecuteBloom(context);
   }
-  ExecuteTonemap(context);
+  ExecuteCombined(context);
 
-  if (config.vignetteEnabled) {
-    ExecuteVignette(context);
-  }
-  if (config.colorGradingEnabled && config.colorGradingLutSize > 0) {
-    ExecuteColorGrading(context);
-  }
   if (config.fxaaEnabled) {
     ExecuteFXAA(context);
   }

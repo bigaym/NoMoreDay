@@ -107,18 +107,36 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   int startX = (int)(gridOrigin.x / m_cellSize);
   int startY = (int)(gridOrigin.y / m_cellSize);
 
-  for (int y = 0; y < m_height; ++y) {
-    int my = startY + y;
-    if (my < 0 || my >= mapH)
-      continue;
-
-    for (int x = 0; x < m_width; ++x) {
-      int mx = startX + x;
-      if (mx < 0 || mx >= mapW)
+  // Fast path: the window is fully inside the full map, so the per-cell bounds
+  // checks can be hoisted to a single row-level test (uint8 -> uint32 widening
+  // copy, compiler can vectorize).
+  const bool windowInsideMap = (startX >= 0 && startY >= 0 &&
+                                startX + m_width <= mapW &&
+                                startY + m_height <= mapH);
+  if (windowInsideMap) {
+    for (int y = 0; y < m_height; ++y) {
+      const unsigned char *srcRow =
+          fullCostMap.data() + (size_t)(startY + y) * mapW + startX;
+      uint32_t *dstRow = m_costCache.data() + (size_t)y * m_width;
+      for (int x = 0; x < m_width; ++x) {
+        dstRow[x] = (uint32_t)srcRow[x];
+      }
+    }
+  } else {
+    // Slow path: window partially outside the full map (per-cell bounds check).
+    for (int y = 0; y < m_height; ++y) {
+      int my = startY + y;
+      if (my < 0 || my >= mapH)
         continue;
 
-      size_t fullIdx = (size_t)my * mapW + mx;
-      m_costCache[y * m_width + x] = (uint32_t)fullCostMap[fullIdx];
+      for (int x = 0; x < m_width; ++x) {
+        int mx = startX + x;
+        if (mx < 0 || mx >= mapW)
+          continue;
+
+        size_t fullIdx = (size_t)my * mapW + mx;
+        m_costCache[(size_t)y * m_width + x] = (uint32_t)fullCostMap[fullIdx];
+      }
     }
   }
 
@@ -135,10 +153,9 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
   m_flowBuffer.BindBase(FlowFieldCS::FLOW_FIELD);
 
-  // 1. Reset Integration Field
+  // 1. Reset Integration Field (single dispatch; the in-place relaxation below
+  //    only needs one buffer seeded to 0xFFFFFFFF / target = 0).
   rlEnableShader(m_resetShader.id);
-
-  m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
 
   // Vector2 targetGrid already calculated at top of function
 
@@ -157,37 +174,46 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
   rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
 
-  m_integrationBuffer2.BindBase(FlowFieldCS::INTEGRATION_READ);
-  rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
-
   utils::GPUUtils::MemoryBarrier();
 
-  // 2. Integration (Iterative Relaxation)
+  // 2. Integration (Iterative Relaxation): the sweeps run INSIDE the shader
+  //    (flow_integration.compute loops `iterations` times per dispatch with a
+  //    workgroup barrier between sweeps; the integration field is relaxed in
+  //    place, Gauss-Seidel style, converging to the same distance field as the
+  //    previous ping-pong Jacobi loop). barrier() only synchronizes a single
+  //    workgroup, so sweeps that must cross 16x16 tile boundaries need a
+  //    global SSBO barrier between dispatches. We therefore run 16 sweeps per
+  //    dispatch and issue 4 dispatches for 64 sweeps total (same propagation
+  //    depth as the original 64 one-iteration dispatches, ~3.5 ms on a
+  //    256x224 grid because every dispatch + barrier fully serialized the GPU
+  //    pipeline).
   rlEnableShader(m_integrationShader.id);
   locW = rlGetLocationUniform(m_integrationShader.id, "width");
   locH = rlGetLocationUniform(m_integrationShader.id, "height");
   int locWeight = rlGetLocationUniform(m_integrationShader.id, "densityWeight");
+  int locIterations = rlGetLocationUniform(m_integrationShader.id, "iterations");
 
+  const int kTotalSweeps = 64;       // Same total count as before: usually
+                                     // enough for local propagation
+  const int kSweepsPerDispatch = 16; // 4 dispatches + 4 SSBO barriers total
+  const int sweepsPerDispatch = kSweepsPerDispatch;
   rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
   if (locWeight >= 0)
     rlSetUniform(locWeight, &m_densityWeight, RL_SHADER_UNIFORM_FLOAT, 1);
+  if (locIterations >= 0)
+    rlSetUniform(locIterations, &sweepsPerDispatch, RL_SHADER_UNIFORM_INT, 1);
 
-  int passes = 64; // Reduced from 256 for performance, 64 is usually enough for
-                   // local propagation
+  m_costBuffer.BindBase(FlowFieldCS::COST_FIELD);
+  m_densityBuffer.BindBase(FlowFieldCS::DENSITY_FIELD);
+  // Single buffer, read and written in place through binding 1.
+  m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
 
-  for (int i = 0; i < passes; ++i) {
-    bool isEven = (i % 2 == 0);
-    const auto &readBuf = isEven ? m_integrationBuffer : m_integrationBuffer2;
-    const auto &writeBuf = isEven ? m_integrationBuffer2 : m_integrationBuffer;
-
-    m_costBuffer.BindBase(FlowFieldCS::COST_FIELD);
-    readBuf.BindBase(FlowFieldCS::INTEGRATION_READ);
-    m_densityBuffer.BindBase(FlowFieldCS::DENSITY_FIELD);
-    writeBuf.BindBase(FlowFieldCS::INTEGRATION_WRITE);
-
+  const int dispatchGroups = (kTotalSweeps + kSweepsPerDispatch - 1) / kSweepsPerDispatch;
+  for (int i = 0; i < dispatchGroups; ++i) {
     rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
-    // Explicitly only sync SSBO writes
+    // Global SSBO sync so the next batch of sweeps sees cross-tile updates.
+    // Explicitly only sync SSBO writes.
     utils::GPUUtils::MemoryBarrier(Barrier::SSBO);
   }
 

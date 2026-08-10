@@ -16,6 +16,7 @@ uniform vec2 uCameraOffset; // camera.offset (Added for correct world mapping)
 uniform vec2 uGalaxyCenter;
 uniform float uGalaxyScale;
 uniform int uQualityTier;   // 0=Low,1=Medium,2=High,3=Ultra
+uniform vec2 uRenderScale;  // Render-to-screen scale (1.0 = full resolution)
 
 out vec4 finalColor;
 
@@ -453,7 +454,8 @@ vec3 RenderModernGalaxy(vec2 uv, float r) {
 
 void main() {
     // 1. Transform Setup
-    vec2 screenPos = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
+    vec2 fc = gl_FragCoord.xy * uRenderScale;
+    vec2 screenPos = vec2(fc.x, uResolution.y - fc.y);
     vec2 screenCenter = uCameraOffset; // Correctly use the camera's screen-space offset
     vec2 worldPos = (screenPos - screenCenter) / uZoom + uOffset;
     vec2 p = (worldPos - uGalaxyCenter) * uGalaxyScale;

@@ -5,12 +5,16 @@ layout(std430, binding = 0) readonly buffer CostBuffer {
     uint cost[];
 };
 
-layout(std430, binding = 1) readonly buffer IntegrationRead {
-    uint integrationRead[];
-};
-
-layout(std430, binding = 4) writeonly buffer IntegrationWrite {
-    uint integrationWrite[];
+// In-place relaxation: the integration field is read AND written through this
+// single binding. Every sweep ends with memoryBarrierBuffer() + barrier() so
+// the workgroup tile re-synchronizes before the next sweep reads neighbor
+// values. NOTE: barrier() only synchronizes threads INSIDE one workgroup, so
+// a single dispatch cannot propagate across 16x16 tile boundaries; the CPU
+// issues several dispatches (each running `iterations` sweeps) separated by
+// global SSBO barriers (see GPUFlowFieldSystem::Update). This replaces 64
+// tiny dispatches + 64 SSBO barriers per frame with 4 dispatches + 4 barriers.
+layout(std430, binding = 1) buffer IntegrationBuffer {
+    uint integration[];
 };
 
 layout(std430, binding = 3) readonly buffer DensityBuffer {
@@ -19,53 +23,73 @@ layout(std430, binding = 3) readonly buffer DensityBuffer {
 
 uniform int width;
 uniform int height;
+uniform int iterations = 64;
 uniform float densityWeight = 5.0;
 
 void main() {
     uint x = gl_GlobalInvocationID.x;
     uint y = gl_GlobalInvocationID.y;
-    
-    if (x >= width || y >= height) return;
-    uint index = y * width + x;
+    bool inBounds = (x < uint(width) && y < uint(height));
 
-    uint myCost = cost[index];
-    if (myCost >= 255) {
-        integrationWrite[index] = 0xFFFFFFFF;
-        return;
-    }
-    
-    // Add crowd density to cost
-    myCost += uint(float(density[index]) * densityWeight);
-    
-    myCost = max(myCost, 1u);
+    uint index = 0u;
+    uint myCost = 0u;
+    bool isWall = false;
+    if (inBounds) {
+        index = y * uint(width) + x;
 
-    uint currentDist = integrationRead[index];
-    uint minDist = currentDist;
-
-    // Check 8 neighbors
-    for (int dy = -1; dy <= 1; dy++) {
-        for (int dx = -1; dx <= 1; dx++) {
-            if (dx == 0 && dy == 0) continue;
-            
-            int nx = int(x) + dx;
-            int ny = int(y) + dy;
-            
-            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                uint nIndex = ny * width + nx;
-                uint nDist = integrationRead[nIndex];
-                
-                if (nDist != 0xFFFFFFFF) {
-                    uint weight = (dx == 0 || dy == 0) ? 1u : 1u;
-                    uint moveCost = myCost * weight;
-                    uint newDist = nDist + moveCost;
-                    
-                    if (newDist < minDist) {
-                        minDist = newDist;
-                    }
-                }
-            }
+        myCost = cost[index];
+        if (myCost >= 255u) {
+            isWall = true;
+        } else {
+            // Add crowd density to cost
+            myCost += uint(float(density[index]) * densityWeight);
+            myCost = max(myCost, 1u);
         }
     }
 
-    integrationWrite[index] = minDist;
+    // All invocations (including out-of-bounds ones) must reach barrier() every
+    // iteration or the workgroup deadlocks. Relaxation is monotone decreasing
+    // (min over neighbor distances), so in-place Gauss-Seidel-style updates
+    // converge to the same distance field as the previous ping-pong Jacobi
+    // scheme, typically faster thanks to immediately visible neighbor writes.
+    for (int i = 0; i < iterations; ++i) {
+        if (inBounds) {
+            if (isWall) {
+                integration[index] = 0xFFFFFFFFu;
+            } else {
+                uint minDist = integration[index];
+
+                // Check 8 neighbors
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        if (dx == 0 && dy == 0) continue;
+
+                        int nx = int(x) + dx;
+                        int ny = int(y) + dy;
+
+                        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                            uint nIndex = uint(ny) * uint(width) + uint(nx);
+                            uint nDist = integration[nIndex];
+
+                            if (nDist != 0xFFFFFFFFu) {
+                                // All 8 directions cost the same (weight 1).
+                                uint newDist = nDist + myCost;
+
+                                if (newDist < minDist) {
+                                    minDist = newDist;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                integration[index] = minDist;
+            }
+        }
+
+        // Make the in-place writes visible to the whole workgroup before the
+        // next sweep reads neighbor cells.
+        memoryBarrierBuffer();
+        barrier();
+    }
 }

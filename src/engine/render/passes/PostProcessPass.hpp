@@ -38,9 +38,8 @@ private:
   };
 
   void ExecuteBloom(const graph::RenderContext &context);
-  void ExecuteTonemap(const graph::RenderContext &context);
-  void ExecuteVignette(const graph::RenderContext &context);
-  void ExecuteColorGrading(const graph::RenderContext &context);
+  // Fused tonemap + vignette + color grading (single full-screen draw).
+  void ExecuteCombined(const graph::RenderContext &context);
   void ExecuteFXAA(const graph::RenderContext &context);
   bool LoadColorGradingLUT(int lutSize);
 
@@ -56,10 +55,8 @@ private:
   Shader m_brightExtractShader = {0};
   Shader m_kawaseDownShader = {0};
   Shader m_kawaseUpShader = {0};
-  Shader m_tonemapShader = {0};
+  Shader m_combinedShader = {0};
   Shader m_fxaaShader = {0};
-  Shader m_vignetteShader = {0};
-  Shader m_colorGradingShader = {0};
   Texture2D m_colorGradingLut = {0};
 
   resources::FramebufferHandle m_ldrBuffer = {};
@@ -75,10 +72,13 @@ private:
   int m_fxaaTexelSizeLoc = -1;
   int m_vignetteIntensityLoc = -1;
   int m_vignetteRadiusLoc = -1;
-  int m_colorGradingSceneLoc = -1;
-  int m_colorGradingLutLoc = -1;
+  int m_vignetteEnabledLoc = -1;
   int m_colorGradingIntensityLoc = -1;
   int m_colorGradingLutSizeLoc = -1;
+  int m_colorGradingEnabledLoc = -1;
+  int m_combinedHdrSceneLoc = -1;
+  int m_combinedBloomLoc = -1;
+  int m_combinedLutLoc = -1;
 
   int m_cachedWidth = 0;
   int m_cachedHeight = 0;

@@ -33,6 +33,9 @@ private:
     static Shader s_shGalaxy;
     static Shader s_shNode;
     static Texture2D s_whitePixel; // 1x1 white texture for UV-correct drawing
+    static RenderTexture2D s_galaxyCache; // Half-resolution galaxy background cache
+    static Vector2 s_galaxyCacheRes;
+    static bool s_galaxyCacheValid;
     static bool s_initialized;
 };
 

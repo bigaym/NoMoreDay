@@ -13,6 +13,9 @@ namespace NoMoreDay {
 Shader AstrolabeRenderer::s_shGalaxy = {0};
 Shader AstrolabeRenderer::s_shNode = {0};
 Texture2D AstrolabeRenderer::s_whitePixel = {0};
+RenderTexture2D AstrolabeRenderer::s_galaxyCache = {0};
+Vector2 AstrolabeRenderer::s_galaxyCacheRes = {0, 0};
+bool AstrolabeRenderer::s_galaxyCacheValid = false;
 bool AstrolabeRenderer::s_initialized = false;
 namespace {
 int s_locGalaxyTime = -1;
@@ -23,6 +26,7 @@ int s_locGalaxyCameraOffset = -1;
 int s_locGalaxyCenter = -1;
 int s_locGalaxyScale = -1;
 int s_locGalaxyQualityTier = -1;
+int s_locGalaxyRenderScale = -1;
 int s_prevGalaxyQualityTier = -1;
 } // namespace
 
@@ -44,6 +48,7 @@ void AstrolabeRenderer::Init(Shader galaxyShader, Shader nodeShader) {
         s_locGalaxyCenter = GetShaderLocation(s_shGalaxy, "uGalaxyCenter");
         s_locGalaxyScale = GetShaderLocation(s_shGalaxy, "uGalaxyScale");
         s_locGalaxyQualityTier = GetShaderLocation(s_shGalaxy, "uQualityTier");
+        s_locGalaxyRenderScale = GetShaderLocation(s_shGalaxy, "uRenderScale");
     }
     
     s_initialized = true;
@@ -54,6 +59,12 @@ void AstrolabeRenderer::Unload() {
         UnloadTexture(s_whitePixel);
         s_whitePixel = {0};
     }
+    if (s_galaxyCache.texture.id != 0) {
+        UnloadRenderTexture(s_galaxyCache);
+        s_galaxyCache = {0};
+    }
+    s_galaxyCacheRes = {0, 0};
+    s_galaxyCacheValid = false;
     s_initialized = false;
 }
 
@@ -106,6 +117,34 @@ void AstrolabeRenderer::DrawConnections(const TalentGraph& graph, const Astrolab
 void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
     using namespace Constants::Astrolabe;
     if (s_initialized && s_shGalaxy.id > 0) {
+        // Half-resolution cache size derived from the viewport resolution
+        int cacheW = (int)(view.resolution.x * 0.5f);
+        int cacheH = (int)(view.resolution.y * 0.5f);
+        if (cacheW < 1) cacheW = 1;
+        if (cacheH < 1) cacheH = 1;
+        Vector2 cacheRes = { (float)cacheW, (float)cacheH };
+
+        // (Re)create the cache when the viewport resolution changes
+        if (!s_galaxyCacheValid || s_galaxyCache.texture.width != cacheW ||
+            s_galaxyCache.texture.height != cacheH) {
+            if (s_galaxyCache.texture.id != 0) {
+                UnloadRenderTexture(s_galaxyCache);
+                s_galaxyCache = {0};
+            }
+            s_galaxyCache = LoadRenderTexture(cacheW, cacheH);
+            s_galaxyCacheRes = cacheRes;
+            s_galaxyCacheValid = (s_galaxyCache.texture.id != 0);
+        }
+
+        if (!s_galaxyCacheValid) {
+            ClearBackground(BLACK);
+            return;
+        }
+
+        // Pass 1: render the galaxy into the half-resolution cache. The shader
+        // is driven purely by gl_FragCoord + uniforms, so a full-viewport
+        // rectangle covers the FBO without needing the camera transform.
+        BeginTextureMode(s_galaxyCache);
         BeginShaderMode(s_shGalaxy);
         const int qualityTier = static_cast<int>(
             render::core::QualityTierManager::Get().GetTier());
@@ -150,14 +189,28 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
             SetShaderValue(s_shGalaxy, s_locGalaxyQualityTier, &qualityTier,
                            SHADER_UNIFORM_INT);
         }
+        // Map cache texels back to full-resolution screen coordinates
+        Vector2 renderScale = { view.resolution.x / cacheRes.x,
+                                view.resolution.y / cacheRes.y };
+        if (s_locGalaxyRenderScale >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyRenderScale, &renderScale,
+                           SHADER_UNIFORM_VEC2);
+        }
 
-        
-        Vector2 tl = GetScreenToWorld2D({0, 0}, view.camera);
-        Vector2 br = GetScreenToWorld2D(view.resolution, view.camera);
-        
-        DrawRectangle(tl.x - 100, tl.y - 100, (br.x - tl.x) + 200, (br.y - tl.y) + 200, BLACK);
+        DrawRectangle(0, 0, cacheW, cacheH, BLACK);
         
         EndShaderMode();
+        EndTextureMode();
+
+        // Pass 2: blit the cache up to the screen. EndTextureMode reset the
+        // modelview matrix, so re-apply the camera before drawing.
+        BeginMode2D(view.camera);
+        Vector2 tl = GetScreenToWorld2D({0, 0}, view.camera);
+        Vector2 br = GetScreenToWorld2D(view.resolution, view.camera);
+        Rectangle src = { 0, 0, cacheRes.x, -cacheRes.y };
+        Rectangle dst = { tl.x - 100, tl.y - 100, (br.x - tl.x) + 200,
+                          (br.y - tl.y) + 200 };
+        DrawTexturePro(s_galaxyCache.texture, src, dst, {0, 0}, 0.0f, WHITE);
     } else {
         ClearBackground(BLACK);
     }
