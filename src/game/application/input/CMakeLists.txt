@@ -1,6 +1,6 @@
 # NoMoreDayGameInput: the input static library (top layer, M4).
 # Owns InputSystem (systems/input). InputSystem routes skill input to
-# SkillSystem and checks UI state through UIAstrolabe/UISystem.
+# SkillSystem and consumes the UI input capture for gameplay gating.
 # Depends on skill + ui (design §5.4 top band).
 
 add_library(NoMoreDayGameInput STATIC

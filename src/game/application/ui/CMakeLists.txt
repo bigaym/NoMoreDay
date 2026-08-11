@@ -1,8 +1,9 @@
 # NoMoreDayGameUi: the UI static library (top layer, M4).
-# Owns AstrolabeRenderer, BladeMasteryUITheme, MonsterHealthBarSystem,
-# PlayerHUD, SwordIntentWidget, UIAnimationSystem, UIAstrolabe, UICharacter,
-# UICrafting, UIInventory, UIMinimap, UIPanelDragService, UIRenderer,
-# UISkillHub, UISkillSpecRenderer, UISkillTalentTree, UIStash, UISystem.
+# Owns GameUiHost, AstrolabeController, AstrolabeRenderer, BladeMasteryUITheme,
+# MonsterHealthBarSystem, PlayerHUD, SwordIntentWidget, UIAnimationSystem,
+# UICharacter, UICrafting, UIInventory, UIMinimap,
+# UIPanelDragService, UIRenderer, UISkillHub, UISkillSpecRenderer,
+# UISkillTalentTree, UIStash, UISystem.
 # UI is the widest dependency fan: combat (DamagePipeline/ProgressionSystem),
 # item, skill, world, data, persistence (SharedStash), stats (AttributePipeline),
 # contracts (CombatAntiMeta), ui_shared (UiShared: hovered item / loot cache /
@@ -12,16 +13,29 @@
 # ring 2 break): ui writes UiShared state, render reads it.
 
 add_library(NoMoreDayGameUi STATIC
+    AstrolabeController.cpp
     AstrolabeRenderer.cpp
     BladeMasteryUITheme.cpp
+    GameUiCommandHandler.cpp
+    GameUiHost.cpp
+    GameUiSnapshotBuilder.cpp
+    MonsterHealthBarController.cpp
     MonsterHealthBarSystem.cpp
+    MinimapController.cpp
+    OverlayController.cpp
     PlayerHUD.cpp
+    PlayerHudController.cpp
+    SkillHotbarController.cpp
+    SkillTreeController.cpp
     SwordIntentWidget.cpp
+    TooltipController.cpp
     UIAnimationSystem.cpp
-    UIAstrolabe.cpp
     UICharacter.cpp
+    UICharacterController.cpp
     UICrafting.cpp
+    UICraftingController.cpp
     UIInventory.cpp
+    UIInventoryController.cpp
     UIMinimap.cpp
     UIPanelDragService.cpp
     UIRenderer.cpp
@@ -29,8 +43,11 @@ add_library(NoMoreDayGameUi STATIC
     UISkillSpecRenderer.cpp
     UISkillTalentTree.cpp
     UIStash.cpp
+    UIStashController.cpp
     UISystem.cpp
+    UiDrawList.cpp
     UiLayout.cpp
+    UiRaylibBackend.cpp
     UiRuntime.cpp
     UiTooltipController.cpp
     UiViewport.cpp

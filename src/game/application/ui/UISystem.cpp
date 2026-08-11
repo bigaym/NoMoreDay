@@ -18,15 +18,21 @@
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/application/ui/UIAnimationSystem.hpp"
-#include "game/application/ui/UIAstrolabe.hpp"
+#include "game/application/ui/AstrolabeController.hpp"
+#include "game/application/ui/OverlayController.hpp"
 #include "game/application/ui/UICharacter.hpp"
 #include "game/application/ui/UICrafting.hpp" // ADDED
+#include "game/application/ui/UICraftingController.hpp"
 #include "game/application/ui/UIInventory.hpp"
 #include "game/application/ui/UIMinimap.hpp"
 #include "game/application/ui/UISkillHub.hpp"
 #include "game/application/ui/UIPanelDragService.hpp"
 #include "game/application/ui/UISkillTalentTree.hpp"
 #include "game/application/ui/UIStash.hpp"
+#include "game/application/ui/UIStashController.hpp"
+#include "game/application/ui/SkillTreeController.hpp"
+#include "game/application/ui/SkillHotbarController.hpp"
+#include "game/application/ui/TooltipController.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include <algorithm>
 #include <cassert>
@@ -162,15 +168,92 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
   UiShared::SetGlobalFont(State.globalFont);
   LoadEmojiFallbackFont();
 
-  UIAstrolabe::Initialize();
+  // U7 group 5: astrolabe initialization moved to GameUiHost::Initialize
+  // (the hosted AstrolabeController loads the shaders/renderer right after
+  // this call, keeping the original load order).
 }
 
 void UISystem::Shutdown() {
   State.globalFont = {0};
   UiShared::SetGlobalFont(State.globalFont);
   State.emojiFont = {0};
-  UIMinimap::Cleanup();
   AssetLoadingSystem::Shutdown();
+}
+
+void UISystem::ResetSessionState() {
+  // Gameplay-session scoped state only (design §4.1): anything a player can
+  // leave open mid-run is cleared so no session state leaks into the next
+  // run. Panel internals (tabs, search) keep their own defaults and are not
+  // touched here.
+  State.showCharacterPanel = false;
+  State.characterPanelAlpha = 0.0f;
+  State.showInventory = false;
+  State.inventoryAlpha = 0.0f;
+  State.showStash = false;
+  State.stashAlpha = 0.0f;
+  State.showSkillTree = false;
+  State.skillTreeAlpha = 0.0f;
+  State.selectedSkillId = INVALID_SKILL_ID;
+
+  State.activeDragPanel = UIPanelID::None;
+  for (auto &panel : State.panelStates) {
+    panel = PanelState{};
+  }
+
+  State.showContextMenu = false;
+  State.contextMenuItem = entt::null;
+  State.contextMenuPos = {0.0f, 0.0f};
+  State.isContextFromInventory = false;
+  State.contextSourceInventoryIndex = -1;
+  State.contextSourceEquipmentSlot = EquipmentSlot::None;
+  State.isSkillContext = false;
+  State.contextSourceSkillSlot = -1;
+
+  State.draggedItem = entt::null;
+  State.isDraggingFromInventory = false;
+  State.dragSourceInventoryIndex = -1;
+  State.dragSourceEquipmentSlot = EquipmentSlot::None;
+  State.dragSourceBagSlotIndex = -1;
+  State.isDraggingFromStash = false;
+  State.dragSourceStashTab = -1;
+  State.dragSourceStashSlot = -1;
+  State.dragSourceStashType = StashType::Personal;
+  State.draggedSkillId = INVALID_SKILL_ID;
+  State.isDraggingSkill = false;
+
+  State.hoveredSkillSlot = -1;
+  State.hoveredSkillId = INVALID_SKILL_ID;
+  State.hoveredBuffIdx = -1;
+
+  State.activeTooltipSkillId = INVALID_SKILL_ID;
+  State.activeTooltipItem = entt::null;
+  State.activeTooltipBuffIdx = -1;
+  State.tooltipDelayTimer = 0.0f;
+  State.tooltipAlpha = 0.0f;
+  State.tooltipPos = {0.0f, 0.0f};
+  State.tooltipInitialized = false;
+  State.tooltipHoveredLastFrame = false;
+
+  State.showMessageBox = false;
+  State.messageBoxText[0] = '\0';
+  State.messageBoxTimer = 0.0f;
+
+  State.showQuantityPopup = false;
+  State.quantityTargetItem = entt::null;
+  State.quantityActionType = 0;
+  State.quantityVal = 1;
+  State.quantityMax = 1;
+  State.quantityInputBuf[0] = '\0';
+
+  State.isTyping = false;
+  State.isMouseOverUI = false;
+  State.playerEntity = entt::null;
+
+  State.inventorySlotAnims.assign(100, {0.0f, 1.0f});
+  State.equipmentSlotAnims.assign(15, {0.0f, 1.0f});
+  State.bagSlotAnims.assign(4, {0.0f, 1.0f});
+
+  UiShared::HoveredItem() = entt::null;
 }
 
 // --- Helper ---
@@ -188,11 +271,6 @@ Vector2 UISystem::GetMousePositionLogic() {
   if (s <= 0.0001f)
     s = 1.0f;
   return {m.x / s, m.y / s};
-}
-
-bool UISystem::IsSkillTreeVisible(entt::registry &registry,
-                                  entt::entity entity) {
-  return State.showSkillTree; // We need to add showSkillTree to UIContext
 }
 
 void UISystem::UpdatePanelDrag(NoMoreDay::UIPanelID id, float &x, float &y,
@@ -218,7 +296,12 @@ void UISystem::UpdatePanelDrag(NoMoreDay::UIPanelID id, float &x, float &y,
 // --- Main Loop ---
 
 void UISystem::Update(entt::registry &registry,
-                      const LevelManager &levelManager) {
+                      const LevelManager &levelManager,
+                      NoMoreDay::ui::UIStashController *stashController,
+                      NoMoreDay::ui::UICraftingController *craftingController,
+                      NoMoreDay::ui::SkillTreeController *skillTreeController,
+                      NoMoreDay::ui::AstrolabeController *astrolabeController,
+                      NoMoreDay::ui::OverlayController *overlayController) {
   float dt = GetFrameTime();
 
   // 0. Cache Player Entity for efficient UI access
@@ -245,7 +328,9 @@ void UISystem::Update(entt::registry &registry,
     State.characterPanelAlpha =
         std::max(0.0f, State.characterPanelAlpha - dt * alphaSpeed);
 
-  if (State.showSkillTree)
+  if (skillTreeController) {
+    skillTreeController->UpdateAlpha(dt);
+  } else if (State.showSkillTree)
     State.skillTreeAlpha =
         std::min(1.0f, State.skillTreeAlpha + dt * alphaSpeed);
   else
@@ -280,37 +365,50 @@ void UISystem::Update(entt::registry &registry,
   if (IsKeyPressed(KEY_N)) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() != view.end()) {
-      if (!UIAstrolabe::IsVisible(registry, view.front())) {
-        UIAstrolabe::Toggle(registry, view.front());
-      } else {
-        UIAstrolabe::ResetView();
-      }
+      // U7 group 5: KEY_N routes through the host controller. Legacy
+      // semantics preserved: first press opens (resetting the view),
+      // repeat presses reset the camera instead of closing.
+      entt::entity player = view.front();
+      if (astrolabeController) {
+        if (!astrolabeController->IsVisible(registry, player)) {
+          astrolabeController->Toggle(registry, player);
+        } else {
+          astrolabeController->ResetView();
+        }
 
-      if (UIAstrolabe::IsVisible(registry, view.front())) {
-        State.showInventory = false;
-        State.showCharacterPanel = false;
-        State.showContextMenu = false;
-        State.showSkillTree = false;
+        if (astrolabeController->IsVisible(registry, player)) {
+          State.showInventory = false;
+          State.showCharacterPanel = false;
+          State.showContextMenu = false;
+          State.showSkillTree = false;
+        }
       }
     }
   }
 
   // Skill Tree (S)
   if (IsKeyPressed(KEY_S)) {
-    State.showSkillTree = !State.showSkillTree;
-    if (State.showSkillTree) {
-      State.showInventory = false;
-      State.showCharacterPanel = false;
-      State.showContextMenu = false;
-      // Also close Astrolabe if open
-      auto view = registry.view<PlayerTag>();
-      if (view.begin() != view.end()) {
-        if (UIAstrolabe::IsVisible(registry, view.front())) {
-          UIAstrolabe::Toggle(registry, view.front());
-        }
-      }
+    if (skillTreeController) {
+      skillTreeController->Toggle(registry);
     } else {
-      State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // Reset view
+      State.showSkillTree = !State.showSkillTree;
+      if (State.showSkillTree) {
+        State.showInventory = false;
+        State.showCharacterPanel = false;
+        State.showContextMenu = false;
+        // Also close Astrolabe if open (U7 group 5: host controller route;
+        // the hosted SkillTreeController handles this via SharedContext).
+        if (astrolabeController) {
+          auto view = registry.view<PlayerTag>();
+          if (view.begin() != view.end()) {
+            if (astrolabeController->IsVisible(registry, view.front())) {
+              astrolabeController->Toggle(registry, view.front());
+            }
+          }
+        }
+      } else {
+        State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // Reset view
+      }
     }
   }
 
@@ -329,7 +427,13 @@ void UISystem::Update(entt::registry &registry,
         if (dx * dx + dy * dy < 100.0f * 100.0f) {
           const auto &interact =
               stashView.get<StashInteractableComponent>(entity);
-          UIStash::Open(interact.type);
+          // U7 group 3: stash open routes through the host controller; the
+          // legacy static panel remains as the null-controller fallback.
+          if (stashController) {
+            stashController->Open(interact.type);
+          } else {
+            UIStash::Open(interact.type);
+          }
           break;
         }
       }
@@ -391,8 +495,15 @@ void UISystem::Update(entt::registry &registry,
   // ESC Handling
   if (IsKeyPressed(KEY_ESCAPE)) {
     if (State.showQuantityPopup) {
-      State.showQuantityPopup = false;
-      State.isTyping = false;
+      // U7 group 6: the quantity popup closes through the hosted overlay
+      // controller (legacy static close kept as the null-controller
+      // fallback).
+      if (overlayController) {
+        overlayController->CloseQuantityPopup();
+      } else {
+        State.showQuantityPopup = false;
+        State.isTyping = false;
+      }
     } else if (State.showCharacterPanel) {
       bool popupHandled = false;
       auto view = registry.view<PlayerTag>();
@@ -406,23 +517,35 @@ void UISystem::Update(entt::registry &registry,
       if (!popupHandled)
         State.showCharacterPanel = false;
     } else if (State.showContextMenu) {
-      State.showContextMenu = false;
-    } else if (State.showSkillTree) {
-      State.showSkillTree = false;
+      // U7 group 6: the context menu closes through the hosted overlay
+      // controller (legacy static close kept as the null-controller
+      // fallback).
+      if (overlayController) {
+        overlayController->CloseContextMenu();
+      } else {
+        State.showContextMenu = false;
+      }
+    } else if (skillTreeController ? skillTreeController->IsVisible()
+                                  : State.showSkillTree) {
+      if (skillTreeController) {
+        skillTreeController->Close();
+      } else {
+        State.showSkillTree = false;
+      }
     } else {
-      // Check if Astrolabe is open
+      // Check if Astrolabe is open (U7 group 5: routes through the host
+      // controller; ESC closes the panel).
       auto view = registry.view<PlayerTag>();
       if (view.begin() != view.end()) {
-        if (UIAstrolabe::IsVisible(registry, view.front())) {
-          UIAstrolabe::Toggle(registry, view.front());
+        if (astrolabeController &&
+            astrolabeController->IsVisible(registry, view.front())) {
+          astrolabeController->Toggle(registry, view.front());
         }
       }
     }
   }
 
-  // Debug
-  if (IsKeyPressed(KEY_F1))
-    UIMinimap::ToggleDebugReveal();
+  // Debug (minimap F1 toggle moved to GameUiHost::Update, U7 group 1).
 
   if (!s_hasGivenTestItems) {
     auto view = registry.view<PlayerTag>();
@@ -505,19 +628,45 @@ void UISystem::Update(entt::registry &registry,
     }
   }
 
-  UIInventory::Update(registry);
-  UIStash::Update(registry);
-  UIAstrolabe::Update(registry);
-  UICrafting::Update(registry); // ADDED
+  // U7 group 2: UIInventory::Update (inventory alpha animation) moved to
+  // GameUiHost::Update (m_inventory.Update) right after this call.
+  // U7 group 3: stash/crafting update routes through the host controllers;
+  // the legacy static panels remain as the null-controller fallbacks.
+  if (stashController) {
+    stashController->Update(registry);
+  } else {
+    UIStash::Update(registry);
+  }
+  // U7 group 5: astrolabe update routes through the host controller.
+  if (astrolabeController) {
+    astrolabeController->Update(registry);
+  }
+  if (craftingController) {
+    craftingController->Update(registry);
+  } else {
+    UICrafting::Update(registry); // ADDED
+  }
 
   if (IsKeyPressed(KEY_K)) {
-    UICrafting::Toggle();
-    if (UICrafting::IsVisible()) {
-      State.showInventory = true; // Open inventory to drag items
+    if (craftingController) {
+      craftingController->Toggle();
+      if (craftingController->IsVisible()) {
+        State.showInventory = true; // Open inventory to drag items
+      }
+    } else {
+      UICrafting::Toggle();
+      if (UICrafting::IsVisible()) {
+        State.showInventory = true; // Open inventory to drag items
+      }
     }
   }
 
-  if (State.showMessageBox) {
+  // U7 group 6: the message box timer moved to
+  // OverlayController::UpdateMessageBox (called by GameUiHost::Update right
+  // after this function, keeping the original frame position). The
+  // null-controller fallback keeps the legacy decay so the null-host path
+  // still auto-dismisses.
+  if (overlayController == nullptr && State.showMessageBox) {
     State.messageBoxTimer -= GetFrameTime();
     if (State.messageBoxTimer <= 0.0f)
       State.showMessageBox = false;
@@ -526,7 +675,13 @@ void UISystem::Update(entt::registry &registry,
 
 void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
                     const Camera2D &camera,
-                    NoMoreDay::systems::SpatialHashGrid *spatialGrid) {
+                    NoMoreDay::systems::SpatialHashGrid *spatialGrid,
+                    NoMoreDay::ui::SkillHotbarController *hotbarController,
+                    NoMoreDay::ui::UIStashController *stashController,
+                    NoMoreDay::ui::UICraftingController *craftingController,
+                    NoMoreDay::ui::SkillTreeController *skillTreeController,
+                    NoMoreDay::ui::AstrolabeController *astrolabeController,
+                    NoMoreDay::ui::OverlayController *overlayController) {
   // --- Scale Calculation ---
   float scaleX = (float)GetScreenWidth() / UI_REF_WIDTH;
   float scaleY = (float)GetScreenHeight() / UI_REF_HEIGHT;
@@ -547,153 +702,96 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   }
 
   // 1. Draw Subsystems (Passed logic coordinates will be scaled by UIRenderer)
-  UIMinimap::Draw(registry, levelManager);
-  UIAstrolabe::Draw(registry);
-  UICrafting::Draw(registry);
-  UIStash::Draw(registry);
+  // UIMinimap moved to GameUiHost::DrawMinimap (U7 group 1); the legacy
+  // null-host fallback in GameplayState still draws it.
+  // U7 group 3: crafting/stash draw routes through the host controllers; the
+  // legacy static panels remain as the null-controller fallbacks.
+  // U7 group 5: astrolabe draw routes through the host controller; the
+  // legacy static panel is removed (no null-host fallback).
+  if (astrolabeController) {
+    astrolabeController->Draw(registry);
+  }
+  if (craftingController) {
+    craftingController->Draw(registry);
+  } else {
+    UICrafting::Draw(registry);
+  }
+  if (stashController) {
+    stashController->Draw(registry);
+  } else {
+    UIStash::Draw(registry);
+  }
 
-  // Skill Tree Hub
+  // Skill Tree Hub (migrated to SkillTreeController, U7 group 4: the panel
+  // classes are instance types now, so the legacy fallback branch is gone).
   auto playerView = registry.view<PlayerTag>();
   if (playerView.begin() != playerView.end()) {
     entt::entity player = playerView.front();
-    if (State.showSkillTree) {
-      if (State.selectedSkillId == NoMoreDay::INVALID_SKILL_ID) {
-        UISkillHub::Draw(registry, player);
-      } else {
-        NoMoreDay::SkillTreeUI::Draw(&registry, (int)player, State.selectedSkillId);
-      }
+    if (skillTreeController) {
+      skillTreeController->Draw(registry, player);
     }
   }
 
   // 2. HUD (Always on top of panels if requested, or keep HUD accessible)
-  DrawSkillHotbar(registry);
-  DrawBuffs(registry);
+  // Skill hotbar + buff strip migrated to SkillHotbarController (U7 group 1).
+  // The controller draws here, in-place, because the hover/tooltip state
+  // machine below (State.hoveredSkillSlot/hoveredBuffIdx) and the context
+  // menu pass must see this frame's hotbar hover updates (frame-order
+  // coupling preserved). GameUiHost passes its controller instance.
+  if (hotbarController != nullptr) {
+    hotbarController->Draw(registry);
+  }
 
-  // 3. Ground Interaction highlights (drawn below overlays)
+  // 3. Ground Interaction highlights (drawn below overlays).
+  // Pickup click execution moved to GameUiHost::Draw (U6b); this block only
+  // performs the hover hit test and writes the highlighted item. No gameplay
+  // mutation happens here anymore.
   if (!IsModalInputCaptured() && UiShared::HoveredItem() == entt::null) {
 
     // Phase 1 Optimization: Use shared cache from RenderSystem
     // Use Mouse World Position to check against Item World Rects directly
     Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
 
-    // Prepare player info for pickup check
-    Vector2 playerPos2D = {0, 0};
-    entt::entity playerEntity = entt::null;
-    auto pView = registry.view<PlayerTag, Position>();
-    if (pView.begin() != pView.end()) {
-      playerEntity = pView.front();
-      auto &p = pView.get<Position>(playerEntity);
-      playerPos2D = {p.x, p.y};
-    }
-
     // Iterate ONLY visible items (Already culled by RenderSystem)
     for (const auto& itemData : UiShared::VisibleItemCache::visibleItems) {
         // Simple AABB Check in World Space
         if (CheckCollisionPointRec(mouseWorldPos, itemData.worldRect)) {
             UiShared::HoveredItem() = itemData.entity;
-
-            // Interaction: Pickup
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
-                // Since we don't have Item Position in cache, we assume Rect Center or query registry
-                // Optimization: Just query registry for this one hit
-                if (registry.valid(itemData.entity)) {
-                     const auto& p = registry.get<Position>(itemData.entity);
-                     float dx = p.x - playerPos2D.x;
-                     float dy = p.y - playerPos2D.y;
-                     float distSq = dx * dx + dy * dy;
-
-                     if (distSq <= 180.0f * 180.0f) {
-                        if (InventorySystem::pickUpItem(registry, playerEntity, itemData.entity)) {
-  UiShared::HoveredItem() = entt::null;
-                        } else {
-                            State.showMessageBox = true;
-                            utils::FormatToBuffer(State.messageBoxText,
-                                                  "背包已满");
-                            State.messageBoxTimer = 2.0f;
-                        }
-                     }
-                }
-            }
             break; // Found top-most item (or first hit)
         }
     }
   } // End of hoverTimer scope
 
-  if (State.showContextMenu)
-    DrawContextMenu(registry);
-  if (State.showQuantityPopup)
-    DrawQuantityPopup(registry);
-  if (State.showMessageBox)
-    DrawMessageBox();
+  // U7 group 6: the three global overlays (context menu, quantity popup,
+  // message box) route through the hosted OverlayController, drawn here at
+  // the original frame position (after the ground hover pass, before the
+  // tooltip state machine) so the stacking order is unchanged. The legacy
+  // static draws remain as the null-controller fallback.
+  if (overlayController) {
+    overlayController->DrawOverlays(registry);
+  } else {
+    if (State.showContextMenu)
+      DrawContextMenu(registry);
+    if (State.showQuantityPopup)
+      DrawQuantityPopup(registry);
+    if (State.showMessageBox)
+      DrawMessageBox();
+  }
 
   // 4. Overlays (Drawn LAST - Absolute Topmost)
 
-  // Update Hover Targets
-  uint32_t currentHoverSkillId = NoMoreDay::INVALID_SKILL_ID;
-  entt::entity currentHoverItem = entt::null;
-  int currentHoverBuffIdx = -1;
-
-  if (UiShared::HoveredItem() != entt::null && registry.valid(UiShared::HoveredItem())) {
-      currentHoverItem = UiShared::HoveredItem();
-  } else if (State.hoveredSkillId != NoMoreDay::INVALID_SKILL_ID) {
-      currentHoverSkillId = State.hoveredSkillId;
-  } else if (State.hoveredSkillSlot != -1) {
-      auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
-      if (view.begin() != view.end()) {
-          const auto &active = view.get<ActiveSkillsComponent>(view.front());
-          currentHoverSkillId = active.slots[State.hoveredSkillSlot].id;
-      }
-  } else if (State.hoveredBuffIdx != -1) {
-      currentHoverBuffIdx = State.hoveredBuffIdx;
-  }
-
-  // State Machine Logic
-  const float dt = GetFrameTime();
-  const bool isAnythingHovered = (currentHoverSkillId != NoMoreDay::INVALID_SKILL_ID ||
-                                  currentHoverItem != entt::null ||
-                                  currentHoverBuffIdx != -1);
-  const bool targetChanged = isAnythingHovered &&
-                             (currentHoverSkillId != State.activeTooltipSkillId ||
-                              currentHoverItem != State.activeTooltipItem ||
-                              currentHoverBuffIdx != State.activeTooltipBuffIdx);
-
-  if (targetChanged) {
-      State.activeTooltipSkillId = currentHoverSkillId;
-      State.activeTooltipItem = currentHoverItem;
-      State.activeTooltipBuffIdx = currentHoverBuffIdx;
-      State.tooltipDelayTimer = (State.tooltipAlpha > 0.01f) ? 0.05f : 0.12f;
-      State.tooltipInitialized = false;
-  }
-
-  if (isAnythingHovered) {
-      if (State.tooltipDelayTimer > 0.0f) {
-          State.tooltipDelayTimer = std::max(0.0f, State.tooltipDelayTimer - dt);
-      } else {
-          State.tooltipAlpha = std::min(1.0f, State.tooltipAlpha + dt * 10.0f);
-      }
-  } else {
-      if (State.tooltipHoveredLastFrame) {
-          State.tooltipDelayTimer = 0.08f;
-      }
-
-      if (State.tooltipDelayTimer > 0.0f) {
-          State.tooltipDelayTimer = std::max(0.0f, State.tooltipDelayTimer - dt);
-      } else if (State.tooltipAlpha > 0.0f) {
-          State.tooltipAlpha = std::max(0.0f, State.tooltipAlpha - dt * 8.0f);
-      }
-
-      if (State.tooltipAlpha <= 0.0f && State.tooltipDelayTimer <= 0.0f) {
-          State.activeTooltipSkillId = NoMoreDay::INVALID_SKILL_ID;
-          State.activeTooltipItem = entt::null;
-          State.activeTooltipBuffIdx = -1;
-          State.tooltipInitialized = false;
-      }
-  }
-
-  State.tooltipHoveredLastFrame = isAnythingHovered;
+  // U7 group 6-B: the tooltip hover resolution and delay/fade state machine
+  // moved out of UISystem::Draw into the hosted TooltipController (see
+  // GameUiHost::Draw: ResetFrame before this pass, UpdateState right after
+  // it). The frame-order contract is unchanged: every hover producer of this
+  // frame (skill hub / talent tree via State.hoveredSkillId, hotbar and buff
+  // strip via the controller cache, ground items via UiShared::HoveredItem)
+  // writes before the state machine runs.
 }
 
-void UISystem::DrawDraggingPhantom(entt::registry &registry) {
+void UISystem::DrawDraggingPhantom(
+    entt::registry &registry,
+    NoMoreDay::ui::TooltipController *tooltipController) {
   // 1. Item Phantom
   if (State.draggedItem != entt::null) {
     Vector2 mPos = GetMousePositionLogic();
@@ -719,7 +817,14 @@ void UISystem::DrawDraggingPhantom(entt::registry &registry) {
     }
   }
 
-  // Draw tooltip at top-most overlay layer.
+  // Draw tooltip at the top-most overlay layer. U7 group 6-B: the hosted
+  // controller draws the active tooltip from its own members when present;
+  // the legacy State-based block below remains as the null-controller
+  // fallback (null-host render path only).
+  if (tooltipController) {
+    tooltipController->DrawTooltip(registry);
+    return;
+  }
   if (State.tooltipAlpha > 0.01f) {
     if (State.activeTooltipItem != entt::null && registry.valid(State.activeTooltipItem)) {
       SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
@@ -922,182 +1027,6 @@ void UISystem::DrawQuantityPopup(entt::registry &registry) {
 
 bool UISystem::IsModalInputCaptured() {
   return State.showQuantityPopup || State.showSkillTree;
-}
-
-void UISystem::DrawSkillHotbar(entt::registry &registry) {
-  auto view = registry.view<PlayerTag, ActiveSkillsComponent, CombatStats>();
-  if (view.begin() == view.end())
-    return;
-
-  entt::entity player = view.front();
-  const auto &active = view.get<ActiveSkillsComponent>(player);
-  const auto &stats = view.get<CombatStats>(player);
-
-  float slotSize = 54.0f;
-  float padding = 8.0f;
-  float totalW = (slotSize * 5) + (padding * 4);
-
-  // Logic Position: Bottom Center
-  float startX = (UI_REF_WIDTH - totalW) / 2.0f;
-  float startY = UI_REF_HEIGHT - slotSize - 20.0f;
-
-  const char *labels[] = {"Q", "W", "E", "R", "RMB"};
-
-  for (int i = 0; i < 5; ++i) {
-    const auto &slot = active.slots[i];
-    float x = startX + i * (slotSize + padding);
-    float y = startY;
-
-    Texture2D icon = {0};
-    float cooldownRatio = 0.0f;
-    float manaCost = 0.0f;
-    int maxCharges = 1;
-    bool hasEnoughMana = true;
-
-    if (slot.id != 0) {
-      const auto *skillData = SkillRegistry::Get().GetSkill(slot.id);
-      if (skillData) {
-        if (skillData->icon_id != 0) {
-          icon = AssetLoadingSystem::GetTexture(skillData->icon_id);
-        }
-
-        manaCost = skillData->mana_cost;
-        maxCharges = skillData->max_charges;
-        hasEnoughMana = stats.mana >= manaCost;
-
-        if (skillData->cooldown > 0) {
-          cooldownRatio =
-              std::clamp(slot.cooldown / skillData->cooldown, 0.0f, 1.0f);
-        }
-      }
-    }
-
-    bool isHovered = CheckCollisionPointRec(GetMousePositionLogic(),
-                                            {x, y, slotSize, slotSize});
-    bool isPressed = false;
-    if (i == 0)
-      isPressed = IsKeyDown(KEY_Q);
-    else if (i == 1)
-      isPressed = IsKeyDown(KEY_W);
-    else if (i == 2)
-      isPressed = IsKeyDown(KEY_E);
-    else if (i == 3)
-      isPressed = IsKeyDown(KEY_R);
-    else if (i == 4)
-      isPressed = IsMouseButtonDown(MOUSE_RIGHT_BUTTON);
-
-    if (isHovered) {
-      State.hoveredSkillSlot = i;
-      State.isMouseOverUI = true;
-
-      // Debug: Trace cooldown values for first few slots
-      if (i < 2) {
-        // LOG_TRACE("Skill Slot {}: ID={}, Cooldown={:.2f}, Charges={}/{}", i,
-        // slot.id, slot.cooldown, slot.current_charges, maxCharges);
-      }
-
-      // Drop logic
-      if (State.isDraggingSkill && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        // ... (existing drop logic)
-        auto *activePtr = registry.try_get<ActiveSkillsComponent>(player);
-        if (activePtr) {
-          activePtr->slots[i].id = State.draggedSkillId;
-          LOG_INFO("Assigned skill {} to hotbar slot {}", State.draggedSkillId,
-                   i);
-        }
-        State.isDraggingSkill = false;
-        State.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;
-      }
-
-      // Right-click context menu
-      if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-        State.showContextMenu = true;
-        State.contextMenuPos = GetMousePosition();
-        State.isSkillContext = true;
-        State.contextSourceSkillSlot = i;
-        State.isContextFromInventory = false;
-        State.contextMenuItem = entt::null;
-      }
-    }
-
-    NoMoreDay::UIRenderer::DrawSkillSlot(
-        State.globalFont, x, y, slotSize, icon, labels[i], cooldownRatio,
-        slot.cooldown, manaCost, slot.current_charges, maxCharges,
-        hasEnoughMana, isHovered, isPressed, 0.8f);
-  }
-}
-
-void UISystem::DrawBuffs(entt::registry &registry) {
-  auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
-  if (view.begin() == view.end())
-    return;
-
-  entt::entity player = view.front();
-  const auto &effects = view.get<ActiveEffectsComponent>(player);
-  if (effects.effects.empty())
-    return;
-
-  // --- Metrics (Sync with PlayerHUD.cpp) ---
-  float slotSize = 54.0f;
-  float hotbarPadding = 8.0f;
-  float hotbarW = (slotSize * 5) + (hotbarPadding * 4);
-  float hotbarLeft = (UI_REF_WIDTH - hotbarW) / 2.0f;
-  float hotbarRight = hotbarLeft + hotbarW;
-
-  float barWidth = 450.0f;
-  float barMargin = 50.0f;
-  float barTopY = UI_REF_HEIGHT - 30.0f - 28.0f;
-
-  float hpLeftX = hotbarLeft - barMargin - barWidth;
-  float manaLeftX = hotbarRight + barMargin;
-
-  // Buff Metrics
-  float iconSize = 40.0f; // Slightly larger for better visibility
-  float padding = 4.0f;
-  float yOffset = 10.0f; // Space between bar and icons
-
-  int maxPerRow = (int)std::floor((barWidth + padding) / (iconSize + padding));
-  if (maxPerRow < 1)
-    maxPerRow = 1;
-
-  int currentBuffs = 0;
-  int currentDebuffs = 0;
-
-  for (int i = 0; i < (int)effects.effects.size(); ++i) {
-    const auto &effect = effects.effects[i];
-    bool isDebuff = effect.is_debuff;
-
-    int count = isDebuff ? currentDebuffs++ : currentBuffs++;
-    float startX = isDebuff ? manaLeftX : hpLeftX;
-
-    int row = count / maxPerRow;
-    int col = count % maxPerRow;
-
-    float x = startX + col * (iconSize + padding);
-    float y = barTopY - yOffset - (row + 1) * (iconSize + padding);
-
-    const auto &visual = BuffRegistry::GetVisualData(effect.type);
-    Texture2D icon = {0};
-    if (visual.icon_asset) {
-      icon = AssetLoadingSystem::GetTexture(visual.icon_asset->id);
-    }
-    const char *iconText = visual.icon_text.c_str();
-
-    float ratio = 0.0f;
-    if (effect.duration > 0) {
-      ratio = std::clamp(effect.remaining / effect.duration, 0.0f, 1.0f);
-    }
-
-    NoMoreDay::UIRenderer::DrawBuffIcon(State.globalFont, x, y, iconSize, icon,
-                                        iconText, ratio, effect.stacks,
-                                        isDebuff, 0.9f);
-
-    if (CheckCollisionPointRec(GetMousePositionLogic(),
-                               {x, y, iconSize, iconSize})) {
-      State.hoveredBuffIdx = i;
-      State.isMouseOverUI = true;
-    }
-  }
 }
 
 void UISystem::Benchmark(entt::registry &registry,

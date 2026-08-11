@@ -9,8 +9,8 @@
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/application/ui/UISystem.hpp"
-#include "game/application/ui/UICrafting.hpp" // ADDED
 #include "game/systems/skill/SkillDisplayPreviewService.hpp"
 #include "game/foundation/ui_shared/UiShared.hpp"
 
@@ -1848,8 +1848,15 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
     }
   }
   if (showCraft) {
-    if (DrawMenuBtn("打造", GOLD)) {
-      UICrafting::SetTargetItem(uiContext.contextMenuItem);
+    if (DrawMenuBtn("����", GOLD)) {
+      // U7 group 3: the crafting panel is host-owned; route through the
+      // SharedContext callback instead of the legacy static UICrafting.
+      if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
+        auto *shared = registry.ctx().get<NoMoreDay::SharedContext *>();
+        if (shared->craftingSetTargetItem) {
+          shared->craftingSetTargetItem(uiContext.contextMenuItem);
+        }
+      }
       uiContext.showContextMenu = false;
     }
   }

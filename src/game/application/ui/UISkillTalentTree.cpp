@@ -19,14 +19,6 @@
 
 namespace NoMoreDay {
 
-SkillTreeUI::Vec2 SkillTreeUI::s_viewOffset = { 0, 0 };
-float SkillTreeUI::s_viewZoom = 1.0f;
-uint32_t SkillTreeUI::s_lastSkillId = 0;
-SkillTreeUI::Vec2 SkillTreeUI::s_lastMouseLogicPos = { 0, 0 };
-bool SkillTreeUI::s_layoutEditMode = false;
-uint32_t SkillTreeUI::s_draggingNodeId = 0;
-SkillTreeUI::Vec2 SkillTreeUI::s_dragNodeOffset = { 0, 0 };
-
 namespace {
 
 constexpr float kNodeSpacingX = 85.0f;
@@ -604,10 +596,7 @@ SkillTreeUI::TooltipLayoutMetrics SkillTreeUI::ComputeTooltipLayoutMetrics(
     return metrics;
 }
 
-void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
-    entt::registry& registry = *static_cast<entt::registry*>(registryVoid);
-    entt::entity player = (entt::entity)playerEntity;
-
+void SkillTreeUI::Draw(entt::registry& registry, entt::entity player, uint32_t skillId) {
     auto& state = UISystem::State;
     if (state.skillTreeAlpha <= 0.0f) return;
 
@@ -678,12 +667,12 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     }
 
     // Reset view if skill changed
-    if (skillId != SkillTreeUI::s_lastSkillId) {
-        SkillTreeUI::s_viewOffset = { 0, 0 }; // Center (0,0)
-        SkillTreeUI::s_viewZoom = 1.0f;
-        SkillTreeUI::s_lastSkillId = skillId;
-        SkillTreeUI::s_layoutEditMode = false;
-        SkillTreeUI::s_draggingNodeId = 0;
+    if (skillId != m_lastSkillId) {
+        m_viewOffset = { 0, 0 }; // Center (0,0)
+        m_viewZoom = 1.0f;
+        m_lastSkillId = skillId;
+        m_layoutEditMode = false;
+        m_draggingNodeId = 0;
     }
 
     // --- Panning & Zooming Interaction ---
@@ -693,19 +682,19 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     if (mouseInView) {
         // Panning with Right Mouse Button
         if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
-            SkillTreeUI::s_viewOffset.x += (mouseLogicPos.x - SkillTreeUI::s_lastMouseLogicPos.x);
-            SkillTreeUI::s_viewOffset.y += (mouseLogicPos.y - SkillTreeUI::s_lastMouseLogicPos.y);
+            m_viewOffset.x += (mouseLogicPos.x - m_lastMouseLogicPos.x);
+            m_viewOffset.y += (mouseLogicPos.y - m_lastMouseLogicPos.y);
         }
 
         // Zooming with Mouse Wheel
         float wheel = GetMouseWheelMove();
         if (wheel != 0) {
-            SkillTreeUI::s_viewZoom += wheel * 0.1f;
-            SkillTreeUI::s_viewZoom = std::clamp(SkillTreeUI::s_viewZoom, 0.4f, 2.5f);
+            m_viewZoom += wheel * 0.1f;
+            m_viewZoom = std::clamp(m_viewZoom, 0.4f, 2.5f);
         }
     }
-    SkillTreeUI::s_lastMouseLogicPos.x = mouseLogicPos.x;
-    SkillTreeUI::s_lastMouseLogicPos.y = mouseLogicPos.y;
+    m_lastMouseLogicPos.x = mouseLogicPos.x;
+    m_lastMouseLogicPos.y = mouseLogicPos.y;
 
     // Header & Points
     UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()),
@@ -732,24 +721,24 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     bool editHover = CheckCollisionPointRec(mouseLogicPos, editRectLogic);
     const bool editPressed = editHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
     UIRenderer::DrawButton(UISystem::GetFont(), rectTex, editRectLogic,
-                           SkillTreeUI::s_layoutEditMode ? "保存布局" : "编辑布局",
+                           m_layoutEditMode ? "保存布局" : "编辑布局",
                             20, WHITE,
-                            SkillTreeUI::s_layoutEditMode ? masteryTheme.primary
+                            m_layoutEditMode ? masteryTheme.primary
                                                           : masteryTheme.secondary,
                             editHover, editPressed, alpha);
 
     if (editHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        if (SkillTreeUI::s_layoutEditMode) {
+        if (m_layoutEditMode) {
             const bool saved = skillRegistry.SaveSkillTreeLayout(skillId);
             LOG_INFO("Skill tree layout save for skill {}: {}", skillId,
                      saved ? "success" : "failed");
-            SkillTreeUI::s_draggingNodeId = 0;
+            m_draggingNodeId = 0;
         }
-        SkillTreeUI::s_layoutEditMode = !SkillTreeUI::s_layoutEditMode;
+        m_layoutEditMode = !m_layoutEditMode;
     }
 
     UISystem::DrawTextUI(
-        SkillTreeUI::s_layoutEditMode
+        m_layoutEditMode
             ? "编辑布局: 左键拖动节点, 再点[保存布局]写回JSON"
             : "右键拖拽平移, 滚轮缩放",
         startX + panelW - 520, startY + 85, 20, masteryTheme.secondary,
@@ -774,8 +763,8 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     float centerY = startY + panelH / 2.0f;
     
     view.center = { centerX * scale, centerY * scale };
-    view.offset = { SkillTreeUI::s_viewOffset.x * scale, SkillTreeUI::s_viewOffset.y * scale };
-    view.zoom = SkillTreeUI::s_viewZoom * scale;
+    view.offset = { m_viewOffset.x * scale, m_viewOffset.y * scale };
+    view.zoom = m_viewZoom * scale;
     view.alpha = alpha;  
 
     // --- Interaction Logic (Pre-Calculation) ---
@@ -793,8 +782,8 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
 
     const Vector2 hubCenter = { view.center.x + view.offset.x, view.center.y + view.offset.y };
     const float hubHoverRadius = 55.0f * view.zoom * 1.25f;
-    const Vector2 hubCenterLogic = { centerX + SkillTreeUI::s_viewOffset.x, centerY + SkillTreeUI::s_viewOffset.y };
-    const float hubHoverRadiusLogic = 55.0f * SkillTreeUI::s_viewZoom * 1.25f;
+    const Vector2 hubCenterLogic = { centerX + m_viewOffset.x, centerY + m_viewOffset.y };
+    const float hubHoverRadiusLogic = 55.0f * m_viewZoom * 1.25f;
     const bool hubHovered = mouseInView &&
                             (CheckCollisionPointCircle(mousePixelPos, hubCenter, hubHoverRadius) ||
                              CheckCollisionPointCircle(mouseLogicPos, hubCenterLogic, hubHoverRadiusLogic));
@@ -816,10 +805,10 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
             hoveredNodeId = id;
             hoveredNode = &node;
 
-            if (SkillTreeUI::s_layoutEditMode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                SkillTreeUI::s_draggingNodeId = id;
+            if (m_layoutEditMode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                m_draggingNodeId = id;
                 const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
-                SkillTreeUI::s_dragNodeOffset = {
+                m_dragNodeOffset = {
                     node.x - mouseTreePos.x,
                     node.y - mouseTreePos.y,
                 };
@@ -842,16 +831,16 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         }
     }
 
-    if (SkillTreeUI::s_layoutEditMode && SkillTreeUI::s_draggingNodeId != 0) {
+    if (m_layoutEditMode && m_draggingNodeId != 0) {
         if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && mutableTree != nullptr &&
-            mutableTree->nodes.contains(SkillTreeUI::s_draggingNodeId)) {
+            mutableTree->nodes.contains(m_draggingNodeId)) {
             const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
-            auto& dragged = mutableTree->nodes.at(SkillTreeUI::s_draggingNodeId);
-            dragged.x = mouseTreePos.x + SkillTreeUI::s_dragNodeOffset.x;
-            dragged.y = mouseTreePos.y + SkillTreeUI::s_dragNodeOffset.y;
+            auto& dragged = mutableTree->nodes.at(m_draggingNodeId);
+            dragged.x = mouseTreePos.x + m_dragNodeOffset.x;
+            dragged.y = mouseTreePos.y + m_dragNodeOffset.y;
         }
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            SkillTreeUI::s_draggingNodeId = 0;
+            m_draggingNodeId = 0;
         }
     }
 
@@ -973,7 +962,7 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         }
     }
 
-    if (!SkillTreeUI::s_layoutEditMode && targetNodeId != 0) {
+    if (!m_layoutEditMode && targetNodeId != 0) {
         SkillSystem::AddTalentPoint(registry, player, skillId, targetNodeId);
     }
 }

@@ -12,11 +12,6 @@ extern "C" {
 
 namespace NoMoreDay::systems::ui {
 
-Texture2D SwordIntentWidget::swordIcon = { 0 };
-Shader SwordIntentWidget::shineShader = { 0 };
-bool SwordIntentWidget::initialized = false;
-float SwordIntentWidget::glowIntensity = 0.0f;
-
 int SwordIntentWidget::ResolveThresholdTier(BladeResourceKind kind,
                                             int currentStacks, int maxStacks) {
     if (kind == BladeResourceKind::SwordIntent || maxStacks <= 0) {
@@ -90,17 +85,17 @@ const char* SwordIntentWidget::ResolveSwordFlowThresholdText(int currentStacks, 
 }
 
 void SwordIntentWidget::Init() {
-    if (!initialized) {
+    if (!m_initialized) {
         if (IsWindowReady()) {
-            swordIcon = LoadTexture("assets/textures/ui/ui_sword_icon.png");
-            SetTextureFilter(swordIcon, TEXTURE_FILTER_BILINEAR);
+            m_swordIcon = LoadTexture("assets/textures/ui/ui_sword_icon.png");
+            SetTextureFilter(m_swordIcon, TEXTURE_FILTER_BILINEAR);
             
             if (FileExists("assets/shaders/vfx/ui_shine.fs")) {
-                shineShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+                m_shineShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
                     "assets/shaders/vfx/ui_shine.vs", "assets/shaders/vfx/ui_shine.fs");
             }
             
-            initialized = true;
+            m_initialized = true;
         }
     }
 }
@@ -108,14 +103,14 @@ void SwordIntentWidget::Init() {
 void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
                              BladeResourceKind kind, std::string_view label,
                              std::string_view detailText) {
-    if (!initialized) {
+    if (!m_initialized) {
         Init();
-        if (!initialized) return;
+        if (!m_initialized) return;
     }
 
     float dt = GetFrameTime();
     float targetIntensity = (currentStacks >= maxStacks) ? 1.0f : 0.0f;
-    glowIntensity = Lerp(glowIntensity, targetIntensity, dt * 3.0f);
+    m_glowIntensity = Lerp(m_glowIntensity, targetIntensity, dt * 3.0f);
 
     float scale = UISystem::State.scaleFactor;
     
@@ -179,32 +174,32 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
         }
         
         float sScale = finalScale * scale;
-        Rectangle source = { 0, 0, (float)swordIcon.width, (float)swordIcon.height };
-        Rectangle dest = { lx * scale, ly * scale, (float)swordIcon.width * sScale, (float)swordIcon.height * sScale };
+        Rectangle source = { 0, 0, (float)m_swordIcon.width, (float)m_swordIcon.height };
+        Rectangle dest = { lx * scale, ly * scale, (float)m_swordIcon.width * sScale, (float)m_swordIcon.height * sScale };
         Vector2 origin = { dest.width / 2.0f, dest.height / 2.0f };
         
-        if (isActive && glowIntensity > 0.01f && shineShader.id != 0) {
+        if (isActive && m_glowIntensity > 0.01f && m_shineShader.id != 0) {
             float time = (float)GetTime();
-            int timeLoc = GetShaderLocation(shineShader, "time");
-            int intentLoc = GetShaderLocation(shineShader, "intensity");
+            int timeLoc = GetShaderLocation(m_shineShader, "time");
+            int intentLoc = GetShaderLocation(m_shineShader, "intensity");
             
-            SetShaderValue(shineShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(shineShader, intentLoc, &glowIntensity, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(m_shineShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
+            SetShaderValue(m_shineShader, intentLoc, &m_glowIntensity, SHADER_UNIFORM_FLOAT);
             
-            BeginShaderMode(shineShader);
-            DrawTexturePro(swordIcon, source, dest, origin, 0.0f, color);
+            BeginShaderMode(m_shineShader);
+            DrawTexturePro(m_swordIcon, source, dest, origin, 0.0f, color);
             EndShaderMode();
         } else {
-            DrawTexturePro(swordIcon, source, dest, origin, 0.0f, color);
+            DrawTexturePro(m_swordIcon, source, dest, origin, 0.0f, color);
         }
     }
 }
 
 void SwordIntentWidget::Shutdown() {
-    if (initialized) {
-        UnloadTexture(swordIcon);
-        if (shineShader.id != 0) UnloadShader(shineShader);
-        initialized = false;
+    if (m_initialized) {
+        UnloadTexture(m_swordIcon);
+        if (m_shineShader.id != 0) UnloadShader(m_shineShader);
+        m_initialized = false;
     }
 }
 

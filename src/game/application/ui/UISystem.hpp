@@ -9,6 +9,15 @@
 
 class LevelManager; 
 namespace NoMoreDay { namespace systems { class SpatialHashGrid; } }
+namespace NoMoreDay::ui {
+class SkillHotbarController;
+class SkillTreeController;
+class UIStashController;
+class UICraftingController;
+class AstrolabeController;
+class OverlayController;
+class TooltipController;
+}
 
 class UISystem {
 public:
@@ -18,12 +27,18 @@ public:
     // --- Lifecycle ---
     static void Initialize(ResourceManager& resourceManager);
     static void Shutdown();
-    static void Update(entt::registry& registry, const LevelManager& levelManager);
-        static void Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera, NoMoreDay::systems::SpatialHashGrid* spatialGrid = nullptr);
-        static void DrawSkillHotbar(entt::registry& registry);
-        static void DrawBuffs(entt::registry& registry);
+    // Clears gameplay-scoped session state (panels, drag, tooltip, message
+    // box, quantity popup). Invoked by GameUiHost on Enter/LeaveGameplay so
+    // no session data leaks into the next run (design §4.2).
+    static void ResetSessionState();
+    static void Update(entt::registry& registry, const LevelManager& levelManager, NoMoreDay::ui::UIStashController* stashController = nullptr, NoMoreDay::ui::UICraftingController* craftingController = nullptr, NoMoreDay::ui::SkillTreeController* skillTreeController = nullptr, NoMoreDay::ui::AstrolabeController* astrolabeController = nullptr, NoMoreDay::ui::OverlayController* overlayController = nullptr);
+        static void Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera, NoMoreDay::systems::SpatialHashGrid* spatialGrid = nullptr, NoMoreDay::ui::SkillHotbarController* hotbarController = nullptr, NoMoreDay::ui::UIStashController* stashController = nullptr, NoMoreDay::ui::UICraftingController* craftingController = nullptr, NoMoreDay::ui::SkillTreeController* skillTreeController = nullptr, NoMoreDay::ui::AstrolabeController* astrolabeController = nullptr, NoMoreDay::ui::OverlayController* overlayController = nullptr);
         static void Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames);
-        static void DrawDraggingPhantom(entt::registry& registry);
+        // Draws the drag phantom (item/skill) and, when a tooltip controller
+        // is supplied, routes the top-most tooltip through it. The legacy
+        // State-based tooltip block remains as the null-controller fallback
+        // (U7 group 6-B; null-host render path).
+        static void DrawDraggingPhantom(entt::registry& registry, NoMoreDay::ui::TooltipController* tooltipController = nullptr);
     
     // --- Resource Access ---
     // Font/Rarity lookups are delegated to NoMoreDayGameUiShared so the render
@@ -44,7 +59,6 @@ public:
     // --- Helpers ---
     static entt::entity GetPlayerEntity(entt::registry& registry);
     static Vector2 GetMousePositionLogic();
-    static bool IsSkillTreeVisible(entt::registry& registry, entt::entity entity);
     static bool IsModalInputCaptured();
     static void UpdatePanelDrag(NoMoreDay::UIPanelID id, float& x, float& y, float w, float h, float headerHeight);
 

@@ -4,22 +4,21 @@
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/AstrolabeUIComponent.hpp"
 #include "raylib.h"
-#include "game/application/ui/UISystem.hpp" // For UI state check
-#include "game/application/ui/UIAstrolabe.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay {
 
-void InputSystem::update(entt::registry &registry, const Camera2D &camera)
+void InputSystem::update(entt::registry &registry, const Camera2D &camera,
+                         const NoMoreDay::ui::UiInputCapture &capture)
 {
     auto view = registry.view<PlayerTag, InputComponent>();
 
     for (auto entity : view)
     {
-        // Check if Astrolabe or Skill Tree is open
-        if (UIAstrolabe::IsVisible(registry, entity) ||
-            UISystem::IsSkillTreeVisible(registry, entity) ||
-            UISystem::State.isTyping || UISystem::IsModalInputCaptured())
+        // Block all gameplay input while a modal, text field or keyboard-
+        // capturing UI surface owns input (U5: driven by UiInputCapture instead
+        // of reading legacy UI static state).
+        if (capture.modal || capture.text || capture.keyboard)
         {
             // Block all input if UI is fully open or User is typing
             auto &input = view.get<InputComponent>(entity);
@@ -52,8 +51,8 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
         }
 
         // 动作
-        // Only allow mouse actions if not hovering over UI
-        if (!UISystem::State.isMouseOverUI)
+        // Only allow mouse actions if the pointer is not captured by UI
+        if (!capture.pointer)
         {
             if (!isRooted) {
                 // 在鼠标左键按下或按住时更新移动目标

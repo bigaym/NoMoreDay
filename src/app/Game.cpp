@@ -204,6 +204,7 @@ Game::Game(int width, int height, const char *title)
   m_context.levelManager = m_levelManager.get();
   m_context.executor = &m_executor;
   m_context.settings = &m_settings;
+  m_context.uiHost = &m_uiHost;
 
   // Render Context Setup
   m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;
@@ -279,8 +280,20 @@ void Game::init() {
   // Initialize Stats System (Cache cleanup)
   NoMoreDay::StatsSystem::Initialize(m_registry);
 
-  // Initialize UI System (Loads Fonts)
-  UISystem::Initialize(m_resourceManager);
+  // Initialize UI System (Loads Fonts). Ownership moved to GameUiHost (U4);
+  // the legacy facade is initialized through the host.
+  m_uiHost.Initialize(m_resourceManager);
+
+  // U7 group 3: cross-layer crafting entry points route through these
+  // callbacks (see SharedContext) so systems below the UI layer never touch
+  // the static UICrafting panel.
+  m_context.openCraftingMergePanel = [this]() { m_uiHost.CraftingOpenMergePanel(); };
+  m_context.craftingSetTargetItem = [this](entt::entity item) {
+    m_uiHost.CraftingSetTargetItem(item);
+  };
+  // U7 group 5: skill-tree sibling coupling routes the astrolabe close
+  // through the host-owned controller.
+  m_context.closeAstrolabe = [this]() { m_uiHost.CloseAstrolabe(); };
 
   // Initialize GPU Systems
   if (m_gpuInfo.computeShaderSupported) {
@@ -514,7 +527,9 @@ void Game::cleanup() {
   RenderSystem::Shutdown(); // ADDED
   m_gameplayRenderAdapter.Shutdown();
   m_context.gameplayRenderHooks = nullptr;
-  UISystem::Shutdown();
+  // UI host shutdown precedes resource unload / window close so the backend
+  // releases registered raylib resources while the GL context is still alive.
+  m_uiHost.Shutdown();
   NoMoreDay::render::GPUTextSystem::Get().Shutdown();
   NoMoreDay::render::PopupRenderer::Get().Shutdown();
   NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();

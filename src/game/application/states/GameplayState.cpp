@@ -35,6 +35,7 @@
 
 // Systems
 #include "game/application/input/InputSystem.hpp"
+#include "game/application/ui/UiRuntimeTypes.hpp"
 #include "game/systems/physics/PhysicsConstants.hpp"
 #include "game/systems/physics/PhysicsSystem.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -71,6 +72,7 @@
 #include "game/systems/skill/ShadowSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/MonsterHealthBarSystem.hpp"
 #include "game/application/ui/PlayerHUD.hpp"
 #include "game/application/ui/UICharacter.hpp"
@@ -184,6 +186,12 @@ void GameplayState::OnEnter() {
   // 5. Initialize Portal System
   if (m_context->sceneManager) {
     m_portalSystem = std::make_unique<PortalSystem>(*m_context->sceneManager);
+  }
+
+  // 6. Borrow the UI composition root and scope the gameplay UI session.
+  m_uiHost = m_context->uiHost;
+  if (m_uiHost) {
+    m_uiHost->EnterGameplay();
   }
 }
 
@@ -400,6 +408,14 @@ void GameplayState::OnExit() {
   CombatHistorySystem::Shutdown();
   FragmentDropSystem::Shutdown();
   vfx::VFXSequenceManager::Get().Shutdown();
+
+  // End the gameplay-scoped UI session: panels/drag/tooltip state is reset so
+  // nothing leaks into the next run.
+  if (m_uiHost) {
+    m_uiHost->LeaveGameplay();
+  }
+  m_uiHost = nullptr;
+
   // Cleanup logic if needed.
   // Note: Game::cleanup will handle the global registry clear.
 }
@@ -603,7 +619,9 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 2. Input
-  InputSystem::update(registry, m_camera);
+  // U5: gameplay input runs after the UI update below so it can consume the
+  // aggregated UiInputCapture. Only the legacy typing-gate reset stays here
+  // for the UI render pass (write side unchanged).
   UISystem::State.isTyping =
       false; // Reset blocking flag for next frame's UI Render pass
   // Note: UISystem::Update was here in Game.cpp.
@@ -644,7 +662,30 @@ bool GameplayState::OnUpdate(float dt) {
 
   // However, we want to transition fully to StateManager.
   // Let's keep UISystem::Update for 'C' and Debug keys for now.
-  UISystem::Update(registry, *m_context->levelManager);
+  if (m_uiHost) {
+    // U4: update path now runs through the UI composition root, which
+    // forwards to the legacy facade unchanged during migration.
+    // U6b: build the frame-scoped read-only snapshot first, run the UI
+    // update against it, then execute the pickup intents queued during the
+    // previous frame's Draw. This keeps every gameplay mutation inside the
+    // Update phase (design §6.2).
+    const auto snapshot = m_snapshotBuilder.Build(registry);
+    m_uiHost->Update(registry, *m_context->levelManager, snapshot);
+    for (const auto &intent : m_uiHost->DrainUpdateIntents()) {
+      const auto result = m_commandHandler.Execute(registry, intent);
+      m_uiHost->Publish(result);
+    }
+  } else {
+    UISystem::Update(registry, *m_context->levelManager);
+  }
+
+  // Gameplay input consumes the UI capture aggregated after the UI update
+  // (U5), so InputSystem no longer reads UISystem static state. Without the
+  // composition root there is no UI to capture and input runs ungated.
+  const NoMoreDay::ui::UiInputCapture uiCapture =
+      m_uiHost ? m_uiHost->InputCapture(registry)
+               : NoMoreDay::ui::UiInputCapture{};
+  InputSystem::update(registry, m_camera, uiCapture);
 
   // Check if UISystem opened inventory (via its own logic, e.g. if I didn't
   // intercept 'I' above or if Update ran first)
@@ -1013,7 +1054,13 @@ void GameplayState::OnRender() {
   // Monster Health Bars
   {
       NoMoreDay::utils::ScopedTimer timer("Render HealthBars", 10);
-      systems::MonsterHealthBarSystem::Render(registry, m_camera);
+      // U7 group 2: route through the host controller; the legacy static
+      // system remains as the null-host fallback only.
+      if (m_uiHost) {
+        m_uiHost->RenderMonsterHealthBars(registry, m_camera);
+      } else {
+        systems::MonsterHealthBarSystem::Render(registry, m_camera);
+      }
   }
 
   // Skill Range Indicators
@@ -1111,28 +1158,70 @@ void GameplayState::OnRender() {
   // Manual Draw:
   {
       NoMoreDay::utils::ScopedTimer timer("Render Minimap", 10);
-      UIMinimap::Draw(registry, *m_context->levelManager, &m_spatialGrid);
+      // U7 group 1: minimap route through the host controller; the legacy
+      // static panel remains as the null-host fallback only.
+      if (m_uiHost) {
+        m_uiHost->DrawMinimap(registry, *m_context->levelManager,
+                              &m_spatialGrid);
+      } else {
+        UIMinimap::Draw(registry, *m_context->levelManager, &m_spatialGrid);
+      }
   }
   
   if (UISystem::State.showCharacterPanel ||
       UISystem::State.characterPanelAlpha > 0.0f) {
-    UICharacter::Draw(registry);
+    // U7 group 2: character panel routes through the host controller; the
+    // legacy static panel remains as the null-host fallback only.
+    if (m_uiHost) {
+      m_uiHost->DrawCharacter(registry);
+    } else {
+      UICharacter::Draw(registry);
+    }
   }
 
   // Ground Interaction
   {
     NoMoreDay::utils::ScopedTimer timer("Render UISystem", 10);
-    UISystem::Draw(registry, *m_context->levelManager, m_camera, &m_spatialGrid);
+    if (m_uiHost) {
+      // U4: the UI render path now runs through the composition root: re-fit
+      // the native viewport, forward to the legacy facade, then submit the new
+      // draw list through the raylib backend. Frame position is unchanged
+      // (after the scene composite, before EndDrawing).
+      m_uiHost->PrepareRender();
+      m_uiHost->Draw(registry, *m_context->levelManager, m_camera,
+                     &m_spatialGrid);
+    } else {
+      UISystem::Draw(registry, *m_context->levelManager, m_camera,
+                     &m_spatialGrid);
+    }
   }
 
   // Monster Target Widget (Top Center)
-  systems::MonsterHealthBarSystem::RenderUI(registry);
+  // U7 group 2: route through the host controller; the legacy static system
+  // remains as the null-host fallback only.
+  if (m_uiHost) {
+    m_uiHost->RenderMonsterHealthBarsUI(registry);
+  } else {
+    systems::MonsterHealthBarSystem::RenderUI(registry);
+  }
 
   // Player HUD (Resource Bars)
-  systems::PlayerHUD::Draw(registry);
+  // U7 group 1: HUD route through the host controller; the legacy static
+  // panel remains as the null-host fallback only.
+  if (m_uiHost) {
+    m_uiHost->DrawHud(registry);
+  } else {
+    systems::PlayerHUD::Draw(registry);
+  }
 
   // Global UI Overlay (Dragging Phantom)
-  UISystem::DrawDraggingPhantom(registry);
+  // U7 group 6-B: the drag phantom + top-most tooltip pass routes through the
+  // host controller; the legacy static path remains as the null-host fallback.
+  if (m_uiHost) {
+    m_uiHost->DrawDraggingPhantom(registry);
+  } else {
+    UISystem::DrawDraggingPhantom(registry);
+  }
 
   // Cleanup Dragging if mouse released (Fallback if no inventory overlay is active)
   if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && !UISystem::State.showInventory) {

@@ -1,6 +1,8 @@
 # UI 系统重构实施计划（UI System Rearchitecture Plan）
 
-> **Status:** in progress; U0-U2 foundation implemented, U3+ pending
+> **Status:** in progress; U0-U7 implemented (2026-08-12), U8 pending
+>
+> **Progress note (2026-08-12):** U3-U7 已全部实施并通过验证（focused + 全量 UI 回归 211 cases / 2803 assertions 全绿；全量 976 cases 中仅 3 个既有无关失败：GraphBindingEquivalenceGLTest 渲染图集成、RadianceCascadesBenchmark 性能基准）。U7 六个组全部完成：组1 HUD/minimap/hotbar/buffs/MonsterHealthBar、组2 character/inventory、组3 stash/crafting、组4 skill hub/talent tree、组5 astrolabe（UIAstrolabe 删除）、组6 context menu/quantity popup/message box/tooltip。所有面板/overlay 均为 GameUiHost 持有的实例控制器（src/game/application/ui/*Controller.{hpp,cpp}），无静态可变 UI 状态，UISystem::State 保留为兼容镜像（U8 断开）。U8（WorldUiFrame bridge + UiShared 静态槽替换 + UIContext/UISystem facade 删除）未实施，工作量较大（涉及 render 层写侧、GameplayState/Game/UIRenderer/InventorySystem/InventoryState 等全部 State 读方迁移），建议独立一轮。
 >
 > **Design:** [`2026-08-11-ui-system-rearchitecture-design.md`](../designs/2026-08-11-ui-system-rearchitecture-design.md)
 >

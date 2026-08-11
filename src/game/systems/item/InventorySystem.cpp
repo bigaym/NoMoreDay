@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <map>
 #include <vector>
-#include "game/application/ui/UICrafting.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/systems/item/ItemEquipValidationService.hpp"
@@ -551,8 +551,15 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
         effectApplied = true;
         LOG_INFO("使用了法力药水，恢复 50 点法力值。当前: {:.0f}/{:.0f}", stats->mana, stats->max_mana);
     } else if (itemComp->id == 10001) { // Legendary Core
-        // Open Legendary Crafting UI (Merging Tab)
-        UICrafting::OpenMergePanel();
+        // Open Legendary Crafting UI (Merging Tab). U7 group 3: the crafting
+        // panel is host-owned, so this system routes through the SharedContext
+        // callback instead of the legacy static UICrafting panel.
+        if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
+            auto *shared = registry.ctx().get<NoMoreDay::SharedContext *>();
+            if (shared->openCraftingMergePanel) {
+                shared->openCraftingMergePanel();
+            }
+        }
         LOG_INFO("Opening Legendary Crafting (Merging) Panel via Legendary Core");
         // Do NOT consume the item here. It is used as a reagent inside the UI.
         return false; 

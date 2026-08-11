@@ -2,6 +2,8 @@
 
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/application/scene/State.hpp"
+#include "game/application/ui/GameUiCommandHandler.hpp"
+#include "game/application/ui/GameUiSnapshotBuilder.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <memory>
@@ -14,6 +16,9 @@ namespace NoMoreDay {
 
 // Forward declaration in namespace
 class PortalSystem;
+namespace ui {
+class GameUiHost;
+}
 
 class GameplayState : public IState {
 public:
@@ -61,6 +66,16 @@ private:
   // Portal System
   std::unique_ptr<PortalSystem> m_portalSystem;
   RenderContext *m_renderContext = nullptr;
+
+  // UI composition root, borrowed from the application (SharedContext::uiHost).
+  // Entering/leaving gameplay drives the host's gameplay session scoping.
+  ui::GameUiHost *m_uiHost = nullptr;
+
+  // U6b: frame-scoped read model builder and intent executor for the pickup
+  // intent loop. Owned here so the Update phase stays the only gameplay
+  // mutation site (design §6.2).
+  ui::GameUiSnapshotBuilder m_snapshotBuilder;
+  ui::GameUiCommandHandler m_commandHandler;
 
   bool m_showGateResumeOrNewDialog = false;
   bool m_showGateStartNewConfirmDialog = false;

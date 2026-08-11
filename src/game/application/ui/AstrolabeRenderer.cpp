@@ -10,62 +10,46 @@
 
 namespace NoMoreDay {
 
-Shader AstrolabeRenderer::s_shGalaxy = {0};
-Shader AstrolabeRenderer::s_shNode = {0};
-Texture2D AstrolabeRenderer::s_whitePixel = {0};
-RenderTexture2D AstrolabeRenderer::s_galaxyCache = {0};
-Vector2 AstrolabeRenderer::s_galaxyCacheRes = {0, 0};
-bool AstrolabeRenderer::s_galaxyCacheValid = false;
-bool AstrolabeRenderer::s_initialized = false;
-namespace {
-int s_locGalaxyTime = -1;
-int s_locGalaxyResolution = -1;
-int s_locGalaxyOffset = -1;
-int s_locGalaxyZoom = -1;
-int s_locGalaxyCameraOffset = -1;
-int s_locGalaxyCenter = -1;
-int s_locGalaxyScale = -1;
-int s_locGalaxyQualityTier = -1;
-int s_locGalaxyRenderScale = -1;
-int s_prevGalaxyQualityTier = -1;
-} // namespace
+AstrolabeRenderer::~AstrolabeRenderer() {
+    Unload();
+}
 
 void AstrolabeRenderer::Init(Shader galaxyShader, Shader nodeShader) {
-    s_shGalaxy = galaxyShader;
-    s_shNode = nodeShader;
+    m_shGalaxy = galaxyShader;
+    m_shNode = nodeShader;
     
     // Create 1x1 white texture for UV-correct drawing
     Image img = GenImageColor(1, 1, WHITE);
-    s_whitePixel = LoadTextureFromImage(img);
+    m_whitePixel = LoadTextureFromImage(img);
     UnloadImage(img);
 
-    if (s_shGalaxy.id != 0) {
-        s_locGalaxyTime = GetShaderLocation(s_shGalaxy, "uTime");
-        s_locGalaxyResolution = GetShaderLocation(s_shGalaxy, "uResolution");
-        s_locGalaxyOffset = GetShaderLocation(s_shGalaxy, "uOffset");
-        s_locGalaxyZoom = GetShaderLocation(s_shGalaxy, "uZoom");
-        s_locGalaxyCameraOffset = GetShaderLocation(s_shGalaxy, "uCameraOffset");
-        s_locGalaxyCenter = GetShaderLocation(s_shGalaxy, "uGalaxyCenter");
-        s_locGalaxyScale = GetShaderLocation(s_shGalaxy, "uGalaxyScale");
-        s_locGalaxyQualityTier = GetShaderLocation(s_shGalaxy, "uQualityTier");
-        s_locGalaxyRenderScale = GetShaderLocation(s_shGalaxy, "uRenderScale");
+    if (m_shGalaxy.id != 0) {
+        m_locGalaxyTime = GetShaderLocation(m_shGalaxy, "uTime");
+        m_locGalaxyResolution = GetShaderLocation(m_shGalaxy, "uResolution");
+        m_locGalaxyOffset = GetShaderLocation(m_shGalaxy, "uOffset");
+        m_locGalaxyZoom = GetShaderLocation(m_shGalaxy, "uZoom");
+        m_locGalaxyCameraOffset = GetShaderLocation(m_shGalaxy, "uCameraOffset");
+        m_locGalaxyCenter = GetShaderLocation(m_shGalaxy, "uGalaxyCenter");
+        m_locGalaxyScale = GetShaderLocation(m_shGalaxy, "uGalaxyScale");
+        m_locGalaxyQualityTier = GetShaderLocation(m_shGalaxy, "uQualityTier");
+        m_locGalaxyRenderScale = GetShaderLocation(m_shGalaxy, "uRenderScale");
     }
     
-    s_initialized = true;
+    m_initialized = true;
 }
 
 void AstrolabeRenderer::Unload() {
-    if (s_whitePixel.id != 0) {
-        UnloadTexture(s_whitePixel);
-        s_whitePixel = {0};
+    if (m_whitePixel.id != 0) {
+        UnloadTexture(m_whitePixel);
+        m_whitePixel = {0};
     }
-    if (s_galaxyCache.texture.id != 0) {
-        UnloadRenderTexture(s_galaxyCache);
-        s_galaxyCache = {0};
+    if (m_galaxyCache.texture.id != 0) {
+        UnloadRenderTexture(m_galaxyCache);
+        m_galaxyCache = {0};
     }
-    s_galaxyCacheRes = {0, 0};
-    s_galaxyCacheValid = false;
-    s_initialized = false;
+    m_galaxyCacheRes = {0, 0};
+    m_galaxyCacheValid = false;
+    m_initialized = false;
 }
 
 float AstrolabeRenderer::getNodeRadius(TalentNodeType type) {
@@ -116,7 +100,7 @@ void AstrolabeRenderer::DrawConnections(const TalentGraph& graph, const Astrolab
 
 void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
     using namespace Constants::Astrolabe;
-    if (s_initialized && s_shGalaxy.id > 0) {
+    if (m_initialized && m_shGalaxy.id > 0) {
         // Half-resolution cache size derived from the viewport resolution
         int cacheW = (int)(view.resolution.x * 0.5f);
         int cacheH = (int)(view.resolution.y * 0.5f);
@@ -125,18 +109,18 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
         Vector2 cacheRes = { (float)cacheW, (float)cacheH };
 
         // (Re)create the cache when the viewport resolution changes
-        if (!s_galaxyCacheValid || s_galaxyCache.texture.width != cacheW ||
-            s_galaxyCache.texture.height != cacheH) {
-            if (s_galaxyCache.texture.id != 0) {
-                UnloadRenderTexture(s_galaxyCache);
-                s_galaxyCache = {0};
+        if (!m_galaxyCacheValid || m_galaxyCache.texture.width != cacheW ||
+            m_galaxyCache.texture.height != cacheH) {
+            if (m_galaxyCache.texture.id != 0) {
+                UnloadRenderTexture(m_galaxyCache);
+                m_galaxyCache = {0};
             }
-            s_galaxyCache = LoadRenderTexture(cacheW, cacheH);
-            s_galaxyCacheRes = cacheRes;
-            s_galaxyCacheValid = (s_galaxyCache.texture.id != 0);
+            m_galaxyCache = LoadRenderTexture(cacheW, cacheH);
+            m_galaxyCacheRes = cacheRes;
+            m_galaxyCacheValid = (m_galaxyCache.texture.id != 0);
         }
 
-        if (!s_galaxyCacheValid) {
+        if (!m_galaxyCacheValid) {
             ClearBackground(BLACK);
             return;
         }
@@ -144,56 +128,56 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
         // Pass 1: render the galaxy into the half-resolution cache. The shader
         // is driven purely by gl_FragCoord + uniforms, so a full-viewport
         // rectangle covers the FBO without needing the camera transform.
-        BeginTextureMode(s_galaxyCache);
-        BeginShaderMode(s_shGalaxy);
+        BeginTextureMode(m_galaxyCache);
+        BeginShaderMode(m_shGalaxy);
         const int qualityTier = static_cast<int>(
             render::core::QualityTierManager::Get().GetTier());
-        if (qualityTier != s_prevGalaxyQualityTier) {
+        if (qualityTier != m_prevGalaxyQualityTier) {
             LOG_INFO("AstrolabeRenderer: Galaxy background quality tier={}",
                      qualityTier);
-            s_prevGalaxyQualityTier = qualityTier;
+            m_prevGalaxyQualityTier = qualityTier;
         }
 
-        if (s_locGalaxyTime >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyTime, &view.time,
+        if (m_locGalaxyTime >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyTime, &view.time,
                            SHADER_UNIFORM_FLOAT);
         }
-        if (s_locGalaxyResolution >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyResolution, &view.resolution,
+        if (m_locGalaxyResolution >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyResolution, &view.resolution,
                            SHADER_UNIFORM_VEC2);
         }
-        if (s_locGalaxyOffset >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyOffset, &view.camera.target,
+        if (m_locGalaxyOffset >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyOffset, &view.camera.target,
                            SHADER_UNIFORM_VEC2);
         }
-        if (s_locGalaxyZoom >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyZoom, &view.camera.zoom,
+        if (m_locGalaxyZoom >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyZoom, &view.camera.zoom,
                            SHADER_UNIFORM_FLOAT);
         }
-        if (s_locGalaxyCameraOffset >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyCameraOffset,
+        if (m_locGalaxyCameraOffset >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyCameraOffset,
                            &view.camera.offset, SHADER_UNIFORM_VEC2);
         }
         
         Vector2 center = { GALAXY_CENTER_X, GALAXY_CENTER_Y };
         float scale = GALAXY_SCALE;
-        if (s_locGalaxyCenter >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyCenter, &center,
+        if (m_locGalaxyCenter >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyCenter, &center,
                            SHADER_UNIFORM_VEC2);
         }
-        if (s_locGalaxyScale >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyScale, &scale,
+        if (m_locGalaxyScale >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyScale, &scale,
                            SHADER_UNIFORM_FLOAT);
         }
-        if (s_locGalaxyQualityTier >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyQualityTier, &qualityTier,
+        if (m_locGalaxyQualityTier >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyQualityTier, &qualityTier,
                            SHADER_UNIFORM_INT);
         }
         // Map cache texels back to full-resolution screen coordinates
         Vector2 renderScale = { view.resolution.x / cacheRes.x,
                                 view.resolution.y / cacheRes.y };
-        if (s_locGalaxyRenderScale >= 0) {
-            SetShaderValue(s_shGalaxy, s_locGalaxyRenderScale, &renderScale,
+        if (m_locGalaxyRenderScale >= 0) {
+            SetShaderValue(m_shGalaxy, m_locGalaxyRenderScale, &renderScale,
                            SHADER_UNIFORM_VEC2);
         }
 
@@ -210,7 +194,7 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
         Rectangle src = { 0, 0, cacheRes.x, -cacheRes.y };
         Rectangle dst = { tl.x - 100, tl.y - 100, (br.x - tl.x) + 200,
                           (br.y - tl.y) + 200 };
-        DrawTexturePro(s_galaxyCache.texture, src, dst, {0, 0}, 0.0f, WHITE);
+        DrawTexturePro(m_galaxyCache.texture, src, dst, {0, 0}, 0.0f, WHITE);
     } else {
         ClearBackground(BLACK);
     }
@@ -274,19 +258,19 @@ void AstrolabeRenderer::DrawProfessionStars(const TalentGraph& graph, const Astr
 }
 
 void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId) {
-    if (!s_initialized || s_shNode.id == 0) return;
+    if (!m_initialized || m_shNode.id == 0) return;
 
     // Begin Shader Mode for the entire batch
 
-    BeginShaderMode(s_shNode);
+    BeginShaderMode(m_shNode);
 
-    int locTime = GetShaderLocation(s_shNode, "uTime");
-    int locBaseColor = GetShaderLocation(s_shNode, "uBaseColor");
+    int locTime = GetShaderLocation(m_shNode, "uTime");
+    int locBaseColor = GetShaderLocation(m_shNode, "uBaseColor");
     
     // Set Global Uniforms ONCE
-    SetShaderValue(s_shNode, locTime, &view.time, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(m_shNode, locTime, &view.time, SHADER_UNIFORM_FLOAT);
     Vector4 baseColorVec = {0.8f, 0.8f, 0.8f, 1.0f};
-    SetShaderValue(s_shNode, locBaseColor, &baseColorVec, SHADER_UNIFORM_VEC4);
+    SetShaderValue(m_shNode, locBaseColor, &baseColorVec, SHADER_UNIFORM_VEC4);
 
     
     for (const auto& [id, node] : graph.nodes) {
@@ -323,7 +307,7 @@ void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView&
         // Draw geometry into the batch
         Rectangle srcRect = { 0, 0, 1, 1 };
         Rectangle dstRect = { node.x - r, node.y - r, r * 2, r * 2 };
-        DrawTexturePro(s_whitePixel, srcRect, dstRect, {0, 0}, 0.0f, encodedColor);
+        DrawTexturePro(m_whitePixel, srcRect, dstRect, {0, 0}, 0.0f, encodedColor);
     }
     
     // End Shader Mode and Flush Batch

@@ -13,6 +13,11 @@
 
 namespace NoMoreDay::systems {
 
+// Legacy null-host fallback only (GameplayState keeps the static path alive
+// until U8 removes the UISystem facade). The hosted PlayerHudController owns
+// its own SwordIntentWidget instance instead.
+static NoMoreDay::systems::ui::SwordIntentWidget s_swordIntentWidget;
+
 namespace {
 
 const char *ResolveSummonDisplayName(const SummonComponent &summon) {
@@ -291,7 +296,7 @@ void PlayerHUD::Draw(entt::registry& registry) {
                 detailText += runtimeDetailText;
             }
         }
-        NoMoreDay::systems::ui::SwordIntentWidget::Draw(
+        s_swordIntentWidget.Draw(
             bladeResource->current, bladeResource->max, bladeResource->kind, label,
             detailText);
         if (mastery != nullptr) {
@@ -317,7 +322,7 @@ void PlayerHUD::Draw(entt::registry& registry) {
             }
         }
     } else if (intent) {
-        NoMoreDay::systems::ui::SwordIntentWidget::Draw(
+        s_swordIntentWidget.Draw(
             intent->stacks, intent->max_stacks, BladeResourceKind::SwordIntent,
             "Sword Intent");
     }

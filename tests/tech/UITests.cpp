@@ -531,7 +531,8 @@ TEST_CASE("[Tech] SkillUI - Mastery Panel Draw Does Not Crash") {
     auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
     astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
 
-    CHECK_NOTHROW(UISkillHub::Draw(registry, player));
+    NoMoreDay::UISkillHub hub;
+    CHECK_NOTHROW(hub.Draw(registry, player));
 }
 
 TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
@@ -551,8 +552,9 @@ TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
     auto& stats = registry.emplace<PlayerStats>(player);
     stats.level = 12;
 
-    CHECK_FALSE(UISkillHub::TrySelectMastery(registry, player,
-                                             BladeMasteryId::SwordSaint));
+    NoMoreDay::UISkillHub hub;
+    CHECK_FALSE(hub.TrySelectMastery(registry, player,
+                                     BladeMasteryId::SwordSaint));
     CHECK(UISystem::State.showMessageBox);
     CHECK(std::string(UISystem::State.messageBoxText) ==
           "等级或基础职业不满足职业专精条件");

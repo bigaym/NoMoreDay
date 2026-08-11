@@ -44,6 +44,13 @@ struct UiInsets {
   float bottom = 0.0f;
 };
 
+struct UiColor {
+  std::uint8_t r = 255;
+  std::uint8_t g = 255;
+  std::uint8_t b = 255;
+  std::uint8_t a = 255;
+};
+
 using UiId = std::uint32_t;
 using UiResourceId = std::uint32_t;
 

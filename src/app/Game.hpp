@@ -8,6 +8,7 @@
 #include "game/application/render/GPUEntityAdapter.hpp"
 #include "game/application/scene/SceneManager.hpp"
 #include "game/application/scene/StateManager.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
@@ -72,6 +73,11 @@ private:
   // 2. 共享上下文 (依赖资源)
   NoMoreDay::SharedContext m_context;
   NoMoreDay::GameSettings m_settings;
+
+  // UI composition root: owns the retained runtime core and forwards to the
+  // legacy facade during migration. Destroyed after the shared context that
+  // references it (cleanup() also shuts it down explicitly).
+  NoMoreDay::ui::GameUiHost m_uiHost;
 
   // 3. 逻辑管理器 (最先析构)
   std::unique_ptr<LevelManager> m_levelManager;

@@ -12,31 +12,56 @@ struct AstrolabeView {
     float time = 0.0f;
 };
 
+// Instance renderer for the astrolabe panel.
+//
+// U7 cleanup: converted from a static class to an instance type so the UI
+// system keeps no static mutable rendering state (design invariant 4). All
+// shader/texture/cache state is an instance member; resources are released by
+// Unload() and by the destructor (idempotent, and skipped once the GL context
+// is gone). The class is non-copyable; AstrolabeController owns one instance.
 class AstrolabeRenderer {
 public:
-    static void Draw(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId = 0);
+    AstrolabeRenderer() = default;
+    ~AstrolabeRenderer();
+
+    AstrolabeRenderer(const AstrolabeRenderer&) = delete;
+    AstrolabeRenderer& operator=(const AstrolabeRenderer&) = delete;
+
+    void Draw(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId = 0);
     
     // Shader management
-    static void Init(Shader galaxyShader, Shader nodeShader);
-    static void Unload();
+    void Init(Shader galaxyShader, Shader nodeShader);
+    void Unload();
     
-    static float getNodeRadius(TalentNodeType type);
+    float getNodeRadius(TalentNodeType type);
 
-    static void DrawConnections(const TalentGraph& graph, const AstrolabeComponent* comp, float alpha);
+    void DrawConnections(const TalentGraph& graph, const AstrolabeComponent* comp, float alpha);
 
 private:
-    static void DrawBackground(const AstrolabeView& view);
-    static void DrawOrbits(const AstrolabeView& view);
-    static void DrawNodes(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId);
-    static void DrawProfessionStars(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp);
+    void DrawBackground(const AstrolabeView& view);
+    void DrawOrbits(const AstrolabeView& view);
+    void DrawNodes(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId);
+    void DrawProfessionStars(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp);
     
-    static Shader s_shGalaxy;
-    static Shader s_shNode;
-    static Texture2D s_whitePixel; // 1x1 white texture for UV-correct drawing
-    static RenderTexture2D s_galaxyCache; // Half-resolution galaxy background cache
-    static Vector2 s_galaxyCacheRes;
-    static bool s_galaxyCacheValid;
-    static bool s_initialized;
+    Shader m_shGalaxy = {0};
+    Shader m_shNode = {0};
+    Texture2D m_whitePixel = {0}; // 1x1 white texture for UV-correct drawing
+    RenderTexture2D m_galaxyCache = {0}; // Half-resolution galaxy background cache
+    Vector2 m_galaxyCacheRes = {0, 0};
+    bool m_galaxyCacheValid = false;
+    bool m_initialized = false;
+
+    // Cached galaxy shader uniform locations
+    int m_locGalaxyTime = -1;
+    int m_locGalaxyResolution = -1;
+    int m_locGalaxyOffset = -1;
+    int m_locGalaxyZoom = -1;
+    int m_locGalaxyCameraOffset = -1;
+    int m_locGalaxyCenter = -1;
+    int m_locGalaxyScale = -1;
+    int m_locGalaxyQualityTier = -1;
+    int m_locGalaxyRenderScale = -1;
+    int m_prevGalaxyQualityTier = -1;
 };
 
 } // namespace NoMoreDay
