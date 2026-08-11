@@ -75,12 +75,16 @@ bool PostProcessPass::Initialize() {
     return true;
   }
 
-  m_brightExtractShader =
-      LoadShader(kFullscreenVertexShader, kBrightExtractFragmentShader);
-  m_kawaseDownShader = LoadShader(kFullscreenVertexShader, kKawaseDownFragmentShader);
-  m_kawaseUpShader = LoadShader(kFullscreenVertexShader, kKawaseUpFragmentShader);
-  m_combinedShader = LoadShader(kFullscreenVertexShader, kCombinedFragmentShader);
-  m_fxaaShader = LoadShader(kFullscreenVertexShader, kFxaaFragmentShader);
+  m_brightExtractShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kBrightExtractFragmentShader);
+  m_kawaseDownShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kKawaseDownFragmentShader);
+  m_kawaseUpShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kKawaseUpFragmentShader);
+  m_combinedShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kCombinedFragmentShader);
+  m_fxaaShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kFxaaFragmentShader);
 
   if (m_brightExtractShader.id == 0 || m_kawaseDownShader.id == 0 ||
       m_kawaseUpShader.id == 0 || m_combinedShader.id == 0 ||
@@ -117,11 +121,16 @@ bool PostProcessPass::Initialize() {
 }
 
 bool PostProcessPass::ReloadShaders() {
-  Shader brightExtract = LoadShader(kFullscreenVertexShader, kBrightExtractFragmentShader);
-  Shader kawaseDown = LoadShader(kFullscreenVertexShader, kKawaseDownFragmentShader);
-  Shader kawaseUp = LoadShader(kFullscreenVertexShader, kKawaseUpFragmentShader);
-  Shader combined = LoadShader(kFullscreenVertexShader, kCombinedFragmentShader);
-  Shader fxaa = LoadShader(kFullscreenVertexShader, kFxaaFragmentShader);
+  Shader brightExtract = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kBrightExtractFragmentShader);
+  Shader kawaseDown = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kKawaseDownFragmentShader);
+  Shader kawaseUp = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kKawaseUpFragmentShader);
+  Shader combined = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kCombinedFragmentShader);
+  Shader fxaa = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kFxaaFragmentShader);
 
   if (brightExtract.id == 0 || kawaseDown.id == 0 || kawaseUp.id == 0 ||
       combined.id == 0 || fxaa.id == 0) {

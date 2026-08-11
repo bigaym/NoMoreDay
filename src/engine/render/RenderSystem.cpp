@@ -934,8 +934,9 @@ void RenderSystem::Initialize() {
   }
   g_renderProfiler = std::make_unique<NoMoreDay::render::debug::RenderProfiler>();
 
-  s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
-                             "assets/shaders/ui/label_instanced.frag");
+  s_labelShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/ui/label_instanced.vert",
+      "assets/shaders/ui/label_instanced.frag");
 
   if (s_labelShader.id != 0) {
     s_labelMvpLoc = GetShaderLocation(s_labelShader, "mvp");
@@ -949,8 +950,9 @@ void RenderSystem::Initialize() {
   s_labelInstanceBuffer->BindBase(
       static_cast<uint32_t>(Binding::SSBO_LABEL_INSTANCE));
 
-  s_beamShader = LoadShader("assets/shaders/vfx/beam_instanced.vert",
-                            "assets/shaders/vfx/beam_instanced.frag");
+  s_beamShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/vfx/beam_instanced.vert",
+      "assets/shaders/vfx/beam_instanced.frag");
   if (s_beamShader.id != 0) {
     s_beamMvpLoc = GetShaderLocation(s_beamShader, "mvp");
   }
@@ -959,8 +961,8 @@ void RenderSystem::Initialize() {
   s_beamInstanceBuffer->Create(500 * sizeof(NoMoreDay::render::GPUBeamInstance), nullptr,
                                RL_DYNAMIC_DRAW);
 
-  s_glyphShader = LoadShader("assets/shaders/ui/glyph.vert",
-                             "assets/shaders/ui/glyph.frag");
+  s_glyphShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/ui/glyph.vert", "assets/shaders/ui/glyph.frag");
   if (s_glyphShader.id != 0) {
     s_glyphMvpLoc = GetShaderLocation(s_glyphShader, "mvp");
     s_glyphTexLoc = GetShaderLocation(s_glyphShader, "uFontAtlas");

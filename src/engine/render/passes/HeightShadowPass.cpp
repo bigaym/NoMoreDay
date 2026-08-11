@@ -52,8 +52,8 @@ bool HeightShadowPass::Initialize() {
     return true;
   }
 
-  m_heightShadowShader =
-      LoadShader(kFullscreenVertexShader, kHeightShadowFragmentShader);
+  m_heightShadowShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kHeightShadowFragmentShader);
   if (m_heightShadowShader.id == 0) {
     LOG_ERROR("HeightShadowPass shader initialization failed");
     Shutdown();
@@ -80,7 +80,8 @@ bool HeightShadowPass::Initialize() {
 }
 
 bool HeightShadowPass::ReloadShaders() {
-  Shader reloaded = LoadShader(kFullscreenVertexShader, kHeightShadowFragmentShader);
+  Shader reloaded = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kHeightShadowFragmentShader);
   if (reloaded.id == 0) {
     LOG_WARN("HeightShadowPass: shader reload failed, keeping previous program");
     return false;

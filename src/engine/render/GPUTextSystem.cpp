@@ -55,8 +55,8 @@ void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
   m_counterBuffer.Create(sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
   m_indirectBuffer.Create(sizeof(DrawArraysIndirectCommand), nullptr, RL_DYNAMIC_DRAW);
 
-  m_renderShader = LoadShader("assets/shaders/text/text_quad.vert",
-                              "assets/shaders/text/text_quad.frag");
+  m_renderShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/text/text_quad.vert", "assets/shaders/text/text_quad.frag");
   if (m_renderShader.id == 0) {
     LOG_ERROR("GPUTextSystem: failed to load text_quad shader");
     m_commandBuffer.Destroy();
@@ -255,7 +255,10 @@ void GPUTextSystem::DispatchLayout(const float timeSeconds,
 
   const uint32_t groups =
       static_cast<uint32_t>((m_cpuCommands.size() + 255u) / 256u);
-  utils::GPUUtils::DispatchCompute(groups, 1, 1);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("TextLayout");
+    utils::GPUUtils::DispatchCompute(groups, 1, 1);
+  }
   rlDisableShader();
 
   uint32_t outCount = 0;

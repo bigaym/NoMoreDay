@@ -219,8 +219,8 @@ void PopupRenderer::CreateResources() {
   m_instanceBuffer.Create(MAX_POPUPS * sizeof(components::GPUPopupInstance));
 
   // Load Shaders
-  m_shader = LoadShader("assets/shaders/vfx/popup.vert",
-                        "assets/shaders/vfx/popup.frag");
+  m_shader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/vfx/popup.vert", "assets/shaders/vfx/popup.frag");
   m_uViewProj = GetShaderLocation(m_shader, "uViewProj");
   m_uAtlas = GetShaderLocation(m_shader, "uAtlas");
   m_uTime = GetShaderLocation(m_shader, "uTime");

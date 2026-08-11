@@ -2,7 +2,8 @@
 #include "game/foundation/SharedContext.hpp"
 #include "engine/render/RenderContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
-#include "engine/resource/ResourceManager.hpp"
+  #include "engine/resource/ResourceManager.hpp"
+  #include "engine/render/GPUUtils.hpp"
 #include "game/application/scene/StateManager.hpp"
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/LightComponent.hpp"
@@ -424,7 +425,8 @@ bool GameplayState::OnUpdate(float dt) {
       if (m_activeFilterShader.id != 0) {
         UnloadShader(m_activeFilterShader);
       }
-      m_activeFilterShader = LoadShader(0, biome.visualFilterShader.c_str());
+      m_activeFilterShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+          0, biome.visualFilterShader.c_str());
       m_lastFilterPath = biome.visualFilterShader;
       m_filterLocTime = GetShaderLocation(m_activeFilterShader, "time");
       m_filterLocCam = GetShaderLocation(m_activeFilterShader, "cameraOffset");

@@ -403,7 +403,10 @@ bool JFAPass::RunSeedInit(const graph::RenderContext &context,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kSeedOutputImageBinding, m_seedPing.colorTexture, 0,
       false, 0, kGLWriteOnly, kGLRg16ui);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("JFASeedInit");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  }
   rlDisableShader();
 
   // Same-pass sync before the first jump-flood dispatch reads the seed image.
@@ -458,7 +461,10 @@ bool JFAPass::RunJumpFloodStep(const graph::RenderContext &context,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kSeedOutputImageBinding, outputSeedTexture, 0, false, 0,
       kGLWriteOnly, kGLRg16ui);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("JFAJumpFlood");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  }
   rlDisableShader();
 
   // Same-pass sync before the next jump step (or distance resolve) reads the
@@ -519,7 +525,10 @@ bool JFAPass::RunDistanceResolve(const graph::RenderContext &context,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kDistanceFieldImageBinding, outputDistanceTexture, 0,
       false, 0, kGLWriteOnly, kGLR16f);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("JFADistanceResolve");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  }
   rlDisableShader();
 
   // Same-pass sync before the upsample dispatch reads the half-resolution
@@ -578,7 +587,10 @@ bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight,
   NoMoreDay::utils::GPUUtils::BindImageTexture(kFullOutputBinding,
                                                m_distanceFieldFull.colorTexture, 0,
                                                false, 0, kGLWriteOnly, kGLR16f);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("JFAUpsample");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
+  }
   rlDisableShader();
 
   // Cross-pass sync: RadianceCascadesPass consumes DistanceField via image

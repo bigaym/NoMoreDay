@@ -39,8 +39,8 @@ void GPUTrailRenderer::Init(int maxTrails, int maxPointsPerTrail) {
                       static_cast<size_t>(m_maxPointsPerTrail) *
                       sizeof(components::GPUTrailPoint));
 
-  m_trailShader =
-      LoadShader("assets/shaders/trail/trail.vert", "assets/shaders/trail/trail.frag");
+  m_trailShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/trail/trail.vert", "assets/shaders/trail/trail.frag");
   if (m_trailShader.id == 0) {
     LOG_ERROR("GPUTrailRenderer: Failed to load trail shader.");
     return;

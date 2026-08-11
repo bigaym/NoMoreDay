@@ -1,6 +1,7 @@
 #include "game/application/render/AirWallRenderer.hpp"
 #include "game/foundation/components/Common.hpp"
-#include "game/systems/world/WorldConstants.hpp"
+  #include "game/systems/world/WorldConstants.hpp"
+  #include "engine/render/GPUUtils.hpp"
 #include <utility>
 
 namespace NoMoreDay {
@@ -28,7 +29,8 @@ bool AirWallRenderer::Initialize(const std::string &backgroundShaderPath) {
   }
 
   Shutdown();
-  m_backgroundShader = LoadShader(nullptr, backgroundShaderPath.c_str());
+  m_backgroundShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      nullptr, backgroundShaderPath.c_str());
   if (m_backgroundShader.id == 0) {
     m_shaderPath.clear();
     return false;

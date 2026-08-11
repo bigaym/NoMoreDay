@@ -75,7 +75,8 @@ bool VolumetricLightPass::Initialize() {
     return true;
   }
 
-  m_volumetricShader = LoadShader(kFullscreenVertexShader, kVolumetricFragmentShader);
+  m_volumetricShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kVolumetricFragmentShader);
   if (m_volumetricShader.id == 0) {
     LOG_ERROR("VolumetricLightPass shader initialization failed");
     Shutdown();
@@ -102,7 +103,8 @@ bool VolumetricLightPass::Initialize() {
 }
 
 bool VolumetricLightPass::ReloadShaders() {
-  Shader reloaded = LoadShader(kFullscreenVertexShader, kVolumetricFragmentShader);
+  Shader reloaded = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kVolumetricFragmentShader);
   if (reloaded.id == 0) {
     LOG_WARN("VolumetricLightPass: shader reload failed, keeping previous program");
     return false;

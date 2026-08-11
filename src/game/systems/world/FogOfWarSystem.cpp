@@ -141,7 +141,10 @@ void FogOfWarSystem::updateVisibility(float viewMinX, float viewMinY,
 
   // The compute shader writes both the visibility SSBO and fog image, which
   // are consumed immediately by CPU readback and the following texture draw.
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(groupsX, groupsY, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("FogVisibility");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(groupsX, groupsY, 1);
+  }
   NoMoreDay::render::core::ApplyComputeToFragmentBarrierTemplate();
 
   rlDisableShader();

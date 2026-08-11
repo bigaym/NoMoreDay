@@ -224,9 +224,12 @@ bool OccluderExtractPass::RunExtractPass(const graph::RenderContext &context,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kOccluderMaskImageBinding, outputTexture, 0, false, 0,
       kGLWriteOnly, kGLR8);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(m_cachedWidth), kComputeGroupSize),
-      DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("OccluderExtract");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(static_cast<uint32_t>(m_cachedWidth), kComputeGroupSize),
+        DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
+  }
   rlDisableShader();
 
   // Same-pass sync before the compose dispatch reads the layer images: emitted
@@ -260,9 +263,12 @@ bool OccluderExtractPass::RunComposePass() {
   NoMoreDay::utils::GPUUtils::BindImageTexture(kOutputLayerBinding,
                                                m_occluderMask.colorTexture, 0, false, 0,
                                                kGLWriteOnly, kGLR8);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(m_cachedWidth), kComputeGroupSize),
-      DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("OccluderCompose");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(static_cast<uint32_t>(m_cachedWidth), kComputeGroupSize),
+        DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
+  }
   rlDisableShader();
 
   // Cross-pass sync: JFAPass consumes OccluderMask via image loads. Covered by

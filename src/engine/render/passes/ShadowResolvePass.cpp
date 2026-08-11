@@ -69,8 +69,8 @@ bool ShadowResolvePass::Initialize() {
     return true;
   }
 
-  m_shadowResolveShader =
-      LoadShader(kFullscreenVertexShader, kShadowResolveFragmentShader);
+  m_shadowResolveShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kShadowResolveFragmentShader);
   if (m_shadowResolveShader.id == 0) {
     LOG_ERROR("ShadowResolvePass: failed to load resolve shader");
     Shutdown();
@@ -85,7 +85,8 @@ bool ShadowResolvePass::Initialize() {
 }
 
 bool ShadowResolvePass::ReloadShaders() {
-  Shader reloaded = LoadShader(kFullscreenVertexShader, kShadowResolveFragmentShader);
+  Shader reloaded = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kShadowResolveFragmentShader);
   if (reloaded.id == 0) {
     LOG_WARN("ShadowResolvePass: shader reload failed, keeping previous program");
     return false;

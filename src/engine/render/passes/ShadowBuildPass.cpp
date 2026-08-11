@@ -533,9 +533,12 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
         RenderConstants::ShadowCS::kSdfImageBinding, m_sdfField.colorTexture, 0, false,
         0, kGLWriteOnly, kGLRg16f);
   }
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      (static_cast<uint32_t>(width) + (kShadowGroupSize - 1u)) / kShadowGroupSize,
-      (static_cast<uint32_t>(height) + (kShadowGroupSize - 1u)) / kShadowGroupSize, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("ShadowSDFBuild");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        (static_cast<uint32_t>(width) + (kShadowGroupSize - 1u)) / kShadowGroupSize,
+        (static_cast<uint32_t>(height) + (kShadowGroupSize - 1u)) / kShadowGroupSize, 1);
+  }
   rlDisableShader();
 
   // Same-pass phase barrier: emitted at the exact execution point (after the

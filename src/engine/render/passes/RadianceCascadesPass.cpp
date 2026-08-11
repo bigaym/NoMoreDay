@@ -395,9 +395,12 @@ bool RadianceCascadesPass::RunEmissiveBuild(const graph::RenderContext &context,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kEmissiveImageBinding, m_emissiveBase.colorTexture, 0,
       false, 0, kGLWriteOnly, kGLRgba16f);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
-      DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("RadianceEmissiveBuild");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
+        DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
+  }
   rlDisableShader();
 
   // Same-pass sync before the material-emissive dispatches read the emissive
@@ -483,9 +486,12 @@ bool RadianceCascadesPass::RunMaterialEmissive(
       rlSetUniform(m_materialEmissionLoc, emission, RL_SHADER_UNIFORM_VEC4, 1);
     }
 
-    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-        DivUp(static_cast<uint32_t>(dispatchSize[0]), kGLComputeGroupSize),
-        DivUp(static_cast<uint32_t>(dispatchSize[1]), kGLComputeGroupSize), 1u);
+    {
+      NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("RadianceMaterialStamp");
+      NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+          DivUp(static_cast<uint32_t>(dispatchSize[0]), kGLComputeGroupSize),
+          DivUp(static_cast<uint32_t>(dispatchSize[1]), kGLComputeGroupSize), 1u);
+    }
     // Same-pass sync: successive stamp dispatches read-modify-write the same
     // emissive image; emitted at this exact execution point.
     context.EmitPhaseBarrier(graph::PipelineStage::Compute,
@@ -535,9 +541,12 @@ bool RadianceCascadesPass::RunEmissiveMerge(const graph::RenderContext &context,
                                                m_emissiveCombined.colorTexture, 0,
                                                false, 0, kGLWriteOnly, kGLRgba16f);
 
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
-      DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("RadianceEmissiveMerge");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
+        DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
+  }
   rlDisableShader();
 
   // Same-pass sync before the cascade trace dispatch reads the combined
@@ -634,9 +643,12 @@ bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
     NoMoreDay::utils::GPUUtils::BindImageTexture(
         RenderConstants::V5GI::kRadianceImageBinding, target.colorTexture, 0, false, 0,
         kGLWriteOnly, kGLRgba16f);
-    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-        DivUp(static_cast<uint32_t>(target.width), kGLComputeGroupSize),
-        DivUp(static_cast<uint32_t>(target.height), kGLComputeGroupSize), 1u);
+    {
+      NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("RadianceCascadeTrace");
+      NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+          DivUp(static_cast<uint32_t>(target.width), kGLComputeGroupSize),
+          DivUp(static_cast<uint32_t>(target.height), kGLComputeGroupSize), 1u);
+    }
     // Same-pass sync: each cascade level's dispatch reads the coarser level
     // written by the previous iteration; emitted at this exact execution point.
     context.EmitPhaseBarrier(graph::PipelineStage::Compute,

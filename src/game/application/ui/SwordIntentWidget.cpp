@@ -6,8 +6,9 @@
 #include <cmath>
 
 extern "C" {
-#include "rlgl.h"
+  #include "rlgl.h"
 }
+#include "engine/render/GPUUtils.hpp"
 
 namespace NoMoreDay::systems::ui {
 
@@ -95,7 +96,8 @@ void SwordIntentWidget::Init() {
             SetTextureFilter(swordIcon, TEXTURE_FILTER_BILINEAR);
             
             if (FileExists("assets/shaders/vfx/ui_shine.fs")) {
-                shineShader = LoadShader("assets/shaders/vfx/ui_shine.vs", "assets/shaders/vfx/ui_shine.fs");
+                shineShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+                    "assets/shaders/vfx/ui_shine.vs", "assets/shaders/vfx/ui_shine.fs");
             }
             
             initialized = true;

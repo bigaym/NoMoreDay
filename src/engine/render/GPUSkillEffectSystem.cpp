@@ -2,7 +2,8 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
-#include "engine/render/RenderConstants.hpp"
+  #include "engine/render/RenderConstants.hpp"
+  #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
@@ -158,6 +159,11 @@ Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
               vertexPath.string(), fragmentPath.string());
     return shader;
   }
+
+  // RenderDoc 可读性: 用 vertex shader 路径 basename 命名 program。
+  const std::string programLabel =
+      NoMoreDay::utils::GPUUtils::BaseNameNoExt(vertexPath.string().c_str());
+  NoMoreDay::utils::GPUUtils::LabelProgram(programId, programLabel.c_str());
 
   shader.id = programId;
   shader.locs = static_cast<int *>(RL_CALLOC(RL_MAX_SHADER_LOCATIONS, sizeof(int)));
@@ -387,8 +393,8 @@ void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
   m_shader = LoadShaderWithIncludes("assets/shaders/sh_skill_effect.vs",
                                     "assets/shaders/sh_skill_effect.fs");
   if (m_shader.id == 0) {
-    m_shader = LoadShader("assets/shaders/sh_skill_effect.vs",
-                          "assets/shaders/sh_skill_effect.fs");
+    m_shader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+        "assets/shaders/sh_skill_effect.vs", "assets/shaders/sh_skill_effect.fs");
   }
   m_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_shader, "mvp");
   m_timeLoc = GetShaderLocation(m_shader, "uTime");

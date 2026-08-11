@@ -380,9 +380,12 @@ void GICompositePass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_occupancyEnabledLoc, &occupancyEnabledInt, RL_SHADER_UNIFORM_INT, 1);
   }
 
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
-      DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("GIComposite");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
+        DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
+  }
   rlDisableShader();
 
   // Same-pass sync before the blit reads the composite output: emitted at this

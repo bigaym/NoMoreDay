@@ -398,9 +398,12 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
                                                clusterState.GetCounterBufferId());
   }
 
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(grid.tilesX, kComputeGroupSizeX), DivUp(grid.tilesY, kComputeGroupSizeY),
-      DivUp(grid.slicesZ, kComputeGroupSizeZ));
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LightCulling");
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(grid.tilesX, kComputeGroupSizeX), DivUp(grid.tilesY, kComputeGroupSizeY),
+        DivUp(grid.slicesZ, kComputeGroupSizeZ));
+  }
   rlDisableShader();
 
   // Host readback sync for ReadBackClusterHeaders() below (per design §4.2 this

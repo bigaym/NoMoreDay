@@ -160,6 +160,7 @@ void MDIRenderer::FlushStatsUpdates(ResourceManager& rm) {
     m_statsStaging.BindBase(StatsScatterCS::UPDATES);
     m_statsBuffer.BindBase(StatsScatterCS::MAIN_STATS);
     
+    utils::GPUUtils::ScopedDebugGroup debugGroup("StatsScatter");
     utils::GPUUtils::DispatchCompute((count + 63) / 64, 1, 1);
     rlDisableShader();
     
@@ -239,6 +240,7 @@ void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Ve
 
   // Dispatch - No barrier here, Render() will handle it as the Consumer
   uint32_t dispatchCount = (m_maxActiveEntities > 0) ? m_maxActiveEntities : m_maxEntities;
+  utils::GPUUtils::ScopedDebugGroup debugGroup("MDICull");
   utils::GPUUtils::DispatchComputeNoBarrier((dispatchCount + 63) / 64, 1, 1);
 
   rlDisableShader();

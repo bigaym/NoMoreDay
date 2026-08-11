@@ -1,6 +1,7 @@
 #include "engine/render/GPUEntitySystem.hpp"
 #include "core/logging/Logger.hpp"
-#include "engine/render/RenderConstants.hpp"
+  #include "engine/render/RenderConstants.hpp"
+  #include "engine/render/GPUUtils.hpp"
 #include "raylib.h" // Added for GetFrameTime()
 #include "rlgl.h"
 
@@ -117,8 +118,8 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
 }
 
 bool GPUEntitySystem::InitRender(ResourceManager &rm) {
-  m_renderShader =
-      LoadShader("assets/shaders/entity.vert", "assets/shaders/entity.frag");
+  m_renderShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/entity.vert", "assets/shaders/entity.frag");
   if (m_renderShader.id == 0) {
     LOG_ERROR("GPUEntitySystem failed to load entity.vert/entity.frag");
     return false;

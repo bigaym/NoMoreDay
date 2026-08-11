@@ -172,6 +172,7 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   rlSetUniform(locTarget, targetIVec, RL_SHADER_UNIFORM_IVEC2, 1);
 
   m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
+  utils::GPUUtils::ScopedDebugGroup debugGroupReset("FlowReset");
   rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
 
   utils::GPUUtils::MemoryBarrier();
@@ -210,6 +211,7 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
 
   const int dispatchGroups = (kTotalSweeps + kSweepsPerDispatch - 1) / kSweepsPerDispatch;
+  utils::GPUUtils::ScopedDebugGroup debugGroupIntegrate("FlowIntegrate");
   for (int i = 0; i < dispatchGroups; ++i) {
     rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
     // Global SSBO sync so the next batch of sweeps sees cross-tile updates.
@@ -227,6 +229,7 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
   m_flowBuffer.BindBase(FlowFieldCS::FLOW_FIELD);
 
+  utils::GPUUtils::ScopedDebugGroup debugGroupFlow("FlowVectorField");
   rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
   utils::GPUUtils::MemoryBarrier();
 
@@ -252,6 +255,7 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(
 
   m_densityBuffer.BindBase(
       FlowFieldCS::FLOW_FIELD); // grid_clear uses binding 2
+  utils::GPUUtils::ScopedDebugGroup debugGroupClear("FlowGridClear");
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(Barrier::SSBO);
 
@@ -273,6 +277,7 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(
   m_densityBuffer.BindBase(
       FlowFieldCS::FLOW_FIELD); // and binding 2 for cell counts
 
+  utils::GPUUtils::ScopedDebugGroup debugGroupCount("FlowGridCount");
   rlComputeShaderDispatch((entityCount + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(Barrier::SSBO);
 

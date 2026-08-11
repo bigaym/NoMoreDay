@@ -339,6 +339,15 @@ Shader ResourceManager::loadShader(entt::id_type id, const std::string &vsPath,
       NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
       "ResourceManagerShader");
 
+  // RenderDoc 可读性: 用 shader 路径 basename 命名 program
+  // (显示为 "Program 192 (mdi_render)" 之类)。
+  {
+    const char *namePath = (!vsPath.empty()) ? vsPath.c_str() : fsPath.c_str();
+    const std::string programLabel =
+        NoMoreDay::utils::GPUUtils::BaseNameNoExt(namePath);
+    NoMoreDay::utils::GPUUtils::LabelProgram(shader.id, programLabel.c_str());
+  }
+
   // F-group contract: VS/FS load attempts are recorded by ShaderReloadGovernance.
   if (!vsPath.empty()) {
     std::vector<std::string> vsIncludeChain;
@@ -431,6 +440,13 @@ Shader ResourceManager::loadComputeShader(entt::id_type id,
       shader.id, NoMoreDay::render::graph::ResourceKind::ShaderProgram,
       NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
       "ResourceManagerComputeShader");
+
+  // RenderDoc 可读性: 用 compute shader 路径 basename 命名 program。
+  {
+    const std::string programLabel =
+        NoMoreDay::utils::GPUUtils::BaseNameNoExt(path.c_str());
+    NoMoreDay::utils::GPUUtils::LabelProgram(shader.id, programLabel.c_str());
+  }
 
   m_shaders[id] = shader;
   LOG_INFO("ResourceManager: Loaded compute shader (ID: {}) from '{}'", id,

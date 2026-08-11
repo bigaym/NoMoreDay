@@ -5,6 +5,7 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include <cstdint>
+#include <string>
 
 // Basic types for GL if not available
 #ifndef GL_SYNC_TYPEDEF_
@@ -52,11 +53,72 @@ public:
    * @param barriers 使用 Barrier 枚举组合 (如 Barrier::SSBO | Barrier::Command)
    */
   static void MemoryBarrier(Barrier barriers);
-
   // 便捷重载，接受原始 uint32_t (用于兼容)
   static void
   MemoryBarrier(uint32_t barriers =
                     0x00002000); // Default to GL_SHADER_STORAGE_BARRIER_BIT
+
+  // === Debug Labeling (RenderDoc 可读性, GL 4.3 / GL_KHR_debug) ===
+  /**
+   * @brief 给任意 GL 对象命名 (glObjectLabel)。
+   * RenderDoc Pipeline State 中显示为 "Program 192 (name)"。
+   * 入口点不可用时为空操作，不会崩溃。
+   * @param identifier GL 对象类型，如 GL_PROGRAM (0x8E87)、GL_SHADER (0x8DF5)
+   * @param name 对象句柄
+   * @param label 显示名（由 GL 拷贝，调用方可复用临时缓冲）
+   */
+  static void LabelObject(uint32_t identifier, uint32_t name, const char *label);
+
+  /** @brief 给 Shader Program 命名（等价于 LabelObject(GL_PROGRAM, ...)）。 */
+  static void LabelProgram(uint32_t programId, const char *label);
+
+  /** @brief 给单个 Shader 对象命名（等价于 LabelObject(GL_SHADER, ...)）。 */
+  static void LabelShader(uint32_t shaderId, const char *label);
+
+  /**
+   * @brief 开启调试分组 (glPushDebugGroup)。
+   * RenderDoc Event Browser 中 Compute Pass #1 会显示为传入的名字。
+   * 仅影响调试标注，不影响渲染结果。
+   */
+  static void PushDebugGroup(const char *name);
+
+  /** @brief 关闭调试分组 (glPopDebugGroup)。 */
+  static void PopDebugGroup();
+
+  /** @brief glObjectLabel/glPushDebugGroup 入口点是否可用。 */
+  static bool IsDebugLabelSupported();
+
+  /**
+   * @brief 从路径提取显示名：取最后一段文件名并去掉扩展名。
+   * "assets/shaders/particles/particle_update.comp" -> "particle_update"
+   */
+  static std::string BaseNameNoExt(const char *path);
+
+  /**
+   * @brief 加载 VS/FS 程序并用 vs 路径 basename 自动命名 (label 为 nullptr 时)。
+   * 包装 raylib LoadShader，统一完成 glObjectLabel 标注。
+   */
+  static Shader LoadShaderLabeled(const char *vsPath, const char *fsPath,
+                                  const char *label = nullptr);
+
+  /**
+   * @brief 加载 Compute 程序并用路径 basename 自动命名 (label 为 nullptr 时)。
+   * 包装 raylib LoadComputeShader，统一完成 glObjectLabel 标注。
+   */
+  static Shader LoadComputeShaderLabeled(const char *path,
+                                         const char *label = nullptr);
+
+  /**
+   * @brief RAII 调试分组：作用域内自动 push/pop。
+   * 用法: { GPUUtils::ScopedDebugGroup g("LootCull"); GPUUtils::DispatchCompute(...); }
+   */
+  class ScopedDebugGroup {
+  public:
+    explicit ScopedDebugGroup(const char *name) { GPUUtils::PushDebugGroup(name); }
+    ~ScopedDebugGroup() { GPUUtils::PopDebugGroup(); }
+    ScopedDebugGroup(const ScopedDebugGroup &) = delete;
+    ScopedDebugGroup &operator=(const ScopedDebugGroup &) = delete;
+  };
 
   // === Compute Shader ===
   /**
@@ -215,6 +277,11 @@ private:
   static void *s_glEnable;
   static void *s_glDisable;
   static void *s_glBlendFunc;
+
+  // Debug Label Pointers (GL 4.3 / GL_KHR_debug)
+  static void *s_glObjectLabel;
+  static void *s_glPushDebugGroup;
+  static void *s_glPopDebugGroup;
 };
 
 } // namespace NoMoreDay::utils

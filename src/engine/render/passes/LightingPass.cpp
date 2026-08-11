@@ -83,7 +83,8 @@ bool LightingPass::Initialize() {
     return true;
   }
 
-  m_lightAccumShader = LoadShader(kFullscreenVertexShader, kLightingFragmentShader);
+  m_lightAccumShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kLightingFragmentShader);
   if (m_lightAccumShader.id == 0) {
     LOG_ERROR("LightingPass shader initialization failed");
     Shutdown();
@@ -111,7 +112,8 @@ bool LightingPass::Initialize() {
 }
 
 bool LightingPass::ReloadShaders() {
-  Shader reloaded = LoadShader(kFullscreenVertexShader, kLightingFragmentShader);
+  Shader reloaded = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kLightingFragmentShader);
   if (reloaded.id == 0) {
     LOG_WARN("LightingPass: shader reload failed, keeping previous program");
     return false;

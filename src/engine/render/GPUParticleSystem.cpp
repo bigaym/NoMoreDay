@@ -107,6 +107,11 @@ Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
     return shader;
   }
 
+  // RenderDoc 可读性: 用 vertex shader 路径 basename 命名 program。
+  const std::string programLabel =
+      NoMoreDay::utils::GPUUtils::BaseNameNoExt(vertexPath.string().c_str());
+  NoMoreDay::utils::GPUUtils::LabelProgram(programId, programLabel.c_str());
+
   shader.id = programId;
   shader.locs = static_cast<int *>(RL_CALLOC(RL_MAX_SHADER_LOCATIONS, sizeof(int)));
   for (int i = 0; i < RL_MAX_SHADER_LOCATIONS; ++i) {
@@ -285,6 +290,7 @@ void GPUParticleSystem::LoadShaders() {
     if (m_computeShader.id != 0) {
       LOG_INFO("GPUParticleSystem: Compute shader loaded (ID: {})",
                m_computeShader.id);
+      NoMoreDay::utils::GPUUtils::LabelProgram(m_computeShader.id, "particle");
       m_computeDtLoc = rlGetLocationUniform(m_computeShader.id, "dt");
       m_computeTimeLoc = rlGetLocationUniform(m_computeShader.id, "time");
       m_computeTotalLoc =
@@ -342,6 +348,7 @@ void GPUParticleSystem::LoadShaders() {
   if (emitCompId != 0) {
     m_emitShader.id = rlLoadComputeShaderProgram(emitCompId);
     if (m_emitShader.id != 0) {
+      NoMoreDay::utils::GPUUtils::LabelProgram(m_emitShader.id, "particle_emit");
       m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
     }
   } else {
@@ -354,6 +361,8 @@ void GPUParticleSystem::LoadShaders() {
   if (subEmitCompId != 0) {
     m_subEmitShader.id = rlLoadComputeShaderProgram(subEmitCompId);
     if (m_subEmitShader.id != 0) {
+      NoMoreDay::utils::GPUUtils::LabelProgram(m_subEmitShader.id,
+                                               "particle_sub_emit");
       m_subEmitCountLoc = rlGetLocationUniform(m_subEmitShader.id, "subEmitCount");
       m_subEmitMaxParticlesLoc =
           rlGetLocationUniform(m_subEmitShader.id, "maxParticles");
@@ -367,6 +376,10 @@ void GPUParticleSystem::LoadShaders() {
       LoadComputeShaderWithIncludes("assets/shaders/particle_finalize.compute");
   if (finalizeCompId != 0) {
     m_finalizeShader.id = rlLoadComputeShaderProgram(finalizeCompId);
+    if (m_finalizeShader.id != 0) {
+      NoMoreDay::utils::GPUUtils::LabelProgram(m_finalizeShader.id,
+                                               "particle_finalize");
+    }
   } else {
     LOG_ERROR("GPUParticleSystem: particle_finalize.compute compilation failed!");
   }
@@ -625,6 +638,7 @@ void GPUParticleSystem::Update(float dt) {
         int workGroups = (m_targetDispatchCount + (WORKGROUP_SIZE_PARTICLES - 1)) /
                         WORKGROUP_SIZE_PARTICLES;
         if (workGroups > 0) {
+        utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleUpdate");
         rlComputeShaderDispatch(workGroups, 1, 1);
         }
 
@@ -660,6 +674,7 @@ void GPUParticleSystem::Update(float dt) {
           m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
 
           int workGroups = (newCountInt + 255) / 256;
+          utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleEmit");
           rlComputeShaderDispatch(workGroups, 1, 1);
           utils::GPUUtils::MemoryBarrier(Barrier::All);
           rlDisableShader();
@@ -695,6 +710,7 @@ void GPUParticleSystem::Update(float dt) {
 
       const int workGroups = (subEmitCountInt + 255) / 256;
       if (workGroups > 0) {
+        utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleSubEmitMerge");
         rlComputeShaderDispatch(workGroups, 1, 1);
       }
       utils::GPUUtils::MemoryBarrier(Barrier::All);
@@ -743,6 +759,7 @@ void GPUParticleSystem::FinalizeFrame() {
     m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD);
     m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
     
+    utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleFinalize");
     rlComputeShaderDispatch(1, 1, 1);
     utils::GPUUtils::MemoryBarrier(Barrier::All);
     

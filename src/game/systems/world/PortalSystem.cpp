@@ -2,7 +2,8 @@
 #include "game/foundation/data/BiomeTypes.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/application/persistence/SaveManager.hpp"
-#include "engine/render/GPUParticleSystem.hpp"
+  #include "engine/render/GPUParticleSystem.hpp"
+  #include "engine/render/GPUUtils.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/MapComponent.hpp"
 #include "game/foundation/components/PlayerState.hpp"
@@ -19,7 +20,8 @@ namespace NoMoreDay {
 PortalSystem::PortalSystem(SceneManager &sceneManager)
     : m_sceneManager(sceneManager) {
     // Load VFX Resources
-    m_vortexShader = LoadShader("assets/shaders/vfx/portal_vortex.vs", "assets/shaders/vfx/portal_vortex.fs");
+    m_vortexShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+        "assets/shaders/vfx/portal_vortex.vs", "assets/shaders/vfx/portal_vortex.fs");
     if (m_vortexShader.id == 0) {
         LOG_ERROR("Failed to load Portal Vortex Shader! Check assets/shaders/vfx/portal_vortex.vs and .fs");
     } else {

@@ -61,10 +61,10 @@ bool DistortionPass::Initialize() {
     return true;
   }
 
-  m_distortionWriteShader =
-      LoadShader(kFullscreenVertexShader, kDistortionWriteFragmentShader);
-  m_distortionApplyShader =
-      LoadShader(kFullscreenVertexShader, kDistortionApplyFragmentShader);
+  m_distortionWriteShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kDistortionWriteFragmentShader);
+  m_distortionApplyShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kDistortionApplyFragmentShader);
   if (m_distortionWriteShader.id == 0 || m_distortionApplyShader.id == 0) {
     LOG_ERROR("DistortionPass shader initialization failed");
     Shutdown();
@@ -99,10 +99,10 @@ bool DistortionPass::Initialize() {
 }
 
 bool DistortionPass::ReloadShaders() {
-  Shader writeShader =
-      LoadShader(kFullscreenVertexShader, kDistortionWriteFragmentShader);
-  Shader applyShader =
-      LoadShader(kFullscreenVertexShader, kDistortionApplyFragmentShader);
+  Shader writeShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kDistortionWriteFragmentShader);
+  Shader applyShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      kFullscreenVertexShader, kDistortionApplyFragmentShader);
   if (writeShader.id == 0 || applyShader.id == 0) {
     if (writeShader.id != 0) {
       UnloadShader(writeShader);

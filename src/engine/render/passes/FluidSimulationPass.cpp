@@ -333,7 +333,10 @@ bool FluidSimulationPass::DispatchGridHash(const graph::RenderContext &context,
   utils::GPUUtils::BindBufferBase(0u, CurrentParticleBufferId());
   utils::GPUUtils::BindBufferBase(1u, m_cellCoordBuffer.GetId());
   utils::GPUUtils::BindBufferBase(2u, m_cellCountBuffer.GetId());
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidGridHash");
+    utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  }
   rlDisableShader();
   // Same-pass sync before the neighbor-search dispatch reads the cell SSBOs.
   context.EmitPhaseBarrier(graph::PipelineStage::Compute,
@@ -368,7 +371,10 @@ bool FluidSimulationPass::DispatchNeighborSearch(const graph::RenderContext &con
   utils::GPUUtils::BindBufferBase(1u, m_cellCoordBuffer.GetId());
   utils::GPUUtils::BindBufferBase(3u, m_neighborListBuffer.GetId());
   utils::GPUUtils::BindBufferBase(4u, m_neighborCountBuffer.GetId());
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidNeighborSearch");
+    utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  }
   rlDisableShader();
   // Same-pass sync before the density dispatch reads the neighbor SSBOs.
   context.EmitPhaseBarrier(graph::PipelineStage::Compute,
@@ -400,7 +406,10 @@ bool FluidSimulationPass::DispatchDensity(const graph::RenderContext &context,
   utils::GPUUtils::BindBufferBase(4u, m_neighborCountBuffer.GetId());
   utils::GPUUtils::BindBufferBase(5u, AlternateParticleBufferId());
   utils::GPUUtils::BindBufferBase(6u, m_configBuffer.GetId());
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidDensity");
+    utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  }
   rlDisableShader();
   // Same-pass sync before the force dispatch reads the density results.
   context.EmitPhaseBarrier(graph::PipelineStage::Compute,
@@ -434,7 +443,10 @@ bool FluidSimulationPass::DispatchForce(const graph::RenderContext &context,
   utils::GPUUtils::BindBufferBase(4u, m_neighborCountBuffer.GetId());
   utils::GPUUtils::BindBufferBase(5u, AlternateParticleBufferId());
   utils::GPUUtils::BindBufferBase(6u, m_configBuffer.GetId());
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidForce");
+    utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  }
   rlDisableShader();
   // Same-pass sync before the integrate dispatch reads the force results.
   context.EmitPhaseBarrier(graph::PipelineStage::Compute,
@@ -518,7 +530,10 @@ bool FluidSimulationPass::DispatchIntegrate(const graph::RenderContext &context,
   utils::GPUUtils::BindBufferBase(0u, CurrentParticleBufferId());
   utils::GPUUtils::BindBufferBase(5u, AlternateParticleBufferId());
   utils::GPUUtils::BindBufferBase(6u, m_configBuffer.GetId());
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidIntegrate");
+    utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  }
   rlDisableShader();
 
   // Same-pass sync before the instanced particle vertex draw reads the updated

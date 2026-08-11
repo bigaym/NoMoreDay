@@ -1,6 +1,16 @@
 #include "engine/render/GPUUtils.hpp"
 #include <algorithm>
 
+namespace {
+// Values verified against raylib 5.5 external/glad.h (GL 3.0+ constants not
+// exposed by the legacy <GL/gl.h> pulled in via GLFW):
+//   GL_PROGRAM 0x82E2 (glad.h:1260), GL_SHADER 0x82E1 (glad.h:1512),
+//   GL_DEBUG_SOURCE_APPLICATION 0x824A (glad.h:487)
+constexpr uint32_t kGlProgram = 0x82E2;
+constexpr uint32_t kGlShader = 0x82E1;
+constexpr uint32_t kGlDebugSourceApplication = 0x824A;
+}  // namespace
+
 namespace NoMoreDay::utils {
 
 bool GPUUtils::s_initialized = false;
@@ -49,6 +59,10 @@ void *GPUUtils::s_glViewport = nullptr;
 void *GPUUtils::s_glEnable = nullptr;
 void *GPUUtils::s_glDisable = nullptr;
 void *GPUUtils::s_glBlendFunc = nullptr;
+
+void *GPUUtils::s_glObjectLabel = nullptr;
+void *GPUUtils::s_glPushDebugGroup = nullptr;
+void *GPUUtils::s_glPopDebugGroup = nullptr;
 
 GPUSupportInfo GPUUtils::Initialize() {
   if (s_initialized) {
@@ -116,6 +130,17 @@ GPUSupportInfo GPUUtils::Initialize() {
   s_glDisable = (void *)glfwGetProcAddress("glDisable");
   s_glBlendFunc = (void *)glfwGetProcAddress("glBlendFunc");
 
+  // Load Debug Label Functions (GL 4.3 core or GL_KHR_debug extension)
+  s_glObjectLabel = (void *)glfwGetProcAddress("glObjectLabel");
+  if (!s_glObjectLabel)
+    s_glObjectLabel = (void *)glfwGetProcAddress("glObjectLabelKHR");
+  s_glPushDebugGroup = (void *)glfwGetProcAddress("glPushDebugGroup");
+  if (!s_glPushDebugGroup)
+    s_glPushDebugGroup = (void *)glfwGetProcAddress("glPushDebugGroupKHR");
+  s_glPopDebugGroup = (void *)glfwGetProcAddress("glPopDebugGroup");
+  if (!s_glPopDebugGroup)
+    s_glPopDebugGroup = (void *)glfwGetProcAddress("glPopDebugGroupKHR");
+
   // Verify Critical Functions
   s_info.indirectDrawSupported = (s_glDrawArraysIndirect != nullptr);
   s_info.persistentMappingSupported =
@@ -157,6 +182,119 @@ void GPUUtils::MemoryBarrier(uint32_t barriers) {
     using FnType = void(APIENTRY *)(uint32_t);
     reinterpret_cast<FnType>(s_glMemoryBarrier)(barriers);
   }
+}
+
+void GPUUtils::LabelObject(uint32_t identifier, uint32_t name,
+                           const char *label) {
+  if (!s_glObjectLabel || !label || name == 0) {
+    return;
+  }
+  using FnType = void(APIENTRY *)(uint32_t, uint32_t, int, const char *);
+  auto *fnCore = reinterpret_cast<FnType>(s_glObjectLabel);
+  auto *fnKhr = reinterpret_cast<FnType>(glfwGetProcAddress("glObjectLabelKHR"));
+  fnCore(identifier, name, -1, label);
+  GLenum glErr = glGetError();
+  if (glErr != GL_NO_ERROR && fnKhr != nullptr) {
+    glErr = GL_NO_ERROR;
+    glErr = glGetError();
+    fnKhr(identifier, name, -1, label);
+    glErr = glGetError();
+  }
+  if (glErr != GL_NO_ERROR) {
+    LOG_ERROR("GPUUtils::LabelObject GL error 0x{:X} (identifier=0x{:X} "
+              "name={}) ver={}",
+              glErr, identifier, name,
+              reinterpret_cast<const char *>(glGetString(GL_VERSION)));
+  }
+}
+
+void GPUUtils::LabelProgram(uint32_t programId, const char *label) {
+  LabelObject(kGlProgram, programId, label);
+}
+
+void GPUUtils::LabelShader(uint32_t shaderId, const char *label) {
+  LabelObject(kGlShader, shaderId, label);
+}
+
+void GPUUtils::PushDebugGroup(const char *name) {
+  if (!s_glPushDebugGroup || !name) {
+    return;
+  }
+  using FnType = void(APIENTRY *)(uint32_t, uint32_t, int, const char *);
+  reinterpret_cast<FnType>(s_glPushDebugGroup)(kGlDebugSourceApplication, 0, -1,
+                                               name);
+}
+
+void GPUUtils::PopDebugGroup() {
+  if (!s_glPopDebugGroup) {
+    return;
+  }
+  using FnType = void(APIENTRY *)(void);
+  reinterpret_cast<FnType>(s_glPopDebugGroup)();
+}
+
+bool GPUUtils::IsDebugLabelSupported() {
+  return s_glObjectLabel != nullptr && s_glPushDebugGroup != nullptr &&
+         s_glPopDebugGroup != nullptr;
+}
+
+std::string GPUUtils::BaseNameNoExt(const char *path) {
+  if (!path || path[0] == '\0') {
+    return {};
+  }
+  const std::string full(path);
+  const size_t slash = full.find_last_of("/\\");
+  std::string name =
+      (slash == std::string::npos) ? full : full.substr(slash + 1);
+  const size_t dot = name.find_last_of('.');
+  if (dot != std::string::npos) {
+    name = name.substr(0, dot);
+  }
+  return name;
+}
+
+Shader GPUUtils::LoadShaderLabeled(const char *vsPath, const char *fsPath,
+                                   const char *label) {
+  Shader shader = LoadShader(vsPath, fsPath);
+  if (shader.id != 0) {
+    const char *name = label;
+    std::string derivedName;
+    if (!name) {
+      derivedName = BaseNameNoExt(
+          (vsPath && vsPath[0] != '\0') ? vsPath : fsPath);
+      name = derivedName.c_str();
+    }
+    LabelProgram(shader.id, name);
+  }
+  return shader;
+}
+
+Shader GPUUtils::LoadComputeShaderLabeled(const char *path,
+                                          const char *label) {
+  Shader shader = {};
+  if (path == nullptr || path[0] == '\0') {
+    return shader;
+  }
+  char *source = LoadFileText(path);
+  if (source == nullptr) {
+    return shader;
+  }
+  const unsigned int shaderId = rlCompileShader(source, RL_COMPUTE_SHADER);
+  MemFree(source);
+  if (shaderId == 0) {
+    return shader;
+  }
+  shader.id = rlLoadComputeShaderProgram(shaderId);
+  if (shader.id != 0) {
+    const char *name = label;
+    std::string derivedName;
+    if (!name) {
+      derivedName = BaseNameNoExt(path);
+      name = derivedName.c_str();
+    }
+    LabelProgram(shader.id, name);
+  }
+  return shader;
 }
 
 void GPUUtils::DispatchCompute(uint32_t groupsX, uint32_t groupsY,

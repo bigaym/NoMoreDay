@@ -6,7 +6,8 @@
 #include "rlgl.h"
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
-#include "engine/render/RenderConstants.hpp"
+  #include "engine/render/RenderConstants.hpp"
+  #include "engine/render/GPUUtils.hpp"
 #include "core/logging/Logger.hpp"
 #include <vector>
 #include <algorithm>
@@ -37,8 +38,9 @@ struct HoloBladeInternal {
         
         LOG_INFO("Initializing HoloBladeRenderSystem (Instanced)...");
         
-        holoShader = LoadShader("assets/shaders/vfx/holo_blade_instanced.vs", 
-                                "assets/shaders/vfx/holo_blade_instanced.fs");
+        holoShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+            "assets/shaders/vfx/holo_blade_instanced.vs",
+            "assets/shaders/vfx/holo_blade_instanced.fs");
         
         // Cache locations
         mvpLoc = GetShaderLocation(holoShader, "mvp");

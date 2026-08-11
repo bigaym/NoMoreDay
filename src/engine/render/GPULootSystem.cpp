@@ -250,6 +250,11 @@ Shader LoadShaderFromFilesWithIncludes(const char *vertexPath,
     return {};
   }
 
+  // RenderDoc 可读性: 用 vertex shader 路径 basename 命名 program。
+  const std::string programLabel =
+      NoMoreDay::utils::GPUUtils::BaseNameNoExt(vertexPath);
+  NoMoreDay::utils::GPUUtils::LabelProgram(programId, programLabel.c_str());
+
   Shader shader = {};
   shader.id = programId;
   shader.locs = static_cast<int *>(RL_MALLOC(32 * sizeof(int)));
@@ -284,6 +289,10 @@ Shader LoadComputeShaderFromFile(const char *path) {
     LOG_ERROR("GPULootSystem: failed to link compute shader: {}", path);
     return {};
   }
+
+  // RenderDoc 可读性: 用 compute shader 路径 basename 命名 program。
+  const std::string programLabel = NoMoreDay::utils::GPUUtils::BaseNameNoExt(path);
+  NoMoreDay::utils::GPUUtils::LabelProgram(programId, programLabel.c_str());
 
   Shader shader = {};
   shader.id = programId;
@@ -334,8 +343,8 @@ void GPULootSystem::Init(const uint32_t maxInstances) {
       LoadComputeShaderFromFile("assets/shaders/loot/loot_position_update.compute");
   // Try raylib file-path loader first; if it fails, fall back to explicit
   // compile path so we can capture stage-level diagnostics.
-  m_renderShader = LoadShader("assets/shaders/loot/loot_quad.vert",
-                              "assets/shaders/loot/loot_quad.frag");
+  m_renderShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/loot/loot_quad.vert", "assets/shaders/loot/loot_quad.frag");
   if (m_renderShader.id == 0) {
     LOG_WARN("GPULootSystem: LoadShader(file-path) failed for loot render pair, "
              "falling back to explicit compile path");
@@ -538,25 +547,31 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
   m_forceBuffer.BindBase(kForceBinding);
   m_gridCountBuffer.BindBase(kGridBinding);
 
-  rlEnableShader(m_cullShader.id);
-  const int instanceCount = static_cast<int>(m_syncedInstanceCount);
-  if (m_locCullCount >= 0) {
-    rlSetUniform(m_locCullCount, &instanceCount, RL_SHADER_UNIFORM_INT, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootCull");
+    rlEnableShader(m_cullShader.id);
+    const int instanceCount = static_cast<int>(m_syncedInstanceCount);
+    if (m_locCullCount >= 0) {
+      rlSetUniform(m_locCullCount, &instanceCount, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_locCullViewRect >= 0) {
+      rlSetUniform(m_locCullViewRect, viewRect, RL_SHADER_UNIFORM_VEC4, 1);
+    }
+    const uint32_t cullGroups = (m_syncedInstanceCount + kWorkGroupSize - 1u) / kWorkGroupSize;
+    NoMoreDay::utils::GPUUtils::DispatchCompute(cullGroups, 1u, 1u);
+    rlDisableShader();
   }
-  if (m_locCullViewRect >= 0) {
-    rlSetUniform(m_locCullViewRect, viewRect, RL_SHADER_UNIFORM_VEC4, 1);
-  }
-  const uint32_t cullGroups = (m_syncedInstanceCount + kWorkGroupSize - 1u) / kWorkGroupSize;
-  NoMoreDay::utils::GPUUtils::DispatchCompute(cullGroups, 1u, 1u);
-  rlDisableShader();
 
-  rlEnableShader(m_indirectArgsShader.id);
-  const int maxInstanceCount = static_cast<int>(m_maxInstances);
-  if (m_locIndirectMaxCount >= 0) {
-    rlSetUniform(m_locIndirectMaxCount, &maxInstanceCount, RL_SHADER_UNIFORM_INT, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootIndirectArgs");
+    rlEnableShader(m_indirectArgsShader.id);
+    const int maxInstanceCount = static_cast<int>(m_maxInstances);
+    if (m_locIndirectMaxCount >= 0) {
+      rlSetUniform(m_locIndirectMaxCount, &maxInstanceCount, RL_SHADER_UNIFORM_INT, 1);
+    }
+    NoMoreDay::utils::GPUUtils::DispatchCompute(1u, 1u, 1u);
+    rlDisableShader();
   }
-  NoMoreDay::utils::GPUUtils::DispatchCompute(1u, 1u, 1u);
-  rlDisableShader();
 
   m_counterBuffer.Read(&m_visibleInstanceCount, sizeof(m_visibleInstanceCount), 0);
   m_debugSnapshot.visible = m_visibleInstanceCount;
@@ -569,64 +584,74 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
   m_gridCountBuffer.OrphanAndUpload(zeroGrid.data(),
                                     zeroGrid.size() * sizeof(uint32_t), RL_DYNAMIC_DRAW);
 
-  rlEnableShader(m_gridHashShader.id);
   const int visibleCount = static_cast<int>(m_visibleInstanceCount);
-  const int gridWidth = static_cast<int>(m_gridWidth);
-  const int gridHeight = static_cast<int>(m_gridHeight);
-  if (m_locGridVisibleCount >= 0) {
-    rlSetUniform(m_locGridVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
-  }
-  if (m_locGridCellSize >= 0) {
-    rlSetUniform(m_locGridCellSize, &m_gridCellSize, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-  if (m_locGridGridWidth >= 0) {
-    rlSetUniform(m_locGridGridWidth, &gridWidth, RL_SHADER_UNIFORM_INT, 1);
-  }
-  if (m_locGridGridHeight >= 0) {
-    rlSetUniform(m_locGridGridHeight, &gridHeight, RL_SHADER_UNIFORM_INT, 1);
-  }
   const uint32_t gridGroups =
       (m_visibleInstanceCount + kWorkGroupSize - 1u) / kWorkGroupSize;
-  NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
-  rlDisableShader();
 
-  rlEnableShader(m_repulsionShader.id);
-  constexpr float kMinDistance = 34.0f;
-  constexpr float kStiffness = 16.0f;
-  constexpr float kMaxForce = 4.0f;
-  constexpr float kDamping = 0.86f;
-  if (m_locRepulsionVisibleCount >= 0) {
-    rlSetUniform(m_locRepulsionVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootGridHash");
+    rlEnableShader(m_gridHashShader.id);
+    const int gridWidth = static_cast<int>(m_gridWidth);
+    const int gridHeight = static_cast<int>(m_gridHeight);
+    if (m_locGridVisibleCount >= 0) {
+      rlSetUniform(m_locGridVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_locGridCellSize >= 0) {
+      rlSetUniform(m_locGridCellSize, &m_gridCellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    if (m_locGridGridWidth >= 0) {
+      rlSetUniform(m_locGridGridWidth, &gridWidth, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_locGridGridHeight >= 0) {
+      rlSetUniform(m_locGridGridHeight, &gridHeight, RL_SHADER_UNIFORM_INT, 1);
+    }
+    NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
+    rlDisableShader();
   }
-  if (m_locRepulsionMinDist >= 0) {
-    rlSetUniform(m_locRepulsionMinDist, &kMinDistance, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-  if (m_locRepulsionStiffness >= 0) {
-    rlSetUniform(m_locRepulsionStiffness, &kStiffness, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-  if (m_locRepulsionMaxForce >= 0) {
-    rlSetUniform(m_locRepulsionMaxForce, &kMaxForce, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-  if (m_locRepulsionDamping >= 0) {
-    rlSetUniform(m_locRepulsionDamping, &kDamping, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-  NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
-  rlDisableShader();
 
-  rlEnableShader(m_positionUpdateShader.id);
-  constexpr float kOffsetDamping = 0.78f;
-  constexpr float kMaxOffset = 84.0f;
-  if (m_locUpdateVisibleCount >= 0) {
-    rlSetUniform(m_locUpdateVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootRepulsion");
+    rlEnableShader(m_repulsionShader.id);
+    constexpr float kMinDistance = 34.0f;
+    constexpr float kStiffness = 16.0f;
+    constexpr float kMaxForce = 4.0f;
+    constexpr float kDamping = 0.86f;
+    if (m_locRepulsionVisibleCount >= 0) {
+      rlSetUniform(m_locRepulsionVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_locRepulsionMinDist >= 0) {
+      rlSetUniform(m_locRepulsionMinDist, &kMinDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    if (m_locRepulsionStiffness >= 0) {
+      rlSetUniform(m_locRepulsionStiffness, &kStiffness, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    if (m_locRepulsionMaxForce >= 0) {
+      rlSetUniform(m_locRepulsionMaxForce, &kMaxForce, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    if (m_locRepulsionDamping >= 0) {
+      rlSetUniform(m_locRepulsionDamping, &kDamping, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
+    rlDisableShader();
   }
-  if (m_locUpdateDamping >= 0) {
-    rlSetUniform(m_locUpdateDamping, &kOffsetDamping, RL_SHADER_UNIFORM_FLOAT, 1);
+
+  {
+    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootPositionUpdate");
+    rlEnableShader(m_positionUpdateShader.id);
+    constexpr float kOffsetDamping = 0.78f;
+    constexpr float kMaxOffset = 84.0f;
+    if (m_locUpdateVisibleCount >= 0) {
+      rlSetUniform(m_locUpdateVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_locUpdateDamping >= 0) {
+      rlSetUniform(m_locUpdateDamping, &kOffsetDamping, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    if (m_locUpdateMaxOffset >= 0) {
+      rlSetUniform(m_locUpdateMaxOffset, &kMaxOffset, RL_SHADER_UNIFORM_FLOAT, 1);
+    }
+    NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
+    rlDisableShader();
   }
-  if (m_locUpdateMaxOffset >= 0) {
-    rlSetUniform(m_locUpdateMaxOffset, &kMaxOffset, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-  NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
-  rlDisableShader();
 }
 
 void GPULootSystem::Render(const Matrix &viewProj, const bool enableGlow) const {
