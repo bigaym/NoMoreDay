@@ -30,6 +30,10 @@ add_library(NoMoreDayGameUi STATIC
     UISkillTalentTree.cpp
     UIStash.cpp
     UISystem.cpp
+    UiLayout.cpp
+    UiRuntime.cpp
+    UiTooltipController.cpp
+    UiViewport.cpp
 )
 
 target_include_directories(NoMoreDayGameUi PUBLIC ${CMAKE_SOURCE_DIR}/src)
