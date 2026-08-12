@@ -41,6 +41,30 @@
 
 namespace NoMoreDay {
 
+namespace {
+
+// R3 (remediation, design §3.5): shared scratch between the read-only
+// visible-proxy producer (CollectVisibleItemProxies) and the CPU label builder
+// (BuildCpuLootLabels). File-scope reuse buffer keeps the steady-state path
+// allocation-free (plan §3 zero-alloc steady state).
+struct LabelCandidate {
+  entt::entity entity;
+  Vector2 pos;
+  Vector2 size;
+  Color color;
+  float scale;
+  std::string text;
+  bool isGold = false;
+  Rectangle currentRect;
+  NoMoreDay::Rarity rarity = NoMoreDay::Rarity::Common;
+  float distSq = 0.0f;
+  int amount = 0;
+  bool emphasized = false;
+};
+std::vector<LabelCandidate> s_candidates;
+
+} // namespace
+
 // Static definitions for the shared visibility cache + loot grid now live in
 // NoMoreDayGameUiShared (UiShared.cpp) — design §5.3 ring 2 break.
 // U8 收尾：战利品空间网格迁入 item 域 LootGridSystem（生命周期委托本类 Init/Shutdown）。
@@ -572,6 +596,25 @@ void GameplayRenderAdapter::ExecuteVFXPass(render::GameplayRenderFrame &frame) {
 }
 
 void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &frame) {
+  // R3 (remediation, design §3.5): the UIWorldPass opens a fresh frame token
+  // FIRST, before any branch or quality setting can early-return — so every
+  // path (CPU loot, GPU loot, text on/off) clears the previous pass's proxies
+  // and hover and rotates the token. No reader can observe a stale
+  // previous-pass frame (H-01 root cause). Skipped only when no frame is
+  // bound.
+  if (m_worldFrame != nullptr) {
+    m_worldFrame->BeginFrame(++m_frameCounter);
+  }
+  if (frame.labelBuffer != nullptr) {
+    frame.labelBuffer->clear();
+  }
+  if (frame.glyphBuffer != nullptr) {
+    frame.glyphBuffer->clear();
+  }
+  if (frame.beamBuffer != nullptr) {
+    frame.beamBuffer->clear();
+  }
+
   if (!frame.gpuTextEnabled) {
     auto popupView = frame.registry.view<const Position, const DamagePopup>();
     popupView.each([&frame, this](const auto &pos, const auto &popup) {
@@ -608,30 +651,22 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
     });
   }
 
+  // R3 (design §3.5.1-2): the read-only query/cull visible-proxy producer runs
+  // on BOTH the CPU and GPU loot paths; the GPU path only skips the CPU
+  // label/glyph/beam output below, never the proxy fill.
+  CollectVisibleItemProxies(frame);
+
   if (frame.gpuLootEnabled) {
     return;
   }
 
   NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
-  // U8 (plan §11): the static UiShared::VisibleItemCache slot is replaced by
-  // the frame-scoped WorldUiFrame. BeginFrame opens a fresh frame (clears item
-  // proxies and hover, bumps the frame token). Skipped when no frame is bound.
-  if (m_worldFrame != nullptr) {
-    m_worldFrame->BeginFrame(++m_frameCounter);
-  }
-  if (frame.labelBuffer != nullptr) {
-    frame.labelBuffer->clear();
-  }
-  if (frame.glyphBuffer != nullptr) {
-    frame.glyphBuffer->clear();
-  }
-  if (frame.beamBuffer != nullptr) {
-    frame.beamBuffer->clear();
-  }
-  const bool enableLootBeams =
-      render::core::QualityTierManager::Get()
-          .GetConfig()
-          .dynamicLightingEnabled;
+  BuildCpuLootLabels(frame);
+}
+
+void GameplayRenderAdapter::CollectVisibleItemProxies(
+    render::GameplayRenderFrame &frame) {
+  s_candidates.clear();
 
   const Vector2 vTL = GetScreenToWorld2D({0, 0}, frame.camera);
   const Vector2 vBR =
@@ -640,23 +675,6 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
                          frame.camera);
   const Rectangle viewRect = {vTL.x - 100, vTL.y - 100, (vBR.x - vTL.x) + 200,
                               (vBR.y - vTL.y) + 200};
-
-  struct LabelCandidate {
-    entt::entity entity;
-    Vector2 pos;
-    Vector2 size;
-    Color color;
-    float scale;
-    std::string text;
-    bool isGold = false;
-    Rectangle currentRect;
-    NoMoreDay::Rarity rarity = NoMoreDay::Rarity::Common;
-    float distSq = 0.0f;
-    int amount = 0;
-    bool emphasized = false;
-  };
-  static std::vector<LabelCandidate> s_candidates;
-  s_candidates.clear();
 
   const Vector2 playerRef = m_hasPlayer ? m_playerPos : frame.camera.target;
   constexpr int kMaxCollectCandidates = 256;
@@ -694,33 +712,23 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
               }
             }
 
-            auto &labelCache =
-                frame.registry
-                    .get_or_emplace<LabelCacheComponent>(entity);
             ++collectedCount;
             int fSize = static_cast<int>(18.0f * scale * m_fontScale);
             if (fSize < 12) {
               fSize = 12;
             }
-            if (!labelCache.isValid || labelCache.lastFontSize != fSize ||
-                labelCache.lastRarityHash !=
-                    static_cast<uint32_t>(item->rarity)) {
-              labelCache.cachedSize =
-                  IsFontValid(frame.font)
-                      ? ::NoMoreDay::render::LootTextBatcher::MeasureText(
-                            frame.font, item->name, static_cast<float>(fSize))
-                      : Vector2{static_cast<float>(
-                                    MeasureText(item->name.c_str(), fSize)),
-                                static_cast<float>(fSize)};
-              labelCache.lastFontSize = fSize;
-              labelCache.lastRarityHash = static_cast<uint32_t>(item->rarity);
-              labelCache.isValid = true;
-              // Layout may have changed; invalidate cached glyph templates.
-              labelCache.glyphTemplates.clear();
-              labelCache.cachedGlyphs.clear();
+            // R3 (design §3.5.2): read-only rect estimate — reuse the label
+            // cache when present, otherwise a conservative default. No
+            // component write here; the CPU label builder measures and caches
+            // below (pre-existing LabelCacheComponent write kept there).
+            const auto *labelCache =
+                frame.registry.try_get<LabelCacheComponent>(entity);
+            Vector2 tSize;
+            if (labelCache != nullptr && labelCache->isValid) {
+              tSize = labelCache->cachedSize;
+            } else {
+              tSize = {80.0f, static_cast<float>(fSize)};
             }
-
-            const Vector2 tSize = labelCache.cachedSize;
             const Rectangle bg = {pos.x - tSize.x / 2 - 4,
                                   pos.y - 30.0f * scale - 2, tSize.x + 8,
                                   tSize.y + 4};
@@ -729,58 +737,65 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
             s_candidates.push_back({entity, pos, tSize, rarityColor, scale,
                                     item->name, false, bg, item->rarity,
                                     dx * dx + dy * dy, 0, emphasized});
-
-            if ((item->rarity >= NoMoreDay::Rarity::Rare || emphasized) &&
-                enableLootBeams && frame.beamBuffer != nullptr) {
-              render::GPUBeamInstance bi;
-              bi.position = {pos.x, pos.y};
-              bi.size = {24.0f * scale, 120.0f * scale};
-              bi.color = ColorNormalize(rarityColor);
-              bi.time = static_cast<float>(GetTime());
-              frame.beamBuffer->push_back(bi);
+            // R3 (design §3.5.1): proxy fill runs on every path, including GPU
+            // loot. The CPU builder no longer writes proxies.
+            if (m_worldFrame != nullptr) {
+              m_worldFrame->AddItem(entity, bg, 0.0f);
             }
           } else if (const auto *gold = frame.registry.try_get<GoldComponent>(
                          entity)) {
-            auto &labelCache =
-                frame.registry
-                    .get_or_emplace<LabelCacheComponent>(entity);
             ++collectedCount;
             int fSize = static_cast<int>(16.0f * m_fontScale);
             if (fSize < 10) {
               fSize = 10;
             }
-            if (!labelCache.isValid || labelCache.lastFontSize != fSize) {
-              if (!labelCache.isValid) {
-                NoMoreDay::utils::FormatToBuffer(labelCache.cachedText,
-                                                 "{} Gold", gold->amount);
-              }
-              labelCache.cachedSize =
-                  IsFontValid(frame.font)
-                      ? ::NoMoreDay::render::LootTextBatcher::MeasureText(
-                            frame.font, labelCache.cachedText,
-                            static_cast<float>(fSize))
-                      : Vector2{static_cast<float>(
-                                    MeasureText(labelCache.cachedText, fSize)),
-                                static_cast<float>(fSize)};
-              labelCache.lastFontSize = fSize;
-              labelCache.isValid = true;
-              // Layout may have changed; invalidate cached glyph templates.
-              labelCache.glyphTemplates.clear();
-              labelCache.cachedGlyphs.clear();
+            // Read-only estimate as above; gold label text is formatted by the
+            // CPU builder (cachedText write stays there).
+            const auto *labelCache =
+                frame.registry.try_get<LabelCacheComponent>(entity);
+            Vector2 tSize;
+            if (labelCache != nullptr && labelCache->isValid) {
+              tSize = labelCache->cachedSize;
+            } else {
+              tSize = {60.0f, static_cast<float>(fSize)};
             }
-
-            const Vector2 tSize = labelCache.cachedSize;
             const Rectangle bg = {pos.x - tSize.x / 2 - 4, pos.y - 25.0f - 2,
                                   tSize.x + 8, tSize.y + 4};
             const float dx = pos.x - playerRef.x;
             const float dy = pos.y - playerRef.y;
-            s_candidates.push_back({entity, pos, tSize, GOLD, 1.0f,
-                                    labelCache.cachedText, true, bg,
-                                    NoMoreDay::Rarity::Common, dx * dx + dy * dy,
+            s_candidates.push_back({entity, pos, tSize, GOLD, 1.0f, "", true,
+                                    bg, NoMoreDay::Rarity::Common,
+                                    dx * dx + dy * dy,
                                     static_cast<int>(gold->amount), false});
+            if (m_worldFrame != nullptr) {
+              m_worldFrame->AddItem(entity, bg, 0.0f);
+            }
           }
           return true;
         });
+  }
+}
+
+void GameplayRenderAdapter::BuildCpuLootLabels(
+    render::GameplayRenderFrame &frame) {
+  const bool enableLootBeams =
+      render::core::QualityTierManager::Get()
+          .GetConfig()
+          .dynamicLightingEnabled;
+  // Beams are CPU-path output (like labels/glyphs): the GPU loot path skipped
+  // them before R3 and still does. Preserved for every collected rare /
+  // emphasized item (budget selection below only filters label instances).
+  if (enableLootBeams && frame.beamBuffer != nullptr) {
+    for (const auto &cand : s_candidates) {
+      if (cand.rarity >= NoMoreDay::Rarity::Rare || cand.emphasized) {
+        render::GPUBeamInstance bi;
+        bi.position = {cand.pos.x, cand.pos.y};
+        bi.size = {24.0f * cand.scale, 120.0f * cand.scale};
+        bi.color = ColorNormalize(cand.color);
+        bi.time = static_cast<float>(GetTime());
+        frame.beamBuffer->push_back(bi);
+      }
+    }
   }
 
   // Budget selection by priority (design §4.1): collect-then-prioritize so the
@@ -824,6 +839,57 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
     for (size_t i = 0; i < s_candidates.size(); ++i) {
       auto &cand = s_candidates[i];
 
+      // R3 (design §3.5.2): label measurement + LabelCacheComponent caching
+      // moved here from the collection (the proxy producer is read-only).
+      auto &labelCache =
+          frame.registry.get_or_emplace<LabelCacheComponent>(cand.entity);
+      int fSize = cand.isGold ? static_cast<int>(16.0f * m_fontScale)
+                              : static_cast<int>(18.0f * cand.scale *
+                                                 m_fontScale);
+      if (fSize < 10) {
+        fSize = 10;
+      }
+      if (!labelCache.isValid || labelCache.lastFontSize != fSize ||
+          (!cand.isGold &&
+           labelCache.lastRarityHash != static_cast<uint32_t>(cand.rarity))) {
+        if (cand.isGold && !labelCache.isValid) {
+          NoMoreDay::utils::FormatToBuffer(labelCache.cachedText, "{} Gold",
+                                           cand.amount);
+          cand.text = labelCache.cachedText;
+        }
+        const char *measureText =
+            cand.isGold ? labelCache.cachedText : cand.text.c_str();
+        labelCache.cachedSize =
+            IsFontValid(frame.font)
+                ? ::NoMoreDay::render::LootTextBatcher::MeasureText(
+                      frame.font, measureText, static_cast<float>(fSize))
+                : Vector2{static_cast<float>(MeasureText(measureText, fSize)),
+                          static_cast<float>(fSize)};
+        labelCache.lastFontSize = fSize;
+        if (!cand.isGold) {
+          labelCache.lastRarityHash = static_cast<uint32_t>(cand.rarity);
+        }
+        labelCache.isValid = true;
+        // Layout may have changed; invalidate cached glyph templates.
+        labelCache.glyphTemplates.clear();
+        labelCache.cachedGlyphs.clear();
+      }
+      // Gold label text lives in the label cache; make the candidate carry it
+      // for the glyph builder (the producer cannot format it read-only).
+      if (cand.isGold && cand.text.empty()) {
+        cand.text = labelCache.cachedText;
+      }
+
+      const Vector2 tSize = labelCache.cachedSize;
+      const Rectangle bg =
+          cand.isGold
+              ? Rectangle{cand.pos.x - tSize.x / 2 - 4,
+                          cand.pos.y - 25.0f - 2, tSize.x + 8, tSize.y + 4}
+              : Rectangle{cand.pos.x - tSize.x / 2 - 4,
+                          cand.pos.y - 30.0f * cand.scale - 2, tSize.x + 8,
+                          tSize.y + 4};
+      cand.currentRect = bg;
+
       // OPTIMIZATION: Cap overlap resolution search distance to keep performance stable.
       bool overlap = true;
       int safety = 0;
@@ -858,40 +924,34 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
       if (frame.labelBuffer != nullptr) {
         frame.labelBuffer->push_back(inst);
       }
-      // U8 (plan §11): visible-item write moves from the static
-      // UiShared::VisibleItemCache to the frame-scoped WorldUiFrame. Depth is
-      // reserved for draw/pick priority (design §4.1); candidates are already
-      // y-sorted and overlap-resolved, so 0.0f (unset) is passed for now.
-      if (m_worldFrame != nullptr) {
-        m_worldFrame->AddItem(cand.entity, cand.currentRect, 0.0f);
-      }
+      // R3: the visible-item proxy write now lives in
+      // CollectVisibleItemProxies (runs on every path); nothing to write here.
 
       if (IsFontValid(frame.font) && frame.glyphBuffer != nullptr) {
-        int fSize = cand.isGold ? static_cast<int>(16.0f * m_fontScale)
-                                : static_cast<int>(18.0f * cand.scale *
-                                                   m_fontScale);
         if (fSize < 10) {
           fSize = 10;
         }
         // Cached-template path: rebuild glyph layout templates only when the
         // cached size is stale (font size or text changed), then translate the
         // origin-relative cached instances to the final rect each frame.
-        auto *labelCache = frame.registry.try_get<LabelCacheComponent>(cand.entity);
-        if (labelCache != nullptr &&
-            labelCache->glyphTemplates.size() == 0) {
-          labelCache->glyphTemplates.clear();
-          labelCache->cachedGlyphs.clear();
+        auto *labelCachePtr =
+            frame.registry.try_get<LabelCacheComponent>(cand.entity);
+        if (labelCachePtr != nullptr &&
+            labelCachePtr->glyphTemplates.size() == 0) {
+          labelCachePtr->glyphTemplates.clear();
+          labelCachePtr->cachedGlyphs.clear();
           ::NoMoreDay::render::LootTextBatcher::BuildTemplates(
               frame.font, cand.text, static_cast<float>(fSize),
-              labelCache->glyphTemplates);
+              labelCachePtr->glyphTemplates);
           ::NoMoreDay::render::LootTextBatcher::BatchString(
               frame.font, cand.text, {0.0f, 0.0f},
-              static_cast<float>(fSize), RAYWHITE, labelCache->cachedGlyphs);
-          labelCache->lastFontSize = fSize;
+              static_cast<float>(fSize), RAYWHITE, labelCachePtr->cachedGlyphs);
+          labelCachePtr->lastFontSize = fSize;
         }
-        if (labelCache != nullptr && labelCache->glyphTemplates.size() > 0) {
+        if (labelCachePtr != nullptr &&
+            labelCachePtr->glyphTemplates.size() > 0) {
           ::NoMoreDay::render::LootTextBatcher::WriteInstances(
-              labelCache->glyphTemplates, labelCache->cachedGlyphs,
+              labelCachePtr->glyphTemplates, labelCachePtr->cachedGlyphs,
               {cand.currentRect.x + 4, cand.currentRect.y + 2},
               ColorToInt(cand.color), *frame.glyphBuffer);
         } else {

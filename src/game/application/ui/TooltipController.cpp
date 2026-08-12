@@ -3,9 +3,12 @@
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UIRenderer.hpp"
 #include "game/application/ui/UISystem.hpp"
+#include "game/application/ui/UiDrawList.hpp"
+#include "game/application/ui/UiViewport.hpp"
 #include "game/application/ui/WorldUiFrame.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/ui_shared/UiShared.hpp"
 
 #include "raylib.h"
 
@@ -17,9 +20,9 @@ namespace NoMoreDay::ui {
 void TooltipController::ResetFrame() noexcept {
   m_hoveredSkillSlot = -1;
   m_hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
-  m_hoveredItem = entt::null;
+  m_hoveredItemDomain = kInvalidDomainId;
   m_hoveredBuffIdx = -1;
-  m_groundHover = entt::null;
+  m_groundHoverDomain = kInvalidDomainId;
 }
 
 void TooltipController::SetHoveredSkillSlot(int slotIndex) noexcept {
@@ -34,8 +37,8 @@ void TooltipController::SetHoveredSkill(uint32_t skillId) noexcept {
   m_hoveredSkillId = skillId;
 }
 
-void TooltipController::SetHoveredItem(entt::entity item) noexcept {
-  m_hoveredItem = item;
+void TooltipController::SetHoveredItemDomain(std::uint64_t domainId) noexcept {
+  m_hoveredItemDomain = domainId;
 }
 
 void TooltipController::BindHost(GameUiHost *uiHost) noexcept {
@@ -46,16 +49,15 @@ void TooltipController::BindWorldFrame(WorldUiFrame *frame) noexcept {
   m_frame = frame;
 }
 
-void TooltipController::SetGroundHover(entt::entity entity) noexcept {
-  m_groundHover = entity;
+void TooltipController::SetGroundHoverDomain(std::uint64_t domainId) noexcept {
+  m_groundHoverDomain = domainId;
 }
 
 void TooltipController::ClearGroundHover() noexcept {
-  m_groundHover = entt::null;
+  m_groundHoverDomain = kInvalidDomainId;
 }
 
-void TooltipController::DetectGroundHover(entt::registry &registry,
-                                          const Camera2D &camera) {
+void TooltipController::DetectGroundHover(const Camera2D &camera) {
   // Ground hover detection migrated out of UISystem::Draw (U8 host read-side
   // migration; was UISystem::Draw section 3). Read-only: resolves the
   // mouse-over visible ground item against the frame-scoped WorldUiFrame and
@@ -70,69 +72,74 @@ void TooltipController::DetectGroundHover(entt::registry &registry,
   if (m_uiHost != nullptr && m_uiHost->IsModalInputCaptured()) {
     return; // Modal UI captures pointer input, matching the legacy gate.
   }
+  // R3 (remediation, design §3.5.3): world hover reads proxies only through a
+  // valid current-pass view. A bound-but-never-opened frame or a stale frame
+  // (rotated token) yields an invalid view => no world target; the previous
+  // frame's proxies must not be consumed (H-01). Degrades to no ground hover.
+  const WorldUiFrame::View worldView = m_frame->AcquireView();
+  if (!worldView.IsValid()) {
+    return;
+  }
 
   const Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
 
   // Iterate ONLY visible items (already culled by RenderSystem). First hit is
-  // the top-most item, mirroring the legacy loop.
-  for (const auto &itemData : m_frame->VisibleItems()) {
+  // the top-most item, mirroring the legacy loop. R8: the frame's proxies carry
+  // entt::entity handles; only the stable domain id crosses this surface.
+  for (const auto &itemData : worldView.VisibleItems()) {
     if (CheckCollisionPointRec(mouseWorldPos, itemData.worldRect)) {
-      SetGroundHover(itemData.entity);
-      SetHoveredItem(itemData.entity); // Reuse the existing tooltip hover channel.
+      SetGroundHoverDomain(entt::to_integral(itemData.entity));
+      SetHoveredItemDomain(entt::to_integral(itemData.entity));
       break;
     }
   }
 }
 
-void TooltipController::UpdateState(entt::registry& registry) {
-  UpdateState(registry, GetFrameTime());
-}
-
-void TooltipController::UpdateState(entt::registry& registry,
+void TooltipController::UpdateState(const GameUiSnapshot& snapshot,
                                     float deltaSeconds) {
   // Resolve the hover input with the original priority order (item > skill id
   // > hotbar slot > buff index). Item hover comes from the per-frame cache
-  // (SetHoveredItem; the U8 ground path feeds it through DetectGroundHover)
-  // with the frame-scoped ground hover as the fallback source; direct
-  // skill-id hover keeps its legacy live source
-  // (UISystem::State.hoveredSkillId written by the skill hub and talent
-  // tree); the hotbar slot and buff-strip hovers arrive through the per-frame
-  // cache. The slot hover is resolved against ActiveSkillsComponent at
-  // state-machine time, exactly like the original inline block.
+  // (SetHoveredItemDomain; the ground path feeds it through
+  // DetectGroundHover) with the frame-scoped ground hover as the fallback
+  // source. R8: the hotbar slot hover resolves against the snapshot's
+  // skillBar.slots (builder-resolved view model) instead of the registry, and
+  // item validity is the domain-id sentinel (kInvalidDomainId) instead of
+  // registry.valid(). The state machine timing contract is unchanged.
   uint32_t hoverSkillId = NoMoreDay::INVALID_SKILL_ID;
-  entt::entity hoverItem = entt::null;
+  std::uint64_t hoverItemDomain = kInvalidDomainId;
   int hoverBuffIdx = -1;
 
-  const entt::entity item = (m_hoveredItem != entt::null)
-                                ? m_hoveredItem
-                                : m_groundHover;
+  const std::uint64_t itemDomain = (m_hoveredItemDomain != kInvalidDomainId)
+                                       ? m_hoveredItemDomain
+                                       : m_groundHoverDomain;
   // U8: mirror the resolved hover onto the frame object for the render-side
   // highlight. The render adapter reads the previous frame's write (its
   // UIWorldPass runs before Draw), matching the legacy UiShared::HoveredItem
-  // timing (design §4.1 direction contract: UI writes, render reads).
+  // timing (design §4.1 direction contract: UI writes, render reads). R8: the
+  // frame object still keys on entt::entity internally (render-side culling
+  // uses the raw handles); the domain id is converted back at this boundary —
+  // the snapshot-driven surface itself stays entity-free.
   if (m_frame != nullptr) {
-    if (item != entt::null) {
-      m_frame->SetHovered(item);
+    if (itemDomain != kInvalidDomainId) {
+      m_frame->SetHovered(static_cast<entt::entity>(
+          static_cast<entt::id_type>(itemDomain)));
     } else {
       m_frame->ClearHovered();
     }
   }
-  if (item != entt::null && registry.valid(item)) {
-    hoverItem = item;
+  if (itemDomain != kInvalidDomainId) {
+    hoverItemDomain = itemDomain;
   } else {
-    // U8 收尾: skill-hub / talent-tree hovers 已改经 SetHoveredSkill 写缓存，
-    // 原 UISystem::State.hoveredSkillId fallback 已删。
     const uint32_t skillId = m_hoveredSkillId;
     if (skillId != NoMoreDay::INVALID_SKILL_ID) {
       hoverSkillId = skillId;
     } else if (m_hoveredSkillSlot != -1) {
-      auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
-      if (view.begin() != view.end()) {
-        const auto &active = view.get<ActiveSkillsComponent>(view.front());
-        if (m_hoveredSkillSlot >= 0 &&
-            m_hoveredSkillSlot < static_cast<int>(active.slots.size())) {
-          hoverSkillId = active.slots[m_hoveredSkillSlot].id;
-        }
+      // R8: resolve the hotbar slot hover from the frame snapshot's skill bar
+      // view model (GameUiSkillBarSlotView.skillId), never from the registry.
+      if (m_hoveredSkillSlot >= 0 &&
+          m_hoveredSkillSlot <
+              static_cast<int>(snapshot.skillBar.slots.size())) {
+        hoverSkillId = snapshot.skillBar.slots[m_hoveredSkillSlot].skillId;
       }
     } else if (m_hoveredBuffIdx != -1) {
       hoverBuffIdx = m_hoveredBuffIdx;
@@ -141,17 +148,17 @@ void TooltipController::UpdateState(entt::registry& registry,
 
   // --- State machine (ported verbatim from UISystem::Draw) ---
   const bool isAnythingHovered =
-      (hoverSkillId != NoMoreDay::INVALID_SKILL_ID || hoverItem != entt::null ||
-       hoverBuffIdx != -1);
+      (hoverSkillId != NoMoreDay::INVALID_SKILL_ID ||
+       hoverItemDomain != kInvalidDomainId || hoverBuffIdx != -1);
   const bool targetChanged =
       isAnythingHovered &&
       (hoverSkillId != m_activeTooltipSkillId ||
-       hoverItem != m_activeTooltipItem ||
+       hoverItemDomain != m_activeTooltipItemDomain ||
        hoverBuffIdx != m_activeTooltipBuffIdx);
 
   if (targetChanged) {
     m_activeTooltipSkillId = hoverSkillId;
-    m_activeTooltipItem = hoverItem;
+    m_activeTooltipItemDomain = hoverItemDomain;
     m_activeTooltipBuffIdx = hoverBuffIdx;
     m_tooltipDelayTimer = (m_tooltipAlpha > 0.01f) ? 0.05f : 0.12f;
     m_tooltipInitialized = false;
@@ -176,7 +183,7 @@ void TooltipController::UpdateState(entt::registry& registry,
 
     if (m_tooltipAlpha <= 0.0f && m_tooltipDelayTimer <= 0.0f) {
       m_activeTooltipSkillId = NoMoreDay::INVALID_SKILL_ID;
-      m_activeTooltipItem = entt::null;
+      m_activeTooltipItemDomain = kInvalidDomainId;
       m_activeTooltipBuffIdx = -1;
       m_tooltipInitialized = false;
     }
@@ -184,31 +191,61 @@ void TooltipController::UpdateState(entt::registry& registry,
   m_tooltipHoveredLastFrame = isAnythingHovered;
 }
 
-void TooltipController::DrawTooltip(entt::registry& registry) {
-  // Top-most overlay pass (was the tail of UISystem::DrawDraggingPhantom).
+void TooltipController::Paint(UiDrawList& drawList,
+                              const UiViewport& viewport,
+                              const GameUiSnapshot& snapshot) {
+  // R8: top-most overlay pass (was the tail of UISystem::DrawDraggingPhantom /
+  // DrawTooltip(registry)). Issues a single Tooltip-layer Custom command; the
+  // registered painter renders the active tooltip from the frame-scoped
+  // snapshot during the backend submit. The paint state carries only resolved
+  // domain ids / snapshot data — no registry, no entt::entity.
+  (void)viewport;
   if (m_tooltipAlpha <= 0.01f) {
     return;
   }
-  if (m_activeTooltipItem != entt::null && registry.valid(m_activeTooltipItem)) {
+  m_paintState.snapshot = &snapshot;
+  m_paintState.activeItemDomain = m_activeTooltipItemDomain;
+  m_paintState.activeSkillId = m_activeTooltipSkillId;
+  m_paintState.activeBuffIdx = m_activeTooltipBuffIdx;
+  m_paintState.alpha = m_tooltipAlpha;
+  m_paintState.initialized = m_tooltipInitialized;
+  // Full logical viewport bounds; the painter receives the native-space rect
+  // converted by the backend and renders the tooltip at the mouse position.
+  drawList.Custom(UiDrawLayer::Tooltip, 0,
+                  {0.0f, 0.0f,
+                   static_cast<float>(UI_REF_WIDTH),
+                   static_cast<float>(UI_REF_HEIGHT)},
+                  kTooltipPainterResourceId);
+}
+
+void TooltipPaintCallback(void *userData, UiRect nativeBounds) {
+  // Registered by the host with &PaintState() as user data. Renders the active
+  // tooltip through the snapshot-driven UIRenderer variants; raylib drawing is
+  // confined to the backend painter contract (design §3.4).
+  (void)nativeBounds;
+  auto *state = static_cast<TooltipPaintState *>(userData);
+  if (state == nullptr || state->snapshot == nullptr ||
+      state->alpha <= 0.01f) {
+    return;
+  }
+  const Font &font = UISystem::GetFont();
+  if (state->activeItemDomain != kInvalidDomainId) {
     SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
-    UIRenderer::DrawTooltip(UISystem::GetFont(), registry, m_activeTooltipItem,
-                            m_tooltipAlpha);
-  } else if (m_activeTooltipSkillId != NoMoreDay::INVALID_SKILL_ID) {
-    // U8 收尾: forceDraw = !locked 让技能 tooltip 在 hover 目标切换时重置
-    // 位置锁定（UIRenderer 内 renderer-local 锁定，原 State.tooltipPos）。
-    UIRenderer::DrawSkillTooltip(UISystem::GetFont(), registry,
-                                 m_activeTooltipSkillId, m_tooltipAlpha,
-                                 !m_tooltipInitialized);
-  } else if (m_activeTooltipBuffIdx != -1) {
-    auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
-    if (view.begin() != view.end()) {
-      const auto &effects = view.get<ActiveEffectsComponent>(view.front());
-      if (m_activeTooltipBuffIdx < static_cast<int>(effects.effects.size())) {
-        UIRenderer::DrawBuffTooltip(UISystem::GetFont(),
-                                    effects.effects[m_activeTooltipBuffIdx],
-                                    m_tooltipAlpha);
-      }
-    }
+    UIRenderer::DrawTooltipFromSnapshot(font, *state->snapshot,
+                                        state->activeItemDomain,
+                                        state->alpha);
+  } else if (state->activeSkillId != NoMoreDay::INVALID_SKILL_ID) {
+    // forceDraw = !initialized lets the skill tooltip reset its position lock
+    // on hover-target switch (renderer-local lock, same as the legacy path).
+    UIRenderer::DrawSkillTooltipFromSnapshot(font, *state->snapshot,
+                                             state->activeSkillId,
+                                             state->alpha,
+                                             !state->initialized);
+  } else if (state->activeBuffIdx != -1 &&
+             state->activeBuffIdx <
+                 static_cast<int>(state->snapshot->buffs.size())) {
+    UIRenderer::DrawBuffTooltipFromView(
+        font, state->snapshot->buffs[state->activeBuffIdx], state->alpha);
   }
 }
 
@@ -219,12 +256,13 @@ void TooltipController::LeaveGameplay() noexcept { ResetAll(); }
 void TooltipController::ResetAll() noexcept {
   ResetFrame();
   m_activeTooltipSkillId = NoMoreDay::INVALID_SKILL_ID;
-  m_activeTooltipItem = entt::null;
+  m_activeTooltipItemDomain = kInvalidDomainId;
   m_activeTooltipBuffIdx = -1;
   m_tooltipAlpha = 0.0f;
   m_tooltipDelayTimer = 0.0f;
   m_tooltipInitialized = false;
   m_tooltipHoveredLastFrame = false;
+  m_paintState = TooltipPaintState{};
 }
 
 } // namespace NoMoreDay::ui

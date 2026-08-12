@@ -5,6 +5,8 @@
 #include "game/application/ui/UISkillSpecRenderer.hpp"
 #include "game/application/ui/TooltipController.hpp"
 #include "game/application/ui/BladeMasteryUITheme.hpp"
+#include "game/application/ui/GameUiIntent.hpp"
+#include "game/application/ui/UiResourceIds.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatAntiMeta.hpp"
@@ -20,6 +22,17 @@
 #include <vector>
 
 namespace NoMoreDay {
+
+// R8: the tree consumes the snapshot display views from NoMoreDay::ui.
+using ui::GameUiIntent;
+using ui::GameUiIntentKind;
+using ui::GameUiSnapshot;
+using ui::GameUiSpecializedSlotView;
+using ui::UiDrawLayer;
+using ui::UiDrawList;
+using ui::UiRect;
+using ui::UiViewport;
+using ui::kSkillTreePainterResourceId;
 
 namespace {
 
@@ -497,81 +510,6 @@ TreeFeedbackState BuildTreeFeedbackState(bool hoveredNodeExcluded,
     return state;
 }
 
-void DrawWrappedTextUI(const Font& font, const char* text, float x, float y, float width, float height,
-                       float fontSize, Color color, float alpha, float scale) {
-    if (!text || text[0] == '\0' || width <= 0.0f || height <= 0.0f) {
-        return;
-    }
-
-    const float sX = x * scale;
-    const float sY = y * scale;
-    const float sWidth = width * scale;
-    const float sMaxY = (y + height) * scale;
-    const float sFont = fontSize * scale;
-    const float sSpacing = 1.0f * scale;
-    const float sLineH = sFont + 4.0f * scale;
-
-    std::vector<std::string> lines;
-    std::string currentLine;
-    const char* ptr = text;
-
-    while (*ptr != '\0') {
-        int bytes = 0;
-        int cp = GetCodepoint(ptr, &bytes);
-        if (bytes <= 0) {
-            break;
-        }
-
-        if (cp == '\r') {
-            ptr += bytes;
-            continue;
-        }
-        if (cp == '\n') {
-            lines.push_back(currentLine);
-            currentLine.clear();
-            ptr += bytes;
-            continue;
-        }
-
-        int glyphBytes = 0;
-        const char* glyphPtr = CodepointToUTF8(cp, &glyphBytes);
-        std::string glyph(glyphPtr, glyphBytes);
-        std::string testLine = currentLine + glyph;
-
-        const float testW = IsFontValid(font)
-            ? MeasureTextEx(font, testLine.c_str(), sFont, sSpacing).x
-            : static_cast<float>(MeasureText(testLine.c_str(), static_cast<int>(sFont)));
-
-        if (testW <= sWidth || currentLine.empty()) {
-            currentLine = std::move(testLine);
-        } else {
-            lines.push_back(currentLine);
-            currentLine = std::move(glyph);
-        }
-
-        ptr += bytes;
-    }
-
-    if (!currentLine.empty()) {
-        lines.push_back(currentLine);
-    }
-
-    float drawY = sY;
-    const Color finalColor = Fade(color, alpha);
-    for (const auto& line : lines) {
-        if (drawY + sLineH > sMaxY) {
-            break;
-        }
-        if (IsFontValid(font)) {
-            DrawTextEx(font, line.c_str(), {sX, drawY}, sFont, sSpacing, finalColor);
-        } else {
-            DrawText(line.c_str(), static_cast<int>(sX), static_cast<int>(drawY),
-                     static_cast<int>(sFont), finalColor);
-        }
-        drawY += sLineH;
-    }
-}
-
 } // namespace
 
 SkillTreeUI::TooltipLayoutMetrics SkillTreeUI::ComputeTooltipLayoutMetrics(
@@ -598,34 +536,282 @@ SkillTreeUI::TooltipLayoutMetrics SkillTreeUI::ComputeTooltipLayoutMetrics(
     return metrics;
 }
 
-void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
-                       uint32_t skillId, float alpha) {
-    if (alpha <= 0.0f) return;
+void SkillTreeUI::UpdateInput(const GameUiSnapshot& snapshot,
+                              const ui::UiInputFrame& input, uint32_t skillId,
+                              ui::GameUiHost* uiHost, float alpha) {
+    if (alpha <= 0.0f) {
+        return;
+    }
 
     auto& skillRegistry = SkillRegistry::Get();
     const auto* skillData = skillRegistry.GetSkill(skillId);
     auto* mutableTree = skillRegistry.GetMutableSkillTree(skillId);
     const auto* tree = mutableTree;
-    if (!skillData || !tree) return;
-    const BladeMasteryUIThemeProfile& masteryTheme =
-        GetBladeMasteryUIThemeProfile(tree->mastery_id);
+    if (!skillData || !tree) {
+        return;
+    }
 
-    auto* active = registry.try_get<ActiveSkillsComponent>(player);
-    if (!active) return;
+    // R8: capture the read-only render data for PaintCanvas (frame-scoped).
+    m_paint.snapshot = &snapshot;
+    m_paint.skillId = skillId;
+    m_paint.alpha = alpha;
+    m_paint.excludedNodeIds.clear();
+    for (const auto& excluded : snapshot.skillTree.excludedBySkill) {
+        if (excluded.skillId == skillId) {
+            for (const auto nodeId : excluded.nodeIds) {
+                m_paint.excludedNodeIds.insert(nodeId);
+            }
+        }
+    }
 
-    const SpecializedSkill* specialized = nullptr;
-    for (const auto& s : active->specialized_slots) {
-        if (s.skill_id == skillId) {
-            specialized = &s;
+    // R8: talent budget from the snapshot (never re-queries the ECS).
+    const int availableTalentPoints = snapshot.skillTree.availableTalentPoints;
+
+    // R8: specialized-slot snapshot view for the current skill (allocated
+    // points + prerequisites are resolved by the builder).
+    const GameUiSpecializedSlotView* specializedView = nullptr;
+    for (const auto& slotView : snapshot.skillTree.specializedSlots) {
+        if (slotView.skillId == skillId) {
+            specializedView = &slotView;
             break;
         }
     }
-    if (!specialized) return;
+    if (specializedView == nullptr) {
+        return;
+    }
+    // Local replica for the pure static helpers (IsPrerequisiteSatisfiedOr).
+    SpecializedSkill specialized;
+    specialized.skill_id = skillId;
+    for (const auto& [nodeId, pts] : specializedView->allocatedPoints) {
+        specialized.allocated_points[nodeId] = pts;
+    }
 
     // --- Metrics (ALL IN LOGIC UNITS 2560x1440) ---
     float logicW = UI_REF_WIDTH;
     float logicH = UI_REF_HEIGHT;
     float panelW = 1800.0f; 
+    float panelH = 1100.0f;
+    float startX = (logicW - panelW) / 2.0f;
+    float startY = (logicH - panelH) / 2.0f;
+
+    Vector2 mouseLogicPos = {input.pointer.logicalPosition.x,
+                             input.pointer.logicalPosition.y};
+    float scale = UISystem::GetScaleFactor();
+
+    // Reset view if skill changed
+    if (skillId != m_lastSkillId) {
+        m_viewOffset = { 0, 0 }; // Center (0,0)
+        m_viewZoom = 1.0f;
+        m_lastSkillId = skillId;
+        m_layoutEditMode = false;
+        m_draggingNodeId = 0;
+    }
+
+    // --- Panning & Zooming Interaction (R8: driven by UiInputFrame, the
+    //     interaction phase never reads raylib input directly) ---
+    Rectangle viewBoundsLogic = { startX + 20, startY + 120, panelW - 40, panelH - 140 };
+    bool mouseInView = CheckCollisionPointRec(mouseLogicPos, viewBoundsLogic);
+
+    if (mouseInView) {
+        // Panning with Right Mouse Button
+        if (input.pointer.rightDown) {
+            m_viewOffset.x += (mouseLogicPos.x - m_lastMouseLogicPos.x);
+            m_viewOffset.y += (mouseLogicPos.y - m_lastMouseLogicPos.y);
+        }
+
+        // Zooming with Mouse Wheel
+        float wheel = input.pointer.mouseWheel;
+        if (wheel != 0) {
+            m_viewZoom += wheel * 0.1f;
+            m_viewZoom = std::clamp(m_viewZoom, 0.4f, 2.5f);
+        }
+    }
+    m_lastMouseLogicPos.x = mouseLogicPos.x;
+    m_lastMouseLogicPos.y = mouseLogicPos.y;
+
+    // --- Reset Button (R8: gameplay write through the intent sink) ---
+    Rectangle resetRectLogic = {startX + 250, startY + 75, 120, 40};
+    bool resetHover = CheckCollisionPointRec(mouseLogicPos, resetRectLogic);
+    if (resetHover && input.pointer.pressed && uiHost != nullptr) {
+        GameUiIntent intent;
+        intent.sourceNode = 0;
+        intent.kind = GameUiIntentKind::SkillResetTalents;
+        intent.payload.skillId = skillId;
+        uiHost->EnqueueIntent(std::move(intent));
+    }
+
+    Rectangle editRectLogic = {startX + 390, startY + 75, 140, 40};
+    bool editHover = CheckCollisionPointRec(mouseLogicPos, editRectLogic);
+    if (editHover && input.pointer.pressed) {
+        if (m_layoutEditMode) {
+            const bool saved = skillRegistry.SaveSkillTreeLayout(skillId);
+            LOG_INFO("Skill tree layout save for skill {}: {}", skillId,
+                     saved ? "success" : "failed");
+            m_draggingNodeId = 0;
+        }
+        m_layoutEditMode = !m_layoutEditMode;
+    }
+
+    // --- Back Button (UI-local view switch) ---
+    Rectangle backRectLogic = {startX + panelW - 150, startY + 30, 120, 50};
+    bool backHover = CheckCollisionPointRec(mouseLogicPos, backRectLogic);
+    if (backHover && input.pointer.pressed) {
+        m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+        return;
+    }
+
+    // SkillSpecView view setup
+    SkillSpecView view;
+    float centerX = startX + panelW / 2.0f;
+    float centerY = startY + panelH / 2.0f;
+    
+    view.center = { centerX * scale, centerY * scale };
+    view.offset = { m_viewOffset.x * scale, m_viewOffset.y * scale };
+    view.zoom = m_viewZoom * scale;
+    view.alpha = alpha;
+
+    // R8: physical mouse derived from the logical input position (the
+    // SkillSpecView and GetNodeScreenPos work in physical pixels).
+    Vector2 mousePixelPos = {mouseLogicPos.x * scale, mouseLogicPos.y * scale};
+    uint32_t hoveredNodeId = 0;
+
+    const Vector2 hubCenter = { view.center.x + view.offset.x, view.center.y + view.offset.y };
+    const float hubHoverRadius = 55.0f * view.zoom * 1.25f;
+    const Vector2 hubCenterLogic = { centerX + m_viewOffset.x, centerY + m_viewOffset.y };
+    const float hubHoverRadiusLogic = 55.0f * m_viewZoom * 1.25f;
+    const bool hubHovered = mouseInView &&
+                            (CheckCollisionPointCircle(mousePixelPos, hubCenter, hubHoverRadius) ||
+                             CheckCollisionPointCircle(mouseLogicPos, hubCenterLogic, hubHoverRadiusLogic));
+    if (hubHovered) {
+        // U8: the hovered-skill channel routes through the bound tooltip
+        // controller (was the State.hoveredSkillId write).
+        if (m_tooltip != nullptr) {
+            m_tooltip->SetHoveredSkill(skillId);
+        }
+    }
+
+    for (const auto& [id, node] : tree->nodes) {
+        const NodeContractData* nodeContract =
+            SkillRegistry::Get().GetNodeContract(skillId, id);
+        (void)nodeContract;
+        Vector2 pos = UISkillSpecRenderer::GetNodeScreenPos(node, view);
+        float r = UISkillSpecRenderer::GetNodeRadius(node, view, nodeContract);
+
+        if (CheckCollisionPointCircle(mousePixelPos, pos, r) && mouseInView) {
+            hoveredNodeId = id;
+
+            if (m_layoutEditMode && input.pointer.pressed) {
+                m_draggingNodeId = id;
+                const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
+                m_dragNodeOffset = {
+                    node.x - mouseTreePos.x,
+                    node.y - mouseTreePos.y,
+                };
+            } else if (input.pointer.pressed && uiHost != nullptr) {
+                // R8: gate the click with snapshot data and enqueue the
+                // authoritative write (design §3.3: the UI never writes
+                // gameplay state directly).
+                int currentPts = specialized.allocated_points.contains(id) ? specialized.allocated_points.at(id) : 0;
+                bool isMaxed = currentPts >= node.max_points;
+                
+                bool canUnlock = IsPrerequisiteSatisfiedOr(node, *tree, specialized);
+                const bool canSwapExcluded = m_paint.excludedNodeIds.contains(id);
+                
+                if (canUnlock && !isMaxed &&
+                    (availableTalentPoints > 0 || canSwapExcluded)) {
+                    GameUiIntent intent;
+                    intent.sourceNode = 0;
+                    intent.kind = GameUiIntentKind::SkillAllocateTalentPoint;
+                    intent.payload.skillId = skillId;
+                    intent.payload.astrolabeNodeId = id;
+                    uiHost->EnqueueIntent(std::move(intent));
+                }
+            }
+            // Only handle one hover
+            break; 
+        }
+    }
+
+    if (m_layoutEditMode && m_draggingNodeId != 0) {
+        // R8: layout edit stays a UI-local debug feature (writes the static
+        // SkillRegistry JSON layout, never the ECS).
+        if (input.pointer.down && mutableTree != nullptr &&
+            mutableTree->nodes.contains(m_draggingNodeId)) {
+            const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
+            auto& dragged = mutableTree->nodes.at(m_draggingNodeId);
+            dragged.x = mouseTreePos.x + m_dragNodeOffset.x;
+            dragged.y = mouseTreePos.y + m_dragNodeOffset.y;
+        }
+        if (input.pointer.released) {
+            m_draggingNodeId = 0;
+        }
+    }
+
+    m_paint.hoveredNodeId = hoveredNodeId;
+}
+
+void SkillTreeUI::Paint(UiDrawList& drawList, const UiViewport& viewport,
+                        uint32_t skillId, float alpha) {
+    (void)skillId;
+    m_paint.alpha = alpha;
+    // R8: single custom command (Panels layer). The backend painter draws the
+    // full talent-tree canvas from the paint state; no raylib here.
+    drawList.Custom(UiDrawLayer::Panels, 0,
+                    {0.0f, 0.0f, viewport.LogicalSize().x, viewport.LogicalSize().y},
+                    kSkillTreePainterResourceId);
+}
+
+void SkillTreeUI::PaintCanvas(UiRect nativeBounds) {
+    (void)nativeBounds;
+    // R8: registered backend painter. Raylib draw calls live only here
+    // (design §3.4); the read-only data comes from the paint state captured
+    // by UpdateInput (snapshot / skillId / alpha / hover / exclusions).
+    const GameUiSnapshot* snapshot = m_paint.snapshot;
+    const uint32_t skillId = m_paint.skillId;
+    if (snapshot == nullptr || m_paint.alpha <= 0.0f ||
+        skillId == NoMoreDay::INVALID_SKILL_ID) {
+        return;
+    }
+    const float alpha = m_paint.alpha;
+
+    auto& skillRegistry = SkillRegistry::Get();
+    const auto* skillData = skillRegistry.GetSkill(skillId);
+    const auto* tree = skillRegistry.GetSkillTree(skillId);
+    if (!skillData || !tree) {
+        return;
+    }
+    const BladeMasteryUIThemeProfile& masteryTheme =
+        GetBladeMasteryUIThemeProfile(tree->mastery_id);
+
+    // R8: rebuild the specialized slot + active-skill read model from the
+    // snapshot (the painter never re-queries the ECS; the spec renderer
+    // consumes plain value copies).
+    const GameUiSpecializedSlotView* specializedView = nullptr;
+    for (const auto& slotView : snapshot->skillTree.specializedSlots) {
+        if (slotView.skillId == skillId) {
+            specializedView = &slotView;
+            break;
+        }
+    }
+    if (specializedView == nullptr) {
+        return;
+    }
+    SpecializedSkill specialized;
+    specialized.skill_id = skillId;
+    for (const auto& [nodeId, pts] : specializedView->allocatedPoints) {
+        specialized.allocated_points[nodeId] = pts;
+    }
+    ActiveSkillsComponent active;
+    active.available_talent_points = snapshot->skillTree.availableTalentPoints;
+    for (std::size_t i = 0; i < snapshot->skillBar.slots.size() && i < active.slots.size(); ++i) {
+        active.slots[i].id = snapshot->skillBar.slots[i].skillId;
+        active.slots[i].current_charges = snapshot->skillBar.slots[i].currentCharges;
+    }
+
+    // --- Metrics (ALL IN LOGIC UNITS 2560x1440) ---
+    float logicW = UI_REF_WIDTH;
+    float logicH = UI_REF_HEIGHT;
+    float panelW = 1800.0f;
     float panelH = 1100.0f;
     float startX = (logicW - panelW) / 2.0f;
     float startY = (logicH - panelH) / 2.0f;
@@ -666,56 +852,22 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
         break;
     }
 
-    // Reset view if skill changed
-    if (skillId != m_lastSkillId) {
-        m_viewOffset = { 0, 0 }; // Center (0,0)
-        m_viewZoom = 1.0f;
-        m_lastSkillId = skillId;
-        m_layoutEditMode = false;
-        m_draggingNodeId = 0;
-    }
-
-    // --- Panning & Zooming Interaction ---
-    Rectangle viewBoundsLogic = { startX + 20, startY + 120, panelW - 40, panelH - 140 };
-    bool mouseInView = CheckCollisionPointRec(mouseLogicPos, viewBoundsLogic);
-
-    if (mouseInView) {
-        // Panning with Right Mouse Button
-        if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
-            m_viewOffset.x += (mouseLogicPos.x - m_lastMouseLogicPos.x);
-            m_viewOffset.y += (mouseLogicPos.y - m_lastMouseLogicPos.y);
-        }
-
-        // Zooming with Mouse Wheel
-        float wheel = GetMouseWheelMove();
-        if (wheel != 0) {
-            m_viewZoom += wheel * 0.1f;
-            m_viewZoom = std::clamp(m_viewZoom, 0.4f, 2.5f);
-        }
-    }
-    m_lastMouseLogicPos.x = mouseLogicPos.x;
-    m_lastMouseLogicPos.y = mouseLogicPos.y;
-
     // Header & Points
     UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()),
                          startX + 40, startY + 30, 40, masteryTheme.highlight, alpha);
-    UISystem::DrawTextUI(TextFormat("可用点数: %d", active->available_talent_points),
+    UISystem::DrawTextUI(TextFormat("可用点数: %d", active.available_talent_points),
                          startX + 40, startY + 80, 24, masteryTheme.primary, alpha);
-    
+
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
 
-    // Reset Button
+    // Reset Button (interaction is routed by UpdateInput; hover feedback here)
     Rectangle resetRectLogic = {startX + 250, startY + 75, 120, 40};
     bool resetHover = CheckCollisionPointRec(mouseLogicPos, resetRectLogic);
-    
+
     UIRenderer::DrawButton(UISystem::GetFont(), rectTex, resetRectLogic, "重置天赋",
                            20, WHITE,
                            resetHover ? masteryTheme.danger : masteryTheme.secondary,
                            resetHover, resetHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-    if (resetHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        SkillSystem::ResetTalents(registry, player, skillId);
-    }
 
     Rectangle editRectLogic = {startX + 390, startY + 75, 140, 40};
     bool editHover = CheckCollisionPointRec(mouseLogicPos, editRectLogic);
@@ -727,151 +879,70 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
                                                           : masteryTheme.secondary,
                             editHover, editPressed, alpha);
 
-    if (editHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        if (m_layoutEditMode) {
-            const bool saved = skillRegistry.SaveSkillTreeLayout(skillId);
-            LOG_INFO("Skill tree layout save for skill {}: {}", skillId,
-                     saved ? "success" : "failed");
-            m_draggingNodeId = 0;
-        }
-        m_layoutEditMode = !m_layoutEditMode;
-    }
-
     UISystem::DrawTextUI(
         m_layoutEditMode
             ? "编辑布局: 左键拖动节点, 再点[保存布局]写回JSON"
             : "右键拖拽平移, 滚轮缩放",
         startX + panelW - 520, startY + 85, 20, masteryTheme.secondary,
         alpha * 0.7f);
-    
+
     // Back Button
     Rectangle backRectLogic = {startX + panelW - 150, startY + 30, 120, 50};
     bool backHover = CheckCollisionPointRec(mouseLogicPos, backRectLogic);
-    
+
     UIRenderer::DrawButton(UISystem::GetFont(), rectTex, backRectLogic, "返回", 22,
                            WHITE, masteryTheme.primary, backHover,
                            backHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-    if (backHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
-        return;
-    }
 
     // SkillSpecView view setup
     SkillSpecView view;
     float centerX = startX + panelW / 2.0f;
     float centerY = startY + panelH / 2.0f;
-    
+
     view.center = { centerX * scale, centerY * scale };
     view.offset = { m_viewOffset.x * scale, m_viewOffset.y * scale };
     view.zoom = m_viewZoom * scale;
-    view.alpha = alpha;  
+    view.alpha = alpha;
 
-    // --- Interaction Logic (Pre-Calculation) ---
-    Vector2 mousePixelPos = GetMousePosition(); // Raylib raw mouse pos
-    uint32_t targetNodeId = 0;
-    uint32_t hoveredNodeId = 0;
-    const TalentNode* hoveredNode = nullptr;
-    std::unordered_set<uint32_t> excludedNodeIds;
-    for (const auto& [id, node] : tree->nodes) {
-        (void)node;
-        if (SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, skillId, id)) {
-            excludedNodeIds.insert(id);
-        }
-    }
-
-    const Vector2 hubCenter = { view.center.x + view.offset.x, view.center.y + view.offset.y };
-    const float hubHoverRadius = 55.0f * view.zoom * 1.25f;
-    const Vector2 hubCenterLogic = { centerX + m_viewOffset.x, centerY + m_viewOffset.y };
-    const float hubHoverRadiusLogic = 55.0f * m_viewZoom * 1.25f;
-    const bool hubHovered = mouseInView &&
-                            (CheckCollisionPointCircle(mousePixelPos, hubCenter, hubHoverRadius) ||
-                             CheckCollisionPointCircle(mouseLogicPos, hubCenterLogic, hubHoverRadiusLogic));
-    if (hubHovered) {
-        // U8: the hovered-skill channel routes through the bound tooltip
-        // controller (was the State.hoveredSkillId write).
-        if (m_tooltip != nullptr) {
-            m_tooltip->SetHoveredSkill(skillId);
-        }
-    }
-
-    for (const auto& [id, node] : tree->nodes) {
-        const NodeContractData* nodeContract =
-            SkillRegistry::Get().GetNodeContract(skillId, id);
-        const auto nodeVisual =
-            UISkillSpecRenderer::ClassifyNodeVisual(node, nodeContract);
-        Vector2 pos = UISkillSpecRenderer::GetNodeScreenPos(node, view);
-        float r = UISkillSpecRenderer::GetNodeRadius(node, view, nodeContract);
-        (void)nodeVisual;
-
-        if (CheckCollisionPointCircle(mousePixelPos, pos, r) && mouseInView) {
-            hoveredNodeId = id;
-            hoveredNode = &node;
-
-            if (m_layoutEditMode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                m_draggingNodeId = id;
-                const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
-                m_dragNodeOffset = {
-                    node.x - mouseTreePos.x,
-                    node.y - mouseTreePos.y,
-                };
-            } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                // Logic check
-                int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
-                bool isMaxed = currentPts >= node.max_points;
-                
-                // Prereq check
-                bool canUnlock = IsPrerequisiteSatisfiedOr(node, *tree, *specialized);
-                const bool canSwapExcluded = excludedNodeIds.contains(id);
-                
-                if (canUnlock && !isMaxed &&
-                    (active->available_talent_points > 0 || canSwapExcluded)) {
-                     targetNodeId = id;
-                }
-            }
-            // Only handle one hover
-            break; 
-        }
-    }
-
-    if (m_layoutEditMode && m_draggingNodeId != 0) {
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && mutableTree != nullptr &&
-            mutableTree->nodes.contains(m_draggingNodeId)) {
-            const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
-            auto& dragged = mutableTree->nodes.at(m_draggingNodeId);
-            dragged.x = mouseTreePos.x + m_dragNodeOffset.x;
-            dragged.y = mouseTreePos.y + m_dragNodeOffset.y;
-        }
-        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            m_draggingNodeId = 0;
-        }
-    }
+    // R8: hovered node id was resolved by UpdateInput (frame-scoped).
+    const uint32_t hoveredNodeId = m_paint.hoveredNodeId;
+    const std::unordered_set<uint32_t>& excludedNodeIds = m_paint.excludedNodeIds;
 
     // --- Scissor Mode & Render Content ---
+    Rectangle viewBoundsLogic = { startX + 20, startY + 120, panelW - 40, panelH - 140 };
     BeginScissorMode((int)(viewBoundsLogic.x * scale), (int)(viewBoundsLogic.y * scale), 
                      (int)(viewBoundsLogic.width * scale), (int)(viewBoundsLogic.height * scale));
 
-    UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view, hoveredNodeId, &excludedNodeIds);
+    UISkillSpecRenderer::Draw(tree, &specialized, &active, skillData, view, hoveredNodeId, &excludedNodeIds);
 
-    if (hoveredNode != nullptr) {
-        const NodeContractData* nodeContract = SkillRegistry::Get().GetNodeContract(skillId, hoveredNodeId);
-        const TreeFeedbackState feedbackState =
-            BuildTreeFeedbackState(excludedNodeIds.contains(hoveredNodeId), masteryTheme, alpha);
-        const float nodeRadius = UISkillSpecRenderer::GetNodeRadius(*hoveredNode, view, nodeContract);
-        const Vector2 nodeCenter = UISkillSpecRenderer::GetNodeScreenPos(*hoveredNode, view);
-        DrawRingLines(nodeCenter, nodeRadius * feedbackState.ringRadiusScale,
-                      nodeRadius * feedbackState.ringRadiusScale + feedbackState.ringThickness,
-                      0.0f, 360.0f, 32, Fade(feedbackState.ringColor, alpha * 0.95f));
-        if (feedbackState.drawAccent) {
-            DrawCircleLinesV(nodeCenter, nodeRadius * 0.68f,
-                             Fade(feedbackState.accentColor, alpha * 0.75f));
+    if (hoveredNodeId != 0) {
+        const auto nodeIt = tree->nodes.find(hoveredNodeId);
+        if (nodeIt != tree->nodes.end()) {
+            const TalentNode& hoveredNode = nodeIt->second;
+            const NodeContractData* nodeContract = SkillRegistry::Get().GetNodeContract(skillId, hoveredNodeId);
+            const TreeFeedbackState feedbackState =
+                BuildTreeFeedbackState(excludedNodeIds.contains(hoveredNodeId), masteryTheme, alpha);
+            const float nodeRadius = UISkillSpecRenderer::GetNodeRadius(hoveredNode, view, nodeContract);
+            const Vector2 nodeCenter = UISkillSpecRenderer::GetNodeScreenPos(hoveredNode, view);
+            DrawRingLines(nodeCenter, nodeRadius * feedbackState.ringRadiusScale,
+                          nodeRadius * feedbackState.ringRadiusScale + feedbackState.ringThickness,
+                          0.0f, 360.0f, 32, Fade(feedbackState.ringColor, alpha * 0.95f));
+            if (feedbackState.drawAccent) {
+                DrawCircleLinesV(nodeCenter, nodeRadius * 0.68f,
+                                 Fade(feedbackState.accentColor, alpha * 0.75f));
+            }
         }
     }
 
     EndScissorMode();
 
     // --- Tooltip & Actions ---
-    if (hoveredNode) {
+    if (hoveredNodeId != 0) {
+        const auto nodeIt = tree->nodes.find(hoveredNodeId);
+        if (nodeIt == tree->nodes.end()) {
+            return;
+        }
+        const TalentNode& hoveredNode = nodeIt->second;
         const NodeContractData* nodeContract = SkillRegistry::Get().GetNodeContract(skillId, hoveredNodeId);
         // Tooltip
         float tx = mouseLogicPos.x + 30;
@@ -888,7 +959,7 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
             }
         }
 
-        const auto quantitativeLines = BuildNodeQuantitativeLines(*hoveredNode, *specialized, hoveredNodeId);
+        const auto quantitativeLines = BuildNodeQuantitativeLines(hoveredNode, specialized, hoveredNodeId);
 
         std::vector<std::pair<std::string, Color>> footerLines;
         if (nodeContract && nodeContract->cost_affix != CostAffixPreset::None) {
@@ -926,7 +997,7 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
         DrawRectangleLinesEx({tx * scale, ty * scale, tw * scale, th * scale}, 1.0f,
                              Fade(masteryTheme.primary, alpha));
 
-        DrawTooltipHeader(masteryTheme, *hoveredNode, tx, ty + 2.0f, tw, alpha, scale);
+        DrawTooltipHeader(masteryTheme, hoveredNode, tx, ty + 2.0f, tw, alpha, scale);
 
         float badgeX = tx + 20.0f;
         const float badgeY = ty + 66.0f;
@@ -943,7 +1014,7 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
         const float descY = ty + tooltipLayout.descriptionTop;
         const float descW = tw - 40.0f;
         const float descH = tooltipLayout.descriptionHeight;
-        DrawKeywordHighlights(UISystem::GetFont(), hoveredNode->desc_key.c_str(),
+        DrawKeywordHighlights(UISystem::GetFont(), hoveredNode.desc_key.c_str(),
                                descX, descY, descW, descH, 20.0f, WHITE,
                                alpha * 0.96f, scale);
 
@@ -956,18 +1027,23 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
             }
         }
 
-        if (!footerLines.empty()) {
-            float lineY = ty + tooltipLayout.footerTop + kTooltipFooterTopPad;
-            for (const auto& line : footerLines) {
-                UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, lineFont, line.second, alpha * 0.9f);
-                lineY += kTooltipFooterLineHeight;
-            }
-        }
+    if (!footerLines.empty()) {
+      float lineY = ty + tooltipLayout.footerTop + kTooltipFooterTopPad;
+      for (const auto& line : footerLines) {
+        UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, lineFont, line.second, alpha * 0.9f);
+        lineY += kTooltipFooterLineHeight;
+      }
     }
+  }
+}
 
-    if (!m_layoutEditMode && targetNodeId != 0) {
-        SkillSystem::AddTalentPoint(registry, player, skillId, targetNodeId);
-    }
+// R8: backend painter callback. Registered by GameUiHost with
+// kSkillTreePainterResourceId; userData points to the tree instance.
+void SkillTreePaintCallback(void* userData, UiRect nativeBounds) {
+  if (userData == nullptr) {
+    return;
+  }
+  static_cast<SkillTreeUI*>(userData)->PaintCanvas(nativeBounds);
 }
 
 } // namespace NoMoreDay

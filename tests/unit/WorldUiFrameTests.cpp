@@ -143,4 +143,105 @@ TEST_CASE("[Unit] WorldUiFrame - BeginFrame is idempotent when reusing the same 
   CHECK(frame.VisibleItems()[0].entity == entt::entity{2});
 }
 
+// R3 (remediation, design §3.5): WorldUiFrameView binds an expected frame
+// token at acquisition time; IsValid() is true only when the view's expected
+// token matches the frame's current token (i.e. the view was acquired for the
+// pass that is currently being executed). A view acquired for a previous pass
+// is stale and must be rejected even though the frame itself is valid — this
+// is what stops host tooltips and pickup clicks from reading previous-frame
+// proxies (H-01).
+
+TEST_CASE("[Unit] WorldUiFrame - AcquireView binds the current frame token") {
+  WorldUiFrame frame;
+  frame.BeginFrame(11u);
+
+  const WorldUiFrame::View view = frame.AcquireView();
+  CHECK(view.IsValid());
+  CHECK(view.FrameToken() == 11u);
+
+  frame.AddItem(entt::entity{1}, Rectangle{10.0f, 20.0f, 30.0f, 40.0f}, 0.5f);
+  REQUIRE(view.VisibleItems().size() == 1u);
+  CHECK(view.VisibleItems()[0].entity == entt::entity{1});
+}
+
+TEST_CASE("[Unit] WorldUiFrame - a fresh frame view is invalid until BeginFrame") {
+  WorldUiFrame frame;
+  // No BeginFrame yet: the frame is invalid, so any view is invalid too.
+  const WorldUiFrame::View view = frame.AcquireView();
+  CHECK_FALSE(view.IsValid());
+  CHECK(view.VisibleItems().empty());
+  CHECK_FALSE(view.HasHovered());
+  CHECK((view.HoveredItem() == entt::null));
+}
+
+TEST_CASE("[Unit] WorldUiFrame - a stale view is rejected after token rotation "
+          "(H-01 regression)") {
+  WorldUiFrame frame;
+  frame.BeginFrame(1u);
+  frame.AddItem(entt::entity{10}, Rectangle{10.0f, 20.0f, 30.0f, 40.0f}, 0.5f);
+  frame.SetHovered(entt::entity{10});
+
+  // The host/tooltip acquires a view for pass N.
+  const WorldUiFrame::View firstPass = frame.AcquireView();
+  CHECK(firstPass.IsValid());
+  REQUIRE(firstPass.VisibleItems().size() == 1u);
+
+  // Pass N+1 begins: token rotates, previous proxies are cleared. The frame
+  // is still valid, but the N view is now stale.
+  frame.BeginFrame(2u);
+  CHECK(frame.IsValid());
+  CHECK_FALSE(firstPass.IsValid());
+  CHECK(firstPass.VisibleItems().empty());
+  CHECK_FALSE(firstPass.HasHovered());
+  CHECK((firstPass.HoveredItem() == entt::null));
+
+  // A freshly acquired view sees only the new pass's data.
+  const WorldUiFrame::View secondPass = frame.AcquireView();
+  CHECK(secondPass.IsValid());
+  CHECK(secondPass.VisibleItems().empty());
+  frame.AddItem(entt::entity{20}, Rectangle{1.0f, 2.0f, 3.0f, 4.0f}, 0.25f);
+  REQUIRE(secondPass.VisibleItems().size() == 1u);
+  CHECK(secondPass.VisibleItems()[0].entity == entt::entity{20});
+}
+
+TEST_CASE("[Unit] WorldUiFrame - the GPU loot branch still fills proxies every "
+          "pass (token monotonicity)") {
+  // Contract (design §3.5): every ExecuteUIWorldPass branch — including the
+  // GPU loot early-out — opens a frame and fills the proxy vector; the frame
+  // token advances on every pass. Consumers that hold a view across passes
+  // always observe a new token, never a recycled one.
+  WorldUiFrame frame;
+  uint64_t token = 0u;
+
+  // CPU pass.
+  frame.BeginFrame(++token);
+  frame.AddItem(entt::entity{1}, Rectangle{1.0f, 2.0f, 3.0f, 4.0f});
+  {
+    const WorldUiFrame::View cpuView = frame.AcquireView();
+    REQUIRE(cpuView.IsValid());
+    REQUIRE(cpuView.VisibleItems().size() == 1u);
+  }
+
+  // GPU loot pass: proxies are still written, labels/glyphs are skipped by the
+  // adapter (not by the frame) — the frame contract is identical.
+  frame.BeginFrame(++token);
+  frame.AddItem(entt::entity{2}, Rectangle{5.0f, 6.0f, 7.0f, 8.0f});
+  {
+    const WorldUiFrame::View gpuView = frame.AcquireView();
+    REQUIRE(gpuView.IsValid());
+    REQUIRE(gpuView.VisibleItems().size() == 1u);
+    CHECK(gpuView.VisibleItems()[0].entity == entt::entity{2});
+  }
+
+  // Back to a CPU pass: token advanced again; the GPU pass view is stale.
+  frame.BeginFrame(++token);
+  {
+    const WorldUiFrame::View cpuPass2 = frame.AcquireView();
+    REQUIRE(cpuPass2.IsValid());
+    CHECK(cpuPass2.FrameToken() == 3u);
+    CHECK(cpuPass2.VisibleItems().empty());
+  }
+  CHECK(frame.FrameToken() == 3u);
+}
+
 } // namespace NoMoreDay::ui

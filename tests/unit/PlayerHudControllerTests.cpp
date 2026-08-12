@@ -87,55 +87,94 @@ TEST_CASE("[Unit] PlayerHudController - Enter/Leave gameplay resets session stat
   CHECK(reentered->visible);
 }
 
-TEST_CASE("[Unit] PlayerHudController - Update handles empty and player registries") {
+TEST_CASE("[Unit] PlayerHudController - Update handles empty and player snapshots") {
   UiRuntime runtime;
   PlayerHudController controller(runtime);
 
-  entt::registry registry;
-  controller.Update(registry); // empty registry must not crash
+  ui::GameUiSnapshot emptySnapshot;
+  controller.Update(emptySnapshot, 60, 1.0f); // empty snapshot must not crash
   CHECK_FALSE(controller.HasPlayerData());
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<CombatStats>(player);
-  registry.emplace<SwordIntentComponent>(player);
-  controller.Update(registry);
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.health = 80.0f;
+  snapshot.player.maxHealth = 100.0f;
+  snapshot.player.mana = 50.0f;
+  snapshot.player.maxMana = 100.0f;
+  snapshot.player.hasSwordIntent = true;
+  snapshot.player.swordIntentStacks = 5;
+  snapshot.player.swordIntentMaxStacks = 10;
+  controller.Update(snapshot, 60, 1.0f);
   CHECK(controller.HasPlayerData());
 }
 
-TEST_CASE("[Unit] PlayerHudController - Draw executes headless without crashing") {
-  // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so immediate-mode raylib drawing works (see
-  // GameUiHostLifecycleTests). UIRenderer::DrawTextUI falls back to raylib
-  // DrawText when UISystem::State.globalFont is unset, and SwordIntentWidget
-  // self-initializes (its DrawTexturePro guards invalid textures), so the
-  // legacy draw body is safe to run here without UISystem::Initialize.
+TEST_CASE("[Unit] PlayerHudController - Paint executes headless without crashing") {
+  // R5 adaptation: the controller no longer draws from the registry; it
+  // formats a fixed snapshot into cached buffers (Update) and emits
+  // draw-list commands (Paint). No raylib immediate-mode calls remain, so the
+  // test drives the new contract directly against a UiDrawList.
   UiRuntime runtime;
   PlayerHudController controller(runtime);
 
-  entt::registry registry;
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  auto& stats = registry.emplace<CombatStats>(player);
-  stats.health = 8000.0f;
-  stats.max_health = 10000.0f;
-  stats.mana = 2500.0f;
-  stats.max_mana = 5000.0f;
+  UiDrawList drawList;
+  const UiViewport viewport = UiViewport::Fit({2560, 1440});
+
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.health = 8000.0f;
+  snapshot.player.maxHealth = 10000.0f;
+  snapshot.player.mana = 2500.0f;
+  snapshot.player.maxMana = 5000.0f;
 
   // Path A: blade-resource widget (primary path).
-  registry.emplace<BladeResourceComponent>(player);
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  snapshot.player.hasBladeResource = true;
+  snapshot.player.bladeResourceKind =
+      static_cast<std::uint8_t>(BladeResourceKind::SwordFlow);
+  snapshot.player.bladeResourceCurrent = 5;
+  snapshot.player.bladeResourceMax = 10;
+  controller.Update(snapshot, 60, 1.0f);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
+  drawList.Clear();
 
   // Path B: sword-intent fallback widget.
-  registry.remove<BladeResourceComponent>(player);
-  auto& intent = registry.emplace<SwordIntentComponent>(player);
-  intent.stacks = 2;
-  intent.max_stacks = 5;
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  snapshot.player.hasBladeResource = false;
+  snapshot.player.hasSwordIntent = true;
+  snapshot.player.swordIntentStacks = 2;
+  snapshot.player.swordIntentMaxStacks = 5;
+  controller.Update(snapshot, 60, 1.0f);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
+}
+
+TEST_CASE("[Unit] PlayerHudController - Paint reuses caches across revisions") {
+  UiRuntime runtime;
+  PlayerHudController controller(runtime);
+
+  UiDrawList drawList;
+  const UiViewport viewport = UiViewport::Fit({2560, 1440});
+
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.health = 50.0f;
+  snapshot.player.maxHealth = 100.0f;
+  snapshot.player.mana = 25.0f;
+  snapshot.player.maxMana = 100.0f;
+  controller.Update(snapshot, 60, 1.0f);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
+
+  // Same revision: Update must not re-format the text buffers (revision
+  // cache), the command count stays identical.
+  const std::size_t firstCount = drawList.CommandCount();
+  drawList.Clear();
+  snapshot.revision = 1; // unchanged
+  controller.Update(snapshot, 60, 2.0f);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() == firstCount);
 }
 
 TEST_CASE("[Unit] PlayerHudController - implementation declares no static mutable UI state") {

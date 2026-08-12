@@ -112,20 +112,31 @@ TEST_CASE("[Unit] UICharacterController - Enter/Leave gameplay resets session st
   CHECK_FALSE(reentered->visible);
 }
 
-TEST_CASE("[Unit] UICharacterController - Draw executes headless without crashing") {
+TEST_CASE("[Unit] UICharacterController - UpdateInput/Paint execute headless "
+          "without crashing") {
   UiRuntime runtime;
   UICharacterController controller(runtime);
+  controller.EnterGameplay();
+  controller.SetVisible(true);
+  controller.SetAlpha(1.0f);
 
-  // Empty registry with no player must early-out (no PlayerTag view hit).
+  UiViewport viewport = UiViewport::Fit({800.0f, 600.0f});
+  UiDrawList drawList;
+
+  // Empty snapshot with no player must early-out (no player data to paint).
   {
-    entt::registry registry;
-    BeginDrawing();
-    controller.Draw(registry, entt::null);
-    EndDrawing();
+    GameUiSnapshot snapshot;
+    snapshot.revision = 1;
+    controller.UpdateInput(snapshot);
+    drawList.Clear();
+    controller.Paint(drawList, viewport, snapshot);
+    drawList.Finalize();
+    CHECK(drawList.CommandCount() == 0);
   }
 
-  // Full panel smoke: a player with stats, drawn with an explicit entity and
-  // again through the legacy PlayerTag lookup (entt::null fallback).
+  // Full panel smoke: a snapshot with a player + character stats, driven
+  // through the R6 interaction + paint phases (no registry access on either
+  // path).
   entt::registry registry;
   const entt::entity player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -149,13 +160,34 @@ TEST_CASE("[Unit] UICharacterController - Draw executes headless without crashin
 
   registry.emplace<PrimaryStats>(player);
 
-  BeginDrawing();
-  controller.Draw(registry, player);
-  EndDrawing();
+  GameUiSnapshot snapshot;
+  snapshot.revision = 2;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.domainId = entt::to_integral(player);
+  snapshot.player.level = pStats.level;
+  snapshot.player.currentXp = pStats.current_xp;
+  snapshot.player.requiredXp = pStats.required_xp;
+  snapshot.player.availableAttributePoints = pStats.available_attribute_points;
+  snapshot.player.health = stats.health;
+  snapshot.player.maxHealth = stats.max_health;
+  snapshot.player.mana = stats.mana;
+  snapshot.player.maxMana = stats.max_mana;
+  snapshot.characterStats.strength = 10.0f;
+  snapshot.characterStats.dexterity = 20.0f;
+  snapshot.characterStats.intelligence = 30.0f;
+  snapshot.characterStats.vitality = 40.0f;
+  snapshot.characterStats.effectiveStrength = 10.0f;
+  snapshot.characterStats.effectiveDexterity = 20.0f;
+  snapshot.characterStats.effectiveIntelligence = 30.0f;
+  snapshot.characterStats.effectiveVitality = 40.0f;
 
-  BeginDrawing();
-  controller.Draw(registry, entt::null);  // PlayerTag fallback path
-  EndDrawing();
+  controller.UpdateInput(snapshot);
+  drawList.Clear();
+  controller.Paint(drawList, viewport, snapshot);
+  drawList.Finalize();
+  // The panel paints its frame through the draw list (panel background,
+  // headers, stat rows, tabs).
+  CHECK(drawList.CommandCount() > 0);
 }
 
 TEST_CASE("[Unit] UICharacterController - header declares no static data members") {

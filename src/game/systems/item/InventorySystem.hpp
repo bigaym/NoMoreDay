@@ -52,6 +52,17 @@ public:
     // 整理背包：合并可堆叠物品并排序
     static void organize(entt::registry& registry, entt::entity character);
 
+    // --- UI 命令权威操作 (R1: system-owned, 供 GameUiCommandHandler 调用) ---
+    // 将背包 fromIndex 槽位的物品移动到空槽 toIndex (仅空目标)。
+    // 校验源槽位有物品、目标槽位为空且索引在容量范围内。
+    static bool moveItem(entt::registry& registry, entt::entity character, int fromIndex, int toIndex);
+
+    // 交换背包两个槽位的物品 (两个槽位都必须已占用且索引有效)。
+    static bool swapItems(entt::registry& registry, entt::entity character, int indexA, int indexB);
+
+    // 锁定/解锁背包中的物品 (防误分解/出售)。物品必须在角色背包/装备/包槽内。
+    static bool setItemLocked(entt::registry& registry, entt::entity character, entt::entity item, bool locked);
+
     // 每帧更新：处理物品吸附（磁力）和自动拾取逻辑
     static void update(entt::registry& registry, float dt);
 };

@@ -1,7 +1,6 @@
 #include "game/application/ui/PlayerHUD.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UICommon.hpp"
-#include "game/application/ui/SwordIntentWidget.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -13,10 +12,10 @@
 
 namespace NoMoreDay::systems {
 
-// Legacy null-host fallback only (GameplayState keeps the static path alive
-// until U8 removes the UISystem facade). The hosted PlayerHudController owns
-// its own SwordIntentWidget instance instead.
-static NoMoreDay::systems::ui::SwordIntentWidget s_swordIntentWidget;
+// R5: the hosted PlayerHudController owns the SwordIntentWidget instance and
+// paints it into the UiDrawList (see PlayerHudController::Paint). This legacy
+// static path is retained only for the [Tech] PlayerHUD tests; the blade
+// widget visual is intentionally not drawn here anymore.
 
 namespace {
 
@@ -283,22 +282,9 @@ void PlayerHUD::Draw(entt::registry& registry) {
 
     // --- 3. Blade Resource (Visual Widget) ---
     if (const auto* bladeResource = registry.try_get<BladeResourceComponent>(player)) {
-        const char* label = ResolveBladeResourceLabel(*bladeResource);
-        std::string detailText;
-        if (mastery != nullptr) {
-            detailText = ResolveBladeResourceDetailText(*mastery, *bladeResource);
-            const std::string runtimeDetailText = ResolveBladeResourceRuntimeDetailText(
-                registry, player, *mastery, *bladeResource, stats);
-            if (!runtimeDetailText.empty()) {
-                if (!detailText.empty()) {
-                    detailText += " | ";
-                }
-                detailText += runtimeDetailText;
-            }
-        }
-        s_swordIntentWidget.Draw(
-            bladeResource->current, bladeResource->max, bladeResource->kind, label,
-            detailText);
+        // R5: blade widget visual moved to PlayerHudController::Paint
+        // (draw-list based). Legacy static path keeps only the text cues
+        // below for the [Tech] PlayerHUD tests.
         if (mastery != nullptr) {
             std::string feedbackText = ResolveBladeResourceRuntimeFeedbackText(
                 registry, player, *mastery, *bladeResource, stats);
@@ -322,9 +308,8 @@ void PlayerHUD::Draw(entt::registry& registry) {
             }
         }
     } else if (intent) {
-        s_swordIntentWidget.Draw(
-            intent->stacks, intent->max_stacks, BladeResourceKind::SwordIntent,
-            "Sword Intent");
+        // R5: blade widget visual moved to PlayerHudController::Paint.
+        (void)intent;
     }
 
     // --- 4. Summon Status (Top Left) ---

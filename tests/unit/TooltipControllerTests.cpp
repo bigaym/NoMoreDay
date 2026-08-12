@@ -1,10 +1,9 @@
 #include "doctest.h"
 
 #include "game/application/ui/TooltipController.hpp"
+#include "game/application/ui/UiRuntimeTypes.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
-
-#include <entt/entt.hpp>
 
 #include <fstream>
 #include <iterator>
@@ -12,118 +11,127 @@
 
 using namespace NoMoreDay;
 
+using NoMoreDay::ui::GameUiSnapshot;
+using NoMoreDay::ui::kInvalidDomainId;
+
 namespace {
 
-// Player with the default empty hotbar slots; a slot can be assigned by
-// writing ActiveSkillsComponent::slots[i].id.
-entt::entity MakePlayer(entt::registry &registry) {
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<ActiveSkillsComponent>(player);
-  return player;
+// R8: the state machine consumes a frame-scoped snapshot. Skill/buff/item
+// hovers surface as stable ids/indices, and the hotbar-slot hover resolves
+// against snapshot.skillBar.slots — so the tests feed a minimal snapshot
+// instead of a registry with an ActiveSkillsComponent. The builder emits one
+// slot entry per populated hotbar slot, so a slot-hover test must size the
+// vector explicitly (R8 adaptation: skillBar.slots is a vector, not a fixed
+// array).
+GameUiSnapshot MakeSnapshotWithSlot(std::size_t slotIndex, uint32_t skillId) {
+  GameUiSnapshot snapshot;
+  if (snapshot.skillBar.slots.size() <= slotIndex) {
+    snapshot.skillBar.slots.resize(slotIndex + 1);
+  }
+  snapshot.skillBar.slots[slotIndex].skillId = skillId;
+  return snapshot;
 }
+
+constexpr std::uint64_t kItemDomain = 0x1234u;
 
 } // namespace
 
 TEST_CASE("[Unit] TooltipController (UI) - hover starts: delay decays then alpha rises") {
-  entt::registry registry;
   ui::TooltipController tooltip;
+  const GameUiSnapshot snapshot;
 
   const uint32_t skillId = 100;
   tooltip.SetHoveredSkill(skillId);
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
 
   // New target while the alpha is still zero -> the long initial delay.
   CHECK(tooltip.ActiveTooltipSkillId() == skillId);
-  CHECK((tooltip.ActiveTooltipItem() == entt::null));
+  CHECK(tooltip.ActiveTooltipItemDomain() == kInvalidDomainId);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.02f)); // 0.12 - 0.10
   CHECK(tooltip.Alpha() == doctest::Approx(0.0f));
   CHECK_FALSE(tooltip.TooltipInitialized());
 
   // Enough hover to drain the delay.
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.0f));
   CHECK(tooltip.Alpha() == doctest::Approx(0.0f));
 
   // Delay is zero: alpha rises at 10/s.
-  tooltip.UpdateState(registry, 0.05f);
+  tooltip.UpdateState(snapshot, 0.05f);
   CHECK(tooltip.Alpha() == doctest::Approx(0.5f));
 
   // Alpha clamps at 1.
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.Alpha() == doctest::Approx(1.0f));
   CHECK(tooltip.HoveredLastFrame());
 }
 
 TEST_CASE("[Unit] TooltipController (UI) - target switch resets the delay") {
-  entt::registry registry;
   ui::TooltipController tooltip;
+  const GameUiSnapshot snapshot;
 
   tooltip.SetHoveredSkill(100);
-  tooltip.UpdateState(registry, 0.12f); // delay drained
-  tooltip.UpdateState(registry, 0.12f); // alpha rises to 1
+  tooltip.UpdateState(snapshot, 0.12f); // delay drained
+  tooltip.UpdateState(snapshot, 0.12f); // alpha rises to 1
   CHECK(tooltip.Alpha() == doctest::Approx(1.0f));
 
   // Switching the hovered skill while the tooltip is visible re-arms the
   // short re-entry delay and unlocks the position for the new target.
   tooltip.SetHoveredSkill(200);
-  tooltip.UpdateState(registry, 0.0f);
+  tooltip.UpdateState(snapshot, 0.0f);
   CHECK(tooltip.ActiveTooltipSkillId() == 200);
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.05f)); // alpha > 0.01
   CHECK_FALSE(tooltip.TooltipInitialized());
 }
 
 TEST_CASE("[Unit] TooltipController (UI) - no hover: alpha decays and active clears") {
-  entt::registry registry;
   ui::TooltipController tooltip;
+  const GameUiSnapshot snapshot;
 
   tooltip.SetHoveredSkill(100);
-  tooltip.UpdateState(registry, 0.12f); // delay drained
-  tooltip.UpdateState(registry, 0.12f); // alpha rises to 1
+  tooltip.UpdateState(snapshot, 0.12f); // delay drained
+  tooltip.UpdateState(snapshot, 0.12f); // alpha rises to 1
   CHECK(tooltip.Alpha() == doctest::Approx(1.0f));
 
   // Mouse leaves: the next frame arms the 0.08s exit delay...
   tooltip.ResetFrame();
-  tooltip.UpdateState(registry, 0.0f);
+  tooltip.UpdateState(snapshot, 0.0f);
   CHECK_FALSE(tooltip.HoveredLastFrame());
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.08f));
   CHECK(tooltip.Alpha() == doctest::Approx(1.0f));
 
   // ...the exit delay drains...
-  tooltip.UpdateState(registry, 0.08f);
+  tooltip.UpdateState(snapshot, 0.08f);
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.0f));
   CHECK(tooltip.Alpha() == doctest::Approx(1.0f));
 
   // ...then the alpha fades at 8/s.
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.Alpha() == doctest::Approx(0.2f));
 
   // Alpha hits zero: the active tooltip is cleared.
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.Alpha() == doctest::Approx(0.0f));
   CHECK(tooltip.ActiveTooltipSkillId() == NoMoreDay::INVALID_SKILL_ID);
-  CHECK((tooltip.ActiveTooltipItem() == entt::null));
+  CHECK(tooltip.ActiveTooltipItemDomain() == kInvalidDomainId);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
   CHECK_FALSE(tooltip.TooltipInitialized());
 }
 
 TEST_CASE("[Unit] TooltipController (UI) - hover priority: item > skillId > slot > buff") {
-  entt::registry registry;
   ui::TooltipController tooltip;
-  const entt::entity player = MakePlayer(registry);
-  auto &active = registry.get<ActiveSkillsComponent>(player);
   const uint32_t slotSkillId = 300;
-  active.slots[2].id = slotSkillId; // hotbar slot 2 resolves to skill 300
-  const entt::entity item = registry.create();
+  const GameUiSnapshot snapshot = MakeSnapshotWithSlot(2, slotSkillId);
 
-  // 1. Item hover wins over every other hover input.
+  // 1. Item hover wins over every other hover input. R8: item hovers are
+  //    stable domain ids (never entt::entity values).
   tooltip.SetHoveredBuff(1);
   tooltip.SetHoveredSkillSlot(2);
   tooltip.SetHoveredSkill(200);
-  tooltip.SetHoveredItem(item);
-  tooltip.UpdateState(registry, 0.1f);
-  CHECK(tooltip.ActiveTooltipItem() == item);
+  tooltip.SetHoveredItemDomain(kItemDomain);
+  tooltip.UpdateState(snapshot, 0.1f);
+  CHECK(tooltip.ActiveTooltipItemDomain() == kItemDomain);
   CHECK(tooltip.ActiveTooltipSkillId() == NoMoreDay::INVALID_SKILL_ID);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
 
@@ -132,57 +140,57 @@ TEST_CASE("[Unit] TooltipController (UI) - hover priority: item > skillId > slot
   tooltip.SetHoveredSkillSlot(2);
   tooltip.SetHoveredSkill(200);
   tooltip.SetHoveredBuff(1);
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.ActiveTooltipSkillId() == 200);
-  CHECK((tooltip.ActiveTooltipItem() == entt::null));
+  CHECK(tooltip.ActiveTooltipItemDomain() == kInvalidDomainId);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
 
   // 3. Hotbar slot hover resolves to the assigned skill id at state-machine
-  //    time (ActiveSkillsComponent::slots[slot].id).
+  //    time (R8: from the snapshot's skillBar.slots view model).
   tooltip.ResetFrame();
   tooltip.SetHoveredSkillSlot(2);
   tooltip.SetHoveredBuff(1);
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.ActiveTooltipSkillId() == slotSkillId);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
 
   // 4. Buff index wins when nothing else is hovered.
   tooltip.ResetFrame();
   tooltip.SetHoveredBuff(1);
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.ActiveTooltipBuffIdx() == 1);
   CHECK(tooltip.ActiveTooltipSkillId() == NoMoreDay::INVALID_SKILL_ID);
-  CHECK((tooltip.ActiveTooltipItem() == entt::null));
+  CHECK(tooltip.ActiveTooltipItemDomain() == kInvalidDomainId);
 }
 
 TEST_CASE("[Unit] TooltipController (UI) - adopts the skill-hub hover via SetHoveredSkill") {
-  entt::registry registry;
   ui::TooltipController tooltip;
+  const GameUiSnapshot snapshot;
 
   // U8: the skill hub / talent tree route their hovered node through
   // SetHoveredSkill (the legacy UISystem::State.hoveredSkillId slot is gone);
   // UpdateState uses the cached hover as the direct skill-id source.
   tooltip.SetHoveredSkill(400);
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.ActiveTooltipSkillId() == 400);
-  CHECK((tooltip.ActiveTooltipItem() == entt::null));
+  CHECK(tooltip.ActiveTooltipItemDomain() == kInvalidDomainId);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
 
   tooltip.SetHoveredSkill(NoMoreDay::INVALID_SKILL_ID);
 }
 
 TEST_CASE("[Unit] TooltipController (UI) - Enter/LeaveGameplay clear all state") {
-  entt::registry registry;
   ui::TooltipController tooltip;
+  const GameUiSnapshot snapshot;
 
   tooltip.SetHoveredSkill(100);
-  tooltip.UpdateState(registry, 0.12f); // delay drained
-  tooltip.UpdateState(registry, 0.12f); // alpha rises to 1
+  tooltip.UpdateState(snapshot, 0.12f); // delay drained
+  tooltip.UpdateState(snapshot, 0.12f); // alpha rises to 1
   CHECK(tooltip.Alpha() == doctest::Approx(1.0f));
 
   tooltip.EnterGameplay();
   CHECK(tooltip.ActiveTooltipSkillId() == NoMoreDay::INVALID_SKILL_ID);
-  CHECK((tooltip.ActiveTooltipItem() == entt::null));
+  CHECK(tooltip.ActiveTooltipItemDomain() == kInvalidDomainId);
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
   CHECK(tooltip.Alpha() == doctest::Approx(0.0f));
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.0f));
@@ -191,7 +199,7 @@ TEST_CASE("[Unit] TooltipController (UI) - Enter/LeaveGameplay clear all state")
 
   // A fresh hover still works after the reset...
   tooltip.SetHoveredSkill(200);
-  tooltip.UpdateState(registry, 0.1f);
+  tooltip.UpdateState(snapshot, 0.1f);
   CHECK(tooltip.ActiveTooltipSkillId() == 200);
 
   // ...and LeaveGameplay clears again.
@@ -229,5 +237,3 @@ TEST_CASE("[Unit] TooltipController (UI) migration sources keep no static toolti
                                    std::istreambuf_iterator<char>());
   CHECK(headerContents.find("static ") == std::string::npos);
 }
-
-

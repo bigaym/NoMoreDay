@@ -473,18 +473,11 @@ bool GameplayState::OnUpdate(float dt) {
   // inside GameUiHost::Update (runs later this frame, after this check), so
   // the game state no longer pushes InventoryState.
 
-  // KEY_ESCAPE opens the pause menu — unless the inventory overlay is open,
-  // in which case the hosted controller consumes ESC first to close the
-  // panel (checked here so PauseState is not pushed for the same press).
-  if (IsKeyPressed(KEY_ESCAPE) && !m_uiHost->IsInventoryVisible()) {
-    m_stateManager->PushState<PauseState>();
-  }
-
   // Town Portal (KEY_T) - only when no major panel is open.
   // U8 host read-side migration: the anyPanelOpen check aggregates the hosted
   // controller instances (inventory/skill tree/character/stash/crafting/
   // astrolabe) via the host channel; the legacy State reads are gone.
-  const bool anyPanelOpen = m_uiHost->IsAnyPanelOpen(registry);
+  const bool anyPanelOpen = m_uiHost->IsAnyPanelOpen();
   if (IsKeyPressed(KEY_T) && !anyPanelOpen) {
     auto playerViewT = registry.view<PlayerTag>();
     if (playerViewT.begin() != playerViewT.end()) {
@@ -624,22 +617,35 @@ bool GameplayState::OnUpdate(float dt) {
   // instance text-input focus (GameUiHost::IsTyping); the legacy State field
   // is gone. All global keys ('C'/'K'/'S'/'N'/'E'/'F'/ESC) are handled inside
   // GameUiHost::Update (U8 final); the null-host fallback path is removed.
-  // U6b: build the frame-scoped read-only snapshot first, run the UI
-  // update against it, then execute the pickup intents queued during the
-  // previous frame's Draw. This keeps every gameplay mutation inside the
-  // Update phase (design §6.2).
-  const auto snapshot = m_snapshotBuilder.Build(registry);
-  m_uiHost->Update(registry, *m_context->levelManager, snapshot);
+  // R1 (remediation): intent execution moves BEFORE the snapshot build. The
+  // stable frame order is: execute the intents queued by the previous phase
+  // (success/failure flows into the next snapshot through GameUiResult), then
+  // build the read-only snapshot from the final gameplay state, then run the
+  // UI update against it (design §3.1, remediation design §3.3).
   for (const auto &intent : m_uiHost->DrainUpdateIntents()) {
     const auto result = m_commandHandler.Execute(registry, intent);
     m_uiHost->Publish(result);
+  }
+  const auto snapshot =
+      m_snapshotBuilder.Build(registry, m_uiHost->SnapshotOptions());
+  m_uiHost->Update(registry, *m_context->levelManager, snapshot);
+
+  // R3 (remediation, design §3.6): the pause check runs AFTER the UI update
+  // and only on the Escape edge when the host did NOT consume the key (no UI
+  // surface was closed by this press). The old IsInventoryVisible() proxy is
+  // gone: the host owns the full UI Escape close policy and reports
+  // consumption through EscapeConsumedThisFrame, so one press is never
+  // consumed twice (once by the UI, once by PauseState — H-02).
+  if (IsKeyPressed(KEY_ESCAPE) &&
+      !m_uiHost->EscapeConsumedThisFrame()) {
+    m_stateManager->PushState<PauseState>();
   }
 
   // Gameplay input consumes the UI capture aggregated after the UI update
   // (U5), so InputSystem reads the capture produced by the composition root
   // (GameUiHost::InputCapture), never UI static state.
-  const NoMoreDay::ui::UiInputCapture uiCapture =
-      m_uiHost->InputCapture(registry);
+const NoMoreDay::ui::UiInputCapture uiCapture =
+m_uiHost->InputCapture();
   InputSystem::update(registry, m_camera, uiCapture);
 
   // U8 inventory takeover: the legacy InventoryState block that observed
@@ -1123,8 +1129,9 @@ void GameplayState::OnRender() {
     // the new draw list through the raylib backend. Frame position is
     // unchanged (after the scene composite, before EndDrawing).
     m_uiHost->PrepareRender();
-    m_uiHost->Draw(registry, *m_context->levelManager, m_camera,
-                   &m_spatialGrid);
+    // R8: the registry parameter is gone — every panel is a
+    // snapshot/intent/draw-list surface.
+    m_uiHost->Draw(*m_context->levelManager, m_camera, &m_spatialGrid);
   }
 
   // Monster Target Widget (Top Center)
@@ -1137,9 +1144,10 @@ void GameplayState::OnRender() {
 
   // Global UI Overlay (Dragging Phantom)
   // U7 group 6-B: the drag phantom + top-most tooltip pass routes through the
-  // host controller (U8 final: the drag state lives in the host-owned
-  // UIDragSession, drawn directly from it).
-  m_uiHost->DrawDraggingPhantom(registry);
+  // host controller. R8: the phantom and the tooltip paint from the drag
+  // session + frame snapshot inside Draw (draw list), so this legacy call
+  // position is a no-op kept for the call order.
+  m_uiHost->DrawDraggingPhantom();
 
   // Cleanup Dragging if mouse released (Fallback if no inventory overlay is active)
   // U8 final: the cleanup clears the host-owned drag session (the panels own

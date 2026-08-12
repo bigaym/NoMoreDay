@@ -67,10 +67,9 @@ public:
   void LeaveGameplay();
 
   // Per-frame update. Owns the full UI update orchestration in-place (global
-  // hotkeys, animations, the one-shot test-item grant, per-frame panel
-  // updates; see GameUiHost.cpp). Compatibility overload that runs the update
-  // against an empty snapshot; the gameplay Update phase should prefer the
-  // snapshot overload below.
+  // hotkeys, animations, per-frame panel updates; see GameUiHost.cpp).
+  // Compatibility overload that runs the update against an empty snapshot;
+  // the gameplay Update phase should prefer the snapshot overload below.
   void Update(entt::registry &registry, const LevelManager &levelManager);
 
   // U6b: update against the frame-scoped read-only snapshot. Saves the
@@ -95,20 +94,26 @@ public:
   // Aggregated UI input capture for gameplay input gating (U5). Starts from
   // the retained runtime capture and merges the transitional legacy gate
   // queries (U7 panel migration removes these). Call after Update so the
-  // capture reflects the current frame's UI state. Requires the registry to
-  // resolve the player entity (astrolabe visibility).
-  [[nodiscard]] UiInputCapture InputCapture(entt::registry &registry) const;
+  // capture reflects the current frame's UI state. R8: registry-free (the
+  // astrolabe/skill-tree panels report their instance visibility).
+  [[nodiscard]] UiInputCapture InputCapture() const;
 
-  // Re-fit the viewport to the current framebuffer and start a fresh draw
-  // list. Call after the scene composite, before Draw.
+  // R4 (remediation, design §3.1/§3.4): render-phase paint. Starts a fresh
+  // draw list and paints the migrated surfaces (message box) into the
+  // host-owned buffers, then Finalize() sorts the commands into the total draw
+  // order. Call after the scene composite, before Draw (which submits the
+  // finalized list through the backend). The viewport fit / runtime
+  // reconcile/input/layout steps run in Update.
   void PrepareRender();
 
   // U8 final: draws the full UI in-place (scale fit, per-frame hover/mouse
   // resets, panel passes, overlays, tooltip state machine; see
-  // GameUiHost.cpp), then submits the new draw list through the raylib
-  // backend. Must run after the scene composite and before EndDrawing.
-  void Draw(entt::registry &registry, const LevelManager &levelManager,
-            const Camera2D &camera,
+  // GameUiHost.cpp), then submits the finalized draw list (prepared and
+  // sorted by PrepareRender) through the raylib backend in a single pass.
+  // Must run after the scene composite and before EndDrawing.
+  // R8: the registry parameter is gone — all panel state is snapshot/intent
+  // driven and painted through the draw list (A-01/B-01 closure).
+  void Draw(const LevelManager &levelManager, const Camera2D &camera,
             NoMoreDay::systems::SpatialHashGrid *spatialGrid = nullptr);
 
   // U8 host read-side migration: binds the frame-scoped WorldUiFrame the
@@ -127,10 +132,10 @@ public:
   void DrawHud(entt::registry &registry);
   // U8 final: the drag phantom + top-most tooltip pass (was
   // UISystem::DrawDraggingPhantom). GameplayState calls this at the original
-  // legacy position (after the player HUD); the phantom draws directly from
-  // the host-owned drag session and the tooltip routes through the hosted
-  // TooltipController.
-  void DrawDraggingPhantom(entt::registry &registry);
+  // legacy position (after the player HUD); R8: the phantom is registry-free
+  // (the item/skill preview is painted from the drag session + snapshot by
+  // the Draw pass, this legacy position is a no-op kept for the call order).
+  void DrawDraggingPhantom();
   // Monster health bars: world-pass overhead bars + hover pick (runs inside
   // Mode2D) and the screen-pass top-center target widget.
   void RenderMonsterHealthBars(entt::registry &registry,
@@ -156,13 +161,20 @@ public:
   void CloseAstrolabe();
 
   // U8 panel-hover convergence channel: forwards the hovered item to the
-  // tooltip controller's hover source (TooltipController::SetHoveredItem).
-  // Panel hover write points (stash/crafting controllers, states) route
-  // through this host channel instead of the static UiShared::HoveredItem()
-  // slot, so hover flows into the instance hover pipeline (UpdateState
-  // write-back) and the static slot stays write-free except for the U8
-  // fallback branches. Pass entt::null to clear the hover source.
-  void SetHoveredItem(entt::entity entity);
+  // tooltip controller's hover source (TooltipController::SetHoveredItemDomain).
+  // R8: the entity overload is gone (dead code, no callers); panel hover write
+  // points route through SetHoveredItemDomain instead, so hover flows into the
+  // instance hover pipeline (UpdateState write-back) as a stable domain id.
+  // Pass 0 to clear the hover source.
+  void SetHoveredItemDomain(std::uint64_t domainId) noexcept {
+    m_hoveredItemDomainId = domainId;
+  }
+
+  // R1 (remediation): collects the UI session display requests (hover/drag/
+  // crafting targets/active stash tab) the snapshot builder needs to resolve
+  // the displayed-items cache. Pure read of UI-local state; never writes
+  // gameplay (design §3.2).
+  [[nodiscard]] GameUiSnapshotOptions SnapshotOptions() const;
 
   // U8 inventory takeover: host routes for the inventory panel instance
   // visibility (the panel is an instance controller now; the legacy
@@ -178,20 +190,33 @@ public:
   void OpenContextMenu(entt::entity item, bool fromInventory, int inventoryIndex,
                        NoMoreDay::EquipmentSlot slot);
 
+  // R6: domain-id context-menu channel. The snapshot-driven inventory
+  // controller only carries stable domain ids (never entt::entity handles on
+  // the interaction path); the host re-resolves the entity and forwards to the
+  // overlay. The overlay validates the entity before building its menu, so an
+  // unresolvable id degrades to a closed menu (no crash).
+  void OpenContextMenuDomain(std::uint64_t domainId, bool fromInventory,
+                             int inventoryIndex,
+                             NoMoreDay::EquipmentSlot slot);
+
   // --- U8 host read-side migration: aggregated panel visibility ---
   // True while any hosted panel/overlay is open (inventory, skill tree,
   // character, stash, crafting, astrolabe). Replaces the legacy
   // State.showSkillTree || State.showCharacterPanel anyPanelOpen check in
-  // GameplayState. Requires the registry to resolve the player entity
-  // (astrolabe visibility); each hosted controller reports its own instance
-  // visibility (character also counts the fading-out alpha).
-  [[nodiscard]] bool IsAnyPanelOpen(entt::registry &registry) const;
+  // GameplayState. R8: registry-free; each hosted controller reports its own
+  // instance visibility (character also counts the fading-out alpha).
+  [[nodiscard]] bool IsAnyPanelOpen() const;
 
   // U8 final: character-panel visibility channel. The KEY_C/ESC writers and
   // GameplayState route through this host channel; the controller owns the
   // instance visibility and alpha animation.
   void SetCharacterPanelVisible(bool visible);
   [[nodiscard]] bool IsCharacterPanelVisible() const noexcept;
+
+  // R6: opens the attribute-confirm focus surface (test seam mirroring the
+  // UpdateInput confirm-click path; the Escape chain closes it before the
+  // panel).
+  void ShowCharacterConfirmPopup() { m_character.ShowConfirmPopup(); }
 
   // U8 astrolabe sibling-close channel (was AstrolabeController writing
   // State.showInventory/showCharacterPanel/showSkillTree=false on open).
@@ -210,8 +235,38 @@ public:
     m_overlay.OpenQuantityPopup(item, actionType, quantityMax);
   }
   void CloseQuantityPopup() { m_overlay.CloseQuantityPopup(); }
-  void ToggleSkillTree(entt::registry& registry) {
-    m_skillTree.Toggle(registry);
+  void ToggleSkillTree() {
+    m_skillTree.Toggle();
+  }
+
+  // R3 test seams: forward to the hosted stash/astrolabe controllers so the
+  // Escape truth-table tests can open every closeable surface without
+  // simulating the KEY_E / KEY_N interaction routes (same pattern as the
+  // OpenQuantityPopup / ToggleSkillTree seams above). ShowAstrolabe uses the
+  // controller's visibility-only Show() (the KEY_N route would run the full
+  // Toggle including asset/shader loading, which is not available headless).
+  void OpenStash(NoMoreDay::StashType type) { m_stash.Open(type); }
+  void ShowAstrolabe() { m_astrolabe.Show(); }
+
+  // R3 read seams: surface visibility forwards used by the Escape truth-table
+  // tests (and by the host itself for the close-policy chain).
+  [[nodiscard]] bool IsQuantityPopupVisible() const noexcept {
+    return m_overlay.IsQuantityPopupVisible();
+  }
+  [[nodiscard]] bool IsContextMenuVisible() const noexcept {
+    return m_overlay.IsContextMenuVisible();
+  }
+  [[nodiscard]] bool IsSkillTreeVisible() const noexcept {
+    return m_skillTree.IsVisible();
+  }
+  [[nodiscard]] bool IsAstrolabeVisible() const noexcept {
+    return m_astrolabe.IsVisible();
+  }
+  [[nodiscard]] bool IsStashVisible() const noexcept {
+    return m_stash.IsVisible();
+  }
+  [[nodiscard]] bool IsCraftingVisible() const noexcept {
+    return m_crafting.IsVisible();
   }
 
   // U8 message box channel: forwards to the hosted OverlayController. Wired
@@ -270,6 +325,23 @@ public:
     m_overlay.OpenSkillContextMenu(skillSlot);
   }
 
+  // --- R3 (remediation, design §3.6): UI Escape single ownership ---
+  // The host is the sole owner of the UI Escape key. HandleEscape runs the
+  // close-policy chain (modal -> focus -> z-order/open order) and closes
+  // exactly ONE topmost surface; EscapeConsumedThisFrame reports whether the
+  // key was consumed by the last Update so GameplayState only pauses when no
+  // UI surface consumed it (H-02: the same key is never consumed twice).
+  // Public so tests can drive the chain without raylib input.
+  [[nodiscard]] bool EscapeConsumedThisFrame() const noexcept {
+    return m_escapeConsumedThisFrame;
+  }
+  // Closes exactly one topmost surface per priority order (design §3.6):
+  // quantity popup -> character confirm/panel -> context menu -> skill tree ->
+  // astrolabe -> inventory -> stash -> crafting. Returns true when a surface
+  // was closed (the key was consumed); false when nothing was open (the key
+  // is left for gameplay to consume, e.g. PushState<PauseState>).
+  bool HandleEscape();
+
   // --- New runtime core access (migration stages U5+) ---
   [[nodiscard]] UiViewport &Viewport() noexcept { return m_viewport; }
   [[nodiscard]] const UiViewport &Viewport() const noexcept {
@@ -295,9 +367,16 @@ private:
   void ResetSessionState();
 
   // Render-phase ground-item pickup click detection (U6b). Read-only: checks
-  // the visible item cache, player/item distance and entity validity, then
-  // enqueues a PickupItem intent. Never mutates the ECS.
-  void DetectPickupClick(entt::registry &registry, const Camera2D &camera);
+  // the visible item cache, player/item distance (player from the frame
+  // snapshot) and entity validity, then enqueues a PickupItem intent. Never
+  // mutates the ECS.
+  void DetectPickupClick(const Camera2D &camera);
+
+  // R8: drag-phantom paint (called by Draw right before the tooltip command,
+  // after PrepareRender's Finalize). Paints the item/skill preview from the
+  // host-owned drag session + the frame snapshot through the draw list
+  // (DragPreview layer); never re-resolves entities.
+  void PaintDragPhantom(UiDrawList& drawList);
 
   UiViewport m_viewport;
   UiRuntime m_runtime;
@@ -337,7 +416,10 @@ private:
   // message box). Draw/Update route in-place through UISystem::Draw/Update
   // (frame-order coupling with the tooltip state machine and ESC handling);
   // the message box timer decays via UpdateMessageBox right after the legacy
-  // update. Enter/LeaveGameplay reset all overlay state.
+  // update. R4: the message box is the first surface painted through the draw
+  // list (PrepareRender -> PaintMessageBox -> Finalize -> backend submit);
+  // its runtime node is reconciled by ReconcileRuntime each Update.
+  // Enter/LeaveGameplay reset all overlay state.
   OverlayController m_overlay;
 
   // U8: cross-panel drag session (single instance owner; see DragSession).
@@ -360,12 +442,35 @@ private:
 
   // U8 final: per-frame UI pointer-capture flag (see SetMouseOverUI).
   bool m_mouseOverUI = false;
-  // U8 final: one-shot debug/test item grant per gameplay session (was the
-  // legacy UISystem::s_hasGivenTestItems static).
-  bool m_hasGivenTestItems = false;
+
+  // R6: hovered item reported by the snapshot-driven inventory controller as
+  // a stable domain id (SetHoveredItemDomain); resolved to an entity inside
+  // Draw before the tooltip state machine runs. 0 = no hover.
+  std::uint64_t m_hoveredItemDomainId = 0;
+
+  // R3 (remediation, design §3.6): Escape key consumption this frame. Reset at
+  // the start of each Update; set when HandleEscape closed a surface (or
+  // handled a confirm/cancel) so gameplay never consumes the same key.
+  bool m_escapeConsumedThisFrame = false;
+
+  // R5: registers the texture asset ids referenced by the snapshot-driven
+  // panels (hotbar skill icons, buff icons, summon icons) with the backend.
+  // Identity mapping (asset id == UiResourceId); IsRegistered short-circuits
+  // the steady state so the per-frame pass is find-only (zero allocation).
+  void RegisterSnapshotIconTextures(const GameUiSnapshot& snapshot);
+
+  // R5: id of the controller-owned minimap texture last registered with the
+  // backend (the texture is recreated when the fog grid resizes).
+  unsigned int m_registeredMinimapTextureId = 0;
+
+  // R6: raw GL id of the player avatar texture last registered with the
+  // backend under kPlayerAvatarTextureResourceId (the character panel paints
+  // the avatar through the draw list; re-register when the sprite changes).
+  unsigned int m_registeredAvatarTextureId = 0;
 
   bool m_initialized = false;
   bool m_inGameplay = false;
-};
+
+}; // class GameUiHost
 
 } // namespace NoMoreDay::ui

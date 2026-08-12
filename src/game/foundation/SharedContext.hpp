@@ -48,10 +48,9 @@ struct SharedContext {
   // UICraftingController.
   std::function<void()> openCraftingMergePanel;
   std::function<void(entt::entity)> craftingSetTargetItem;
-  // U7 group 5: closes the host-owned AstrolabeController. The skill tree
-  // controller (below the UI composition root) uses this to keep the legacy
-  // "opening the skill tree closes the astrolabe" coupling.
-  std::function<void()> closeAstrolabe;
+  // R8: the legacy closeAstrolabe callback is gone — the skill-tree controller
+  // routes the astrolabe close through the host channel (GameUiHost::
+  // CloseAstrolabe) since U8, so no SharedContext coupling is left.
   // U8: gameplay-layer message box notifications. Gameplay systems
   // (InventorySystem) sit below the UI layer and must not include UI headers,
   // so they route through this callback instead of the legacy static

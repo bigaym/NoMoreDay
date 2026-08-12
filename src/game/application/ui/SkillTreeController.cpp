@@ -3,7 +3,6 @@
 #include "game/application/ui/TooltipController.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UiDrawList.hpp"
-#include "game/foundation/SharedContext.hpp"
 #include "game/foundation/components/Common.hpp"
 
 #include <algorithm>
@@ -70,24 +69,19 @@ void SkillTreeController::UpdateAlpha(float dt) {
   }
 }
 
-void SkillTreeController::Toggle(entt::registry& registry) {
+void SkillTreeController::Toggle() {
   m_visible = !m_visible;
   if (m_visible) {
     // U8: the sibling closes that used to write UISystem::State now route
     // through the host channels when present (matching the legacy behavior:
     // opening the skill tree closes inventory / character / context menu).
+    // R8: the legacy shared-context closeAstrolabe callback is gone; the host
+    // channel closes the hosted AstrolabeController.
     if (m_uiHost != nullptr) {
       m_uiHost->CloseInventory();
       m_uiHost->CloseCharacterPanel();
       m_uiHost->CloseContextMenu();
-    }
-    // Also close Astrolabe if open (U7 group 5): the skill tree lives below
-    // the UI composition root, so the sibling close routes through the
-    // SharedContext callback filled by Game (host-owned AstrolabeController).
-    if (auto* shared = registry.ctx().find<NoMoreDay::SharedContext*>()) {
-      if (*shared && (*shared)->closeAstrolabe) {
-        (*shared)->closeAstrolabe();
-      }
+      m_uiHost->CloseAstrolabe();
     }
   } else {
     m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // Reset view
@@ -114,18 +108,32 @@ bool SkillTreeController::IsInGameplay() const noexcept {
   return m_inGameplay;
 }
 
-void SkillTreeController::Draw(entt::registry& registry, entt::entity player) {
+void SkillTreeController::Update(const GameUiSnapshot& snapshot,
+                                 const UiInputFrame& input) {
   if (!m_visible) {
     return;
   }
   if (m_selectedSkillId == NoMoreDay::INVALID_SKILL_ID) {
-    m_hub.Draw(registry, player, m_alpha);
+    m_hub.UpdateInput(snapshot, input, m_alpha);
   } else {
-    m_tree.Draw(registry, player, m_selectedSkillId, m_alpha);
+    m_tree.UpdateInput(snapshot, input, m_selectedSkillId, m_uiHost, m_alpha);
   }
-  // U8: the hub writes its selection into its own instance member (was the
-  // State.selectedSkillId read-back round trip).
+  // R8: the hub writes its selection into its own instance member (was the
+  // State.selectedSkillId read-back round trip; the talent-tree back button
+  // writes INVALID_SKILL_ID through its own member).
   m_selectedSkillId = m_hub.SelectedSkillId();
+}
+
+void SkillTreeController::Paint(UiDrawList& drawList, const UiViewport& viewport,
+                                const GameUiSnapshot& snapshot) {
+  if (!m_visible) {
+    return;
+  }
+  if (m_selectedSkillId == NoMoreDay::INVALID_SKILL_ID) {
+    m_hub.Paint(drawList, viewport, snapshot, m_alpha);
+  } else {
+    m_tree.Paint(drawList, viewport, m_selectedSkillId, m_alpha);
+  }
 }
 
 UiId SkillTreeController::NodeId() const noexcept {

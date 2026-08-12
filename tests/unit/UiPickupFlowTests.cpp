@@ -62,18 +62,18 @@ TEST_CASE("[Unit] UiPickupFlow - host intent queue round-trips through drain") {
 
   ui::GameUiIntent first;
   first.kind = ui::GameUiIntentKind::PickupItem;
-  first.domainId = 42;
+  first.payload.sourceDomainId = 42;
   host.EnqueueIntent(first);
 
   ui::GameUiIntent second;
   second.kind = ui::GameUiIntentKind::PickupItem;
-  second.domainId = 7;
+  second.payload.sourceDomainId = 7;
   host.EnqueueIntent(second);
 
   std::vector<ui::GameUiIntent> drained = host.DrainUpdateIntents();
   REQUIRE(drained.size() == 2);
-  CHECK(drained[0].domainId == 42);
-  CHECK(drained[1].domainId == 7);
+  CHECK(drained[0].payload.sourceDomainId == 42);
+  CHECK(drained[1].payload.sourceDomainId == 7);
 
   // The queue is cleared: a second drain returns nothing.
   CHECK(host.DrainUpdateIntents().empty());
@@ -96,10 +96,16 @@ TEST_CASE("[Unit] UiPickupFlow - failed result surfaces via the legacy message b
 
   // Refresh raylib's frame timer so the 2.0s message box timer set by the
   // notification bridge does not expire inside GameUiHost::Update mid-test.
+  // The first Begin/End pair consumes any stale frame delta left over from
+  // earlier tests in the full run; the second pair leaves GetFrameTime()
+  // near the target frame time (~16.7ms at 60fps), far below the 2s lifetime.
+  BeginDrawing();
+  EndDrawing();
   BeginDrawing();
   EndDrawing();
 
-  host.Publish({false, "Inventory is full"});
+  host.Publish({false, ui::GameUiResultCode::DomainPrecondition,
+                "Inventory is full", {}});
   host.Update(registry, levelManager, ui::GameUiSnapshot{});
 
   // U8: the notification routes through the hosted overlay message box (the
@@ -110,7 +116,7 @@ TEST_CASE("[Unit] UiPickupFlow - failed result surfaces via the legacy message b
 
   // A successful result must not trigger the failure box.
   host.ClearMessageBox();
-  host.Publish({true, ""});
+  host.Publish({true, ui::GameUiResultCode::Success, "", {}});
   host.Update(registry, levelManager, ui::GameUiSnapshot{});
   CHECK_FALSE(host.IsMessageBoxVisible());
 
@@ -142,7 +148,7 @@ TEST_CASE("[Unit] UiPickupFlow - snapshot pickup intent closes the loop through 
 
   ui::GameUiIntent intent;
   intent.kind = ui::GameUiIntentKind::PickupItem;
-  intent.domainId = snapshot.pickups[0].domainId;
+  intent.payload.sourceDomainId = snapshot.pickups[0].domainId;
 
   ui::GameUiCommandHandler handler;
   const ui::GameUiResult result = handler.Execute(registry, intent);
@@ -161,7 +167,7 @@ TEST_CASE("[Unit] UiPickupFlow - snapshot pickup intent closes the loop through 
 
   ui::GameUiIntent stale;
   stale.kind = ui::GameUiIntentKind::PickupItem;
-  stale.domainId = staleDomainId;
+  stale.payload.sourceDomainId = staleDomainId;
   const ui::GameUiResult staleResult = handler.Execute(registry, stale);
   CHECK_FALSE(staleResult.success);
   CHECK_FALSE(staleResult.notification.empty());

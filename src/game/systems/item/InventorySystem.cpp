@@ -1033,6 +1033,85 @@ void InventorySystem::organize(entt::registry &registry, entt::entity character)
     LOG_INFO("背包: 整理完成 ({} 个物品)。", sortList.size());
 }
 
+bool InventorySystem::moveItem(entt::registry &registry, entt::entity character, int fromIndex, int toIndex)
+{
+    auto *inventory = registry.try_get<InventoryComponent>(character);
+    if (!inventory || fromIndex < 0 || toIndex < 0 ||
+        fromIndex >= (int)inventory->items.size() || toIndex >= (int)inventory->items.size())
+    {
+        return false;
+    }
+    if (fromIndex == toIndex || inventory->items[fromIndex] == entt::null)
+    {
+        return false;
+    }
+    if (inventory->items[toIndex] != entt::null)
+    {
+        return false; // 目标槽必须为空
+    }
+    inventory->items[toIndex] = inventory->items[fromIndex];
+    inventory->items[fromIndex] = entt::null;
+    LOG_INFO("背包: 移动物品到槽位 {}", toIndex);
+    return true;
+}
+
+bool InventorySystem::swapItems(entt::registry &registry, entt::entity character, int indexA, int indexB)
+{
+    auto *inventory = registry.try_get<InventoryComponent>(character);
+    if (!inventory || indexA < 0 || indexB < 0 ||
+        indexA >= (int)inventory->items.size() || indexB >= (int)inventory->items.size())
+    {
+        return false;
+    }
+    if (indexA == indexB || inventory->items[indexA] == entt::null ||
+        inventory->items[indexB] == entt::null)
+    {
+        return false;
+    }
+    std::swap(inventory->items[indexA], inventory->items[indexB]);
+    LOG_INFO("背包: 交换槽位 {} 与 {}", indexA, indexB);
+    return true;
+}
+
+bool InventorySystem::setItemLocked(entt::registry &registry, entt::entity character, entt::entity item, bool locked)
+{
+    if (!registry.valid(character) || !registry.valid(item))
+    {
+        return false;
+    }
+    auto *inventory = registry.try_get<InventoryComponent>(character);
+    auto *equipment = registry.try_get<EquipmentComponent>(character);
+    auto *itemComp = registry.try_get<ItemComponent>(item);
+    if (!itemComp)
+    {
+        return false;
+    }
+
+    // 所有权校验：物品必须在角色的背包/包槽/装备槽内。
+    bool owned = false;
+    if (inventory)
+    {
+        owned = std::find(inventory->items.begin(), inventory->items.end(), item) !=
+                    inventory->items.end() ||
+                std::find(inventory->bag_slots.begin(), inventory->bag_slots.end(), item) !=
+                    inventory->bag_slots.end();
+    }
+    if (!owned && equipment)
+    {
+        owned = std::find(equipment->slots.begin(), equipment->slots.end(), item) !=
+                equipment->slots.end();
+    }
+    if (!owned)
+    {
+        LOG_WARN("背包: 锁定失败 - 物品不属于该角色");
+        return false;
+    }
+
+    itemComp->isLocked = locked;
+    LOG_INFO("背包: {} '{}'", locked ? "锁定" : "解锁", itemComp->name);
+    return true;
+}
+
 void InventorySystem::update(entt::registry &registry, float dt)
 {
     auto playerView = registry.view<PlayerTag, Position, InventoryComponent, CombatStats>();

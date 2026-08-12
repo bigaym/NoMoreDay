@@ -1,18 +1,31 @@
 #include "game/application/ui/UiRaylibBackend.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 
 namespace NoMoreDay::ui {
 namespace {
 
-constexpr std::int32_t kFirstLayerValue =
-    static_cast<std::int32_t>(UiDrawLayer::Hud);
-constexpr std::int32_t kLastLayerValue =
-    static_cast<std::int32_t>(UiDrawLayer::Debug);
-
 Color ToRaylibColor(UiColor color) noexcept {
   return Color{color.r, color.g, color.b, color.a};
+}
+
+// Mirrors UiDrawList::Finalize's total draw order. Used only as a debug guard
+// that the submitted list was finalized; the authoritative ordering contract
+// lives in UiDrawList (the single producer).
+bool IsTotalDrawOrder(const std::vector<UiDrawCommand> &commands) {
+  return std::is_sorted(
+      commands.begin(), commands.end(),
+      [](const UiDrawCommand &lhs, const UiDrawCommand &rhs) {
+        if (lhs.layer != rhs.layer) {
+          return lhs.layer < rhs.layer;
+        }
+        if (lhs.nodeId != rhs.nodeId) {
+          return lhs.nodeId < rhs.nodeId;
+        }
+        return lhs.appendSequence < rhs.appendSequence;
+      });
 }
 
 } // namespace
@@ -65,24 +78,23 @@ void UiRaylibBackend::Render(const UiViewport &viewport,
   }
 
   assert(drawList.ClipBalanced());
+  assert(drawList.IsFinalized() && IsTotalDrawOrder(drawList.Commands()) &&
+         "backend requires a finalized, total-ordered draw list");
 
   const std::vector<UiDrawCommand> &commands = drawList.Commands();
   const std::vector<UiRect> &clips = drawList.Clips();
 
-  for (std::int32_t layerValue = kFirstLayerValue;
-       layerValue <= kLastLayerValue; ++layerValue) {
-    const UiDrawLayer layer = static_cast<UiDrawLayer>(layerValue);
-    for (const UiDrawCommand &command : commands) {
-      if (command.layer == layer) {
-        DrawCommand(viewport, command, clips);
-      }
-    }
+  // Single submission pass over the pre-sorted commands (C-01 remediation:
+  // replaces the per-layer rescan loop).
+  for (const UiDrawCommand &command : commands) {
+    DrawCommand(viewport, command, clips, drawList);
   }
 }
 
 void UiRaylibBackend::DrawCommand(const UiViewport &viewport,
                                   const UiDrawCommand &command,
-                                  const std::vector<UiRect> &clips) {
+                                  const std::vector<UiRect> &clips,
+                                  const UiDrawList &drawList) {
   const bool scissored = command.clipIndex != kNoClipIndex;
   if (scissored) {
     assert(command.clipIndex < clips.size());
@@ -134,9 +146,22 @@ void UiRaylibBackend::DrawCommand(const UiViewport &viewport,
     }
     const Font font =
         fontIt == m_fonts.end() ? GetFontDefault() : fontIt->second;
-    const UiVec2 nativePosition =
+    UiVec2 nativePosition =
         ToNativePoint(viewport, command.rect.origin);
-    DrawTextEx(font, command.text.c_str(),
+    // R5: horizontal alignment resolved here (measurement stays out of the
+    // paint path). Measured in the same native space the backend submits with
+    // (DrawTextEx uses rect.size.x as font size and spacing 1.0f).
+    if (command.textAlign != UiTextAlign::Left) {
+      const char* text = drawList.TextAt(command);
+      const float width =
+          MeasureTextEx(font, text, command.rect.size.x, 1.0f).x;
+      if (command.textAlign == UiTextAlign::Center) {
+        nativePosition.x -= width * 0.5f;
+      } else { // Right
+        nativePosition.x -= width;
+      }
+    }
+    DrawTextEx(font, drawList.TextAt(command),
                {nativePosition.x, nativePosition.y}, command.rect.size.x,
                1.0f, ToRaylibColor(command.color));
     break;
@@ -151,9 +176,17 @@ void UiRaylibBackend::DrawCommand(const UiViewport &viewport,
       break;
     }
     const UiRect nativeRect = ToNativeRect(viewport, command.rect);
-    const Rectangle source{0.0f, 0.0f,
-                           static_cast<float>(texture.width),
-                           static_cast<float>(texture.height)};
+    // Source crop: empty sourceRect means the full texture (legacy behaviour);
+    // a non-empty crop is expressed in texture pixels (minimap fog window).
+    const Rectangle source{
+        command.sourceRect.size.x > 0.0f ? command.sourceRect.origin.x : 0.0f,
+        command.sourceRect.size.y > 0.0f ? command.sourceRect.origin.y : 0.0f,
+        command.sourceRect.size.x > 0.0f
+            ? command.sourceRect.size.x
+            : static_cast<float>(texture.width),
+        command.sourceRect.size.y > 0.0f
+            ? command.sourceRect.size.y
+            : static_cast<float>(texture.height)};
     const Rectangle dest{nativeRect.origin.x, nativeRect.origin.y,
                          nativeRect.size.x, nativeRect.size.y};
     DrawTexturePro(texture, source, dest, {0.0f, 0.0f}, 0.0f,

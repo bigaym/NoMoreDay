@@ -296,9 +296,8 @@ void Game::init() {
   m_context.craftingSetTargetItem = [this](entt::entity item) {
     m_uiHost.CraftingSetTargetItem(item);
   };
-  // U7 group 5: skill-tree sibling coupling routes the astrolabe close
-  // through the host-owned controller.
-  m_context.closeAstrolabe = [this]() { m_uiHost.CloseAstrolabe(); };
+  // R8: the legacy closeAstrolabe callback is gone (the skill-tree controller
+  // routes the astrolabe close through the host channel directly).
   // U8: gameplay-layer message box notifications (InventorySystem etc.) route
   // through the host-owned OverlayController instead of the legacy static
   // State.showMessageBox (see SharedContext).

@@ -1,12 +1,10 @@
 #include "doctest.h"
 
-#include "engine/resource/ResourceManager.hpp"
 #include "game/application/ui/MonsterHealthBarController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiRuntime.hpp"
-#include "game/foundation/components/AIComponent.hpp"
-#include "game/foundation/components/Common.hpp"
-#include "game/systems/world/LevelManager.hpp"
+#include "game/application/ui/UiViewport.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
 
 #include <entt/entt.hpp>
 
@@ -64,46 +62,47 @@ TEST_CASE("[Unit] MonsterHealthBarController - session lifecycle resets state "
   CHECK(node->visible);
 }
 
-TEST_CASE("[Unit] MonsterHealthBarController - Render and RenderUI smoke "
-          "against a real level") {
+TEST_CASE("[Unit] MonsterHealthBarController - Update and Paint smoke against "
+          "a fixed snapshot") {
+  // R5 adaptation: Render/RenderUI(registry) are gone; the controller now
+  // takes a frame snapshot + plain camera data (Update) and emits draw-list
+  // commands (Paint). The test drives the new contract directly.
   ui::UiRuntime runtime;
   ui::MonsterHealthBarController controller(runtime);
 
-  entt::registry registry;
-  ResourceManager resourceManager;
-  LevelManager levelManager;
-  levelManager.initialize(resourceManager, registry);
-  levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
-
-  // Identity camera: screen (50, 50) maps to world (50, 50).
-  Camera2D camera{};
-  camera.target = {0.0f, 0.0f};
-  camera.offset = {0.0f, 0.0f};
-  camera.rotation = 0.0f;
-  camera.zoom = 1.0f;
+  // Identity camera: screen (50, 50) maps to world (50, 50) with zoom 1,
+  // target (0,0) and offset (0,0); the default logical viewport is 2560x1440.
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.worldX = 0.0f;
+  snapshot.player.worldY = 0.0f;
 
   // Damaged enemy inside the viewport: exercises the overhead bar path.
-  const entt::entity enemy = registry.create();
-  registry.emplace<EnemyTag>(enemy);
-  registry.emplace<Position>(enemy, Position{50.0f, 50.0f});
-  registry.emplace<HealthComponent>(enemy, HealthComponent{50.0f, 100.0f});
+  ui::GameUiMonsterHealthView enemy;
+  enemy.domainId = 7;
+  enemy.current = 50.0f;
+  enemy.max = 100.0f;
+  enemy.worldX = 50.0f;
+  enemy.worldY = 50.0f;
+  snapshot.monsters.push_back(enemy);
 
-  // First frame: hover the enemy so the screen-pass target widget draws
-  // (UIRenderer::DrawTextUI falls back to the default font when
-  // UISystem::State.globalFont is invalid in the headless runner).
-  SetMousePosition(50, 50);
-  BeginDrawing();
-  controller.Render(registry, camera);
-  controller.RenderUI(registry);
-  EndDrawing();
+  ui::UiDrawList drawList;
+  const ui::UiViewport viewport = ui::UiViewport::Fit({2560, 1440});
 
-  // Second frame: mouse moved away; Render resets the hovered target per
-  // frame so RenderUI skips the widget.
-  SetMousePosition(0, 0);
-  BeginDrawing();
-  controller.Render(registry, camera);
-  controller.RenderUI(registry);
-  EndDrawing();
+  // First frame: hover the enemy so the screen-pass target widget paints.
+  controller.Update(snapshot, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+                    50.0f, 50.0f, 2560, 1440);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
+  drawList.Clear();
+
+  // Second frame: mouse moved away; the hovered target resets so only the
+  // overhead bars paint (no target widget).
+  controller.Update(snapshot, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f,
+                    0.0f, 0.0f, 2560, 1440);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
 }
 
 TEST_CASE("[Unit] MonsterHealthBarController - implementation declares no "

@@ -86,36 +86,47 @@ TEST_CASE("[Unit] UIInventoryController - Enter/Leave gameplay resets session st
   CHECK(reentered->visible);
 }
 
-TEST_CASE("[Unit] UIInventoryController - Update runs headless against a world") {
+TEST_CASE("[Unit] UIInventoryController - Update runs headless against a "
+          "snapshot") {
+  // R6: the interaction phase is snapshot-driven (no registry / world access).
   // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so GetFrameTime() is available; the alpha is animated towards the
-  // visibility flag exactly like the legacy UIInventory::Update. GetFrameTime
-  // may be 0 in the harness, so the checks use clamped-range + monotonicity
-  // invariants instead of exact deltas.
+  // context, so GetFrameTime()/GetMousePosition() are available; the alpha is
+  // animated towards the visibility flag exactly like the legacy
+  // UIInventory::Update. GetFrameTime may be 0 in the harness, so the checks
+  // use clamped-range + monotonicity invariants instead of exact deltas.
   UiRuntime runtime;
   UIInventoryController controller(runtime, nullptr);
   controller.EnterGameplay();
 
-  ResourceManager resourceManager;
-  entt::registry registry;
-  LevelManager levelManager;
+  GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.inventory.capacity = 30;
+  snapshot.inventory.used = 2;
+  snapshot.inventory.gold = 123;
+  GameUiItemView item;
+  item.domainId = 1001;
+  item.itemId = 5;
+  item.quantity = 3;
+  item.inventoryIndex = 0;
+  snapshot.inventory.items.push_back(item);
 
-  // Empty registry before any world exists: Update must not crash.
+  UiInputFrame input; // No pointer input: interaction branches early-out.
+  UiViewport viewport = UiViewport::Fit({800.0f, 600.0f});
+  input.pointer.logicalPosition = viewport.ToLogical(UiVec2{400.0f, 300.0f});
+
+  // Empty snapshot before any world exists: Update must not crash.
   controller.SetVisible(true);
-  controller.Update(registry, levelManager);
+  controller.Update(snapshot, input, 0.0f, LevelManager{});
   CHECK(controller.Alpha() >= 0.0f);
   CHECK(controller.Alpha() <= 1.0f);
-
-  // Provide a real world so Update runs against live gameplay systems.
-  levelManager.initialize(resourceManager, registry);
-  levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
 
   // Branch A: inventory closed. Alpha must never increase and stays clamped
   // within [0, 1].
   controller.SetVisible(false);
-  controller.Update(registry, levelManager);
+  controller.Update(snapshot, input, 0.0f, LevelManager{});
   const float closedFirst = controller.Alpha();
-  controller.Update(registry, levelManager);
+  controller.Update(snapshot, input, 0.0f, LevelManager{});
   const float closedSecond = controller.Alpha();
   CHECK(closedFirst >= 0.0f);
   CHECK(closedFirst <= 1.0f);
@@ -126,9 +137,9 @@ TEST_CASE("[Unit] UIInventoryController - Update runs headless against a world")
   // Branch B: inventory open. Alpha must never decrease and stays clamped
   // within [0, 1].
   controller.SetVisible(true);
-  controller.Update(registry, levelManager);
+  controller.Update(snapshot, input, 0.0f, LevelManager{});
   const float openFirst = controller.Alpha();
-  controller.Update(registry, levelManager);
+  controller.Update(snapshot, input, 0.0f, LevelManager{});
   const float openSecond = controller.Alpha();
   CHECK(openFirst >= 0.0f);
   CHECK(openFirst <= 1.0f);

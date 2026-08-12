@@ -3,10 +3,9 @@
 #include "game/application/ui/SkillHotbarController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiRuntime.hpp"
+#include "game/application/ui/UiViewport.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
 #include "game/foundation/components/Buff.hpp"
-#include "game/foundation/components/Common.hpp"
-#include "game/foundation/components/SkillDefs.hpp"
-#include "game/foundation/components/Stats.hpp"
 
 #include "raylib.h"
 
@@ -17,6 +16,13 @@
 using namespace NoMoreDay;
 
 namespace {
+
+ui::UiInputFrame MakeInput() {
+  ui::UiInputFrame input;
+  input.deltaSeconds = 1.0f / 60.0f;
+  input.tooltipTarget = ui::kInvalidUiId;
+  return input;
+}
 
 std::string ReadFileContents(const char* path) {
   std::ifstream file(path);
@@ -102,74 +108,85 @@ TEST_CASE("[Unit] SkillHotbarController - Enter/Leave gameplay resets session st
   CHECK(reentered->visible);
 }
 
-TEST_CASE("[Unit] SkillHotbarController - Update handles empty and player registries") {
+TEST_CASE("[Unit] SkillHotbarController - Update handles empty and player snapshots") {
   ui::UiRuntime runtime;
   ui::SkillHotbarController controller(runtime);
 
   entt::registry registry;
-  controller.Update(registry); // empty registry must not crash
+  (void)registry;
+  const ui::UiVec2 mouse{0.0f, 0.0f};
+  (void)mouse;
+
+  ui::GameUiSnapshot emptySnapshot;
+  controller.Update(emptySnapshot, MakeInput());
   CHECK_FALSE(controller.HasPlayerData());
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<CombatStats>(player);
-  registry.emplace<ActiveSkillsComponent>(player);
-  registry.emplace<ActiveEffectsComponent>(player);
-  controller.Update(registry);
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.mana = 100.0f;
+  snapshot.player.maxMana = 100.0f;
+  controller.Update(snapshot, MakeInput());
   CHECK(controller.HasPlayerData());
 }
 
-TEST_CASE("[Unit] SkillHotbarController - Draw executes headless without crashing") {
-  // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so immediate-mode raylib drawing works. UIRenderer falls back to
-  // raylib DrawText when UISystem::State.globalFont is unset, and both panels
-  // guard icon loading (skill icons load only for mapped skills; buff visuals
-  // fall back to the default entry with a null texture asset), so the legacy
-  // draw bodies are safe to run here without UISystem::Initialize.
+TEST_CASE("[Unit] SkillHotbarController - Paint executes headless without crashing") {
+  // R5 adaptation: the controller no longer draws from the registry; it
+  // caches slot/buff display data from a fixed snapshot (Update) and emits
+  // draw-list commands (Paint). The test drives the new contract directly.
   ui::UiRuntime runtime;
   ui::SkillHotbarController controller(runtime);
 
-  entt::registry registry;
+  ui::UiDrawList drawList;
+  const ui::UiViewport viewport = ui::UiViewport::Fit({2560, 1440});
 
-  // Empty registry: both panels early-out on the player view.
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  // Empty snapshot: the hotbar early-outs on the player data.
+  ui::GameUiSnapshot emptySnapshot;
+  controller.Update(emptySnapshot, MakeInput());
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() == 0);
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  auto& stats = registry.emplace<CombatStats>(player);
-  stats.mana = 100.0f;
-  auto& active = registry.emplace<ActiveSkillsComponent>(player);
-  auto& effects = registry.emplace<ActiveEffectsComponent>(player);
+  // Path A: player without skills (empty hotbar slots + no effects).
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.mana = 100.0f;
+  snapshot.player.maxMana = 100.0f;
+  controller.Update(snapshot, MakeInput());
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
+  drawList.Clear();
 
-  // Path A: empty hotbar slots + no effects (hotbar renders empty slots,
-  // buff strip early-outs on the empty effects vector).
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  // Path B: two mapped slots + one buff and one debuff.
+  snapshot.skillBar.slots.resize(2);
+  snapshot.skillBar.slots[0].skillId = 999999; // unmapped: iconId stays 0
+  snapshot.skillBar.slots[0].slotIndex = 0;
+  snapshot.skillBar.slots[0].cooldown = 0.0f;
+  snapshot.skillBar.slots[0].cooldownMax = 10.0f;
+  snapshot.skillBar.slots[1].skillId = 0; // Basic Attack fallback: iconId == 0
+  snapshot.skillBar.slots[1].slotIndex = 1;
+  snapshot.skillBar.slots[1].cooldown = 2.0f;
+  snapshot.skillBar.slots[1].cooldownMax = 10.0f;
 
-  // Path B: a mapped skill id (data registry lookup) + one buff and one debuff
-  // (visual lookup falls back to the default entry: no texture asset).
-  active.slots[0].id = 999999; // unmapped: GetSkill returns nullptr, no texture
-  active.slots[1].id = 0;      // Basic Attack fallback: icon_id == 0, no texture
-  active.slots[1].cooldown = 2.0f;
-  effects.effects.push_back(BuffEffect{});
-  effects.effects.back().id = "test_buff";
-  effects.effects.back().name = "Test Buff";
-  effects.effects.back().type = BuffType::AttackUp;
-  effects.effects.back().duration = 10.0f;
-  effects.effects.back().remaining = 5.0f;
-  effects.effects.back().stacks = 2;
-  effects.effects.push_back(BuffEffect{});
-  effects.effects.back().id = "test_debuff";
-  effects.effects.back().name = "Test Debuff";
-  effects.effects.back().type = BuffType::Stun;
-  effects.effects.back().is_debuff = true;
-  effects.effects.back().duration = -1.0f; // infinite: ratio stays 0
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  ui::GameUiBuffView buff;
+  buff.buffType = static_cast<std::uint8_t>(BuffType::AttackUp);
+  buff.duration = 10.0f;
+  buff.remaining = 5.0f;
+  buff.stacks = 2;
+  buff.isDebuff = false;
+  snapshot.buffs.push_back(buff);
+
+  ui::GameUiBuffView debuff;
+  debuff.buffType = static_cast<std::uint8_t>(BuffType::Stun);
+  debuff.duration = -1.0f; // infinite: ratio stays 0
+  debuff.remaining = -1.0f;
+  debuff.stacks = 1;
+  debuff.isDebuff = true;
+  snapshot.buffs.push_back(debuff);
+
+  controller.Update(snapshot, MakeInput());
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
 }
 
 TEST_CASE("[Unit] SkillHotbarController - implementation declares no static "

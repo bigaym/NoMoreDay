@@ -4,6 +4,8 @@
 #include "game/application/ui/MinimapController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiRuntime.hpp"
+#include "game/application/ui/UiViewport.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/systems/world/LevelManager.hpp"
 
@@ -69,7 +71,7 @@ TEST_CASE("[Unit] MinimapController - session lifecycle keeps the node alive") {
   CHECK(node->visible);
 }
 
-TEST_CASE("[Unit] MinimapController - Draw renders against a real level") {
+TEST_CASE("[Unit] MinimapController - Update and Paint render against a real level") {
   ui::UiRuntime runtime;
   ui::MinimapController controller(runtime);
 
@@ -79,18 +81,28 @@ TEST_CASE("[Unit] MinimapController - Draw renders against a real level") {
   levelManager.initialize(resourceManager, registry);
   levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<Position>(player, Position{100.0f, 100.0f});
+  ui::GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.hasWorldPosition = true;
+  snapshot.player.worldX = 100.0f;
+  snapshot.player.worldY = 100.0f;
+  snapshot.minimap.currentMapKills = 10;
+  snapshot.minimap.killRequirement = 100;
 
-  // First draw creates the texture lazily and uploads the partial buffer.
-  BeginDrawing();
-  controller.Draw(registry, levelManager);
-  EndDrawing();
-  // Second draw exercises the non-refresh path (timer below interval).
-  BeginDrawing();
-  controller.Draw(registry, levelManager);
-  EndDrawing();
+  ui::UiDrawList drawList;
+  const ui::UiViewport viewport = ui::UiViewport::Fit({2560, 1440});
+
+  // First update creates the texture lazily and uploads the partial buffer.
+  controller.Update(snapshot, levelManager, nullptr, 0.2f);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
+  drawList.Clear();
+
+  // Second update exercises the non-refresh path (timer below interval).
+  controller.Update(snapshot, levelManager, nullptr, 0.01f);
+  controller.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() > 0);
 
   // Shutdown is idempotent and safe to call twice.
   controller.Shutdown();

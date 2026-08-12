@@ -37,7 +37,7 @@ TEST_CASE("[Integration] GameUiHost - modal input capture follows the skill tree
   ui::GameUiHost host;
   entt::registry registry;
 
-  host.ToggleSkillTree(registry);
+  host.ToggleSkillTree();
   CHECK(host.IsModalInputCaptured());
 
   host.CloseSkillTree();
@@ -50,19 +50,16 @@ TEST_CASE("[Integration] OverlayController - quantity popup close clears typing"
 
   entt::registry registry;
   const entt::entity item = registry.create();
-  // DrawQuantityPopup requires a valid item (with a quantity) and a player
-  // tag; otherwise it closes the popup immediately (legacy semantics).
+  // OpenQuantityPopup stores the target; the interaction/display refresh
+  // (UpdateOverlays) validates the item (with a quantity) and the player tag;
+  // otherwise it closes the popup immediately (legacy semantics).
   registry.emplace<ItemComponent>(item);
   registry.get<ItemComponent>(item).quantity = 5;
   registry.emplace<PlayerTag>(registry.create());
 
   overlay.OpenQuantityPopup(item, 1);
   CHECK(overlay.IsQuantityPopupVisible());
-  // isTyping is set by the draw pass while the popup input is live (legacy
-  // DrawQuantityPopup semantics), not by OpenQuantityPopup.
-  BeginDrawing();
-  overlay.DrawOverlays(registry);
-  EndDrawing();
+  // R6: isTyping is the popup-input lifetime (set on open, cleared on close).
   CHECK(overlay.IsTyping());
 
   overlay.CloseQuantityPopup();

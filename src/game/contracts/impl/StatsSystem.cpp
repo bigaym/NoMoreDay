@@ -618,4 +618,35 @@ void StatsSystem::Reset() {
   s_tagStatCache.clear(); 
 }
 
+bool StatsSystem::AllocateAttributePoints(entt::registry &registry,
+                                          entt::entity player, int strength,
+                                          int dexterity, int intelligence,
+                                          int vitality) {
+  auto *stats = registry.try_get<PlayerStats>(player);
+  auto *prim = registry.try_get<PrimaryStats>(player);
+  if (!stats || !prim) {
+    return false;
+  }
+  if (strength < 0 || dexterity < 0 || intelligence < 0 || vitality < 0) {
+    return false; // Negative allocation is invalid.
+  }
+  const int total = strength + dexterity + intelligence + vitality;
+  if (total <= 0) {
+    return false; // No-op allocation.
+  }
+  if (stats->available_attribute_points < total) {
+    return false; // Not enough points.
+  }
+
+  prim->strength += static_cast<float>(strength);
+  prim->dexterity += static_cast<float>(dexterity);
+  prim->intelligence += static_cast<float>(intelligence);
+  prim->vitality += static_cast<float>(vitality);
+  stats->available_attribute_points -= total;
+
+  // Request a full stat recalculation on the next StatsSystem::update.
+  registry.get_or_emplace<StatsDirty>(player);
+  return true;
+}
+
 } // namespace NoMoreDay

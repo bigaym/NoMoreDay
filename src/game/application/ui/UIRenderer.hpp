@@ -5,6 +5,7 @@
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/application/ui/OverlayController.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
 #include "engine/render/GPUData.hpp"
 
 namespace NoMoreDay {
@@ -67,11 +68,13 @@ namespace NoMoreDay {
         static void DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha = 1.0f);
         static void DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha = 1.0f, bool forceDraw = false);
         static void DrawBuffTooltip(const Font& font, const BuffEffect& effect, float alpha = 1.0f);
-        // U8 收尾: the overlays are instance-owned by OverlayController; the
-        // renderer draws from the controller's state and routes menu actions
-        // (close / open quantity popup / show message box) back through it.
-        static void DrawContextMenu(const Font& font, NoMoreDay::ui::OverlayController& overlay, entt::registry& registry, float alpha = 1.0f);
-        static void DrawMessageBox(const Font& font, const char* text, float alpha = 1.0f);
+
+        // R8: snapshot-driven variants. The tooltip render path no longer
+        // touches the registry: content comes from the bounded
+        // GameUiSnapshot display views (items / skill bar / buffs).
+        static void DrawTooltipFromSnapshot(const Font& font, const ui::GameUiSnapshot& snapshot, uint64_t domainId, float alpha = 1.0f);
+        static void DrawSkillTooltipFromSnapshot(const Font& font, const ui::GameUiSnapshot& snapshot, uint32_t skillId, float alpha = 1.0f, bool forceDraw = false);
+        static void DrawBuffTooltipFromView(const Font& font, const ui::GameUiBuffView& buff, float alpha = 1.0f);
 
         struct TooltipLine {
             std::string text;

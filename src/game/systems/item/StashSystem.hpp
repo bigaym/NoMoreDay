@@ -22,6 +22,12 @@ public:
     static int getUnlockedTabCount(entt::registry& registry, StashType type);
     static int getNextUnlockCost(entt::registry& registry, StashType type);
 
+    // Const-correct query overloads for snapshot reads (R7: the snapshot
+    // builder consumes the registry read-only and must resolve the unlock
+    // cost through this single authority, not the StashConfig table).
+    static int getUnlockedTabCount(const entt::registry& registry, StashType type);
+    static int getNextUnlockCost(const entt::registry& registry, StashType type);
+
     // Core Interactions
     static bool transferItem(entt::registry& registry, 
                              StashType srcType, int srcTab, int srcSlot,

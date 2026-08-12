@@ -1,26 +1,18 @@
 #include "game/application/ui/UICraftingController.hpp"
 
-#include "core/utils/FmtBuffer.hpp"
-#include "engine/render/GPUParticleSystem.hpp"
-#include "engine/resource/AssetLoadingSystem.hpp"
-#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UIRenderer.hpp"
-#include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UISystem.hpp"
-#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/application/ui/UiResourceIds.hpp"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/ItemStats.hpp"
-#include "game/systems/item/CraftingSystem.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
-#include "game/systems/item/SalvageSystem.hpp"
 
 #include "raylib.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstdint>
-#include <vector>
+#include <cstdio>
+#include <cstring>
 
 namespace NoMoreDay::ui {
 
@@ -30,6 +22,46 @@ namespace {
 inline constexpr UiId kUICraftingRootNode =
     static_cast<UiId>(entt::hashed_string("ui_crafting_panel").value());
 
+// Panel layout (logical pixels; the viewport maps them to screen space).
+inline constexpr float kPanelW = 600.0f;
+inline constexpr float kPanelH = 700.0f;
+inline constexpr float kHeaderHeight = 60.0f;
+inline constexpr float kTabW = 120.0f;
+inline constexpr float kTabH = 32.0f;
+inline constexpr float kCloseSize = 28.0f;
+inline constexpr float kSlotSize = 80.0f;
+inline constexpr float kMergeSlotSize = 64.0f;
+inline constexpr float kRowH = 50.0f;
+inline constexpr float kBtnW = 60.0f;
+inline constexpr float kBtnH = 30.0f;
+inline constexpr int kMaxAffixSlots = 2; // 2 prefixes + 2 suffixes visible.
+
+// Paint helpers (mirror the R6 inventory controller's anonymous namespace).
+constexpr UiColor kWhiteTint{255, 255, 255, 255};
+constexpr UiColor kBlackText{0, 0, 0, 255};
+
+UiColor Faded(const UiColor& color, float alpha) {
+  const auto scale = static_cast<std::uint8_t>(std::clamp(
+      alpha, 0.0f, 1.0f) * static_cast<float>(color.a));
+  return {color.r, color.g, color.b, scale};
+}
+
+UiColor ToUiColor(const Color& color) {
+  return {color.r, color.g, color.b, color.a};
+}
+
+bool IsSalvageableView(const GameUiItemView& view) {
+  if (view.rarity < static_cast<std::uint8_t>(Rarity::Magic)) {
+    return false;
+  }
+  const auto type = static_cast<ItemType>(view.itemType);
+  if (type != ItemType::Weapon && type != ItemType::Armor &&
+      type != ItemType::Shield && type != ItemType::Jewelry) {
+    return false;
+  }
+  return view.legendaryPotential <= 0;
+}
+
 } // namespace
 
 UICraftingController::UICraftingController(UiRuntime& runtime, GameUiHost* uiHost)
@@ -38,6 +70,10 @@ UICraftingController::UICraftingController(UiRuntime& runtime, GameUiHost* uiHos
   // complete in this translation unit; apply them up front so the migrated
   // session state is valid even before the first EnterGameplay.
   ResetSessionState();
+
+  // R7: panel origin is instance state (dragging persists across frames).
+  m_panelX = (UI_REF_WIDTH - kPanelW) * 0.5f;
+  m_panelY = (UI_REF_HEIGHT - kPanelH) * 0.5f;
 
   UiNodeDesc desc;
   desc.id = kUICraftingRootNode;
@@ -89,12 +125,15 @@ void UICraftingController::SetNodeVisible(bool visible) {
 }
 
 void UICraftingController::ResetSessionState() noexcept {
-  m_forgeItem = entt::null;
-  m_mergeBase = entt::null;
-  m_mergeFodder = entt::null;
-  m_mergeCatalyst = entt::null;
+  // R7 (B-01): the session targets are stable integer domain ids
+  // (kInvalidDomainId when empty); no entt::entity target is held across
+  // operations.
+  m_forgeTarget = kInvalidDomainId;
+  m_mergeBase = kInvalidDomainId;
+  m_mergeFodder = kInvalidDomainId;
+  m_mergeCatalyst = kInvalidDomainId;
+  m_salvageItem = kInvalidDomainId;
   m_selectedAffixIndex = -1;
-  m_salvageItem = entt::null;
   m_showSalvageFilter = false;
   m_currentTab = CraftingTab::Forging;
   m_craftingAlpha = 0.0f;
@@ -113,6 +152,11 @@ void UICraftingController::ResetSessionState() noexcept {
 void UICraftingController::Toggle() {
   m_visible = !m_visible;
   SetNodeVisible(m_visible);
+}
+
+void UICraftingController::Close() {
+  m_visible = false;
+  SetNodeVisible(false);
 }
 
 bool UICraftingController::IsVisible() const noexcept {
@@ -135,736 +179,900 @@ void UICraftingController::OpenMergePanel() {
 }
 
 void UICraftingController::SetTargetItem(entt::entity item) {
-  m_forgeItem = item;
+  // R7: the entity is converted to a stable domain id at the boundary; the
+  // controller never stores entt::entity targets (B-01).
+  m_forgeTarget =
+      item == entt::null ? kInvalidDomainId : entt::to_integral(item);
   m_visible = true; // Auto-open when setting target via context menu.
   SetNodeVisible(true);
 }
 
-entt::entity UICraftingController::GetTargetItem() const noexcept {
-  return m_forgeItem;
+std::uint64_t UICraftingController::GetForgeTargetDomainId() const noexcept {
+  return m_forgeTarget;
+}
+
+std::uint64_t UICraftingController::GetMergeBaseDomainId() const noexcept {
+  return m_mergeBase;
+}
+
+std::uint64_t UICraftingController::GetMergeFodderDomainId() const noexcept {
+  return m_mergeFodder;
+}
+
+std::uint64_t UICraftingController::GetMergeCatalystDomainId() const noexcept {
+  return m_mergeCatalyst;
+}
+
+std::uint64_t UICraftingController::GetSalvageItemDomainId() const noexcept {
+  return m_salvageItem;
 }
 
 void UICraftingController::ClearTargetItem() {
-  m_forgeItem = entt::null;
+  m_forgeTarget = kInvalidDomainId;
 }
 
-void UICraftingController::Update(entt::registry& registry) {
-  const float dt = GetFrameTime();
+void UICraftingController::ClearConsumedTarget(std::uint64_t domainId) {
+  if (domainId == kInvalidDomainId) {
+    return;
+  }
+  if (m_forgeTarget == domainId) {
+    m_forgeTarget = kInvalidDomainId;
+  }
+  if (m_mergeBase == domainId) {
+    m_mergeBase = kInvalidDomainId;
+  }
+  if (m_mergeFodder == domainId) {
+    m_mergeFodder = kInvalidDomainId;
+    m_selectedAffixIndex = -1;
+  }
+  if (m_mergeCatalyst == domainId) {
+    m_mergeCatalyst = kInvalidDomainId;
+  }
+  if (m_salvageItem == domainId) {
+    m_salvageItem = kInvalidDomainId;
+  }
+}
+
+const GameUiItemView* UICraftingController::FindDisplayedItem(
+    const GameUiSnapshot& snapshot, std::uint64_t domainId) noexcept {
+  if (domainId == kInvalidDomainId) {
+    return nullptr;
+  }
+  for (const GameUiItemView& view : snapshot.displayedItems) {
+    if (view.domainId == domainId) {
+      return &view;
+    }
+  }
+  return nullptr;
+}
+
+void UICraftingController::EnqueueIntent(GameUiIntent intent) {
+  if (m_uiHost != nullptr) {
+    m_uiHost->EnqueueIntent(std::move(intent));
+  }
+}
+
+UICraftingController::Layout UICraftingController::ComputeLayout() const noexcept {
+  Layout layout;
+  layout.panelX = m_panelX;
+  layout.panelY = m_panelY;
+  layout.panelW = kPanelW;
+  layout.panelH = kPanelH;
+  layout.tabY = m_panelY + 20.0f;
+  return layout;
+}
+
+void UICraftingController::Update(const GameUiSnapshot& snapshot,
+                                  const UiInputFrame& input) {
+  // Alpha animation toward the authoritative visibility flag.
+  const float dt = std::max(input.deltaSeconds, 0.0f);
   const float alphaSpeed = 6.0f;
-  if (m_visible)
+  if (m_visible) {
     m_craftingAlpha = std::min(1.0f, m_craftingAlpha + dt * alphaSpeed);
-  else
-    m_craftingAlpha = std::max(0.0f, m_craftingAlpha - dt * alphaSpeed);
-
-  // Drop stale entity references whose registry entity was destroyed.
-  if (m_forgeItem != entt::null && !registry.valid(m_forgeItem))
-    m_forgeItem = entt::null;
-  if (m_mergeBase != entt::null && !registry.valid(m_mergeBase))
-    m_mergeBase = entt::null;
-  if (m_mergeFodder != entt::null && !registry.valid(m_mergeFodder))
-    m_mergeFodder = entt::null;
-  if (m_mergeCatalyst != entt::null && !registry.valid(m_mergeCatalyst))
-    m_mergeCatalyst = entt::null;
-  if (m_salvageItem != entt::null && !registry.valid(m_salvageItem))
-    m_salvageItem = entt::null;
-}
-
-void UICraftingController::Draw(entt::registry& registry) {
-  if (m_craftingAlpha <= 0.0f)
-    return;
-
-  DrawCraftingPanel(registry);
-}
-
-void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
-  auto &drag = DragSession();
-  auto &s_theme = UIRenderer::GetTheme();
-  float alpha = m_craftingAlpha;
-
-  float screenW = (float)GetScreenWidth();
-  float screenH = (float)GetScreenHeight();
-
-  // Logic Dimensions
-  float panelW_Logic = 600.0f;
-  float panelH_Logic = 700.0f;
-
-  // Initial Logic Position (Centered)
-  float startX_Logic = (UI_REF_WIDTH - panelW_Logic) / 2.0f;
-  float startY_Logic = (UI_REF_HEIGHT - panelH_Logic) / 2.0f;
-
-  // Handle Drag in Logic Space (U8: direct UIPanelDragService call with
-  // instance-owned panel state, was the legacy static drag entry point).
-  UIPanelDragInputs dragInputs;
-  dragInputs.mousePosition = UISystem::GetMousePositionLogic();
-  dragInputs.isMousePressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-  dragInputs.isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
-  UIPanelDragBounds dragBounds;
-  dragBounds.panelWidth = panelW_Logic;
-  dragBounds.panelHeight = panelH_Logic;
-  dragBounds.headerHeight = 60.0f;
-  dragBounds.uiRefWidth = UI_REF_WIDTH;
-  dragBounds.uiRefHeight = UI_REF_HEIGHT;
-  UIPanelDragService::UpdatePanelDrag(m_panelState, UIPanelID::Crafting,
-                                      m_activeDragPanel, startX_Logic,
-                                      startY_Logic, dragInputs, dragBounds);
-
-  // Convert to Screen Space for Drawing (legacy behavior of this file)
-  float panelW = panelW_Logic * UIRenderer::GetScale();
-  float panelH = panelH_Logic * UIRenderer::GetScale();
-  float startX = startX_Logic * UIRenderer::GetScale();
-  float startY = startY_Logic * UIRenderer::GetScale();
-
-  // Background
-  DrawRectangleRec({startX, startY, panelW, panelH},
-                   Fade(Color{30, 30, 40, 255}, 0.95f * alpha));
-  DrawRectangleLinesEx({startX, startY, panelW, panelH}, 2.0f,
-                       Fade(GOLD, alpha));
-
-  // Title & Tabs
-  float titleY = startY + 20;
-
-  // Tab Buttons
-  float tabW_Logic = 120.0f;
-  float tabH_Logic = 32.0f;
-  float tabX_Logic = startX_Logic + 20.0f;
-  float titleY_Logic = startY_Logic + 20.0f;
-
-  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-
-  auto DrawTab = [&](const char *label, CraftingTab tab) {
-    bool active = (m_currentTab == tab);
-    Rectangle tabRect_Logic = {tabX_Logic, titleY_Logic, tabW_Logic, tabH_Logic};
-    bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), tabRect_Logic);
-
-    Color tabTint = active ? GOLD : WHITE;
-    Color textColor = active ? BLACK : WHITE;
-
-    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, tabRect_Logic, label, 20.0f, textColor, tabTint, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-    if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-      m_currentTab = tab;
-    tabX_Logic += tabW_Logic + 10.0f;
-  };
-
-  DrawTab("词缀锻造", CraftingTab::Forging);
-  DrawTab("传奇融合", CraftingTab::Merging);
-  DrawTab("装备分解", CraftingTab::Salvaging);
-
-  // Close Button
-  Rectangle closeRect_Logic = {startX_Logic + panelW_Logic - 40, startY_Logic + 15, 28, 28};
-  bool closeHover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), closeRect_Logic);
-  Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
-
-  UIRenderer::DrawButton(UISystem::GetFont(), squareTex, closeRect_Logic, "X", 20, closeHover ? RED : WHITE, WHITE, closeHover, closeHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-  if (closeHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) Toggle();
-
-  if (m_currentTab == CraftingTab::Merging) {
-    DrawMergePanel(registry, startX_Logic, startY_Logic, panelW_Logic, panelH_Logic, alpha);
-    return;
-  }
-  if (m_currentTab == CraftingTab::Salvaging) {
-    DrawSalvagePanel(registry, startX_Logic, startY_Logic, panelW_Logic, panelH_Logic, alpha);
-    return;
-  }
-
-  // Target Item Slot
-  float slotSize = 80.0f * UIRenderer::GetScale();
-  float slotX = startX_Logic * UIRenderer::GetScale() + (panelW - slotSize) / 2.0f;
-  float slotY = startY_Logic * UIRenderer::GetScale() + 80.0f * UIRenderer::GetScale();
-
-  UIRenderer::DrawSlot(UISystem::GetFont(), registry, slotX, slotY, slotSize,
-                       m_forgeItem, "放入装备", false, false, alpha);
-
-  // Handle Item Drop for Forging
-  Rectangle slotRect = {slotX, slotY, slotSize, slotSize};
-  if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
-    if (drag.draggedItem != entt::null &&
-        IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-      if (registry.any_of<ItemComponent>(drag.draggedItem)) {
-        auto &item = registry.get<ItemComponent>(drag.draggedItem);
-        // Allow equipment
-        if (item.type == ItemType::Weapon || item.type == ItemType::Armor ||
-            item.type == ItemType::Jewelry || item.type == ItemType::Shield) {
-          m_forgeItem = drag.draggedItem;
-          drag.draggedItem = entt::null;
-        }
-      }
-    }
-    if (m_forgeItem != entt::null) {
-      // U8: clear the hover source through the host channel instead of the
-      // static UiShared::HoveredItem() slot; the slot tooltip is drawn
-      // directly below. m_uiHost may be null in headless unit tests.
-      if (m_uiHost) {
-        m_uiHost->SetHoveredItem(entt::null);
-      }
-      UIRenderer::DrawTooltip(UISystem::GetFont(), registry, m_forgeItem, alpha);
-    }
-  }
-
-  if (m_forgeItem != entt::null) {
-    auto &item = registry.get<ItemComponent>(m_forgeItem);
-    char potBuf[64];
-    utils::FormatToBuffer(potBuf, "锻造潜力: {}", item.forgingPotential);
-    float potW = MeasureTextEx(UISystem::GetFont(), potBuf, 20, 1.0f).x;
-    UISystem::DrawTextUI(potBuf, startX_Logic + (panelW_Logic - potW / UIRenderer::GetScale()) / 2.0f,
-                         80.0f + slotSize / UIRenderer::GetScale() + 10, 20, SKYBLUE, alpha);
-
-    // Guidance Text
-    const char* guide = "提示：锻造会消耗装备潜力。潜力耗尽后将无法再修改。";
-    float guideW = MeasureTextEx(UISystem::GetFont(), guide, 16 * UIRenderer::GetScale(), 1.0f).x;
-    UISystem::DrawTextUI(guide, (panelW_Logic - guideW / UIRenderer::GetScale()) / 2.0f + startX_Logic, panelH_Logic + startY_Logic - 40, 16, GRAY, alpha);
-
-    DrawAffixList(registry, m_forgeItem, startX_Logic, startY_Logic);
   } else {
-    const char* guide = "将装备拖入上方槽位开始锻造（升级、粉碎、重置词缀）";
-    float guideW = MeasureTextEx(UISystem::GetFont(), guide, 16 * UIRenderer::GetScale(), 1.0f).x;
-    UISystem::DrawTextUI(guide, (panelW_Logic - guideW / UIRenderer::GetScale()) / 2.0f + startX_Logic, 80.0f + 100, 16, GRAY, alpha);
+    m_craftingAlpha = std::max(0.0f, m_craftingAlpha - dt * alphaSpeed);
+  }
+
+  if (!m_visible) {
+    SetNodeVisible(false);
+    return;
+  }
+  SetNodeVisible(true);
+  if (!m_inGameplay) {
+    return;
+  }
+
+  // R7: drop stale session targets whose item is no longer part of this
+  // frame's displayed items (mirrors the legacy registry.valid() cleanup
+  // without touching the ECS).
+  const uint64_t targets[] = {m_forgeTarget,   m_mergeBase,
+                              m_mergeFodder,   m_mergeCatalyst,
+                              m_salvageItem};
+  for (const uint64_t id : targets) {
+    if (id != kInvalidDomainId && FindDisplayedItem(snapshot, id) == nullptr) {
+      ClearConsumedTarget(id);
+    }
+  }
+
+  const Layout layout = ComputeLayout();
+  const UiVec2 mouse = input.pointer.logicalPosition;
+
+  // Panel drag (same service as the stash panel).
+  {
+    NoMoreDay::UIPanelDragInputs dragInputs;
+    dragInputs.mousePosition = Vector2{mouse.x, mouse.y};
+    dragInputs.isMousePressed = input.pointer.pressed;
+    dragInputs.isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+    NoMoreDay::UIPanelDragBounds dragBounds;
+    dragBounds.panelWidth = layout.panelW;
+    dragBounds.panelHeight = layout.panelH;
+    dragBounds.headerHeight = kHeaderHeight;
+    dragBounds.uiRefWidth = static_cast<float>(UI_REF_WIDTH);
+    dragBounds.uiRefHeight = static_cast<float>(UI_REF_HEIGHT);
+    NoMoreDay::UIPanelDragService::UpdatePanelDrag(
+        m_panelState, UIPanelID::Crafting, m_activeDragPanel, m_panelX,
+        m_panelY, dragInputs, dragBounds);
+  }
+
+  // Modal surfaces (quantity popup, skill tree) capture pointer input.
+  if (m_uiHost == nullptr || m_uiHost->IsModalInputCaptured()) {
+    return;
+  }
+  const UiRect panelRect{{layout.panelX, layout.panelY},
+                         {layout.panelW, layout.panelH}};
+  if (panelRect.Contains(mouse)) {
+    m_uiHost->SetMouseOverUI(true);
+  }
+
+  UIDragSession& drag = DragSession();
+
+  // Close button.
+  {
+    const UiRect closeRect{{layout.panelX + layout.panelW - kCloseSize - 12.0f,
+                            layout.panelY + 15.0f},
+                           {kCloseSize, kCloseSize}};
+    if (closeRect.Contains(mouse) && input.pointer.pressed) {
+      Toggle();
+      return;
+    }
+  }
+
+  // Tab bar.
+  static constexpr const char* kTabLabels[3] = {"词缀锻造", "传奇融合",
+                                                "装备分解"};
+  for (int i = 0; i < 3; ++i) {
+    const UiRect tabRect{
+        {layout.panelX + 20.0f + static_cast<float>(i) * (kTabW + 8.0f),
+         layout.tabY},
+        {kTabW, kTabH}};
+    if (tabRect.Contains(mouse) && input.pointer.pressed) {
+      m_currentTab = static_cast<CraftingTab>(i);
+    }
+  }
+
+  if (m_currentTab == CraftingTab::Forging) {
+    UpdateForgingTab(snapshot, input, layout, drag);
+  } else if (m_currentTab == CraftingTab::Merging) {
+    UpdateMergingTab(snapshot, input, layout, drag);
+  } else {
+    UpdateSalvagingTab(snapshot, input, layout, drag);
   }
 }
 
-void UICraftingController::DrawMergePanel(entt::registry& registry, float startX,
-                                          float startY, float panelW,
-                                          float panelH, float alpha) {
-  auto &drag = DragSession();
-  float scale = UIRenderer::GetScale();
+namespace {
 
-  float slotSize_Logic = 64.0f;
-  float spacing_Logic = 20.0f;
+// Rect for the given column/row in the (bounded) affix slot layout.
+UiRect AffixRowRect(float x, float y, float w) {
+  return {{x, y}, {w, kRowH}};
+}
 
-  float midX = startX + panelW / 2.0f;
-  float topY = startY + 100.0f;
+} // namespace
 
-  // Base Slot
-  float baseX = midX - slotSize_Logic - spacing_Logic;
-  UIRenderer::DrawSlot(UISystem::GetFont(), registry, baseX * scale, topY * scale, slotSize_Logic * scale,
-                       m_mergeBase, m_mergeBase == entt::null ? "放入暗金(LP > 0)" : "", false, false, alpha);
+void UICraftingController::UpdateForgingTab(const GameUiSnapshot& snapshot,
+                                            const UiInputFrame& input,
+                                            const Layout& layout,
+                                            UIDragSession& drag) {
+  const UiVec2 mouse = input.pointer.logicalPosition;
+  const float slotX = layout.panelX + (layout.panelW - kSlotSize) * 0.5f;
+  const float slotY = layout.panelY + 80.0f;
+  const UiRect slotRect{{slotX, slotY}, {kSlotSize, kSlotSize}};
 
-  // Fodder Slot
-  float fodderX = midX + spacing_Logic;
-  UIRenderer::DrawSlot(UISystem::GetFont(), registry, fodderX * scale, topY * scale, slotSize_Logic * scale,
-                       m_mergeFodder, m_mergeFodder == entt::null ? "放入崇高(T6+)" : "", false, false, alpha);
-
-  // Catalyst Slot
-  float catX = midX - slotSize_Logic / 2.0f;
-  float catY = topY + slotSize_Logic + spacing_Logic * 2;
-  UIRenderer::DrawSlot(UISystem::GetFont(), registry, catX * scale, catY * scale, slotSize_Logic * scale,
-                       m_mergeCatalyst, "放入时空核心", false, false, alpha);
-
-  // Guidance Labels
-  UISystem::DrawTextUI("暗金基底", baseX, topY - 25, 18, GOLD, alpha);
-  UISystem::DrawTextUI("崇高物品", fodderX, topY - 25, 18, PURPLE, alpha);
-  UISystem::DrawTextUI("传奇核心", catX, catY - 25, 18, SKYBLUE, alpha);
-
-  // Handle Drops
-  auto HandleMergeDrop = [&](entt::entity &target, float x_logic, float y_logic, int type) {
-    Rectangle r_logic = {x_logic, y_logic, slotSize_Logic, slotSize_Logic};
-    if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic)) {
-      if (drag.draggedItem != entt::null &&
-          IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        if (registry.any_of<ItemComponent>(drag.draggedItem)) {
-            bool valid = false;
-            auto& item = registry.get<ItemComponent>(drag.draggedItem);
-
-            if (type == 0) { // Base: LP > 0
-                if (item.legendaryPotential > 0) valid = true;
-            } else if (type == 1) { // Fodder: Exalted (Rare with T6+)
-                bool hasT6 = false;
-                for(const auto& aff : item.affixes) if(aff.tier >= 6) { hasT6 = true; break; }
-                if (hasT6) valid = true;
-            } else if (type == 2) { // Catalyst
-                // Allow Material OR Consumable (Legendary Core)
-                if (item.type == ItemType::Material || item.type == ItemType::Consumable) valid = true;
-            }
-
-            if (valid) {
-                target = drag.draggedItem;
-                drag.draggedItem = entt::null;
-            }
-        }
-      }
-      if (target != entt::null) {
-        // U8: clear the hover source through the host channel (slot tooltip
-        // drawn directly below). m_uiHost may be null in headless unit tests.
-        if (m_uiHost) {
-          m_uiHost->SetHoveredItem(entt::null);
-        }
-        UIRenderer::DrawTooltip(UISystem::GetFont(), registry, target, alpha);
+  // Forge slot drop: only Weapon/Armor/Jewelry/Shield items.
+  if (slotRect.Contains(mouse) && input.pointer.released &&
+      drag.draggedItemDomainId != kInvalidDomainId) {
+    const GameUiItemView* view =
+        FindDisplayedItem(snapshot, drag.draggedItemDomainId);
+    if (view != nullptr) {
+      const auto type = static_cast<ItemType>(view->itemType);
+      if (type == ItemType::Weapon || type == ItemType::Armor ||
+          type == ItemType::Jewelry || type == ItemType::Shield) {
+        m_forgeTarget = view->domainId;
       }
     }
+    drag.Clear();
+    return;
+  }
+
+  const GameUiItemView* forge = FindDisplayedItem(snapshot, m_forgeTarget);
+  if (forge == nullptr) {
+    return;
+  }
+
+  // Affix rows: prefix then suffix (bounded 2+2 slots; no per-frame vector).
+  const float listX = layout.panelX + 20.0f;
+  const float listW = layout.panelW - 40.0f;
+  const float rowStartY = layout.panelY + 220.0f;
+  const float btnX = listX + listW - 70.0f;
+  const float addBtnX = listX + listW - 90.0f;
+
+  int row = 0;
+  auto handleRow = [&](const GameUiAffixView* affix, bool isPrefix, int affixIndex) {
+    const float y = rowStartY + static_cast<float>(row) * (kRowH + 6.0f);
+    const bool hovered = AffixRowRect(listX, y, listW).Contains(mouse);
+    const bool canAfford = forge->forgingPotential > 0;
+    const bool canUpgrade =
+        affix != nullptr && affix->tier < 5 && canAfford;
+
+    if (affix != nullptr) {
+      if (hovered && input.pointer.pressed && !canUpgrade) {
+        // Click on a max-tier affix is a no-op (legacy behavior).
+      }
+      if (canUpgrade && input.pointer.pressed) {
+        if (const UiRect r{btnX, y, {kBtnW, kBtnH}}; r.Contains(mouse)) {
+          GameUiIntent intent;
+          intent.sourceNode = m_rootNodeId;
+          intent.kind = GameUiIntentKind::CraftAffixUpgrade;
+          intent.payload.targetDomainId = m_forgeTarget;
+          intent.payload.affixIndex = affixIndex;
+          EnqueueIntent(std::move(intent));
+        } else if (const UiRect r{btnX - 35.0f, y, {30.0f, kBtnH}};
+                   r.Contains(mouse)) {
+          GameUiIntent intent;
+          intent.sourceNode = m_rootNodeId;
+          intent.kind = GameUiIntentKind::CraftChaos;
+          intent.payload.targetDomainId = m_forgeTarget;
+          intent.payload.affixIndex = affixIndex;
+          EnqueueIntent(std::move(intent));
+        } else if (const UiRect r{btnX - 70.0f, y, {30.0f, kBtnH}};
+                   r.Contains(mouse)) {
+          GameUiIntent intent;
+          intent.sourceNode = m_rootNodeId;
+          intent.kind = GameUiIntentKind::CraftRefine;
+          intent.payload.targetDomainId = m_forgeTarget;
+          intent.payload.affixIndex = affixIndex;
+          EnqueueIntent(std::move(intent));
+        }
+      }
+    } else {
+      // Empty affix slot: add-affix button.
+      if (canAfford && input.pointer.pressed) {
+        if (const UiRect r{addBtnX, y, {80.0f, kBtnH}}; r.Contains(mouse)) {
+          static constexpr AffixType kAddableTypes[6] = {
+              AffixType::Strength,       AffixType::Dexterity,
+              AffixType::Intelligence,   AffixType::Vitality,
+              AffixType::FlatPhysicalDamage, AffixType::AttackSpeed};
+          GameUiIntent intent;
+          intent.sourceNode = m_rootNodeId;
+          intent.kind = GameUiIntentKind::CraftAddAffix;
+          intent.payload.targetDomainId = m_forgeTarget;
+          intent.payload.affixType =
+              static_cast<std::uint16_t>(kAddableTypes[GetRandomValue(0, 5)]);
+          intent.payload.isPrefix = isPrefix;
+          EnqueueIntent(std::move(intent));
+        }
+      }
+    }
+    ++row;
   };
 
-  HandleMergeDrop(m_mergeBase, baseX, topY, 0);
-  HandleMergeDrop(m_mergeFodder, fodderX, topY, 1);
-  HandleMergeDrop(m_mergeCatalyst, catX, catY, 2);
+  const GameUiAffixView* prefixes[kMaxAffixSlots] = {nullptr, nullptr};
+  const GameUiAffixView* suffixes[kMaxAffixSlots] = {nullptr, nullptr};
+  int prefixCount = 0;
+  int suffixCount = 0;
+  for (const GameUiAffixView& affix : forge->affixes) {
+    if (affix.isPrefix && prefixCount < kMaxAffixSlots) {
+      prefixes[prefixCount++] = &affix;
+    } else if (!affix.isPrefix && suffixCount < kMaxAffixSlots) {
+      suffixes[suffixCount++] = &affix;
+    }
+  }
 
-  // Affix Selection Interface
-  if (m_mergeFodder != entt::null && registry.valid(m_mergeFodder)) {
-    auto &fodder = registry.get<ItemComponent>(m_mergeFodder);
-    float affixY = catY + slotSize_Logic + 20.0f;
-    UISystem::DrawTextUI("选择要转移并保留的词缀:", startX + 40,
-                         affixY, 18, LIGHTGRAY, alpha);
+  for (int i = 0; i < kMaxAffixSlots; ++i) {
+    handleRow(prefixes[i], true, i < prefixCount ? i : -1);
+  }
+  for (int i = 0; i < kMaxAffixSlots; ++i) {
+    handleRow(suffixes[i], false, i < suffixCount ? i : -1);
+  }
+}
 
-    affixY += 30.0f;
-    for (int i = 0; i < (int)fodder.affixes.size(); ++i) {
-      float x = startX + 40;
-      float w = panelW - 80;
-      float h = 40;
-      Rectangle rowRect_Logic = {x, affixY, w, h};
+void UICraftingController::UpdateMergingTab(const GameUiSnapshot& snapshot,
+                                            const UiInputFrame& input,
+                                            const Layout& layout,
+                                            UIDragSession& drag) {
+  const UiVec2 mouse = input.pointer.logicalPosition;
+  const float midX = layout.panelX + layout.panelW * 0.5f;
+  const float topY = layout.panelY + 100.0f;
+  const UiRect baseRect{{midX - 84.0f, topY}, {kMergeSlotSize, kMergeSlotSize}};
+  const UiRect fodderRect{{midX + 20.0f, topY},
+                          {kMergeSlotSize, kMergeSlotSize}};
+  const UiRect catalystRect{{midX - 32.0f, topY + 168.0f},
+                            {kMergeSlotSize, kMergeSlotSize}};
 
-      bool selected = (m_selectedAffixIndex == i);
-      bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), rowRect_Logic);
+  if (input.pointer.released && drag.draggedItemDomainId != kInvalidDomainId) {
+    const GameUiItemView* view =
+        FindDisplayedItem(snapshot, drag.draggedItemDomainId);
+    if (view != nullptr) {
+      if (baseRect.Contains(mouse) && view->legendaryPotential > 0) {
+        m_mergeBase = view->domainId;
+      } else if (fodderRect.Contains(mouse)) {
+        for (const GameUiAffixView& affix : view->affixes) {
+          if (affix.tier >= 6) {
+            m_mergeFodder = view->domainId;
+            m_selectedAffixIndex = -1;
+            break;
+          }
+        }
+      } else if (catalystRect.Contains(mouse)) {
+        const auto type = static_cast<ItemType>(view->itemType);
+        if (type == ItemType::Material || type == ItemType::Consumable) {
+          m_mergeCatalyst = view->domainId;
+        }
+      }
+    }
+    drag.Clear();
+    return;
+  }
 
-      Color bg = selected ? Fade(RED, 0.3f) : Fade(DARKGRAY, 0.5f);
-      if (hover && !selected)
-        bg = Fade(GRAY, 0.4f);
+  // Affix selection from the fodder item.
+  const GameUiItemView* fodder = FindDisplayedItem(snapshot, m_mergeFodder);
+  if (fodder == nullptr) {
+    return;
+  }
+  const float affixY = topY + 252.0f;
+  const float rowW = layout.panelW - 80.0f;
+  for (std::size_t i = 0; i < fodder->affixes.size(); ++i) {
+    const float y = affixY + 30.0f + static_cast<float>(i) * 45.0f;
+    const UiRect row{{layout.panelX + 40.0f, y}, {rowW, 40.0f}};
+    if (row.Contains(mouse) && input.pointer.pressed) {
+      m_selectedAffixIndex = static_cast<int>(i);
+    }
+  }
 
-      DrawRectangleRec({rowRect_Logic.x * scale, rowRect_Logic.y * scale, rowRect_Logic.width * scale, rowRect_Logic.height * scale}, Fade(bg, alpha));
-      DrawRectangleLinesEx({rowRect_Logic.x * scale, rowRect_Logic.y * scale, rowRect_Logic.width * scale, rowRect_Logic.height * scale}, 1.0f * scale, Fade(selected ? RED : GRAY, alpha));
+  // Fuse button.
+  const UiRect fuseBtn{{midX - 80.0f, layout.panelY + 620.0f}, {160.0f, 50.0f}};
+  if (fuseBtn.Contains(mouse) && input.pointer.pressed && m_mergeBase != kInvalidDomainId &&
+      m_mergeFodder != kInvalidDomainId && m_mergeCatalyst != kInvalidDomainId &&
+      m_selectedAffixIndex >= 0) {
+    GameUiIntent intent;
+    intent.sourceNode = m_rootNodeId;
+    intent.kind = GameUiIntentKind::CraftFuse;
+    intent.payload.sourceDomainId = m_mergeBase;
+    intent.payload.targetDomainId = m_mergeFodder;
+    intent.payload.catalystDomainId = m_mergeCatalyst;
+    intent.payload.affixIndex = m_selectedAffixIndex;
+    EnqueueIntent(std::move(intent));
+  }
+}
 
-      Color textColor = GetAffixTierColor(fodder.affixes[i].tier);
+void UICraftingController::UpdateSalvagingTab(const GameUiSnapshot& snapshot,
+                                              const UiInputFrame& input,
+                                              const Layout& layout,
+                                              UIDragSession& drag) {
+  const UiVec2 mouse = input.pointer.logicalPosition;
+  const float midX = layout.panelX + layout.panelW * 0.5f;
+  const float slotY = layout.panelY + 150.0f;
+  const UiRect slotRect{{midX - 40.0f, slotY}, {kSlotSize, kSlotSize}};
+
+  // Salvage slot drop: CanSalvage-equivalent on the view model.
+  if (slotRect.Contains(mouse) && input.pointer.released &&
+      drag.draggedItemDomainId != kInvalidDomainId) {
+    const GameUiItemView* view =
+        FindDisplayedItem(snapshot, drag.draggedItemDomainId);
+    if (view != nullptr && IsSalvageableView(*view)) {
+      m_salvageItem = view->domainId;
+    }
+    drag.Clear();
+    return;
+  }
+
+  // Salvage button.
+  const UiRect salvageBtn{{midX - 100.0f, layout.panelY + 580.0f},
+                          {200.0f, 60.0f}};
+  if (salvageBtn.Contains(mouse) && input.pointer.pressed &&
+      m_salvageItem != kInvalidDomainId) {
+    GameUiIntent intent;
+    intent.sourceNode = m_rootNodeId;
+    intent.kind = GameUiIntentKind::CraftSalvage;
+    intent.payload.targetDomainId = m_salvageItem;
+    EnqueueIntent(std::move(intent));
+    return;
+  }
+
+  // Filter toggle + popup.
+  const UiRect filterBtn{{layout.panelX + 20.0f, layout.panelY + 620.0f},
+                         {100.0f, 32.0f}};
+  if (filterBtn.Contains(mouse) && input.pointer.pressed) {
+    m_showSalvageFilter = !m_showSalvageFilter;
+    return;
+  }
+  if (m_showSalvageFilter) {
+    const float fx = layout.panelX - 220.0f;
+    const float fy = layout.panelY + 100.0f;
+    const UiRect popup{{fx, fy}, {200.0f, 300.0f}};
+    if (popup.Contains(mouse) && input.pointer.pressed) {
+      auto toggle = [&](const UiRect& r, bool& flag) {
+        if (r.Contains(mouse)) {
+          flag = !flag;
+          return true;
+        }
+        return false;
+      };
+      bool handled = false;
+      handled |= toggle({{fx + 10.0f, fy + 40.0f}, {180.0f, 24.0f}},
+                        m_salvageFilter.excludeLocked);
+      handled |= toggle({{fx + 10.0f, fy + 70.0f}, {180.0f, 24.0f}},
+                        m_salvageFilter.keepIfTier6Plus);
+      if (!handled) {
+        auto toggleRarity = [&](const UiRect& r, Rarity rarity) {
+          if (r.Contains(mouse)) {
+            const auto bit = 1u << static_cast<std::uint32_t>(rarity);
+            m_salvageFilter.rarityMask ^= bit;
+            return true;
+          }
+          return false;
+        };
+        handled |= toggleRarity({{fx + 10.0f, fy + 140.0f}, {180.0f, 24.0f}},
+                                Rarity::Magic);
+        handled |= toggleRarity({{fx + 10.0f, fy + 170.0f}, {180.0f, 24.0f}},
+                                Rarity::Rare);
+        handled |= toggleRarity({{fx + 10.0f, fy + 200.0f}, {180.0f, 24.0f}},
+                                Rarity::Epic);
+      }
+      (void)handled;
+      return;
+    }
+  }
+
+  // Batch salvage button.
+  const UiRect batchBtn{{midX - 100.0f, layout.panelY + 620.0f}, {200.0f, 32.0f}};
+  if (batchBtn.Contains(mouse) && input.pointer.pressed) {
+    GameUiIntent intent;
+    intent.sourceNode = m_rootNodeId;
+    intent.kind = GameUiIntentKind::CraftBatchSalvage;
+    intent.payload.salvageRarityMask = m_salvageFilter.rarityMask;
+    intent.payload.keepIfTier6Plus = m_salvageFilter.keepIfTier6Plus;
+    intent.payload.excludeLocked = m_salvageFilter.excludeLocked;
+    EnqueueIntent(std::move(intent));
+  }
+}
+
+void UICraftingController::Paint(UiDrawList& drawList, const UiViewport& viewport,
+                                 const GameUiSnapshot& snapshot) const {
+  (void)viewport;
+  if (!m_visible || !m_inGameplay || m_craftingAlpha <= 0.001f ||
+      m_rootNodeId == kInvalidUiId) {
+    return;
+  }
+
+  const Layout layout = ComputeLayout();
+  const float alpha = m_craftingAlpha;
+  const UiDrawLayer layer = UiDrawLayer::Panels;
+  const UiId node = m_rootNodeId;
+  const UITheme& theme = UIRenderer::GetTheme();
+  const UiColor panelBg = ToUiColor(theme.panelBackground);
+  const UiColor panelBorder = ToUiColor(theme.panelBorder);
+  const UiColor textPrimary = ToUiColor(theme.textPrimary);
+  const UiColor textSecondary = ToUiColor(theme.textSecondary);
+  const UiColor textHighlight = ToUiColor(theme.textHighlight);
+  const UiColor slotBg = ToUiColor(theme.slotBackground);
+  const UiColor btnNormal = ToUiColor(theme.buttonNormal);
+  const UiColor btnHover = ToUiColor(theme.buttonHover);
+
+  // Panel frame.
+  drawList.FillRect(layer, node, {{layout.panelX, layout.panelY},
+                                  {layout.panelW, layout.panelH}},
+                    Faded(panelBg, alpha));
+  drawList.StrokeRect(layer, node, {{layout.panelX, layout.panelY},
+                                    {layout.panelW, layout.panelH}},
+                      Faded(panelBorder, alpha), 1.0f);
+
+  // Title.
+  drawList.Text(layer, node, "合成锻造",
+                {layout.panelX + 20.0f, layout.panelY + 22.0f}, 26.0f,
+                Faded(textHighlight, alpha), kGlobalFontResourceId);
+
+  // Close button.
+  const UiRect closeRect{{layout.panelX + layout.panelW - kCloseSize - 12.0f,
+                          layout.panelY + 15.0f},
+                         {kCloseSize, kCloseSize}};
+  drawList.FillRect(layer, node, closeRect, Faded(btnNormal, alpha));
+  drawList.StrokeRect(layer, node, closeRect, Faded(panelBorder, alpha), 1.0f);
+  drawList.Text(layer, node, "X",
+                {closeRect.origin.x + 8.0f, closeRect.origin.y + 5.0f}, 18.0f,
+                Faded(textPrimary, alpha), kGlobalFontResourceId);
+
+  // Tab bar.
+  static constexpr const char* kTabLabels[3] = {"词缀锻造", "传奇融合",
+                                                "装备分解"};
+  for (int i = 0; i < 3; ++i) {
+    const UiRect tabRect{
+        {layout.panelX + 20.0f + static_cast<float>(i) * (kTabW + 8.0f),
+         layout.tabY},
+        {kTabW, kTabH}};
+    const bool active = m_currentTab == static_cast<CraftingTab>(i);
+    // Active tab: gold tint (legacy theme accent).
+    const UiColor tabColor = active ? UiColor{230, 191, 38, 255} : btnNormal;
+    drawList.FillRect(layer, node, tabRect, Faded(tabColor, alpha));
+    drawList.StrokeRect(layer, node, tabRect, Faded(panelBorder, alpha), 1.0f);
+    drawList.Text(layer, node, kTabLabels[i],
+                  {tabRect.origin.x + 20.0f, tabRect.origin.y + 8.0f}, 18.0f,
+                  Faded(active ? kBlackText : textPrimary, alpha),
+                  kGlobalFontResourceId);
+  }
+
+  if (m_currentTab == CraftingTab::Forging) {
+    PaintForgingTab(drawList, snapshot, layout, alpha);
+  } else if (m_currentTab == CraftingTab::Merging) {
+    PaintMergingTab(drawList, snapshot, layout, alpha);
+  } else {
+    PaintSalvagingTab(drawList, snapshot, layout, alpha);
+  }
+}
+
+namespace {
+
+UiRect SlotPaintRect(float x, float y, float size) {
+  return {{x, y}, {size, size}};
+}
+
+} // namespace
+
+void UICraftingController::PaintForgingTab(UiDrawList& drawList,
+                                           const GameUiSnapshot& snapshot,
+                                           const Layout& layout,
+                                           float alpha) const {
+  const UiDrawLayer layer = UiDrawLayer::Panels;
+  const UiId node = m_rootNodeId;
+  const UITheme& theme = UIRenderer::GetTheme();
+  const UiColor slotBg = ToUiColor(theme.slotBackground);
+  const UiColor panelBorder = ToUiColor(theme.panelBorder);
+  const UiColor textPrimary = ToUiColor(theme.textPrimary);
+  const UiColor textSecondary = ToUiColor(theme.textSecondary);
+  const UiColor btnNormal = ToUiColor(theme.buttonNormal);
+
+  const float slotX = layout.panelX + (layout.panelW - kSlotSize) * 0.5f;
+  const float slotY = layout.panelY + 80.0f;
+  const UiRect slotRect = SlotPaintRect(slotX, slotY, kSlotSize);
+  drawList.FillRect(layer, node, slotRect, Faded(slotBg, alpha));
+  drawList.StrokeRect(layer, node, slotRect, Faded(panelBorder, alpha), 1.0f);
+
+  const GameUiItemView* forge = FindDisplayedItem(snapshot, m_forgeTarget);
+  if (forge == nullptr) {
+    drawList.Text(layer, node, "放入装备",
+                  {slotX + 14.0f, slotY + 30.0f}, 16.0f,
+                  Faded(textSecondary, alpha), kGlobalFontResourceId);
+    drawList.Text(layer, node,
+                  "将装备拖入上方槽位开始锻造（升级、粉碎、重置词缀）",
+                  {layout.panelX + 40.0f, layout.panelY + 180.0f}, 16.0f,
+                  Faded(textSecondary, alpha), kGlobalFontResourceId);
+    return;
+  }
+
+  // Item icon + forging potential.
+  if (forge->textureId != 0) {
+    drawList.Image(layer, node, SlotPaintRect(slotX + 12.0f, slotY + 12.0f,
+                                              kSlotSize - 24.0f),
+                   forge->textureId, Faded(kWhiteTint, alpha));
+  }
+  char potential[64];
+  std::snprintf(potential, sizeof(potential), "锻造潜力: %d",
+                forge->forgingPotential);
+  drawList.Text(layer, node, potential,
+                {layout.panelX + (layout.panelW - 120.0f) * 0.5f,
+                 layout.panelY + 170.0f},
+                20.0f, Faded(ToUiColor(SKYBLUE), alpha), kGlobalFontResourceId);
+
+  // Affix rows.
+  const float listX = layout.panelX + 20.0f;
+  const float listW = layout.panelW - 40.0f;
+  const float rowStartY = layout.panelY + 220.0f;
+  const float btnX = listX + listW - 70.0f;
+  const float addBtnX = listX + listW - 90.0f;
+
+  int row = 0;
+  auto paintRow = [&](const GameUiAffixView* affix, bool isPrefix) {
+    const float y = rowStartY + static_cast<float>(row) * (kRowH + 6.0f);
+    const UiRect rowRect = AffixRowRect(listX, y, listW);
+    drawList.FillRect(layer, node, rowRect,
+                      Faded(UiColor{40, 40, 45, 255}, alpha * 0.5f));
+    drawList.StrokeRect(layer, node, rowRect,
+                        Faded(UiColor{128, 128, 128, 255}, alpha), 1.0f);
+
+    if (affix != nullptr) {
+      // "T{tier} - {description}"
       char buf[128];
-      utils::FormatToBuffer(buf, "{}",
-                            GetAffixDescription(fodder.affixes[i], true));
-      UISystem::DrawTextUI(buf, x + 10, affixY + 10, 18, textColor, alpha);
-
-      if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        m_selectedAffixIndex = i;
+      const Affix tmpAffix{
+          static_cast<AffixType>(affix->type), affix->value, affix->tier,
+          affix->isPrefix, Tag::None, {}, affix->isLegendary};
+      const char* desc = GetAffixDescriptionRef(tmpAffix, false);
+      std::snprintf(buf, sizeof(buf), "T%d - %s", affix->tier, desc);
+      drawList.Text(layer, node, buf, {listX + 10.0f, y + 14.0f}, 18.0f,
+                    Faded(textPrimary, alpha), kGlobalFontResourceId);
+      if (affix->tier >= 5) {
+        drawList.Text(layer, node, "MAX", {btnX + 14.0f, y + 12.0f}, 16.0f,
+                      Faded(ToUiColor(GOLD), alpha), kGlobalFontResourceId);
+      } else if (forge->forgingPotential > 0) {
+        // 升级 / C / R buttons.
+        const UiRect upBtn{btnX, y, {kBtnW, kBtnH}};
+        drawList.FillRect(layer, node, upBtn, Faded(btnNormal, alpha));
+        drawList.StrokeRect(layer, node, upBtn,
+                            Faded(panelBorder, alpha), 1.0f);
+        drawList.Text(layer, node, "升级", {btnX + 14.0f, y + 6.0f}, 16.0f,
+                      Faded(textPrimary, alpha), kGlobalFontResourceId);
+        const UiRect cBtn{btnX - 35.0f, y, {30.0f, kBtnH}};
+        drawList.FillRect(layer, node, cBtn, Faded(btnNormal, alpha));
+        drawList.StrokeRect(layer, node, cBtn, Faded(panelBorder, alpha), 1.0f);
+        drawList.Text(layer, node, "C", {cBtn.origin.x + 8.0f, y + 6.0f},
+                      16.0f, Faded(textPrimary, alpha), kGlobalFontResourceId);
+        const UiRect rBtn{btnX - 70.0f, y, {30.0f, kBtnH}};
+        drawList.FillRect(layer, node, rBtn, Faded(btnNormal, alpha));
+        drawList.StrokeRect(layer, node, rBtn, Faded(panelBorder, alpha), 1.0f);
+        drawList.Text(layer, node, "R", {rBtn.origin.x + 8.0f, y + 6.0f},
+                      16.0f, Faded(textPrimary, alpha), kGlobalFontResourceId);
       }
-
-      affixY += h + 5;
-    }
-  }
-
-  // Fuse Button
-  float btnW = 160.0f;
-  float btnH = 50.0f;
-  float btnX = midX - btnW / 2.0f;
-  float btnY = startY + panelH - 80.0f;
-
-  Rectangle btnRect_Logic = {btnX, btnY, btnW, btnH};
-  bool canFuse = m_mergeBase != entt::null && m_mergeFodder != entt::null &&
-                 m_mergeCatalyst != entt::null && m_selectedAffixIndex != -1;
-
-  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-  bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
-
-  UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "开始融合", 24, canFuse ? WHITE : GRAY, canFuse ? RED : DARKGRAY, canFuse && hover, canFuse && hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-  if (canFuse && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-      CraftingResult res =
-          CraftingSystem::fuseLegendary(registry, m_mergeBase, m_mergeFodder,
-                                        m_mergeCatalyst, m_selectedAffixIndex);
-      if (res == CraftingResult::Success) {
-        // VFX: Burst of Gold and Red particles
-        auto &ps = systems::GPUParticleSystem::Get();
-        Vector2 center = {(btnX + btnW / 2.0f) * scale, (btnY + btnH / 2.0f) * scale};
-
-        for (int i = 0; i < 40; ++i) {
-          float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
-          float speed = (float)GetRandomValue(100, 300);
-          Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
-
-          if (i < 20) {
-            // Gold Sparks
-            auto p =
-                systems::InkEffectHelper::CreateSpark(center, vel, GOLD, 2.5f);
-            ps.Emit(p);
-          } else {
-            // Red/Ancient Ink
-            auto p = systems::InkEffectHelper::CreateInkTrail(center, vel, 2.0f,
-                                                              0.8f);
-            p.color = {230, 0, 0, 200}; // Ancient Red
-            ps.Emit(p);
-          }
-        }
-
-        // Clear consumed slots
-        if (!registry.valid(m_mergeFodder))
-          m_mergeFodder = entt::null;
-        if (!registry.valid(m_mergeCatalyst))
-          m_mergeCatalyst = entt::null;
-        m_selectedAffixIndex = -1;
-      }
-  }
-
-  const char* bottomGuide = "融合会将崇高物品的随机词缀转移到暗金基底上。";
-  float bW = MeasureTextEx(UISystem::GetFont(), bottomGuide, 14 * scale, 1.0f).x;
-  UISystem::DrawTextUI(bottomGuide, (midX - bW / scale / 2.0f), (panelH + startY - 30), 14, GRAY, alpha);
-}
-
-void UICraftingController::DrawAffixList(entt::registry& registry,
-                                         entt::entity entity,
-                                         float panelStartX,
-                                         float panelStartY) {
-  auto &drag = DragSession();
-  auto &item = registry.get<ItemComponent>(entity);
-  auto playerEnt = UISystem::GetPlayerEntity(registry);
-  float alpha = m_craftingAlpha;
-  float scale = UIRenderer::GetScale();
-
-  float panelW = 600.0f;
-  float startX = panelStartX;
-  float startY = panelStartY;
-
-  float currentY = startY + 200.0f;
-  float rowH = 50.0f;
-  float padding = 10.0f;
-
-  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-  Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
-
-  // Helper to draw an affix row
-  auto DrawAffixRow = [&](Affix *affix, int index, bool isPrefix, int slotIdx) {
-    float x = startX + 20.0f;
-    float w = panelW - 40.0f;
-    Rectangle rowRect_Logic = {x, currentY, w, rowH};
-
-    DrawRectangleRec({rowRect_Logic.x * scale, rowRect_Logic.y * scale, rowRect_Logic.width * scale, rowRect_Logic.height * scale}, Fade(DARKGRAY, 0.5f * alpha));
-    DrawRectangleLinesEx({rowRect_Logic.x * scale, rowRect_Logic.y * scale, rowRect_Logic.width * scale, rowRect_Logic.height * scale}, 1.0f * scale, Fade(GRAY, alpha));
-
-    if (affix) {
-      // Existing Affix
-      char nameBuf[128];
-      utils::FormatToBuffer(nameBuf, "T{} - {}", affix->tier,
-                            GetAffixDescription(*affix, false));
-      UISystem::DrawTextUI(nameBuf, x + 10, currentY + 15, 18, WHITE, alpha);
-
-      // Upgrade Button
-      float btnW = 60.0f;
-      float btnH = 30.0f;
-      float btnX = x + w - btnW - 10;
-
-      bool canAfford = item.forgingPotential > 0;
-
-      if (affix->tier < 5) {
-        Rectangle btnRect_Logic = {btnX, currentY + 10, btnW, btnH};
-        bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
-
-        UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "升级", 16, WHITE, canAfford ? (hover ? GREEN : DARKGREEN) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-        if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            CraftingSystem::upgradeAffix(item, index);
-            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
-        }
-      } else {
-        UISystem::DrawTextUI("MAX", btnX + 10, currentY + 15, 16, GOLD, alpha);
-      }
-
-      // Chaos (C)
-      if (affix->tier < 5) {
-        Rectangle cRect_Logic = {btnX - 35.0f, currentY + 10, 30.0f, btnH};
-        bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), cRect_Logic);
-        UIRenderer::DrawButton(UISystem::GetFont(), squareTex, cRect_Logic, "C", 16, WHITE, canAfford ? (hover ? PURPLE : VIOLET) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-        if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            CraftingSystem::chaosAffix(item, index);
-            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
-        }
-      }
-
-      // Refine (R) - Values
-      {
-        Rectangle rRect_Logic = {btnX - 70.0f, currentY + 10, 30.0f, btnH};
-        bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), rRect_Logic);
-        UIRenderer::DrawButton(UISystem::GetFont(), squareTex, rRect_Logic, "R", 16, WHITE, canAfford ? (hover ? SKYBLUE : BLUE) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-        if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            CraftingSystem::refineAffixValues(item, index);
-            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
-        }
-      }
-
     } else {
-      // Empty Slot
-      UISystem::DrawTextUI(isPrefix ? "空前缀槽位" : "空后缀槽位", x + 10,
-                           currentY + 15, 18, GRAY, alpha);
-
-      // Add Button
-      float btnW = 80.0f;
-      float btnH = 30.0f;
-      Rectangle btnRect_Logic = {x + w - btnW - 10, currentY + 10, btnW, btnH};
-      bool canAfford = item.forgingPotential > 0;
-      bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
-
-      UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "添加", 16, WHITE, canAfford ? (hover ? BLUE : DARKBLUE) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-      if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            AffixType types[] = {
-                AffixType::Strength,           AffixType::Dexterity,
-                AffixType::Intelligence,       AffixType::Vitality,
-                AffixType::FlatPhysicalDamage, AffixType::AttackSpeed};
-            AffixType t = types[GetRandomValue(0, 5)];
-            CraftingSystem::addAffix(item, t, isPrefix);
-            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
+      drawList.Text(layer, node, isPrefix ? "空前缀槽位" : "空后缀槽位",
+                    {listX + 10.0f, y + 14.0f}, 18.0f,
+                    Faded(textSecondary, alpha), kGlobalFontResourceId);
+      if (forge->forgingPotential > 0) {
+        const UiRect addBtn{addBtnX, y, {80.0f, kBtnH}};
+        drawList.FillRect(layer, node, addBtn, Faded(btnNormal, alpha));
+        drawList.StrokeRect(layer, node, addBtn, Faded(panelBorder, alpha),
+                            1.0f);
+        drawList.Text(layer, node, "添加", {addBtnX + 22.0f, y + 6.0f}, 16.0f,
+                      Faded(textPrimary, alpha), kGlobalFontResourceId);
       }
     }
-
-    currentY += rowH + padding;
+    ++row;
   };
 
-  // Sort affixes into prefixes and suffixes
-  std::vector<int> prefixIndices;
-  std::vector<int> suffixIndices;
-  for (size_t i = 0; i < item.affixes.size(); ++i) {
-    if (item.affixes[i].isPrefix)
-      prefixIndices.push_back((int)i);
-    else
-      suffixIndices.push_back((int)i);
-  }
-
-  UISystem::DrawTextUI("前缀属性", startX + 20, currentY, 20, LIGHTGRAY,
-                       alpha);
-  currentY += 30;
-
-  for (int i = 0; i < 2; ++i) {
-    if (i < (int)prefixIndices.size()) {
-      DrawAffixRow(&item.affixes[prefixIndices[i]], prefixIndices[i], true, i);
-    } else {
-      DrawAffixRow(nullptr, -1, true, i);
+  const GameUiAffixView* prefixes[kMaxAffixSlots] = {nullptr, nullptr};
+  const GameUiAffixView* suffixes[kMaxAffixSlots] = {nullptr, nullptr};
+  int prefixCount = 0;
+  int suffixCount = 0;
+  for (const GameUiAffixView& affix : forge->affixes) {
+    if (affix.isPrefix && prefixCount < kMaxAffixSlots) {
+      prefixes[prefixCount++] = &affix;
+    } else if (!affix.isPrefix && suffixCount < kMaxAffixSlots) {
+      suffixes[suffixCount++] = &affix;
     }
   }
 
-  currentY += 10;
-  UISystem::DrawTextUI("后缀属性", startX + 20, currentY, 20, LIGHTGRAY,
-                       alpha);
-  currentY += 30;
-
-  for (int i = 0; i < 2; ++i) {
-    if (i < (int)suffixIndices.size()) {
-      DrawAffixRow(&item.affixes[suffixIndices[i]], suffixIndices[i], false, i);
-    } else {
-      DrawAffixRow(nullptr, -1, false, i);
-    }
+  for (int i = 0; i < kMaxAffixSlots; ++i) {
+    paintRow(prefixes[i], true);
+  }
+  for (int i = 0; i < kMaxAffixSlots; ++i) {
+    paintRow(suffixes[i], false);
   }
 }
 
-void UICraftingController::DrawSalvagePanel(entt::registry& registry,
-                                            float startX, float startY,
-                                            float panelW, float panelH,
-                                            float alpha) {
-  auto &drag = DragSession();
-  auto &s_theme = UIRenderer::GetTheme();
-  float scale = UIRenderer::GetScale();
+void UICraftingController::PaintMergingTab(UiDrawList& drawList,
+                                           const GameUiSnapshot& snapshot,
+                                           const Layout& layout,
+                                           float alpha) const {
+  const UiDrawLayer layer = UiDrawLayer::Panels;
+  const UiId node = m_rootNodeId;
+  const UITheme& theme = UIRenderer::GetTheme();
+  const UiColor slotBg = ToUiColor(theme.slotBackground);
+  const UiColor panelBorder = ToUiColor(theme.panelBorder);
+  const UiColor textPrimary = ToUiColor(theme.textPrimary);
+  const UiColor textSecondary = ToUiColor(theme.textSecondary);
 
-  float slotSize_Logic = 80.0f;
-  float midX = startX + panelW / 2.0f;
-  float topMargin = 150.0f;
-  float slotY = startY + topMargin;
+  const float midX = layout.panelX + layout.panelW * 0.5f;
+  const float topY = layout.panelY + 100.0f;
 
-  // --- Altar VFX ---
-  float time = (float)GetTime();
-  Color ringColor1 = Fade(SKYBLUE, 0.2f * alpha);
-  Color ringColor2 = Fade(BLUE, 0.15f * alpha);
-  Vector2 center = {midX * scale, (slotY + slotSize_Logic / 2.0f) * scale};
-  float radius = slotSize_Logic * 0.9f * scale;
-
-  DrawRing(center, radius, radius + 2.0f * scale, time * 20.0f, time * 20.0f + 240.0f, 32, ringColor1);
-  DrawPolyLines(center, 6, radius + 20 * scale, time * 30.0f, ringColor2);
-  DrawPolyLines(center, 3, radius + 35 * scale, -time * 20.0f, ringColor1);
-
-  // Single Item Salvage Slot
-  UIRenderer::DrawSlot(UISystem::GetFont(), registry, (midX - slotSize_Logic / 2.0f) * scale, slotY * scale,
-                       slotSize_Logic * scale, m_salvageItem, "放入分解物品", false, false,
-                       alpha);
-
-  // Handle Drop
-  Rectangle slotRect_Logic = {midX - slotSize_Logic / 2.0f, slotY, slotSize_Logic, slotSize_Logic};
-  if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), slotRect_Logic)) {
-    if (drag.draggedItem != entt::null &&
-        IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-      if (registry.any_of<ItemComponent>(drag.draggedItem)) {
-        const auto &item = registry.get<ItemComponent>(drag.draggedItem);
-        if (SalvageSystem::CanSalvage(item)) {
-          m_salvageItem = drag.draggedItem;
-          drag.draggedItem = entt::null;
-        }
-      }
-    }
-    if (m_salvageItem != entt::null) {
-      // U8: clear the hover source through the host channel (slot tooltip
-      // drawn directly below). m_uiHost may be null in headless unit tests.
-      if (m_uiHost) {
-        m_uiHost->SetHoveredItem(entt::null);
-      }
-      UIRenderer::DrawTooltip(UISystem::GetFont(), registry, m_salvageItem, alpha);
-    }
-  }
-
-  // Yield Preview
-  if (m_salvageItem != entt::null && registry.valid(m_salvageItem)) {
-    const auto &item = registry.get<ItemComponent>(m_salvageItem);
-    // Deterministic Range Calculation
-    struct YieldRange { uint32_t matId; int min; int max; };
-    std::vector<YieldRange> ranges;
-    for (const auto& aff : item.affixes) {
-        if (aff.type == AffixType::Count) continue;
-        uint32_t materialId = (aff.isLegendary || IsLegendaryAffix(aff.type)) ? 4999 : 4000 + static_cast<uint32_t>(aff.type);
-        int t = aff.tier;
-        int min = (t < 4) ? 0 : (t - 3);
-        int max = t;
-
-        bool found = false;
-        for (auto& r : ranges) { if (r.matId == materialId) { r.min += min; r.max += max; found = true; break; } }
-        if (!found) ranges.push_back({materialId, min, max});
-    }
-
-    float yieldY = slotY + slotSize_Logic + 60.0f;
-
-    // Header
-    const char* headerText = "分解产出预估:";
-    float headerW = MeasureTextEx(UISystem::GetFont(), headerText, 20, 1.0f).x;
-
-    UISystem::DrawTextUI(headerText, midX - headerW/2.0f, yieldY, 20, SKYBLUE, alpha);
-
-    yieldY += 40.0f;
-
-    if (ranges.empty()) {
-      UISystem::DrawTextUI("该物品无任何可分解产出", midX - 90, yieldY, 18, GRAY, alpha);
+  auto paintSlot = [&](float x, float y, uint64_t domainId,
+                       const char* label, const char* title) {
+    const UiRect rect = SlotPaintRect(x, y, kMergeSlotSize);
+    drawList.FillRect(layer, node, rect, Faded(slotBg, alpha));
+    drawList.StrokeRect(layer, node, rect, Faded(panelBorder, alpha), 1.0f);
+    drawList.Text(layer, node, title, {x, y - 22.0f}, 18.0f,
+                  Faded(textPrimary, alpha), kGlobalFontResourceId);
+    if (domainId == kInvalidDomainId) {
+      drawList.Text(layer, node, label, {x + 6.0f, y + 22.0f}, 14.0f,
+                    Faded(textSecondary, alpha), kGlobalFontResourceId);
     } else {
-      float matSize_Logic = 48.0f;
-      float gap_Logic = 15.0f;
-      int count = (int)ranges.size();
-      float totalW = count * matSize_Logic + (count - 1) * gap_Logic;
-      float curX = midX - totalW / 2.0f;
-      float curY = yieldY;
-
-      for (int i = 0; i < count; ++i) {
-          Rectangle mRect_Logic = {curX, curY, matSize_Logic, matSize_Logic};
-          DrawRectangleRec({mRect_Logic.x * scale, mRect_Logic.y * scale, mRect_Logic.width * scale, mRect_Logic.height * scale}, Fade(s_theme.slotBackground, alpha));
-          DrawRectangleLinesEx({mRect_Logic.x * scale, mRect_Logic.y * scale, mRect_Logic.width * scale, mRect_Logic.height * scale}, 1.0f * scale, Fade(s_theme.panelBorder, alpha));
-
-          const auto *def = MaterialRegistry::Get().GetMaterial(ranges[i].matId);
-          if (def) {
-              Color matColor = UIRenderer::GetRarityColor(def->rarity);
-              DrawRectangleRec({(curX+4) * scale, (curY+4) * scale, (matSize_Logic-8) * scale, (matSize_Logic-8) * scale}, Fade(matColor, 0.3f * alpha));
-
-              char rangeBuf[32];
-              utils::FormatToBuffer(rangeBuf, "{}~{}", ranges[i].min,
-                                    ranges[i].max);
-              UISystem::DrawTextUI(rangeBuf, curX + 2, curY + 48 - 14, 12, SKYBLUE, alpha);
-
-              if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), mRect_Logic)) {
-                    UISystem::DrawTextUI(def->name.c_str(), curX, curY - 20, 16, matColor, alpha);
-              }
-          }
-          curX += matSize_Logic + gap_Logic;
+      const GameUiItemView* view = FindDisplayedItem(snapshot, domainId);
+      if (view != nullptr && view->textureId != 0) {
+        drawList.Image(layer, node, SlotPaintRect(x + 8.0f, y + 8.0f,
+                                                  kMergeSlotSize - 16.0f),
+                       view->textureId, Faded(kWhiteTint, alpha));
       }
     }
+  };
 
-    // Salvage Button
-    float btnW = 200.0f;
-    float btnH = 60.0f;
-    float btnX = midX - btnW / 2.0f;
-    float btnY = startY + panelH - 120.0f;
+  paintSlot(midX - 84.0f, topY, m_mergeBase, "放入暗金(LP > 0)", "暗金基底");
+  paintSlot(midX + 20.0f, topY, m_mergeFodder, "放入崇高(T6+)", "崇高物品");
+  paintSlot(midX - 32.0f, topY + 168.0f, m_mergeCatalyst, "放入时空核心",
+            "传奇核心");
 
-    Rectangle btnRect_Logic = {btnX, btnY, btnW, btnH};
-    bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
-    Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-
-    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "开始分解装备", 24, WHITE, hover ? RED : Color{120, 20, 20, 255}, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-    if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-      auto playerEnt = UISystem::GetPlayerEntity(registry);
-      SalvageSystem::Execute(registry, m_salvageItem, playerEnt);
-      m_salvageItem = entt::null;
-
-      // VFX
-      auto &ps = systems::GPUParticleSystem::Get();
-      for (int i = 0; i < 30; ++i) {
-           float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
-           float speed = (float)GetRandomValue(150, 400);
-           Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
-           auto p = systems::InkEffectHelper::CreateSpark(center, vel, RED, 2.0f);
-           ps.Emit(p);
-      }
+  // Affix selection list.
+  const GameUiItemView* fodder = FindDisplayedItem(snapshot, m_mergeFodder);
+  if (fodder != nullptr) {
+    drawList.Text(layer, node, "选择要转移并保留的词缀:",
+                  {layout.panelX + 40.0f, topY + 252.0f}, 18.0f,
+                  Faded(textPrimary, alpha), kGlobalFontResourceId);
+    const float rowW = layout.panelW - 80.0f;
+    for (std::size_t i = 0; i < fodder->affixes.size(); ++i) {
+      const GameUiAffixView& affix = fodder->affixes[i];
+      const float y = topY + 282.0f + static_cast<float>(i) * 45.0f;
+      const UiRect row{{layout.panelX + 40.0f, y}, {rowW, 40.0f}};
+      const bool selected = static_cast<int>(i) == m_selectedAffixIndex;
+      drawList.FillRect(layer, node, row,
+                        selected ? Faded(UiColor{230, 60, 60, 255}, alpha * 0.3f)
+                                 : Faded(UiColor{40, 40, 45, 255}, alpha * 0.5f));
+      drawList.StrokeRect(layer, node, row,
+                          Faded(selected ? UiColor{230, 60, 60, 255}
+                                         : UiColor{128, 128, 128, 255},
+                                alpha),
+                          1.0f);
+      char buf[128];
+      const Affix tmpAffix{
+          static_cast<AffixType>(affix.type), affix.value, affix.tier,
+          affix.isPrefix, Tag::None, {}, affix.isLegendary};
+      const char* desc = GetAffixDescriptionRef(tmpAffix, true);
+      std::snprintf(buf, sizeof(buf), "%s", desc);
+      drawList.Text(layer, node, buf, {row.origin.x + 10.0f, y + 10.0f}, 18.0f,
+                    Faded(ToUiColor(GetAffixTierColor(affix.tier)), alpha),
+                    kGlobalFontResourceId);
     }
   }
 
-  // Batch Salvage Options
-  float batchY = startY + panelH - 40.0f;
+  // Fuse button.
+  const UiRect fuseBtn{{midX - 80.0f, layout.panelY + 620.0f}, {160.0f, 50.0f}};
+  const bool canFuse = m_mergeBase != kInvalidDomainId &&
+                       m_mergeFodder != kInvalidDomainId &&
+                       m_mergeCatalyst != kInvalidDomainId &&
+                       m_selectedAffixIndex >= 0;
+  drawList.FillRect(layer, node, fuseBtn,
+                    Faded(canFuse ? ToUiColor({200, 40, 40, 255})
+                                  : ToUiColor(theme.buttonNormal),
+                          alpha));
+  drawList.StrokeRect(layer, node, fuseBtn, Faded(panelBorder, alpha), 1.0f);
+  drawList.Text(layer, node, "开始融合", {fuseBtn.origin.x + 40.0f,
+                                          fuseBtn.origin.y + 14.0f},
+                24.0f,
+                Faded(canFuse ? kWhiteTint : textSecondary, alpha),
+                kGlobalFontResourceId);
+}
 
-  // Filter Toggle
-  Rectangle filterBtn_Logic = {startX + 20.0f, startY + panelH - 80.0f, 100.0f, 32.0f};
-  bool filterHover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), filterBtn_Logic);
-  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+void UICraftingController::PaintSalvagingTab(UiDrawList& drawList,
+                                             const GameUiSnapshot& snapshot,
+                                             const Layout& layout,
+                                             float alpha) const {
+  const UiDrawLayer layer = UiDrawLayer::Panels;
+  const UiId node = m_rootNodeId;
+  const UITheme& theme = UIRenderer::GetTheme();
+  const UiColor slotBg = ToUiColor(theme.slotBackground);
+  const UiColor panelBorder = ToUiColor(theme.panelBorder);
+  const UiColor textPrimary = ToUiColor(theme.textPrimary);
+  const UiColor textSecondary = ToUiColor(theme.textSecondary);
+  const UiColor btnNormal = ToUiColor(theme.buttonNormal);
 
-  UIRenderer::DrawButton(UISystem::GetFont(), rectTex, filterBtn_Logic, "筛选设置", 16, WHITE, m_showSalvageFilter ? RED : DARKGRAY, filterHover, filterHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-  if (filterHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_showSalvageFilter = !m_showSalvageFilter;
+  const float midX = layout.panelX + layout.panelW * 0.5f;
+  const float slotY = layout.panelY + 150.0f;
+  const UiRect slotRect = SlotPaintRect(midX - 40.0f, slotY, kSlotSize);
+  drawList.FillRect(layer, node, slotRect, Faded(slotBg, alpha));
+  drawList.StrokeRect(layer, node, slotRect, Faded(panelBorder, alpha), 1.0f);
+
+  const GameUiItemView* salvage = FindDisplayedItem(snapshot, m_salvageItem);
+  if (salvage == nullptr) {
+    drawList.Text(layer, node, "放入分解物品",
+                  {midX - 48.0f, slotY + 30.0f}, 16.0f,
+                  Faded(textSecondary, alpha), kGlobalFontResourceId);
+  } else if (salvage->textureId != 0) {
+    drawList.Image(layer, node, SlotPaintRect(midX - 28.0f, slotY + 12.0f,
+                                              kSlotSize - 24.0f),
+                   salvage->textureId, Faded(kWhiteTint, alpha));
+  }
+
+  // Yield preview (builder-computed snapshot data; no per-frame vectors).
+  if (salvage != nullptr && !snapshot.crafting.salvageYield.empty()) {
+    drawList.Text(layer, node, "分解产出预估:",
+                  {midX - 56.0f, slotY + 140.0f}, 20.0f,
+                  Faded(ToUiColor(SKYBLUE), alpha), kGlobalFontResourceId);
+    const float startX = midX -
+                         static_cast<float>(snapshot.crafting.salvageYield.size()) *
+                             31.5f;
+    for (std::size_t i = 0; i < snapshot.crafting.salvageYield.size(); ++i) {
+      const GameUiSalvageYieldView& yield = snapshot.crafting.salvageYield[i];
+      const float x = startX + static_cast<float>(i) * 63.0f;
+      const float y = slotY + 180.0f;
+      const UiRect matRect = SlotPaintRect(x, y, 48.0f);
+      drawList.FillRect(layer, node, matRect, Faded(slotBg, alpha));
+      drawList.StrokeRect(layer, node, matRect, Faded(panelBorder, alpha), 1.0f);
+      char range[32];
+      std::snprintf(range, sizeof(range), "%d~%d", yield.min, yield.max);
+      drawList.Text(layer, node, range, {x + 6.0f, y + 34.0f}, 12.0f,
+                    Faded(ToUiColor(SKYBLUE), alpha), kGlobalFontResourceId);
+    }
+  }
+
+  // Salvage button.
+  const UiRect salvageBtn{{midX - 100.0f, layout.panelY + 580.0f},
+                          {200.0f, 60.0f}};
+  const bool canSalvage = m_salvageItem != kInvalidDomainId;
+  drawList.FillRect(layer, node, salvageBtn,
+                    Faded(canSalvage ? ToUiColor({200, 40, 40, 255})
+                                     : ToUiColor(theme.buttonNormal),
+                          alpha));
+  drawList.StrokeRect(layer, node, salvageBtn, Faded(panelBorder, alpha), 1.0f);
+  drawList.Text(layer, node, "开始分解装备",
+                {salvageBtn.origin.x + 40.0f, salvageBtn.origin.y + 18.0f},
+                24.0f,
+                Faded(canSalvage ? kWhiteTint : textSecondary, alpha),
+                kGlobalFontResourceId);
+
+  // Filter toggle + popup.
+  const UiRect filterBtn{{layout.panelX + 20.0f, layout.panelY + 620.0f},
+                         {100.0f, 32.0f}};
+  drawList.FillRect(layer, node, filterBtn,
+                    Faded(m_showSalvageFilter ? UiColor{200, 40, 40, 255}
+                                              : ToUiColor(theme.buttonNormal),
+                          alpha));
+  drawList.StrokeRect(layer, node, filterBtn, Faded(panelBorder, alpha), 1.0f);
+  drawList.Text(layer, node, "筛选设置", {filterBtn.origin.x + 16.0f,
+                                          filterBtn.origin.y + 7.0f},
+                16.0f, Faded(textPrimary, alpha), kGlobalFontResourceId);
 
   if (m_showSalvageFilter) {
-      float fx = startX - 220.0f;
-      float fy = startY + 100.0f;
-      float fw = 200.0f;
-      float fh = 300.0f;
-      DrawRectangleRec({fx * scale, fy * scale, fw * scale, fh * scale}, Fade({40, 40, 50, 255}, 0.9f * alpha));
-      DrawRectangleLinesEx({fx * scale, fy * scale, fw * scale, fh * scale}, 1.0f * scale, Fade(GOLD, alpha));
-      UISystem::DrawTextUI("分解过滤器", fx + 10, fy + 10, 18, GOLD, alpha);
+    const float fx = layout.panelX - 220.0f;
+    const float fy = layout.panelY + 100.0f;
+    drawList.FillRect(layer, node, {{fx, fy}, {200.0f, 300.0f}},
+                      Faded(UiColor{40, 40, 50, 255}, alpha * 0.9f));
+    drawList.StrokeRect(layer, node, {{fx, fy}, {200.0f, 300.0f}},
+                        Faded(ToUiColor(GOLD), alpha), 1.0f);
+    drawList.Text(layer, node, "分解过滤器", {fx + 55.0f, fy + 8.0f}, 18.0f,
+                  Faded(ToUiColor(GOLD), alpha), kGlobalFontResourceId);
 
-      auto DrawOption = [&](const char* label, bool& val, float y_off) {
-          Rectangle r_logic = {fx + 10, fy + y_off, 180.0f, 24.0f};
-          bool h = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic);
-          if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) val = !val;
-
-          UIRenderer::DrawButton(UISystem::GetFont(), rectTex, r_logic, label, 14, WHITE, val ? RED : DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-      };
-
-      DrawOption("排除已锁定", m_salvageFilter.excludeLocked, 40.0f);
-      DrawOption("保留 T6+ 装备", m_salvageFilter.keepIfTier6Plus, 70.0f);
-
-      UISystem::DrawTextUI("稀有度限制:", fx + 10, fy + 110, 14, GRAY, alpha);
-      auto DrawRarity = [&](const char* label, Rarity rar, float y_off) {
-          bool active = (m_salvageFilter.rarityMask & (1 << (uint32_t)rar));
-          Rectangle r_logic = {fx + 10, fy + y_off, 180.0f, 24.0f};
-          bool h = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic);
-          if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-              m_salvageFilter.rarityMask ^= (1 << (uint32_t)rar);
-          }
-
-          UIRenderer::DrawButton(UISystem::GetFont(), rectTex, r_logic, label, 14, WHITE, active ? UIRenderer::GetRarityColor(rar) : DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-      };
-      DrawRarity("Magic (蓝色)", Rarity::Magic, 140.0f);
-      DrawRarity("Rare (黄色)", Rarity::Rare, 170.0f);
-      DrawRarity("Exalted (紫色)", Rarity::Epic, 200.0f);
+    auto paintOption = [&](const char* label, bool value, float yOff) {
+      const UiRect r{{fx + 10.0f, fy + yOff}, {180.0f, 24.0f}};
+      drawList.FillRect(layer, node, r,
+                        Faded(value ? UiColor{200, 40, 40, 255}
+                                    : ToUiColor(theme.buttonNormal),
+                              alpha));
+      drawList.StrokeRect(layer, node, r, Faded(panelBorder, alpha), 1.0f);
+      drawList.Text(layer, node, label, {r.origin.x + 8.0f, r.origin.y + 4.0f},
+                    14.0f, Faded(textPrimary, alpha), kGlobalFontResourceId);
+    };
+    paintOption("排除已锁定", m_salvageFilter.excludeLocked, 40.0f);
+    paintOption("保留 T6+ 装备", m_salvageFilter.keepIfTier6Plus, 70.0f);
+    drawList.Text(layer, node, "稀有度限制:", {fx + 10.0f, fy + 110.0f}, 14.0f,
+                  Faded(textSecondary, alpha), kGlobalFontResourceId);
+    auto paintRarity = [&](const char* label, Rarity rarity, float yOff) {
+      const bool on = (m_salvageFilter.rarityMask &
+                       (1u << static_cast<std::uint32_t>(rarity))) != 0;
+      const UiRect r{{fx + 10.0f, fy + yOff}, {180.0f, 24.0f}};
+      drawList.FillRect(layer, node, r,
+                        Faded(on ? ToUiColor(UIRenderer::GetRarityColor(rarity))
+                                 : ToUiColor(theme.buttonNormal),
+                              alpha));
+      drawList.StrokeRect(layer, node, r, Faded(panelBorder, alpha), 1.0f);
+      drawList.Text(layer, node, label, {r.origin.x + 8.0f, r.origin.y + 4.0f},
+                    14.0f, Faded(textPrimary, alpha), kGlobalFontResourceId);
+    };
+    paintRarity("Magic (蓝色)", Rarity::Magic, 140.0f);
+    paintRarity("Rare (黄色)", Rarity::Rare, 170.0f);
+    paintRarity("Exalted (紫色)", Rarity::Epic, 200.0f);
   }
 
-  auto DrawBatchButton = [&](const char *label, float x_logic, float y_logic) {
-    float bW = 200.0f;
-    float bH = 32.0f;
-    Rectangle r_logic = {x_logic, y_logic, bW, bH};
-    bool h = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic);
-
-    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, r_logic, label, 16, WHITE, DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-
-    if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-      auto playerEnt = UISystem::GetPlayerEntity(registry);
-      auto* inv = registry.try_get<InventoryComponent>(playerEnt);
-      if (!inv) return;
-
-      std::vector<entt::entity> toSalvage;
-      for (auto entity : inv->items) {
-        if (!registry.valid(entity)) continue;
-        const auto &item = registry.get<ItemComponent>(entity);
-
-        // Apply Filters
-        if (m_salvageFilter.excludeLocked && item.isLocked) continue;
-        if (!(m_salvageFilter.rarityMask & (1 << (uint32_t)item.rarity))) continue;
-        if (m_salvageFilter.keepIfTier6Plus) {
-            bool hasT6 = false;
-            for(const auto& aff : item.affixes) if(aff.tier >= 6) { hasT6 = true; break; }
-            if(hasT6) continue;
-        }
-
-        if (SalvageSystem::CanSalvage(item)) {
-           toSalvage.push_back(entity);
-        }
-      }
-      if (!toSalvage.empty()) {
-          SalvageSystem::BatchExecute(registry, toSalvage, playerEnt);
-      }
-    }
-  };
-
-  DrawBatchButton("按过滤器批量分解", midX - 100.0f, batchY - 40.0f);
+  // Batch salvage button.
+  const UiRect batchBtn{{midX - 100.0f, layout.panelY + 620.0f}, {200.0f, 32.0f}};
+  drawList.FillRect(layer, node, batchBtn, Faded(btnNormal, alpha));
+  drawList.StrokeRect(layer, node, batchBtn, Faded(panelBorder, alpha), 1.0f);
+  drawList.Text(layer, node, "按过滤器批量分解",
+                {batchBtn.origin.x + 24.0f, batchBtn.origin.y + 7.0f}, 16.0f,
+                Faded(textPrimary, alpha), kGlobalFontResourceId);
 }
 
 } // namespace NoMoreDay::ui

@@ -1,7 +1,11 @@
 #include "doctest.h"
 
+#include "game/application/ui/GameUiCommandHandler.hpp"
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UISkillHub.hpp"
+#include "game/application/ui/UiDrawList.hpp"
+#include "game/application/ui/UiRuntimeTypes.hpp"
+#include "game/application/ui/UiViewport.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
@@ -17,6 +21,9 @@
 
 using namespace NoMoreDay;
 
+using NoMoreDay::ui::GameUiIntent;
+using NoMoreDay::ui::GameUiSnapshot;
+
 namespace {
 
 std::string ReadFileContents(const char* path) {
@@ -28,16 +35,21 @@ std::string ReadFileContents(const char* path) {
                      std::istreambuf_iterator<char>());
 }
 
-// Draw early-outs while the supplied alpha <= 0. Raising it lets the draw
-// body run; the hub takes the alpha as a parameter (U8: the legacy
-// UISystem::State.skillTreeAlpha slot is gone).
-struct SkillTreeAlphaScoped {
-  explicit SkillTreeAlphaScoped(float alpha) : alpha(alpha) {}
-  float alpha;
-};
+// R8: an empty frame-scoped snapshot + input for headless interaction smokes.
+ui::UiInputFrame MakeEmptyInput() {
+  ui::UiInputFrame input;
+  input.deltaSeconds = 0.016f;
+  input.tooltipTarget = ui::kInvalidUiId;
+  return input;
+}
+
+ui::UiViewport MakeViewport() {
+  return ui::UiViewport::Fit({1280.0f, 720.0f});
+}
 
 // Minimal Blade Ascendant player (profession + level), mirroring the setup in
-// tests/unit/BladeMasteryTests.cpp.
+// tests/unit/BladeMasteryTests.cpp. The handler resolves the player through
+// PlayerTag, so the host-side scenarios tag the player entity.
 entt::entity CreateBladeAscendant(entt::registry& registry, int level) {
   const entt::entity player = registry.create();
   registry.emplace<PlayerStats>(player).level = level;
@@ -49,48 +61,46 @@ entt::entity CreateBladeAscendant(entt::registry& registry, int level) {
 
 } // namespace
 
-TEST_CASE("[Unit] UISkillHub Draw is headless-safe with no valid player") {
+TEST_CASE("[Unit] UISkillHub UpdateInput/Paint are headless-safe with no host") {
   UISkillHub hub;
-  entt::registry registry;
+  GameUiSnapshot snapshot;
+  ui::UiDrawList drawList;
+  ui::UiViewport viewport = MakeViewport();
 
-  // alpha 0: Draw early-outs before touching the player.
-  hub.Draw(registry, entt::null, 0.0f);
-
-  // With the panel visible, Draw reaches the player lookup and early-outs on
-  // try_get<ActiveSkillsComponent> == nullptr (entt::null and bare entities
-  // must not crash).
-  {
-    const float alpha = 1.0f;
-    hub.Draw(registry, entt::null, alpha);
-
-    const entt::entity bare = registry.create();
-    hub.Draw(registry, bare, alpha);
-  }
+  // No host: UpdateInput early-outs (interactions degrade to UI-local state),
+  // Paint only issues the custom command and PaintCanvas has no paint state.
+  hub.UpdateInput(snapshot, MakeEmptyInput(), 1.0f);
+  hub.Paint(drawList, viewport, snapshot, 1.0f);
+  hub.PaintCanvas(ui::UiRect{{0.0f, 0.0f}, {1280.0f, 720.0f}});
+  CHECK(hub.SelectedSkillId() == NoMoreDay::INVALID_SKILL_ID);
 }
 
-TEST_CASE("[Unit] UISkillHub Draw renders a minimal player without crashing") {
-  // tests/main.cpp opens a hidden raylib window with a GL context, so
-  // immediate-mode raylib drawing works. Data registries stay unloaded here:
-  // BladeMasteryRegistry reports no profiles (empty-panel branch),
-  // SkillRegistry reports no skills (empty grid), and
+TEST_CASE("[Unit] UISkillHub UpdateInput + PaintCanvas render a minimal player "
+          "without crashing") {
+  // R8: the hub is a snapshot surface — the draw path is the registered
+  // painter (PaintCanvas), fed by the paint state UpdateInput captured from
+  // the frame snapshot. tests/main.cpp opens a hidden raylib window with a GL
+  // context, so immediate-mode raylib drawing works. Data registries stay
+  // unloaded here: BladeMasteryRegistry reports no profiles (empty-panel
+  // branch), SkillRegistry reports no skills (empty grid), and
   // AssetLoadingSystem::GetTexture returns a null texture {0} when
   // uninitialized, so slot frames are the only texture-bound draw work.
+  ui::GameUiHost host;
   UISkillHub hub;
-  entt::registry registry;
+  hub.SetHost(&host);
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerStats>(player).level = 1;
-  registry.emplace<CombatStats>(player);
-  auto& active = registry.emplace<ActiveSkillsComponent>(player);
-  active.available_talent_points = 3;
+  GameUiSnapshot snapshot;
+  snapshot.player.hasPlayer = true;
+  snapshot.player.level = 1;
+  snapshot.skillTree.availableTalentPoints = 3;
 
-  SkillTreeAlphaScoped alpha(1.0f);
+  hub.UpdateInput(snapshot, MakeEmptyInput(), 1.0f);
   BeginDrawing();
-  hub.Draw(registry, player, alpha.alpha);
+  hub.PaintCanvas(ui::UiRect{{0.0f, 0.0f}, {1280.0f, 720.0f}});
   EndDrawing();
 }
 
-TEST_CASE("[Unit] UISkillHub TrySelectMastery mirrors BladeMasteryService") {
+TEST_CASE("[Unit] SkillSelectMastery intent mirrors BladeMasteryService") {
   REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
       "assets/data/blade_masteries.json"));
 
@@ -100,36 +110,48 @@ TEST_CASE("[Unit] UISkillHub TrySelectMastery mirrors BladeMasteryService") {
       systems::BladeMasteryService::IsDebugUnlockOverrideEnabled();
   systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(false);
 
-  // U8: the failure box routes through the hosted GameUiHost (the legacy
-  // UISystem::State.showMessageBox write is gone).
-  NoMoreDay::ui::GameUiHost host;
-  UISkillHub hub;
-  hub.SetHost(&host);
+  // R8: the hub no longer writes gameplay (TrySelectMastery is gone). The
+  // mastery selection is a SkillSelectMastery intent executed by the command
+  // handler; its failure notification is the contractual popup text the
+  // legacy UI tests assert (UITests: Locked mastery selection shows popup).
   entt::registry registry;
+  registry.emplace<PlayerTag>(CreateBladeAscendant(registry, 99));
+  ui::GameUiCommandHandler handler;
 
   // Level 99 Blade Ascendant: SwordSaint (unlock_level 50) is selectable.
-  const entt::entity player = CreateBladeAscendant(registry, 99);
-  CHECK(hub.TrySelectMastery(registry, player, BladeMasteryId::SwordSaint));
-  const auto* mastery = registry.try_get<BladeMasteryComponent>(player);
+  GameUiIntent intent;
+  intent.sourceNode = ui::kInvalidUiId;
+  intent.kind = ui::GameUiIntentKind::SkillSelectMastery;
+  intent.payload.masteryId = static_cast<std::uint8_t>(BladeMasteryId::SwordSaint);
+  const auto select = handler.Execute(registry, intent);
+  CHECK(select.success);
+  const auto* mastery = registry.try_get<BladeMasteryComponent>(
+      registry.view<PlayerTag>().front());
   REQUIRE(mastery != nullptr);
   CHECK(mastery->selected == BladeMasteryId::SwordSaint);
 
-  // Level too low without the debug override: reject and queue the failure
-  // message box.
-  const entt::entity lowLevel = CreateBladeAscendant(registry, 1);
-  CHECK_FALSE(
-      hub.TrySelectMastery(registry, lowLevel, BladeMasteryId::SwordSaint));
-  CHECK(host.IsMessageBoxVisible());
+  // Level too low without the debug override: reject with the contractual
+  // failure notification (surfaces via the hosted message box on Update).
+  entt::registry lowRegistry;
+  lowRegistry.emplace<PlayerTag>(CreateBladeAscendant(lowRegistry, 1));
+  const auto rejected = handler.Execute(lowRegistry, intent);
+  CHECK_FALSE(rejected.success);
+  CHECK(rejected.notification == "等级或基础职业不满足职业专精条件");
 
   // No Blade Ascendant profession: reject regardless of level.
-  const entt::entity noProfession = registry.create();
-  registry.emplace<PlayerStats>(noProfession).level = 99;
-  registry.emplace<CombatStats>(noProfession);
-  CHECK_FALSE(hub.TrySelectMastery(registry, noProfession,
-                                   BladeMasteryId::SwordSaint));
+  entt::registry noProfRegistry;
+  const entt::entity noProfession = noProfRegistry.create();
+  noProfRegistry.emplace<PlayerTag>(noProfession);
+  noProfRegistry.emplace<PlayerStats>(noProfession).level = 99;
+  noProfRegistry.emplace<CombatStats>(noProfession);
+  CHECK_FALSE(handler.Execute(noProfRegistry, intent).success);
 
   // Invalid mastery id (no profile in the registry): reject.
-  CHECK_FALSE(hub.TrySelectMastery(registry, player, BladeMasteryId::None));
+  entt::registry noneRegistry;
+  noneRegistry.emplace<PlayerTag>(CreateBladeAscendant(noneRegistry, 99));
+  GameUiIntent noneIntent = intent;
+  noneIntent.payload.masteryId = static_cast<std::uint8_t>(BladeMasteryId::None);
+  CHECK_FALSE(handler.Execute(noneRegistry, noneIntent).success);
 
   systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(
       previousDebugOverride);

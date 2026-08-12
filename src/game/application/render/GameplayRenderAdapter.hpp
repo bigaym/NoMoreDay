@@ -58,6 +58,13 @@ private:
   void ExecuteVFXPass(render::GameplayRenderFrame &frame);
   void ExecuteUIWorldPass(render::GameplayRenderFrame &frame);
 
+  // R3 (remediation, design §3.5): the read-only visible-item proxy producer
+  // shared by the CPU and GPU loot paths (query/cull only, no component
+  // writes), and the CPU-only label/glyph/beam builder that runs after it.
+  // The GPU loot path calls the producer and then skips the builder.
+  void CollectVisibleItemProxies(render::GameplayRenderFrame &frame);
+  void BuildCpuLootLabels(render::GameplayRenderFrame &frame);
+
   const NoMoreDay::SharedContext *m_context = nullptr;
   float m_cameraZoom = 1.5f;
   float m_fontScale = 1.0f;

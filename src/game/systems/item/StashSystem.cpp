@@ -48,6 +48,26 @@ int StashSystem::getNextUnlockCost(entt::registry& registry, StashType type) {
     return StashConfig::getUnlockCost(currentCount);
 }
 
+// Const-correct query overloads (R7: the snapshot builder reads the registry
+// read-only through these; SharedStash is a singleton, the personal stash is
+// resolved via a const view).
+int StashSystem::getUnlockedTabCount(const entt::registry& registry, StashType type) {
+    if (type == StashType::Shared) {
+        return SharedStash::Get().getUnlockedTabCount();
+    } else {
+        const auto view =
+            registry.template view<const PersonalStashComponent, const PlayerTag>();
+        for (auto entity : view) {
+            return view.template get<const PersonalStashComponent>(entity).unlockedTabs;
+        }
+        return 0;
+    }
+}
+
+int StashSystem::getNextUnlockCost(const entt::registry& registry, StashType type) {
+    return StashConfig::getUnlockCost(getUnlockedTabCount(registry, type));
+}
+
 bool StashSystem::canStoreItem(entt::registry& registry, entt::entity item) {
     if (!registry.valid(item)) return false;
     auto* itemComp = registry.try_get<ItemComponent>(item);

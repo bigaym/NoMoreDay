@@ -3,6 +3,8 @@
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/SkillTreeController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
+#include "game/application/ui/UiRuntimeTypes.hpp"
+#include "game/application/ui/UiViewport.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 
@@ -11,7 +13,9 @@
 
 #include <entt/entt.hpp>
 
+using NoMoreDay::ui::GameUiSnapshot;
 using NoMoreDay::ui::SkillTreeController;
+using NoMoreDay::ui::UiDrawList;
 using NoMoreDay::ui::UiRuntime;
 
 TEST_CASE("[Unit] SkillTreeController registers a hidden full-screen node") {
@@ -44,7 +48,7 @@ TEST_CASE("[Unit] SkillTreeController Toggle closes sibling panels through the "
   host.SetCharacterPanelVisible(true);
   host.OpenContextMenu(entt::null, false, 0, NoMoreDay::EquipmentSlot::None);
 
-  controller.Toggle(registry);
+  controller.Toggle();
   CHECK(controller.IsVisible());
   CHECK_FALSE(host.IsInventoryVisible());
   CHECK_FALSE(host.IsCharacterPanelVisible());
@@ -54,7 +58,7 @@ TEST_CASE("[Unit] SkillTreeController Toggle closes sibling panels through the "
   REQUIRE(openNode.has_value());
   CHECK(openNode->visible);
 
-  controller.Toggle(registry);
+  controller.Toggle();
   CHECK_FALSE(controller.IsVisible());
   CHECK(controller.SelectedSkillId() == NoMoreDay::INVALID_SKILL_ID);
   const auto closedNode = runtime.GetNode(controller.NodeId());
@@ -69,13 +73,13 @@ TEST_CASE("[Unit] SkillTreeController Close and session reset") {
 
   controller.EnterGameplay();
   CHECK(controller.IsInGameplay());
-  controller.Toggle(registry);
+  controller.Toggle();
   CHECK(controller.IsVisible());
 
   controller.Close();
   CHECK_FALSE(controller.IsVisible());
 
-  controller.Toggle(registry);
+  controller.Toggle();
   controller.LeaveGameplay();
   CHECK_FALSE(controller.IsVisible());
   CHECK_FALSE(controller.IsInGameplay());
@@ -86,36 +90,40 @@ TEST_CASE("[Unit] SkillTreeController UpdateAlpha drives the instance alpha") {
   SkillTreeController controller(runtime);
   entt::registry registry;
 
-  controller.Toggle(registry);
+  controller.Toggle();
   controller.UpdateAlpha(1.0f / 6.0f);
   CHECK(controller.IsVisible());
   // alpha = 0 + dt * 6.0f with dt = 1/6 -> 1.0, clamped.
   CHECK(controller.Alpha() == doctest::Approx(1.0f));
 
-  controller.Toggle(registry);
+  controller.Toggle();
   controller.UpdateAlpha(1.0f);
   CHECK(controller.Alpha() == doctest::Approx(0.0f));
 }
 
-TEST_CASE("[Unit] SkillTreeController Draw is headless-safe") {
+TEST_CASE("[Unit] SkillTreeController Update/Paint are headless-safe") {
   UiRuntime runtime;
   SkillTreeController controller(runtime);
-  entt::registry registry;
+  UiDrawList drawList;
+  NoMoreDay::ui::UiViewport viewport =
+      NoMoreDay::ui::UiViewport::Fit({1280.0f, 720.0f});
+  GameUiSnapshot snapshot;
+  NoMoreDay::ui::UiInputFrame input;
+  input.deltaSeconds = 0.016f;
+  input.tooltipTarget = NoMoreDay::ui::kInvalidUiId;
 
-  // No player / panel hidden: must be a no-op.
-  controller.Draw(registry, entt::null);
-
-  const auto player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<PlayerStats>(player);
+  // Panel hidden: must be a no-op.
+  controller.Update(snapshot, input);
+  controller.Paint(drawList, viewport, snapshot);
 
   controller.EnterGameplay();
-  controller.Toggle(registry);
+  controller.Toggle();
   controller.UpdateAlpha(1.0f);
 
-  BeginDrawing();
-  controller.Draw(registry, player);
-  EndDrawing();
+  // Visible hub stage: Update + Paint run against the (empty) snapshot
+  // headless-safely (the hub early-outs without host/data).
+  controller.Update(snapshot, input);
+  controller.Paint(drawList, viewport, snapshot);
 }
 
 TEST_CASE("[Unit] UISystem no longer calls legacy skill panels statically") {

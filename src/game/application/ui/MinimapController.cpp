@@ -2,8 +2,9 @@
 
 #include "core/logging/Logger.hpp"
 #include "core/utils/FmtBuffer.hpp"
+#include "engine/render/GPUData.hpp" // components::Colors::MAP_AFFIX_*
 #include "game/application/ui/UICommon.hpp"
-#include "game/application/ui/UiDrawList.hpp"
+#include "game/application/ui/UiResourceIds.hpp"
 #include "game/application/ui/UIRenderer.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/foundation/components/AIComponent.hpp"
@@ -19,13 +20,20 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 namespace NoMoreDay::ui {
 
 namespace {
 // Node id: hashed label so the id is deterministic and readable.
 inline constexpr UiId kMinimapRootNode =
-    static_cast<UiId>(entt::hashed_string("ui_minimap").value());
+    static_cast<UiId>(0x31B7E4FAu); // hashed "ui_minimap"
+
+// Fog texture palette (ported verbatim from UIMinimap::Draw).
+inline constexpr Color kFogWalkableVisible{160, 160, 160, 255};
+inline constexpr Color kFogWalkableExplored{60, 60, 60, 255};
+inline constexpr Color kFogWallVisible{80, 80, 80, 255};
+inline constexpr Color kFogWallExplored{30, 30, 30, 255};
 } // namespace
 
 MinimapController::MinimapController(UiRuntime& runtime) : m_runtime(runtime) {
@@ -37,13 +45,13 @@ MinimapController::MinimapController(UiRuntime& runtime) : m_runtime(runtime) {
   desc.layout.height = UiLength::Pixels(188.0f);
   desc.layout.margin = UiInsets{/*left*/ 2346.0f, /*top*/ 26.0f, 0.0f, 0.0f};
   desc.visible = true;
-  desc.hitTestVisible = false; // The minimap is display-only; no pointer capture.
+  desc.hitTestVisible = false; // Display-only; no pointer capture.
   desc.capturePointer = false;
   desc.focusable = false;
   desc.captureKeyboard = false;
   desc.acceptsText = false;
   desc.modal = false;
-  desc.zIndex = static_cast<int32_t>(UiDrawLayer::Hud);
+  desc.zIndex = static_cast<std::int32_t>(UiDrawLayer::Hud);
   desc.customPainter = kInvalidUiResourceId;
   if (m_runtime.CreateNode(desc)) {
     m_rootNodeId = desc.id;
@@ -83,67 +91,140 @@ void MinimapController::ToggleDebugReveal() {
   LOG_INFO("Minimap Debug Reveal: {}", m_debugRevealMap ? "ON" : "OFF");
 }
 
-void MinimapController::Draw(entt::registry& registry,
-                             const LevelManager& levelManager,
-                             const NoMoreDay::systems::SpatialHashGrid* grid) {
+void MinimapController::Update(const GameUiSnapshot& snapshot,
+                               const LevelManager& levelManager,
+                               const NoMoreDay::systems::SpatialHashGrid*,
+                               float deltaSeconds) {
+  m_hasRunUpdate = true;
+  m_enemyDotCount = 0;
+  m_hasPortalArrow = false;
+  m_hasZoneText = false;
+  m_hasKillText = false;
+  m_affixTextCount = 0;
+
   const auto& map = levelManager.getMapSystem();
   const auto& fog = levelManager.getFogSystem();
 
-  // Scale
-  float scale = UIRenderer::GetScale();
-  auto& theme = UIRenderer::GetTheme();
-  Font font = UISystem::GetFont();
-
-  // Layout in Logic Space
+  // Layout in Logic Space (fixed 2K reference).
   const float mapSize = 180.0f;
   const float margin = 30.0f;
   const float x = UI_REF_WIDTH - mapSize - margin;
   const float y = margin;
 
-  // Helpers
-  auto DrawRectScaled = [&](float fx, float fy, float w, float h, Color c) {
-    DrawRectangle((int)(fx * scale), (int)(fy * scale), (int)(w * scale),
-                  (int)(h * scale), c);
-  };
-  auto DrawRectLinesScaled = [&](float fx, float fy, float w, float h,
-                                 float thick, Color c) {
-    DrawRectangleLinesEx({fx * scale, fy * scale, w * scale, h * scale},
-                         thick * scale, c);
-  };
-
-  // Background Shadow/Border
-  DrawRectScaled(x - 4, y - 4, mapSize + 8, mapSize + 8, theme.panelBackground);
-  DrawRectLinesScaled(x - 4, y - 4, mapSize + 8, mapSize + 8, 1.0f,
-                      theme.panelBorder);
-
   int gridW = fog.getWidth();
   int gridH = fog.getHeight();
-  if (gridW == 0 || gridH == 0) {
+  m_hasFog = gridW > 0 && gridH > 0;
+
+  m_hasPlayerPosition = snapshot.player.hasWorldPosition;
+  m_isTown = levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town;
+
+  // Zone text (from level manager world data + snapshot dimensional state).
+  {
+    char zoneBuf[128];
+    const char* baseName = m_isTown ? "宁静村落" : "地下城";
+    if (m_isTown) {
+      utils::FormatToBuffer(zoneBuf, "{}", baseName);
+    } else {
+      int displayLevel = levelManager.getCurrentLevel();
+      if (snapshot.minimap.dimensionalActive) {
+        int difficultyLv = snapshot.minimap.dimensionalBaseLevel +
+                           (snapshot.minimap.dimensionalDepth - 1);
+        utils::FormatToBuffer(zoneBuf, "异界 - {}层 [Lv.{}]",
+                              snapshot.minimap.dimensionalDepth, difficultyLv);
+      } else {
+        utils::FormatToBuffer(zoneBuf, "{} - {}层", baseName, displayLevel);
+      }
+    }
+    std::snprintf(m_zoneText, sizeof(m_zoneText), "%s", zoneBuf);
+    m_hasZoneText = true;
+  }
+
+  // Kill progress text (from snapshot).
+  if (!m_isTown) {
+    const std::uint32_t kills = snapshot.minimap.currentMapKills;
+    const std::uint32_t required = snapshot.minimap.killRequirement;
+    m_killGoalReached = required > 0 && kills >= required;
+    if (m_killGoalReached) {
+      utils::FormatToBuffer(m_killText, "击杀: {} (出口已标位)", kills);
+    } else {
+      utils::FormatToBuffer(m_killText, "击杀: {} / {}", kills, required);
+    }
+    m_hasKillText = true;
+
+    // Portal arrow direction (snapshot next-level portal position).
+    if (m_killGoalReached && snapshot.minimap.hasNextLevelPortal) {
+      float dx = snapshot.minimap.nextLevelPortalX - snapshot.player.worldX;
+      float dy = snapshot.minimap.nextLevelPortalY - snapshot.player.worldY;
+      m_portalAngle = std::atan2(dy, dx);
+      m_hasPortalArrow = true;
+    }
+
+    // Map affixes (mosaic level, level manager resonance data).
+    if (levelManager.isMosaicLevel()) {
+      const auto& resonance = levelManager.getCurrentResonance();
+      auto addAffix = [&](const char* label, float value, bool isPositive) {
+        if (m_affixTextCount >=
+            static_cast<std::uint8_t>(std::size(m_affixTexts))) {
+          return;
+        }
+        const std::size_t index = m_affixTextCount++;
+        utils::FormatToBuffer(m_affixTexts[index], "{}: {:+.0f}%", label,
+                              (value - 1.0f) * 100.0f);
+        m_affixPositive[index] = isPositive;
+      };
+      if (resonance.totalEnemyDensity != 1.0f) {
+        addAffix("怪物密度", resonance.totalEnemyDensity,
+                 resonance.totalEnemyDensity < 1.0f);
+      }
+      if (resonance.totalDropRate != 1.0f) {
+        addAffix("物品掉落", resonance.totalDropRate,
+                 resonance.totalDropRate > 1.0f);
+      }
+      if (resonance.totalLevelMod != 0) {
+        if (m_affixTextCount <
+            static_cast<std::uint8_t>(std::size(m_affixTexts))) {
+          const std::size_t index = m_affixTextCount;
+          utils::FormatToBuffer(m_affixTexts[index], "怪物等级: {:+}",
+                                resonance.totalLevelMod);
+          m_affixPositive[index] = false;
+          ++m_affixTextCount;
+        }
+      }
+      if (resonance.dominantElement != FragmentElement::None) {
+        if (m_affixTextCount <
+            static_cast<std::uint8_t>(std::size(m_affixTexts))) {
+          const char* elemName =
+              FragmentElementzh[static_cast<std::size_t>(
+                                    resonance.dominantElement)]
+                  .data();
+          std::snprintf(m_affixTexts[m_affixTextCount],
+                        sizeof(m_affixTexts[m_affixTextCount]), "%s",
+                        elemName);
+          m_affixPositive[m_affixTextCount] = true; // GOLD tint below.
+          ++m_affixTextCount;
+        }
+      }
+    }
+  }
+
+  if (!m_hasFog || !m_hasPlayerPosition) {
     return;
   }
 
-  auto viewRect = registry.view<PlayerTag, Position>();
-  if (viewRect.begin() == viewRect.end()) {
-    return;
-  }
-
-  entt::entity playerEntity = viewRect.front();
-  const auto& playerPos = viewRect.get<Position>(playerEntity);
-
-  int playerGx = static_cast<int>(playerPos.x / FogOfWarSystem::TILE_SIZE);
-  int playerGy = static_cast<int>(playerPos.y / FogOfWarSystem::TILE_SIZE);
+  m_playerGx = static_cast<int>(snapshot.player.worldX /
+                                FogOfWarSystem::TILE_SIZE);
+  m_playerGy = static_cast<int>(snapshot.player.worldY /
+                                FogOfWarSystem::TILE_SIZE);
   const int viewRadius = 30;
-  float minimapScale = mapSize / (float)(viewRadius * 2);
 
-  // Initialize Texture
+  // --- Fog texture maintenance (retained GPU resource) ---------------------
   if (m_minimapTexture.id == 0 || m_minimapW != gridW || m_minimapH != gridH) {
     if (m_minimapTexture.id != 0) {
       UnloadTexture(m_minimapTexture);
     }
     m_minimapW = gridW;
     m_minimapH = gridH;
-    m_minimapPixels.assign(gridW * gridH, BLACK); // Clear full buffer
-    // Create texture with BLACK initially
+    m_minimapPixels.assign(gridW * gridH, BLACK);
     Image img = GenImageColor(gridW, gridH, BLACK);
     m_minimapTexture = LoadTextureFromImage(img);
     UnloadImage(img);
@@ -151,54 +232,42 @@ void MinimapController::Draw(entt::registry& registry,
     m_minimapDirty = true;
   }
 
-  // Optimize: Partial Texture Update logic
-  // Update frequency can be per frame if we only update small region
-  m_refreshTimer += GetFrameTime();
-
+  m_refreshTimer += deltaSeconds;
   if (m_refreshTimer >= 0.166f || m_minimapDirty) {
     m_refreshTimer = 0.0f;
 
-    // Determine update bounds (clamped to grid)
-    int minGx = std::max(0, playerGx - viewRadius);
-    int maxGx = std::min(gridW, playerGx + viewRadius + 1);
-    int minGy = std::max(0, playerGy - viewRadius);
-    int maxGy = std::min(gridH, playerGy + viewRadius + 1);
+    int minGx = std::max(0, m_playerGx - viewRadius);
+    int maxGx = std::min(gridW, m_playerGx + viewRadius + 1);
+    int minGy = std::max(0, m_playerGy - viewRadius);
+    int maxGy = std::min(gridH, m_playerGy + viewRadius + 1);
 
     int uWidth = maxGx - minGx;
     int uHeight = maxGy - minGy;
 
     if (uWidth > 0 && uHeight > 0) {
-      // Resize partial buffer
-      if (m_partialBuffer.size() < (size_t)(uWidth * uHeight)) {
+      if (m_partialBuffer.size() < static_cast<std::size_t>(uWidth * uHeight)) {
         m_partialBuffer.resize(uWidth * uHeight);
       }
 
-      // Only iterate potentially visible area
       for (int ly = 0; ly < uHeight; ++ly) {
         int gy = minGy + ly;
         for (int lx = 0; lx < uWidth; ++lx) {
           int gx = minGx + lx;
-
           Color c = BLACK;
           bool isExplored = fog.isExplored(gx, gy);
-
           if (isExplored || m_debugRevealMap) {
             bool isVisible =
                 m_debugRevealMap ? true : fog.isVisible(gx, gy);
             if (map.isWalkable(gx, gy)) {
-              c = isVisible ? Color{160, 160, 160, 255}
-                            : Color{60, 60, 60, 255};
+              c = isVisible ? kFogWalkableVisible : kFogWalkableExplored;
             } else {
-              c = isVisible ? Color{80, 80, 80, 255}
-                            : Color{30, 30, 30, 255};
+              c = isVisible ? kFogWallVisible : kFogWallExplored;
             }
           }
-
           m_partialBuffer[ly * uWidth + lx] = c;
         }
       }
 
-      // Use UpdateTextureRec to upload ONLY the changed region
       Rectangle updateRect = {(float)minGx, (float)minGy, (float)uWidth,
                               (float)uHeight};
       UpdateTextureRec(m_minimapTexture, updateRect, m_partialBuffer.data());
@@ -206,233 +275,176 @@ void MinimapController::Draw(entt::registry& registry,
     m_minimapDirty = false;
   }
 
-  // Draw Map Texture
-  Rectangle sourceRec = {(float)playerGx - viewRadius,
-                         (float)playerGy - viewRadius, (float)viewRadius * 2,
-                         (float)viewRadius * 2};
-  Rectangle destRec = {x * scale, y * scale, mapSize * scale, mapSize * scale};
-  DrawTexturePro(m_minimapTexture, sourceRec, destRec, {0, 0}, 0.0f, WHITE);
-
-  // Scanline / Overlay effect
-  DrawRectangleGradientV((int)(x * scale), (int)(y * scale),
-                         (int)(mapSize * scale), (int)(mapSize * scale),
-                         Fade(WHITE, 0.05f), Fade(BLACK, 0.1f));
-
-  // Draw Enemies
-  if (grid) {
-    // Use Spatial Grid Query if available
-    // Search slightly larger than view to clip smoothly
-    float worldViewR = (float)viewRadius * FogOfWarSystem::TILE_SIZE * 1.5f;
-
-    // Callback based query
-    grid->query(Position{playerPos.x, playerPos.y}, worldViewR,
-                [&](entt::entity entity, const Position& enemyPos) {
-      if (registry.valid(entity) && registry.all_of<EnemyTag>(entity)) {
-        // KilledTag check is done in valid? No, need to check exclude
-        if (registry.any_of<KilledTag>(entity) ||
-            registry.any_of<DormantTag>(entity)) {
-          return;
-        }
-
-        // Logic pos check
-        float dx =
-            (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
-        float dy =
-            (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
-        const int enemyGx =
-            static_cast<int>(enemyPos.x / FogOfWarSystem::TILE_SIZE);
-        const int enemyGy =
-            static_cast<int>(enemyPos.y / FogOfWarSystem::TILE_SIZE);
-        if (!m_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
-          return;
-        }
-
-        if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
-          float logicX = x + (dx + viewRadius) * minimapScale;
-          float logicY = y + (dy + viewRadius) * minimapScale;
-          DrawCircle((int)(logicX * scale), (int)(logicY * scale),
-                     2.5f * scale, theme.danger);
-        }
-      }
-    });
-  } else {
-    // Fallback to full iteration (slow)
-    auto enemyView =
-        registry.view<EnemyTag, Position>(entt::exclude<KilledTag, DormantTag>);
-    for (auto entity : enemyView) {
-      const auto& enemyPos = enemyView.get<Position>(entity);
-      float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
-      float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
-      const int enemyGx =
-          static_cast<int>(enemyPos.x / FogOfWarSystem::TILE_SIZE);
-      const int enemyGy =
-          static_cast<int>(enemyPos.y / FogOfWarSystem::TILE_SIZE);
-      if (!m_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
-        continue;
-      }
-      if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
-        float logicX = x + (dx + viewRadius) * minimapScale;
-        float logicY = y + (dy + viewRadius) * minimapScale;
-        DrawCircle((int)(logicX * scale), (int)(logicY * scale),
-                   2.5f * scale, theme.danger);
-      }
+  // --- Enemy dots (from the snapshot monster view-model) -------------------
+  const float minimapScale = mapSize / (float)(viewRadius * 2);
+  for (const GameUiMonsterHealthView& monster : snapshot.monsters) {
+    if (m_enemyDotCount >= m_enemyDots.size()) {
+      break;
+    }
+    float dx = (monster.worldX - snapshot.player.worldX) /
+               FogOfWarSystem::TILE_SIZE;
+    float dy = (monster.worldY - snapshot.player.worldY) /
+               FogOfWarSystem::TILE_SIZE;
+    const int enemyGx =
+        static_cast<int>(monster.worldX / FogOfWarSystem::TILE_SIZE);
+    const int enemyGy =
+        static_cast<int>(monster.worldY / FogOfWarSystem::TILE_SIZE);
+    if (!m_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
+      continue;
+    }
+    if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
+      EnemyDot& dot = m_enemyDots[m_enemyDotCount++];
+      dot.x = x + (dx + viewRadius) * minimapScale;
+      dot.y = y + (dy + viewRadius) * minimapScale;
     }
   }
+}
 
-  // Player Center (Marker)
-  float centerX = x + mapSize / 2.0f;
-  float centerY = y + mapSize / 2.0f;
-  DrawCircle((int)(centerX * scale), (int)(centerY * scale),
-             4.0f * scale, theme.success);
-  DrawCircleLines((int)(centerX * scale), (int)(centerY * scale),
-                  4.0f * scale, WHITE);
-
-  // North Indicator
-  UIRenderer::DrawTextUI(font, "N", x + mapSize / 2.0f - 5.0f, y - 20.0f, 18,
-                         theme.textSecondary, 1.0f);
-
-  // Decorative Frame
-  DrawRectLinesScaled(x, y, mapSize, mapSize, 2.0f, theme.panelBorderHighlight);
-
-  // Coordinates or Zone Name
-  char zoneBuf[128];
-  const char* baseName =
-      (levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town)
-          ? "宁静村落"
-          : "地下城";
-
-  if (levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
-    utils::FormatToBuffer(zoneBuf, "{}", baseName);
-  } else {
-    int displayLevel = levelManager.getCurrentLevel();
-    // Check for Dimensional State for accurate difficulty level
-    if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
-      const auto& state =
-          registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
-      if (state.isActive) {
-        int difficultyLv = state.selectedBaseLevel + (state.currentDepth - 1);
-        utils::FormatToBuffer(zoneBuf, "异界 - {}层 [Lv.{}]",
-                              state.currentDepth, difficultyLv);
-      } else {
-        utils::FormatToBuffer(zoneBuf, "{} - {}层", baseName, displayLevel);
-      }
-    } else {
-      utils::FormatToBuffer(zoneBuf, "{} - {}层", baseName, displayLevel);
-    }
+void MinimapController::Paint(UiDrawList& drawList,
+                              const UiViewport& viewport) const {
+  (void)viewport; // Layout is in the fixed 2K reference logical space.
+  // Never updated (no gameplay session frame has driven Update yet): emit
+  // nothing so empty-snapshot hosts produce zero commands.
+  if (!m_hasRunUpdate) {
+    return;
   }
-  const char* zoneName = zoneBuf;
+  auto& theme = UIRenderer::GetTheme();
 
-  float tw = IsFontValid(font) ? MeasureTextEx(font, zoneName, 18, 1.0f).x
-                               : (float)MeasureText(zoneName, 18);
-  UIRenderer::DrawTextUI(font, zoneName, x + mapSize - tw, y + mapSize + 10.0f,
-                         18, theme.textHighlight, 1.0f);
+  // Layout in Logic Space.
+  const float mapSize = 180.0f;
+  const float margin = 30.0f;
+  const float x = UI_REF_WIDTH - mapSize - margin;
+  const float y = margin;
 
-  // 1. Kill Count (Below Minimap Level Name)
-  auto* pStats = registry.try_get<PlayerStats>(playerEntity);
-  if (pStats && levelManager.getCurrentBiomeID() != NoMoreDay::BiomeID::Town) {
-    using namespace NoMoreDay::Constants::Enemy;
-    char killBuf[64];
-    Color killColor =
-        (pStats->current_map_kills >= NEXT_LEVEL_PORTAL_KILL_REQUIREMENT)
-            ? theme.success
-            : theme.textSecondary;
+  // Background shadow/border.
+  drawList.FillRect(UiDrawLayer::Hud, kMinimapRootNode,
+                    UiRect{{x - 4.0f, y - 4.0f}, {mapSize + 8.0f,
+                                                  mapSize + 8.0f}},
+                    UiColor{theme.panelBackground.r, theme.panelBackground.g,
+                            theme.panelBackground.b, theme.panelBackground.a});
+  drawList.StrokeRect(UiDrawLayer::Hud, kMinimapRootNode,
+                      UiRect{{x - 4.0f, y - 4.0f},
+                             {mapSize + 8.0f, mapSize + 8.0f}},
+                      UiColor{theme.panelBorder.r, theme.panelBorder.g,
+                              theme.panelBorder.b, theme.panelBorder.a},
+                      1.0f);
 
-    if (pStats->current_map_kills < NEXT_LEVEL_PORTAL_KILL_REQUIREMENT) {
-      utils::FormatToBuffer(killBuf, "击杀: {} / {}", pStats->current_map_kills,
-                            NEXT_LEVEL_PORTAL_KILL_REQUIREMENT);
-    } else {
-      utils::FormatToBuffer(killBuf, "击杀: {} (出口已标位)",
-                            pStats->current_map_kills);
+  if (!m_hasFog || !m_hasPlayerPosition) {
+    return;
+  }
+
+  // Fog texture (cropped around the player).
+  const int viewRadius = 30;
+  drawList.Image(
+      UiDrawLayer::Hud, kMinimapRootNode,
+      UiRect{{x, y}, {mapSize, mapSize}}, kMinimapTextureResourceId,
+      UiColor{255, 255, 255, 255},
+      UiRect{{(float)m_playerGx - viewRadius, (float)m_playerGy - viewRadius},
+             {(float)viewRadius * 2.0f, (float)viewRadius * 2.0f}});
+
+  // Scanline / overlay effect (top-down gradient).
+  drawList.FillRect(UiDrawLayer::Hud, kMinimapRootNode,
+                    UiRect{{x, y}, {mapSize, mapSize}},
+                    UiColor{255, 255, 255, 13});
+
+  // Enemy dots.
+  for (std::size_t i = 0; i < m_enemyDotCount; ++i) {
+    const EnemyDot& dot = m_enemyDots[i];
+    drawList.FillRect(UiDrawLayer::Hud, kMinimapRootNode,
+                      UiRect{{dot.x - 2.5f, dot.y - 2.5f}, {5.0f, 5.0f}},
+                      UiColor{theme.danger.r, theme.danger.g, theme.danger.b,
+                              theme.danger.a});
+  }
+
+  // Player center marker.
+  const float centerX = x + mapSize / 2.0f;
+  const float centerY = y + mapSize / 2.0f;
+  drawList.FillRect(UiDrawLayer::Hud, kMinimapRootNode,
+                    UiRect{{centerX - 4.0f, centerY - 4.0f}, {8.0f, 8.0f}},
+                    UiColor{theme.success.r, theme.success.g, theme.success.b,
+                            theme.success.a});
+  drawList.StrokeRect(UiDrawLayer::Hud, kMinimapRootNode,
+                      UiRect{{centerX - 4.0f, centerY - 4.0f}, {8.0f, 8.0f}},
+                      UiColor{255, 255, 255, 255}, 1.0f);
+
+  // North indicator.
+  drawList.Text(UiDrawLayer::Hud, kMinimapRootNode, "N",
+                {x + mapSize / 2.0f - 5.0f, y - 20.0f}, 18.0f,
+                UiColor{theme.textSecondary.r, theme.textSecondary.g,
+                        theme.textSecondary.b, theme.textSecondary.a},
+                kGlobalFontResourceId);
+
+  // Decorative frame.
+  drawList.StrokeRect(UiDrawLayer::Hud, kMinimapRootNode,
+                      UiRect{{x, y}, {mapSize, mapSize}},
+                      UiColor{theme.panelBorderHighlight.r,
+                              theme.panelBorderHighlight.g,
+                              theme.panelBorderHighlight.b,
+                              theme.panelBorderHighlight.a},
+                      2.0f);
+
+  // Zone name (bottom-right, right-aligned).
+  if (m_hasZoneText) {
+    drawList.Text(UiDrawLayer::Hud, kMinimapRootNode, m_zoneText,
+                  {x + mapSize, y + mapSize + 10.0f}, 18.0f,
+                  UiColor{theme.textHighlight.r, theme.textHighlight.g,
+                          theme.textHighlight.b, theme.textHighlight.a},
+                  kGlobalFontResourceId, UiTextAlign::Right);
+  }
+
+  // Kill count + portal arrow + affixes (below the zone name).
+  if (m_hasKillText) {
+    drawList.Text(UiDrawLayer::Hud, kMinimapRootNode, m_killText,
+                  {x + mapSize, y + mapSize + 35.0f}, 16.0f,
+                  m_killGoalReached
+                      ? UiColor{theme.success.r, theme.success.g,
+                                theme.success.b, theme.success.a}
+                      : UiColor{theme.textSecondary.r, theme.textSecondary.g,
+                                theme.textSecondary.b, theme.textSecondary.a},
+                  kGlobalFontResourceId, UiTextAlign::Right);
+
+    // Portal arrow: triangle approximated with three lines (draw-list Line
+    // commands; the legacy filled triangle + glow are painted as a stroked
+    // triangle + dim center dot — see evidence §R5 for the visual delta).
+    if (m_hasPortalArrow) {
+      const float arrowX = x + mapSize - 20.0f;
+      const float arrowY = y + mapSize + 43.0f;
+      const float size = 10.0f;
+      const float c = std::cos(m_portalAngle);
+      const float s = std::sin(m_portalAngle);
+      UiVec2 tip{arrowX + c * size, arrowY + s * size};
+      UiVec2 v1{arrowX + std::cos(m_portalAngle + 2.4f) * size * 0.6f,
+                arrowY + std::sin(m_portalAngle + 2.4f) * size * 0.6f};
+      UiVec2 v2{arrowX + std::cos(m_portalAngle - 2.4f) * size * 0.6f,
+                arrowY + std::sin(m_portalAngle - 2.4f) * size * 0.6f};
+      const UiColor success{theme.success.r, theme.success.g, theme.success.b,
+                            theme.success.a};
+      drawList.Line(UiDrawLayer::Hud, kMinimapRootNode, tip, v1, success, 1.0f);
+      drawList.Line(UiDrawLayer::Hud, kMinimapRootNode, tip, v2, success, 1.0f);
+      drawList.Line(UiDrawLayer::Hud, kMinimapRootNode, v1, v2, success, 1.0f);
+      // Glow: dim center dot (approximation of the legacy circle gradient).
+      drawList.FillRect(UiDrawLayer::Hud, kMinimapRootNode,
+                        UiRect{{arrowX - 1.5f, arrowY - 1.5f}, {3.0f, 3.0f}},
+                        UiColor{success.r, success.g, success.b, 77});
     }
 
-    float killTw = IsFontValid(font) ? MeasureTextEx(font, killBuf, 16, 1.0f).x
-                                     : (float)MeasureText(killBuf, 16);
-    UIRenderer::DrawTextUI(font, killBuf, x + mapSize - killTw,
-                           y + mapSize + 35.0f, 16, killColor, 1.0f);
-
-    // 2. Navigation Arrow (Points to NextLevel Portal)
-    if (pStats->current_map_kills >= NEXT_LEVEL_PORTAL_KILL_REQUIREMENT) {
-      entt::entity exitPortal = entt::null;
-      auto portalView = registry.view<PortalComponent, Position>();
-      for (auto e : portalView) {
-        if (portalView.get<PortalComponent>(e).type == PortalType::NextLevel) {
-          exitPortal = e;
-          break;
-        }
-      }
-
-      if (exitPortal != entt::null) {
-        const auto& portalPos = portalView.get<Position>(exitPortal);
-        float dx = portalPos.x - playerPos.x;
-        float dy = portalPos.y - playerPos.y;
-        float angle = atan2f(dy, dx);
-
-        // Draw rotating arrow next to text
-        float arrowX = x + mapSize - killTw - 20.0f;
-        float arrowY = y + mapSize + 43.0f;
-
-        // Draw simple arrow head pointing towards portal
-        Vector2 center = {arrowX * scale, arrowY * scale};
-        float arrowSize = 10.0f * scale;
-        Vector2 v1 = {center.x + cosf(angle) * arrowSize,
-                      center.y + sinf(angle) * arrowSize};
-        Vector2 v2 = {center.x + cosf(angle + 2.4f) * arrowSize * 0.6f,
-                      center.y + sinf(angle + 2.4f) * arrowSize * 0.6f};
-        Vector2 v3 = {center.x + cosf(angle - 2.4f) * arrowSize * 0.6f,
-                      center.y + sinf(angle - 2.4f) * arrowSize * 0.6f};
-
-        DrawTriangle(v1, v2, v3, theme.success);
-        // Glow effect
-        DrawCircleGradient((int)center.x, (int)center.y, arrowSize * 1.5f,
-                           Fade(theme.success, 0.3f), BLANK);
-      }
-    }
-
-    // 3. Map Affixes (Bonuses/Modifiers)
-    if (levelManager.isMosaicLevel()) {
-      const auto& resonance = levelManager.getCurrentResonance();
-      float bonusY = y + mapSize + 65.0f;
-
-      auto drawBonus = [&](const char* label, float value, bool isPositive) {
-        char buf[64];
-        utils::FormatToBuffer(buf, "{}: {:+.0f}%", label,
-                              (value - 1.0f) * 100.0f);
-        Color c = isPositive ? components::Colors::MAP_AFFIX_POSITIVE
-                             : components::Colors::MAP_AFFIX_NEGATIVE;
-        float tw = MeasureTextEx(font, buf, 14, 1.0f).x;
-        UIRenderer::DrawTextUI(font, buf, x + mapSize - tw, bonusY, 14, c,
-                               1.0f);
-        bonusY += 18.0f;
-      };
-
-      if (resonance.totalEnemyDensity != 1.0f) {
-        // Density buff (value > 1.0) is negative for player (more enemies)
-        drawBonus("怪物密度", resonance.totalEnemyDensity,
-                  resonance.totalEnemyDensity < 1.0f);
-      }
-      if (resonance.totalDropRate != 1.0f) {
-        drawBonus("物品掉落", resonance.totalDropRate,
-                  resonance.totalDropRate > 1.0f);
-      }
-      if (resonance.totalLevelMod != 0) {
-        char buf[64];
-        utils::FormatToBuffer(buf, "怪物等级: {:+}", resonance.totalLevelMod);
-        float tw = MeasureTextEx(font, buf, 14, 1.0f).x;
-        UIRenderer::DrawTextUI(font, buf, x + mapSize - tw, bonusY, 14,
-                               components::Colors::MAP_AFFIX_NEGATIVE, 1.0f);
-        bonusY += 18.0f;
-      }
-
-      // Dominant Element
-      if (resonance.dominantElement != FragmentElement::None) {
-        const char* elemName =
-            FragmentElementzh[static_cast<size_t>(resonance.dominantElement)]
-                .data();
-        float tw = MeasureTextEx(font, elemName, 14, 1.0f).x;
-        UIRenderer::DrawTextUI(font, elemName, x + mapSize - tw, bonusY, 14,
-                               GOLD, 1.0f);
-        bonusY += 18.0f;
-      }
+    // Map affixes.
+    float bonusY = y + mapSize + 65.0f;
+    for (std::uint8_t i = 0; i < m_affixTextCount; ++i) {
+      const UiColor c =
+          m_affixPositive[i]
+              ? UiColor{components::Colors::MAP_AFFIX_POSITIVE.r,
+                        components::Colors::MAP_AFFIX_POSITIVE.g,
+                        components::Colors::MAP_AFFIX_POSITIVE.b,
+                        components::Colors::MAP_AFFIX_POSITIVE.a}
+              : UiColor{components::Colors::MAP_AFFIX_NEGATIVE.r,
+                        components::Colors::MAP_AFFIX_NEGATIVE.g,
+                        components::Colors::MAP_AFFIX_NEGATIVE.b,
+                        components::Colors::MAP_AFFIX_NEGATIVE.a};
+      drawList.Text(UiDrawLayer::Hud, kMinimapRootNode, m_affixTexts[i],
+                    {x + mapSize, bonusY}, 14.0f, c, kGlobalFontResourceId,
+                    UiTextAlign::Right);
+      bonusY += 18.0f;
     }
   }
 }

@@ -1,6 +1,8 @@
 #include "doctest.h"
 
 #include "game/application/ui/SwordIntentWidget.hpp"
+#include "game/application/ui/UiDrawList.hpp"
+#include "game/application/ui/UiViewport.hpp"
 #include "game/foundation/data/BladeMasteryData.hpp"
 
 #include <fstream>
@@ -9,11 +11,22 @@
 using NoMoreDay::systems::ui::SwordIntentWidget;
 
 TEST_CASE("[Unit] SwordIntentWidget is headless-safe") {
-  // raylib window is not open in unit tests; Draw must early-out without
-  // touching GL and without hanging on resource loading.
+  // R5 adaptation: Draw() is gone; the widget caches state via Update and
+  // emits draw-list commands via Paint. With no registered icon resource the
+  // paint path must early-out without touching GL.
   NoMoreDay::systems::ui::SwordIntentWidget widget;
-  widget.Draw(3, 8, NoMoreDay::BladeResourceKind::SwordIntent, "Sword Intent");
-  widget.Draw(0, 0, NoMoreDay::BladeResourceKind::None, "", "");
+  widget.Update(3, 8, NoMoreDay::BladeResourceKind::SwordIntent, "Sword Intent",
+                "", 1.0f, 1.0f / 60.0f);
+  NoMoreDay::ui::UiDrawList drawList;
+  const NoMoreDay::ui::UiViewport viewport =
+      NoMoreDay::ui::UiViewport::Fit({2560, 1440});
+  widget.Paint(drawList, viewport); // kInvalidUiResourceId: no commands
+  CHECK(drawList.CommandCount() == 0);
+
+  widget.Update(0, 0, NoMoreDay::BladeResourceKind::None, "", "", 1.0f,
+                1.0f / 60.0f);
+  widget.Paint(drawList, viewport);
+  CHECK(drawList.CommandCount() == 0);
 }
 
 TEST_CASE("[Unit] SwordIntentWidget threshold resolution is pure") {
@@ -36,11 +49,16 @@ TEST_CASE("[Unit] SwordIntentWidget threshold resolution is pure") {
 
 TEST_CASE("[Unit] SwordIntentWidget instances are independent") {
   // U7 cleanup: the widget must be an instance type. Two instances must not
-  // share mutable state (no static members allowed).
+  // share mutable state (no static members allowed). R5: Update carries the
+  // per-instance animation state (glow lerp).
   NoMoreDay::systems::ui::SwordIntentWidget a;
   NoMoreDay::systems::ui::SwordIntentWidget b;
-  a.Draw(1, 4, NoMoreDay::BladeResourceKind::SwordFlow, "a");
-  b.Draw(2, 4, NoMoreDay::BladeResourceKind::SwordFlow, "b");
+  a.Update(1, 4, NoMoreDay::BladeResourceKind::SwordFlow, "a", "", 1.0f,
+           1.0f / 60.0f);
+  b.Update(2, 4, NoMoreDay::BladeResourceKind::SwordFlow, "b", "", 2.0f,
+           1.0f / 60.0f);
+  CHECK(a.CurrentStacks() == 1);
+  CHECK(b.CurrentStacks() == 2);
 }
 
 TEST_CASE("[Unit] SwordIntentWidget header holds no static mutable state") {

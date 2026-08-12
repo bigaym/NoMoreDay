@@ -1,16 +1,26 @@
 #include "SwordIntentWidget.hpp"
-#include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UICommon.hpp"
-#include <string>
+#include "game/application/ui/UiResourceIds.hpp"
+
 #include <algorithm>
 #include <cmath>
-
-extern "C" {
-  #include "rlgl.h"
-}
-#include "engine/render/GPUUtils.hpp"
+#include <cstdint>
 
 namespace NoMoreDay::systems::ui {
+
+namespace {
+// Stable node id for the widget's draw commands (Hud layer).
+inline constexpr UiId kSwordIntentWidgetNode =
+    static_cast<UiId>(0x53EE5A2Du); // hashed "ui_sword_intent_widget"
+inline constexpr UiColor kSwordIntentLabelColor{211, 211, 211, 255}; // LIGHTGRAY
+inline constexpr UiColor kSwordIntentDetailColor{211, 211, 211, 255};
+inline constexpr UiColor kSwordIntentTier1Color{140, 255, 220, 255};
+inline constexpr UiColor kSwordIntentTier2Color{135, 206, 235, 255};  // SKYBLUE
+inline constexpr UiColor kSwordIntentTier3Color{255, 215, 0, 255};    // GOLD
+inline constexpr UiColor kSwordIntentActiveIconColor{255, 255, 255, 255};
+inline constexpr UiColor kSwordIntentInactiveIconColor{128, 128, 128, 77};
+inline constexpr UiColor kSwordIntentMaxIconColor{255, 215, 0, 255};
+} // namespace
 
 int SwordIntentWidget::ResolveThresholdTier(BladeResourceKind kind,
                                             int currentStacks, int maxStacks) {
@@ -84,123 +94,86 @@ const char* SwordIntentWidget::ResolveSwordFlowThresholdText(int currentStacks, 
     }
 }
 
-void SwordIntentWidget::Init() {
-    if (!m_initialized) {
-        if (IsWindowReady()) {
-            m_swordIcon = LoadTexture("assets/textures/ui/ui_sword_icon.png");
-            SetTextureFilter(m_swordIcon, TEXTURE_FILTER_BILINEAR);
-            
-            if (FileExists("assets/shaders/vfx/ui_shine.fs")) {
-                m_shineShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
-                    "assets/shaders/vfx/ui_shine.vs", "assets/shaders/vfx/ui_shine.fs");
-            }
-            
-            m_initialized = true;
-        }
-    }
+void SwordIntentWidget::Update(int currentStacks, int maxStacks,
+                               BladeResourceKind kind, std::string_view label,
+                               std::string_view detailText, float timeSeconds,
+                               float deltaSeconds) {
+    m_currentStacks = currentStacks;
+    m_maxStacks = maxStacks;
+    m_kind = kind;
+    m_label = label;
+    m_detailText = detailText;
+    m_timeSeconds = timeSeconds;
+    // Glow lerp (dt*3, same rate as the legacy raylib draw path).
+    const float targetIntensity = (currentStacks >= maxStacks) ? 1.0f : 0.0f;
+    m_glowIntensity = m_glowIntensity +
+                      (targetIntensity - m_glowIntensity) *
+                          std::min(1.0f, deltaSeconds * 3.0f);
 }
 
-void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
-                             BladeResourceKind kind, std::string_view label,
-                             std::string_view detailText) {
-    if (!m_initialized) {
-        Init();
-        if (!m_initialized) return;
+void SwordIntentWidget::Paint(UiDrawList& drawList,
+                              const UiViewport& viewport) const {
+    if (m_maxStacks <= 0 || m_iconResourceId == kInvalidUiResourceId) {
+        return;
     }
+    (void)viewport; // Layout is in the fixed 2K reference logical space.
 
-    float dt = GetFrameTime();
-    float targetIntensity = (currentStacks >= maxStacks) ? 1.0f : 0.0f;
-    m_glowIntensity = Lerp(m_glowIntensity, targetIntensity, dt * 3.0f);
+    const float spacing = 30.0f;
+    const float iconScale = 0.75f;
+    const float totalWidth = (m_maxStacks - 1) * spacing;
+    const float startX = UI_REF_WIDTH / 2.0f - totalWidth / 2.0f;
+    const float logicY = UI_REF_HEIGHT - 210.0f;
 
-    float scale = UISystem::GetScaleFactor();
-    
-    // Config
-    float spacing = 30.0f;  // Increased logic spacing
-    float iconScale = 0.75f; // Slightly larger for better visibility
-    
-    float totalWidth = (maxStacks - 1) * spacing;
-    float startX = UI_REF_WIDTH / 2.0f - totalWidth / 2.0f;
-    float logicY = UI_REF_HEIGHT - 210.0f; // Above the hotbar
+    // Text rows (centered through backend alignment).
+    drawList.Text(UiDrawLayer::Hud, kSwordIntentWidgetNode,
+                  m_label, {UI_REF_WIDTH * 0.5f, logicY - 24.0f}, 18.0f,
+                  kSwordIntentLabelColor, kGlobalFontResourceId,
+                  UiTextAlign::Center);
 
-    const Font uiFont = UISystem::GetFont();
-    const auto measureTextWidth = [&](std::string_view text,
-                                      const float fontSize) -> float {
-        if (text.empty()) {
-            return 0.0f;
-        }
-        if (IsFontValid(uiFont)) {
-            return MeasureTextEx(uiFont, text.data(), fontSize * scale,
-                                 1.0f * scale).x / scale;
-        }
-        return static_cast<float>(MeasureText(text.data(), static_cast<int>(fontSize * scale))) / scale;
-    };
-
-    const std::string labelText(label);
-    const float labelWidth = measureTextWidth(labelText, 18.0f);
-    UISystem::DrawTextUI(labelText.c_str(),
-                         UI_REF_WIDTH * 0.5f - labelWidth * 0.5f,
-                         logicY - 24.0f, 18.0f, LIGHTGRAY, 0.95f);
-
-    const char* thresholdText = ResolveThresholdText(kind, currentStacks, maxStacks);
+    const char* thresholdText =
+        ResolveThresholdText(m_kind, m_currentStacks, m_maxStacks);
     if (thresholdText[0] != '\0') {
-        const int tier = ResolveThresholdTier(kind, currentStacks, maxStacks);
-        const Color tierColor = (tier >= 3) ? GOLD : (tier == 2 ? SKYBLUE : Color{140, 255, 220, 255});
-        const float thresholdWidth = measureTextWidth(thresholdText, 15.0f);
-        UISystem::DrawTextUI(thresholdText,
-                             UI_REF_WIDTH * 0.5f - thresholdWidth * 0.5f,
-                             logicY - 44.0f, 15.0f, tierColor, 0.95f);
+        const int tier =
+            ResolveThresholdTier(m_kind, m_currentStacks, m_maxStacks);
+        const UiColor tierColor = (tier >= 3)
+                                      ? kSwordIntentTier3Color
+                                      : (tier == 2 ? kSwordIntentTier2Color
+                                                   : kSwordIntentTier1Color);
+        drawList.Text(UiDrawLayer::Hud, kSwordIntentWidgetNode,
+                      thresholdText, {UI_REF_WIDTH * 0.5f, logicY - 44.0f},
+                      15.0f, tierColor, kGlobalFontResourceId,
+                      UiTextAlign::Center);
     }
 
-    if (!detailText.empty()) {
-        const std::string detail(detailText);
-        const float detailWidth = measureTextWidth(detail, 14.0f);
-        UISystem::DrawTextUI(detail.c_str(),
-                             UI_REF_WIDTH * 0.5f - detailWidth * 0.5f,
-                             logicY - 62.0f, 14.0f, LIGHTGRAY, 0.9f);
+    if (!m_detailText.empty()) {
+        drawList.Text(UiDrawLayer::Hud, kSwordIntentWidgetNode,
+                      m_detailText, {UI_REF_WIDTH * 0.5f, logicY - 62.0f},
+                      14.0f, kSwordIntentDetailColor, kGlobalFontResourceId,
+                      UiTextAlign::Center);
     }
-    
-    // Draw base icons
-    for (int i = 0; i < maxStacks; ++i) {
-        float lx = startX + i * spacing;
-        float ly = logicY;
-        
-        bool isActive = i < currentStacks;
-        Color color = isActive ? WHITE : Fade(GRAY, 0.3f);
-        
+
+    // Stack icons: active icons full alpha, inactive faded; the last active
+    // icon pulses (1.2 + 0.1*sin(time*5)) and tints gold/full vs blue.
+    for (int i = 0; i < m_maxStacks; ++i) {
+        const float lx = startX + i * spacing;
+        const bool isActive = i < m_currentStacks;
         float finalScale = iconScale;
-        if (isActive && i == currentStacks - 1) {
-            finalScale *= 1.2f + 0.1f * sinf(GetTime() * 5.0f);
-            color = (currentStacks >= maxStacks) ? GOLD : SKYBLUE;
+        UiColor color = isActive ? kSwordIntentActiveIconColor
+                                 : kSwordIntentInactiveIconColor;
+        if (isActive && i == m_currentStacks - 1) {
+            finalScale *= 1.2f + 0.1f * std::sin(m_timeSeconds * 5.0f);
+            color = (m_currentStacks >= m_maxStacks)
+                        ? kSwordIntentMaxIconColor
+                        : kSwordIntentActiveIconColor;
         }
-        
-        float sScale = finalScale * scale;
-        Rectangle source = { 0, 0, (float)m_swordIcon.width, (float)m_swordIcon.height };
-        Rectangle dest = { lx * scale, ly * scale, (float)m_swordIcon.width * sScale, (float)m_swordIcon.height * sScale };
-        Vector2 origin = { dest.width / 2.0f, dest.height / 2.0f };
-        
-        if (isActive && m_glowIntensity > 0.01f && m_shineShader.id != 0) {
-            float time = (float)GetTime();
-            int timeLoc = GetShaderLocation(m_shineShader, "time");
-            int intentLoc = GetShaderLocation(m_shineShader, "intensity");
-            
-            SetShaderValue(m_shineShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
-            SetShaderValue(m_shineShader, intentLoc, &m_glowIntensity, SHADER_UNIFORM_FLOAT);
-            
-            BeginShaderMode(m_shineShader);
-            DrawTexturePro(m_swordIcon, source, dest, origin, 0.0f, color);
-            EndShaderMode();
-        } else {
-            DrawTexturePro(m_swordIcon, source, dest, origin, 0.0f, color);
-        }
+        // Icon texture is 64x64 (ui_sword_icon.png); keep aspect ratio.
+        const float iconSize = 64.0f * finalScale;
+        UiRect dest;
+        dest.origin = {lx - iconSize * 0.5f, logicY - iconSize * 0.5f};
+        dest.size = {iconSize, iconSize};
+        drawList.Image(UiDrawLayer::Hud, kSwordIntentWidgetNode, dest,
+                       m_iconResourceId, color);
     }
 }
 
-void SwordIntentWidget::Shutdown() {
-    if (m_initialized) {
-        UnloadTexture(m_swordIcon);
-        if (m_shineShader.id != 0) UnloadShader(m_shineShader);
-        m_initialized = false;
-    }
-}
-
-}
+} // namespace NoMoreDay::systems::ui

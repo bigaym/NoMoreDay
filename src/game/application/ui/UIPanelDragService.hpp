@@ -49,8 +49,17 @@ struct UIPanelDragBounds {
 // it from the same instance. This replaces the legacy
 // UISystem::State.draggedItem / isDraggingFrom* / dragSource* / draggedSkillId
 // / isDraggingSkill fields as the authoritative drag state.
+//
+// R1 (remediation): the dragged item is stored as a stable integer domain id
+// (the numeric form of the entity id) instead of an entt::entity handle. The
+// session never holds registry pointers or component references; the drag
+// phantom and the drop handlers re-resolve the entity from the domain id on
+// the frame they need it. Destructive successes clear the matching domain id
+// through the GameUiResult.clearedDomainIds channel.
 struct UIDragSession {
-  entt::entity draggedItem = entt::null;
+  // Numeric entity id of the dragged item (0 = no item, kInvalidDomainId
+  // semantics; see GameUiSnapshot.hpp).
+  std::uint64_t draggedItemDomainId = 0;
   bool isDraggingFromInventory = false;
   int dragSourceInventoryIndex = -1;
   EquipmentSlot dragSourceEquipmentSlot = EquipmentSlot::None;
@@ -64,7 +73,7 @@ struct UIDragSession {
 
   void Clear() noexcept { *this = UIDragSession{}; }
   [[nodiscard]] bool IsDragging() const noexcept {
-    return draggedItem != entt::null || isDraggingSkill;
+    return draggedItemDomainId != 0 || isDraggingSkill;
   }
 };
 

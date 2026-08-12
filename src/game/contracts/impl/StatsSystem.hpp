@@ -29,6 +29,19 @@ public:
   // @brief 清除特定实体的属性缓存（在属性重新计算时调用）
   static void ClearCache(entt::registry &registry, entt::entity entity);
 
+  // @brief 确认属性点分配 (R1: system-owned operation, 供
+  // GameUiCommandHandler 调用)。
+  // 将 strength/dexterity/intelligence/vitality 点加到角色的 PrimaryStats
+  // 并从 PlayerStats.available_attribute_points 扣除总和。校验：
+  //  - 角色拥有 PlayerStats 与 PrimaryStats 组件；
+  //  - 四项分配非负且总和 > 0；
+  //  - 可用属性点 >= 总和。
+  // 成功后标记 StatsDirty 触发重算。返回是否成功。
+  static bool AllocateAttributePoints(entt::registry &registry,
+                                      entt::entity player, int strength,
+                                      int dexterity, int intelligence,
+                                      int vitality);
+
   // @brief 初始化系统，注册监听器（如销毁监听）
   static void Initialize(entt::registry &registry);
 

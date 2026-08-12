@@ -19,6 +19,7 @@ TEST_CASE("[Unit] UI draw list appends clears and reserves commands") {
   UiDrawList list;
   CHECK(list.IsEmpty());
   CHECK(list.CommandCount() == 0);
+  CHECK_FALSE(list.IsFinalized());
 
   list.Reserve(16);
   CHECK(list.Commands().capacity() >= 16);
@@ -27,15 +28,21 @@ TEST_CASE("[Unit] UI draw list appends clears and reserves commands") {
   list.FillRect(UiDrawLayer::Panels, 2, MakeRect(0.0f, 0.0f, 10.0f, 10.0f), {});
   CHECK_FALSE(list.IsEmpty());
   CHECK(list.CommandCount() == 2);
+  CHECK_FALSE(list.IsFinalized());
+
+  list.Finalize();
+  CHECK(list.IsFinalized());
+  CHECK(list.CommandCount() == 2);
 
   list.Clear();
   CHECK(list.IsEmpty());
   CHECK(list.CommandCount() == 0);
   CHECK(list.Commands().empty());
   CHECK(list.Clips().empty());
+  CHECK_FALSE(list.IsFinalized());
 }
 
-TEST_CASE("[Unit] UI draw list orders commands by layer then node id") {
+TEST_CASE("[Unit] UI draw list finalizes into total order by layer then node") {
   UiDrawList list;
   list.FillRect(UiDrawLayer::Panels, 5, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
   list.FillRect(UiDrawLayer::Hud, 9, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
@@ -46,6 +53,7 @@ TEST_CASE("[Unit] UI draw list orders commands by layer then node id") {
   list.FillRect(UiDrawLayer::Tooltip, 3, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
   list.FillRect(UiDrawLayer::Debug, 6, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
 
+  list.Finalize();
   const auto &commands = list.Commands();
   REQUIRE(commands.size() == 7);
   CHECK(commands[0].layer == UiDrawLayer::Hud);
@@ -64,13 +72,16 @@ TEST_CASE("[Unit] UI draw list orders commands by layer then node id") {
   CHECK(commands[6].nodeId == 6);
 }
 
-TEST_CASE("[Unit] UI draw list keeps insertion order for equal sort keys") {
+TEST_CASE("[Unit] UI draw list append sequence breaks ties deterministically") {
   UiDrawList list;
+  // Same (layer, nodeId) key appended twice; the append sequence must keep the
+  // append order after Finalize (total order, deterministic across builds).
   list.FillRect(UiDrawLayer::Hud, 4, MakeRect(0.0f, 0.0f, 10.0f, 10.0f),
                 {255, 0, 0, 255});
   list.FillRect(UiDrawLayer::Hud, 4, MakeRect(0.0f, 0.0f, 20.0f, 20.0f),
                 {0, 255, 0, 255});
 
+  list.Finalize();
   const auto &commands = list.Commands();
   REQUIRE(commands.size() == 2);
   CHECK(commands[0].rect.size.x == doctest::Approx(10.0f));
@@ -80,7 +91,7 @@ TEST_CASE("[Unit] UI draw list keeps insertion order for equal sort keys") {
   CHECK(commands[1].color.g == 255);
 }
 
-TEST_CASE("[Unit] UI draw list text commands own an independent string copy") {
+TEST_CASE("[Unit] UI draw list text commands copy into the arena") {
   UiDrawList list;
   std::string label = "potions";
   list.Text(UiDrawLayer::Hud, 7, label, {10.0f, 20.0f}, 24.0f, {});
@@ -88,12 +99,35 @@ TEST_CASE("[Unit] UI draw list text commands own an independent string copy") {
 
   const auto &commands = list.Commands();
   REQUIRE(commands.size() == 1);
-  CHECK(commands[0].text == "potions");
+  CHECK(std::string(list.TextAt(commands[0])) == "potions");
 
   const std::string moved = "temporary text";
   list.Text(UiDrawLayer::Panels, 8, moved, {0.0f, 0.0f}, 16.0f, {});
   REQUIRE(commands.size() == 2);
-  CHECK(commands[1].text == "temporary text");
+  CHECK(std::string(list.TextAt(commands[1])) == "temporary text");
+
+  // The arena bytes are valid until the next Clear().
+  CHECK(list.TextBytesUsed() ==
+        std::string("potions").size() + std::string("temporary text").size());
+  CHECK(list.TextOverflow() == 0);
+}
+
+TEST_CASE("[Unit] UI draw list text arena is reused across Clear") {
+  UiDrawList list;
+  list.Text(UiDrawLayer::Hud, 1, "abcd", {0.0f, 0.0f}, 20.0f, {});
+  CHECK(list.TextBytesUsed() == 4);
+  CHECK(std::string(list.TextAt(list.Commands()[0])) == "abcd");
+
+  // Clear() resets the cursor; the next frame's text reuses the same arena
+  // block (no reallocation, TextCapacity is unchanged).
+  const std::size_t capacity = list.TextCapacity();
+  list.Clear();
+  CHECK(list.TextBytesUsed() == 0);
+  CHECK(list.TextCapacity() == capacity);
+
+  list.Text(UiDrawLayer::Hud, 2, "ef", {0.0f, 0.0f}, 20.0f, {});
+  CHECK(list.TextBytesUsed() == 2);
+  CHECK(std::string(list.TextAt(list.Commands()[0])) == "ef");
 }
 
 TEST_CASE("[Unit] UI draw list encodes per kind command fields") {
@@ -139,7 +173,7 @@ TEST_CASE("[Unit] UI draw list encodes per kind command fields") {
   CHECK(text.rect.origin.x == doctest::Approx(8.0f));
   CHECK(text.rect.size.y == doctest::Approx(22.0f));
   CHECK(text.resourceId == 77);
-  CHECK(text.text == "hi");
+  CHECK(std::string(list.TextAt(text)) == "hi");
 
   const auto &custom = commands[4];
   CHECK(custom.kind == UiDrawKind::Custom);
@@ -167,6 +201,11 @@ TEST_CASE("[Unit] UI draw list tracks clip balance and current clip index") {
   list.PopClip();
   CHECK(list.ClipBalanced());
   CHECK(list.CurrentClipIndex() == kNoClipIndex);
+
+  // The pipeline contract: commands are appended in paint order and only
+  // sorted into the total draw order (layer, node, append sequence) by
+  // Finalize() before the backend submits them.
+  list.Finalize();
 
   const auto &commands = list.Commands();
   REQUIRE(commands.size() == 2);
@@ -213,6 +252,7 @@ TEST_CASE("[Unit] UI draw list is deterministic across identical builds") {
     list.Custom(UiDrawLayer::DragPreview, 5,
                 MakeRect(10.0f, 10.0f, 100.0f, 50.0f), 123);
     list.PopClip();
+    list.Finalize();
     return list;
   };
 
@@ -240,7 +280,10 @@ TEST_CASE("[Unit] UI draw list is deterministic across identical builds") {
     CHECK(a.color.b == b.color.b);
     CHECK(a.color.a == b.color.a);
     CHECK(a.resourceId == b.resourceId);
-    CHECK(a.text == b.text);
+    CHECK(a.textOffset == b.textOffset);
+    CHECK(a.textLength == b.textLength);
+    CHECK(a.appendSequence == b.appendSequence);
+    CHECK(std::string(first.TextAt(a)) == std::string(second.TextAt(b)));
     CHECK(a.strokeThickness == doctest::Approx(b.strokeThickness));
   }
 
@@ -254,6 +297,96 @@ TEST_CASE("[Unit] UI draw list is deterministic across identical builds") {
     CHECK(first.Clips()[i].size.y ==
           doctest::Approx(second.Clips()[i].size.y));
   }
+}
+
+TEST_CASE("[Unit] UI draw list append and finalize never reallocate buffers") {
+  // R4 (C-01): the steady frame path is allocation-free. Appending and
+  // finalizing must not change the reserved buffers' addresses or capacities
+  // (std::sort is in-place and allocation-free by the standard; the text arena
+  // is a fixed block written via memcpy). A pointer/capacity change here would
+  // mean a hot-path reallocation.
+  UiDrawList list;
+  list.Reserve(32);
+  list.ReserveText(256);
+
+  const UiDrawCommand *commandsPtr = list.Commands().data();
+  const std::size_t commandCapacity = list.CommandCapacity();
+  const std::size_t clipCapacity = list.ClipCapacity();
+  const std::size_t textCapacity = list.TextCapacity();
+
+  for (int frame = 0; frame < 16; ++frame) {
+    list.Text(UiDrawLayer::Hud, 1, "frame text", {0.0f, 0.0f}, 20.0f, {});
+    list.FillRect(UiDrawLayer::Panels, 2, MakeRect(0.0f, 0.0f, 10.0f, 10.0f),
+                  {});
+    list.PushClip(MakeRect(0.0f, 0.0f, 800.0f, 600.0f));
+    list.Custom(UiDrawLayer::Modal, 3, MakeRect(1.0f, 1.0f, 2.0f, 2.0f), 9);
+    list.PopClip();
+    list.Finalize();
+
+    CHECK(list.Commands().data() == commandsPtr);
+    CHECK(list.CommandCapacity() == commandCapacity);
+    CHECK(list.ClipCapacity() == clipCapacity);
+    CHECK(list.TextCapacity() == textCapacity);
+    CHECK(list.CommandOverflow() == 0);
+    CHECK(list.ClipOverflow() == 0);
+    CHECK(list.TextOverflow() == 0);
+
+    list.Clear();
+  }
+}
+
+TEST_CASE("[Unit] UI draw list command overflow records telemetry and drops") {
+  // Tiny explicit capacities drive the overflow path (Reserve is grow-only).
+  UiDrawList list(2, 2, 8);
+  list.FillRect(UiDrawLayer::Hud, 1, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
+  list.FillRect(UiDrawLayer::Hud, 2, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
+  list.FillRect(UiDrawLayer::Hud, 3, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
+
+  CHECK(list.CommandCount() == 2);
+  CHECK(list.CommandCapacity() == 2);
+  CHECK(list.CommandOverflow() == 1);
+  // The retained commands are the first two (dropped command never appended).
+  CHECK(list.Commands()[0].nodeId == 1);
+  CHECK(list.Commands()[1].nodeId == 2);
+}
+
+TEST_CASE("[Unit] UI draw list clip overflow records telemetry without growing") {
+  // Tiny explicit capacities drive the overflow path (Reserve is grow-only).
+  UiDrawList list(2, 2, 8);
+  list.PushClip(MakeRect(0.0f, 0.0f, 100.0f, 100.0f));
+  list.PushClip(MakeRect(200.0f, 200.0f, 50.0f, 50.0f));
+  list.PushClip(MakeRect(400.0f, 400.0f, 25.0f, 25.0f));  // overflow
+
+  CHECK(list.ClipOverflow() == 1);
+  CHECK(list.ClipCapacity() == 2);
+  // Commands inside the overflowed clip clamp to the last valid clip.
+  list.FillRect(UiDrawLayer::Hud, 1, MakeRect(0.0f, 0.0f, 1.0f, 1.0f), {});
+  CHECK(list.Commands()[0].clipIndex == 1);
+
+  // Depth stays balanced: pops unwind without imbalance.
+  list.PopClip();
+  list.PopClip();
+  list.PopClip();
+  CHECK(list.ClipBalanced());
+}
+
+TEST_CASE("[Unit] UI draw list text overflow records telemetry and drops") {
+  UiDrawList list;
+  list.ReserveText(8);
+  list.Text(UiDrawLayer::Hud, 1, "0123456789", {0.0f, 0.0f}, 20.0f, {});
+
+  CHECK(list.TextOverflow() == 1);
+  CHECK(list.TextCapacity() == 8);
+  CHECK(list.TextBytesUsed() == 0);
+  // The command survives with an empty text payload; nothing is drawn.
+  CHECK(list.CommandCount() == 1);
+  CHECK(list.Commands()[0].textLength == 0);
+  CHECK(std::string(list.TextAt(list.Commands()[0])).empty());
+
+  // A payload that fits is still stored.
+  list.Text(UiDrawLayer::Hud, 2, "abc", {0.0f, 0.0f}, 20.0f, {});
+  CHECK(list.TextBytesUsed() == 3);
+  CHECK(std::string(list.TextAt(list.Commands()[1])) == "abc");
 }
 
 TEST_CASE("[Unit] UI runtime types color defaults to opaque white") {
@@ -280,6 +413,10 @@ TEST_CASE("[Unit] UI draw list header excludes backend and gameplay deps") {
   CHECK(contents.find("entt/") == std::string::npos);
   CHECK(contents.find("UiShared") == std::string::npos);
   CHECK(contents.find("InventorySystem") == std::string::npos);
+  // C-01: no per-frame std::string payloads in the command struct (text lives
+  // in the draw list's fixed text arena, referenced by offset+length).
+  CHECK(contents.find("std::string text") == std::string::npos);
+  CHECK(contents.find("std::string_view text") != std::string::npos);
 }
 
 } // namespace NoMoreDay::ui

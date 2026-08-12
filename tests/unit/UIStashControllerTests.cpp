@@ -122,36 +122,39 @@ TEST_CASE("[Unit] UIStashController - Open/Close/Toggle flip instance visibility
   CHECK_FALSE(controller.IsVisible());
 }
 
-TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
-  // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so GetFrameTime() is available; the alpha is animated towards the
-  // visibility flag exactly like the legacy UIStash::Update. GetFrameTime may
-  // be 0 in the harness, so the checks use clamped-range + monotonicity
-  // invariants instead of exact deltas.
+TEST_CASE("[Unit] UIStashController - Update runs headless against a snapshot") {
+  // R7: the controller no longer takes a registry — it consumes the snapshot
+  // view model and the input frame (the same contract as UIInventoryController).
+  // The alpha is animated from input.deltaSeconds towards the visibility flag,
+  // so the checks use clamped-range + monotonicity invariants instead of exact
+  // deltas.
   UiRuntime runtime;
   UIStashController controller(runtime, nullptr);
   controller.EnterGameplay();
 
-  ResourceManager resourceManager;
-  entt::registry registry;
-  LevelManager levelManager;
+  GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.stash.unlockedTabs = 1;
+  snapshot.stash.nextUnlockCost = 5000;
+  GameUiStashTabView tab;
+  tab.tabType = 0;
+  snapshot.stash.tabs.push_back(tab);
 
-  // Empty registry before any world exists: Update must not crash.
+  UiInputFrame input;
+  input.deltaSeconds = 1.0f / 60.0f;
+
+  // Empty snapshot before any world exists: Update must not crash.
   controller.SetVisible(true);
-  controller.Update(registry);
+  controller.Update(snapshot, input);
   CHECK(controller.Alpha() >= 0.0f);
   CHECK(controller.Alpha() <= 1.0f);
-
-  // Provide a real world so Update runs against live gameplay systems.
-  levelManager.initialize(resourceManager, registry);
-  levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
 
   // Branch A: stash closed. Alpha must never increase and stays clamped
   // within [0, 1].
   controller.SetVisible(false);
-  controller.Update(registry);
+  controller.Update(snapshot, input);
   const float closedFirst = controller.Alpha();
-  controller.Update(registry);
+  controller.Update(snapshot, input);
   const float closedSecond = controller.Alpha();
   CHECK(closedFirst >= 0.0f);
   CHECK(closedFirst <= 1.0f);
@@ -162,9 +165,9 @@ TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
   // Branch B: stash open. Alpha must never decrease and stays clamped
   // within [0, 1].
   controller.SetVisible(true);
-  controller.Update(registry);
+  controller.Update(snapshot, input);
   const float openFirst = controller.Alpha();
-  controller.Update(registry);
+  controller.Update(snapshot, input);
   const float openSecond = controller.Alpha();
   CHECK(openFirst >= 0.0f);
   CHECK(openFirst <= 1.0f);
@@ -173,69 +176,66 @@ TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
   CHECK(openSecond >= openFirst);
 }
 
-TEST_CASE("[Unit] UIStashController - Draw executes headless without crashing") {
-  // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so immediate-mode raylib drawing works. UIRenderer falls back to
-  // raylib DrawText when the font is unset, AssetLoadingSystem::GetTexture
-  // returns a zeroed texture headless (DrawButton/DrawSlot guard on id > 0),
-  // and raylib MeasureTextEx early-outs on a zeroed font, so the full panel
-  // body is safe to run here without UISystem::Initialize.
+TEST_CASE("[Unit] UIStashController - Paint executes headless without crashing") {
+  // R7: the panel is painted from the snapshot view model into a UiDrawList
+  // (no registry, no raylib immediate mode, no component references). The
+  // viewport scales the logical 2560x1440 layout down to the test window.
   UiRuntime runtime;
   UIStashController controller(runtime, nullptr);
   controller.EnterGameplay();
 
-  entt::registry registry;
+  UiViewport viewport = UiViewport::Fit({800, 600});
 
-  // Empty registry: no personal stash yet, so the tabs and grid are skipped,
-  // but the panel frame, close button, search bar and footer still draw.
-  // U8: alpha is instance state animated by Update (the legacy
-  // State.showStash/stashAlpha writes are gone); raise it to 1 by running the
-  // animation loop, then draw.
+  // Empty stash snapshot: tabs and grid are skipped, but the panel frame,
+  // close button, search bar and footer still paint.
+  // U8/R7: alpha is instance state animated by Update; raise it to 1 by
+  // running the animation loop, then paint.
+  GameUiSnapshot snapshot;
+  snapshot.revision = 1;
+  snapshot.stash.unlockedTabs = 0;
+  snapshot.stash.nextUnlockCost = 5000;
+
+  UiInputFrame input;
+  input.deltaSeconds = 1.0f / 60.0f;
   controller.SetVisible(true);
   for (int i = 0; i < 90; ++i) {
-    BeginDrawing();
-    EndDrawing();
-    controller.Update(registry);
+    controller.Update(snapshot, input);
   }
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  UiDrawList emptyList;
+  controller.Paint(emptyList, viewport, snapshot);
 
-  // A player-owned personal stash with one tab and a valid item entity.
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  auto& stash = registry.emplace<PersonalStashComponent>(player);
-  stash.unlockedTabs = 1;
+  // A player-owned personal stash with one tab and a valid item slot view.
+  snapshot.stash.unlockedTabs = 1;
+  GameUiStashTabView tab;
+  tab.tabType = 0;
+  GameUiStashSlotView slot;
+  slot.slotIndex = 0;
+  slot.domainId = 9001;  // stable domain id, not an entt::entity
+  slot.textureId = 0;    // headless: no texture registered
+  slot.rarity = static_cast<std::uint8_t>(NoMoreDay::Rarity::Rare);
+  slot.quantity = 1;
+  slot.matchesSearch = true;
+  tab.slots.push_back(slot);
+  snapshot.stash.tabs.push_back(tab);
 
-  const entt::entity item = registry.create();
-  auto& itemComp = registry.emplace<ItemComponent>(item);
-  itemComp.name = "Test Item";
-  itemComp.type = ItemType::Weapon;
-  itemComp.rarity = Rarity::Rare;
-  stash.tabs[0].items[0] = item;
-
-  // Hidden panel (alpha 0): Draw must early-out without touching the world.
+  // Hidden panel (alpha 0): Paint must early-out without emitting commands.
   controller.SetVisible(false);
   for (int i = 0; i < 90; ++i) {
-    BeginDrawing();
-    EndDrawing();
-    controller.Update(registry);
+    controller.Update(snapshot, input);
   }
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  UiDrawList hiddenList;
+  controller.Paint(hiddenList, viewport, snapshot);
+  CHECK(hiddenList.CommandCount() == 0);
 
-  // Visible panel with a populated tab: full draw path (tabs, unlock button,
+  // Visible panel with a populated tab: full paint path (tabs, unlock button,
   // grid with one rendered item, search bar, footer buttons).
   controller.SetVisible(true);
   for (int i = 0; i < 90; ++i) {
-    BeginDrawing();
-    EndDrawing();
-    controller.Update(registry);
+    controller.Update(snapshot, input);
   }
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  UiDrawList fullList;
+  controller.Paint(fullList, viewport, snapshot);
+  CHECK(fullList.CommandCount() > 0);
 }
 
 TEST_CASE("[Unit] UIStashController - header declares no static data members") {

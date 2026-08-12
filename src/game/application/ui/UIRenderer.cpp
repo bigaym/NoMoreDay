@@ -39,6 +39,14 @@ static constexpr Color TT_COLOR_TAG_BORDER = {80, 80, 95, 255};
 
 namespace NoMoreDay {
 
+// R8: the snapshot tooltip render path consumes the bounded display views from
+// NoMoreDay::ui; bring the types in for the definitions below.
+using ui::GameUiAffixView;
+using ui::GameUiBuffView;
+using ui::GameUiItemView;
+using ui::GameUiSkillBarSlotView;
+using ui::GameUiSnapshot;
+
 namespace {
 
 bool FontHasCodepointExact(const Font &font, int codepoint) {
@@ -1598,325 +1606,484 @@ void UIRenderer::DrawBuffTooltip(const Font &font, const BuffEffect &effect,
   }
 }
 
-void UIRenderer::DrawContextMenu(const Font &font,
-                                 NoMoreDay::ui::OverlayController &overlay,
-                                 entt::registry &registry, float alpha) {
-  if (!overlay.IsContextMenuVisible())
+// --- R8: snapshot-driven tooltips -----------------------------------------
+// The tooltip render path never touches the registry: content is read from
+// the bounded GameUiSnapshot display views. The legacy DrawTooltip /
+// DrawSkillTooltip / DrawBuffTooltip (registry) variants stay for the
+// remaining runtime paths and the UI tests.
+
+namespace {
+
+// Rebuilds a lightweight Affix from the snapshot view so the existing
+// GetAffixDescription / GetAffixTierColor formatting (and the UI tests that
+// lock those strings) stay identical.
+Affix ToAffix(const GameUiAffixView& view) {
+  Affix affix;
+  affix.type = static_cast<AffixType>(view.type);
+  affix.value = view.value;
+  affix.tier = view.tier;
+  affix.isPrefix = view.isPrefix;
+  affix.isLegendary = view.isLegendary;
+  return affix;
+}
+
+} // namespace
+
+void UIRenderer::DrawTooltipFromSnapshot(const Font& font,
+                                         const GameUiSnapshot& snapshot,
+                                         uint64_t domainId, float alpha) {
+  if (!IsWindowReady()) {
     return;
-
-  if (overlay.IsSkillContext()) {
-    // Draw Skill Selection Menu
-    const auto &allSkills = SkillRegistry::Get().GetAllSkills();
-    std::vector<uint32_t> availableSkills;
-    for (const auto &[id, skill] : allSkills) {
-      if (id != 0)
-        availableSkills.push_back(id);
+  }
+  const GameUiItemView* itemView = nullptr;
+  for (const auto& view : snapshot.displayedItems) {
+    if (view.domainId == domainId) {
+      itemView = &view;
+      break;
     }
+  }
+  if (itemView == nullptr) {
+    return;
+  }
+  const auto& item = *itemView;
 
-    float w = 220.0f;
-    float btnH = 40.0f;
-    float h = availableSkills.size() * btnH + 20.0f;
+  // Category string via a minimal ItemComponent (type/slot/isTwoHanded only).
+  ItemComponent categoryProbe;
+  categoryProbe.type = static_cast<ItemType>(item.itemType);
+  categoryProbe.slot = static_cast<EquipmentSlot>(item.slot);
+  categoryProbe.isTwoHanded = item.isTwoHanded;
 
-    float sx = overlay.ContextMenuPos().x;
-    float sy = overlay.ContextMenuPos().y;
-    float sw = w * s_uiScale;
-    float sh = std::min(h * s_uiScale,
-                        (float)GetScreenHeight() * 0.8f); // Limit height
-    float sBtnH = btnH * s_uiScale;
+  std::vector<TooltipLine> lines;
+  lines.push_back({GetItemCategoryString(categoryProbe), s_theme.textSecondary});
 
-    if (sx + sw > (float)GetScreenWidth())
-      sx -= sw;
-    if (sy + sh > (float)GetScreenHeight())
-      sy -= sh;
+  const int playerLevel = snapshot.player.hasPlayer ? snapshot.player.level : 1;
+  char lvlBuf[64];
+  utils::FormatToBuffer(lvlBuf, "物品等级: {}", item.itemLevel);
+  Color lvlColor = (playerLevel >= item.itemLevel) ? GREEN : RED;
+  if (playerLevel < item.itemLevel) {
+    utils::FormatToBuffer(lvlBuf, "物品等级: {} (需要 Lv.{})", item.itemLevel,
+                          item.itemLevel);
+  }
+  lines.push_back({lvlBuf, lvlColor});
 
-    DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.98f * alpha));
-    DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale,
-                         Fade(s_theme.panelBorder, alpha));
-    DrawLineEx({sx, sy}, {sx + sw, sy}, 2.0f * s_uiScale, Fade(GOLD, alpha));
-
-    float curSY = sy + 10.0f * s_uiScale;
-
-    // Simple Scissor for scrolling if needed, but let's keep it simple first
-    for (uint32_t skillId : availableSkills) {
-      const auto *skill = SkillRegistry::Get().GetSkill(skillId);
-      if (!skill)
+  // Rune sequence (names were captured by the builder into the view).
+  bool hasRunes = false;
+  for (const auto& runeName : item.socketRuneNames) {
+    if (runeName[0] != '\0') {
+      hasRunes = true;
+      break;
+    }
+  }
+  if (hasRunes) {
+    std::string runeStr = "Runes: ";
+    bool first = true;
+    for (const auto& runeName : item.socketRuneNames) {
+      if (runeName[0] == '\0') {
         continue;
-
-      Rectangle r = {sx + 5.0f * s_uiScale, curSY, sw - 10.0f * s_uiScale,
-                     sBtnH};
-      bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
-
-      if (hovered) {
-        DrawRectangleRec(r, Fade(s_theme.buttonHover, 0.5f * alpha));
       }
-
-      // Draw Icon
-      float iconSize = 32.0f * s_uiScale;
-      if (skill->icon_id != 0) {
-        Texture2D icon = AssetLoadingSystem::GetTexture(skill->icon_id);
-        DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height},
-                       {sx + 10.0f * s_uiScale,
-                        curSY + (sBtnH - iconSize) / 2.0f, iconSize, iconSize},
-                       {0, 0}, 0.0f, Fade(WHITE, alpha));
+      std::string name(runeName.data());
+      const std::string prefix = "Rune of ";
+      if (name.rfind(prefix, 0) == 0) {
+        name = name.substr(prefix.length());
       }
-
-      DrawTextUI(font, skill->name_key.c_str(),
-                 (sx + 15.0f * s_uiScale + iconSize) / s_uiScale,
-                 (curSY + (sBtnH - 18.0f * s_uiScale) / 2.0f) / s_uiScale, 18,
-                 WHITE, alpha);
-
-      if (hovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        // Assign skill to hotbar
-        auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
-        if (view.begin() != view.end()) {
-          auto &active = view.get<ActiveSkillsComponent>(view.front());
-          if (overlay.ContextSourceSkillSlot() >= 0 &&
-              overlay.ContextSourceSkillSlot() < 5) {
-            active.slots[overlay.ContextSourceSkillSlot()].id = skillId;
-            LOG_INFO("Assigned skill {} to hotbar slot {} via context menu",
-                     skillId, overlay.ContextSourceSkillSlot());
-          }
-        }
-        overlay.CloseContextMenu();
+      if (!first) {
+        runeStr += " • ";
       }
-
-      curSY += sBtnH;
-      if (curSY + sBtnH > sy + sh)
-        break; // Simple culling
+      runeStr += name;
+      first = false;
     }
+    lines.push_back({runeStr, GOLD});
+  }
 
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
-        !CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
-      overlay.CloseContextMenu();
+  if (item.legendaryPotential > 0) {
+    char lpBuf[64];
+    utils::FormatToBuffer(lpBuf, "传奇潜力: {}", item.legendaryPotential);
+    lines.push_back({lpBuf, VIOLET});
+  }
+
+  char buffer[128];
+  if (item.attack > 0) {
+    utils::FormatToBuffer(buffer, "攻击力: {:.0f}", item.attack);
+    lines.push_back({buffer, s_theme.textPrimary});
+  }
+  if (item.defense > 0) {
+    utils::FormatToBuffer(buffer, "护甲: {:.0f}", item.defense);
+    lines.push_back({buffer, s_theme.textPrimary});
+  }
+  if (item.bagCapacity > 0) {
+    utils::FormatToBuffer(buffer, "容量: {} 格", item.bagCapacity);
+    lines.push_back({buffer, s_theme.textPrimary});
+  }
+
+  for (const auto& view : item.implicits) {
+    const Affix affix = ToAffix(view);
+    lines.push_back({GetAffixDescription(affix, false),
+                     GetAffixTierColor(affix.tier)});
+  }
+
+  if ((item.attack > 0 || item.defense > 0 || !item.implicits.empty()) &&
+      !item.affixes.empty()) {
+    lines.push_back({"---", WHITE, true});
+  }
+
+  for (const auto& view : item.affixes) {
+    const Affix affix = ToAffix(view);
+    Color color = GetAffixTierColor(affix.tier);
+    if (affix.isLegendary) {
+      color = RED;
     }
+    lines.push_back({GetAffixDescription(affix, true), color});
+  }
+
+  if (item.socketCount > 0) {
+    char sockBuf[64];
+    utils::FormatToBuffer(sockBuf, "插槽数量: {}", item.socketCount);
+    lines.push_back(
+        {sockBuf, NoMoreDay::components::Colors::COLOR_SOCKET_INFO});
+  }
+
+  if (!item.description.empty()) {
+    lines.push_back({" ", WHITE});
+    std::stringstream ss(item.description);
+    std::string line;
+    while (std::getline(ss, line, '\n')) {
+      if (!line.empty() && line.back() == '\r') {
+        line.pop_back();
+      }
+      if (!line.empty()) {
+        lines.push_back({line, s_theme.textPrimary});
+      }
+    }
+  }
+
+  float fontSize = 18.0f;
+  float titleSize = 22.0f;
+  float padding = 10.0f;
+  float lineHeight = fontSize + 4.0f;
+
+  float maxW = 0.0f;
+  Vector2 titleDim =
+      IsFontValid(font)
+          ? MeasureTextEx(font, item.name.c_str(), titleSize, 1.0f)
+          : Vector2{(float)MeasureText(item.name.c_str(), (int)titleSize),
+                    titleSize};
+  maxW = std::max(maxW, titleDim.x);
+  for (const auto& line : lines) {
+    if (line.isSeparator || line.text == " ") {
+      continue;
+    }
+    float w = IsFontValid(font)
+                  ? MeasureTextEx(font, line.text.c_str(), fontSize, 1.0f).x
+                  : (float)MeasureText(line.text.c_str(), (int)fontSize);
+    maxW = std::max(maxW, w);
+  }
+
+  float iconSectionHeight = 0.0f;
+  Texture2D iconTex = {0};
+  if (item.textureId != 0) {
+    iconTex = AssetLoadingSystem::GetTexture(item.textureId);
+    if (iconTex.id > 0) {
+      iconSectionHeight = 64.0f + 10.0f;
+    }
+  }
+
+  float w = std::max(maxW + padding * 2, 64.0f + padding * 2);
+  float h = padding * 2 + titleSize + 5.0f + iconSectionHeight +
+            lines.size() * lineHeight;
+
+  Vector2 m = GetMousePosition();
+  float x = m.x + 15 * s_uiScale;
+  float y = m.y + 15 * s_uiScale;
+  float sW = w * s_uiScale;
+  float sH = h * s_uiScale;
+
+  if (IsWindowReady()) {
+    if (x + sW > (float)GetScreenWidth()) {
+      x -= (sW + 20 * s_uiScale);
+    }
+    if (y + sH > (float)GetScreenHeight()) {
+      y -= (sH + 20 * s_uiScale);
+    }
+  }
+
+  const Color rarityColor = GetRarityColor(static_cast<Rarity>(item.rarity));
+  DrawRectangle((int)x, (int)y, (int)sW, (int)sH,
+                Fade(s_theme.panelBackground, 0.95f * alpha));
+  DrawRectangleLinesEx({x, y, sW, sH}, 1.0f * s_uiScale,
+                       Fade(rarityColor, alpha));
+
+  DrawTextUI(font, item.name.c_str(),
+             (x + padding * s_uiScale) / s_uiScale,
+             (y + padding * s_uiScale) / s_uiScale, titleSize, rarityColor,
+             alpha);
+
+  float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
+
+  if (iconTex.id > 0) {
+    float sIconSize = 64.0f * s_uiScale;
+    Rectangle source = {0, 0, (float)iconTex.width, (float)iconTex.height};
+    Rectangle dest = {x + (sW - sIconSize) / 2.0f, curSY, sIconSize, sIconSize};
+    DrawTexturePro(iconTex, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
+    curSY += (64.0f + 10.0f) * s_uiScale;
+  }
+
+  for (const auto& line : lines) {
+    if (line.isSeparator) {
+      DrawLineEx(
+          {x + padding * s_uiScale, curSY + lineHeight * s_uiScale / 2},
+          {x + sW - padding * s_uiScale, curSY + lineHeight * s_uiScale / 2},
+          1.0f * s_uiScale, Fade(s_theme.panelBorder, alpha));
+    } else if (line.text != " ") {
+      DrawTextUI(font, line.text.c_str(), (x + padding * s_uiScale) / s_uiScale,
+                 curSY / s_uiScale, fontSize, line.color, alpha);
+    }
+    curSY += lineHeight * s_uiScale;
+  }
+}
+
+void UIRenderer::DrawSkillTooltipFromSnapshot(const Font& font,
+                                              const GameUiSnapshot& snapshot,
+                                              uint32_t skillId, float alpha,
+                                              bool forceDraw) {
+  const auto* skill = SkillRegistry::Get().GetSkill(skillId);
+  if (!skill) {
     return;
   }
-
-  if (!registry.valid(overlay.ContextMenuItem())) {
-    overlay.CloseContextMenu();
-    return;
+  if (forceDraw) {
+    alpha = 1.0f;
   }
 
-  auto *itemComp = registry.try_get<ItemComponent>(overlay.ContextMenuItem());
-  if (!itemComp) {
-    overlay.CloseContextMenu();
-    return;
-  }
+  float scale = s_uiScale;
+  float padding = TT_PADDING * scale;
+  float spacing = TT_SECTION_SPACING * scale;
+  float maxW = TT_MAX_WIDTH * scale;
 
-  float w = 180.0f;
-  float btnH = 36.0f;
-  int btnCount = 0;
-
-  bool showEquip = false;
-  bool showUse = false;
-  if (overlay.IsContextFromInventory()) {
-    if (itemComp->type == ItemType::Weapon ||
-        itemComp->type == ItemType::Armor ||
-        itemComp->type == ItemType::Shield ||
-        itemComp->type == ItemType::Jewelry ||
-        itemComp->type == ItemType::Bag) {
-      showEquip = true;
-    } else if (itemComp->type == ItemType::Consumable) {
-      showUse = true;
-    }
-  }
-
-  bool showUnequip =
-      !overlay.IsContextFromInventory() &&
-      overlay.ContextSourceEquipmentSlot() != EquipmentSlot::None;
-  bool showDrop = true;
-  bool showCraft = false;
-
-  if (itemComp->type == ItemType::Weapon || itemComp->type == ItemType::Armor ||
-      itemComp->type == ItemType::Shield ||
-      itemComp->type == ItemType::Jewelry) {
-    showCraft = true;
-  }
-
-  if (showEquip)
-    btnCount++;
-  if (showUse)
-    btnCount++;
-  if (showUnequip)
-    btnCount++;
-  if (showCraft)
-    btnCount++; // Add Craft count
-  if (showDrop)
-    btnCount++;
-  btnCount++; // Lock button
-  btnCount++; // Cancel button
-
-  float h = btnCount * btnH + 20.0f;
-
-  float sx = overlay.ContextMenuPos().x;
-  float sy = overlay.ContextMenuPos().y;
-  float sw = w * s_uiScale;
-  float sh = h * s_uiScale;
-  float sBtnH = btnH * s_uiScale;
-
-  if (sx + sw > (float)GetScreenWidth())
-    sx -= sw;
-  if (sy + sh > (float)GetScreenHeight())
-    sy -= sh;
-
-  DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.98f * alpha));
-  DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale,
-                       Fade(s_theme.panelBorder, alpha));
-  DrawLineEx({sx, sy}, {sx + sw, sy}, 2.0f * s_uiScale,
-             Fade(s_theme.panelBorderHighlight, alpha));
-
-  float curSY = sy + 10.0f * s_uiScale;
-
-  auto DrawMenuBtn = [&](const char *text, Color textColor = WHITE) -> bool {
-    Rectangle r = {sx + 5.0f * s_uiScale, curSY, sw - 10.0f * s_uiScale, sBtnH};
-    bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
-    bool pressed = hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
-
-    if (hovered) {
-      Color bg = pressed ? s_theme.buttonPress : s_theme.buttonHover;
-      DrawRectangleRec(r, Fade(bg, 0.5f * alpha));
-      DrawRectangleLinesEx(r, 1.0f * s_uiScale,
-                           Fade(s_theme.panelBorder, 0.5f * alpha));
-    }
-
-    float sSize = 18.0f * s_uiScale;
-    if (IsFontValid(font)) {
-      Vector2 textSize = MeasureTextEx(font, text, sSize, 1.0f);
-      DrawTextEx(
-          font, text,
-          {sx + (sw - textSize.x) / 2.0f, curSY + (sBtnH - textSize.y) / 2.0f},
-          sSize, 1.0f * s_uiScale,
-          Fade(hovered ? s_theme.textHighlight : textColor, alpha));
-    } else {
-      int textW = MeasureText(text, (int)sSize);
-      DrawText(text, (int)(sx + (sw - textW) / 2.0f),
-               (int)(curSY + (sBtnH - sSize) / 2.0f), (int)sSize,
-               Fade(hovered ? s_theme.textHighlight : textColor, alpha));
-    }
-
-    curSY += sBtnH;
-    return hovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
+  // R8: the estimated-damage / duration preview rows are skipped in the
+  // snapshot path (SkillDisplayPreviewService requires registry + CombatStats,
+  // which the render path must not touch). Mana cost / cooldown / tags /
+  // description are static skill data and stay.
+  struct Stat {
+    std::string label;
+    std::string value;
+    Color color;
   };
+  std::vector<Stat> coreStats;
 
-  if (showEquip) {
-    auto view = registry.view<PlayerTag>();
-    if (view.begin() != view.end() && DrawMenuBtn("装备")) {
-      entt::entity player = view.front();
-      if (itemComp->type == ItemType::Bag) {
-        auto *inv = registry.try_get<InventoryComponent>(player);
-        if (inv) {
-          int emptySlot = -1;
-          for (int i = 0; i < InventoryComponent::MAX_BAG_SLOTS; ++i) {
-            if (!registry.valid(inv->bag_slots[i])) {
-              emptySlot = i;
-              break;
-            }
-          }
-          if (emptySlot != -1) {
-            InventorySystem::equipBag(registry, player,
-                                      overlay.ContextMenuItem(), emptySlot);
-          } else {
-            InventorySystem::equipBag(registry, player,
-                                      overlay.ContextMenuItem(), 0);
-          }
-        }
-      } else {
-        InventorySystem::equipItem(registry, player, overlay.ContextMenuItem());
+  char buf[64];
+  if (skill->mana_cost > 0) {
+    utils::FormatToBuffer(buf, "{:.0f}", skill->mana_cost);
+    coreStats.push_back({"法力消耗", buf, SKYBLUE});
+  }
+  if (skill->cooldown > 0) {
+    utils::FormatToBuffer(buf, "{:.1f}s", skill->cooldown);
+    coreStats.push_back({"冷却时间", buf, WHITE});
+  }
+
+  float totalH = padding;
+  totalH += TT_HEADER_HEIGHT * scale + spacing;
+
+  if (!coreStats.empty()) {
+    totalH += coreStats.size() * (18.0f * scale) + spacing;
+  }
+
+  std::vector<std::string> descLines =
+      GetWrappedLines(font, skill->desc_key.c_str(), maxW - padding * 2,
+                      16.0f * scale);
+  float descH = descLines.size() * 20.0f * scale;
+  if (!descLines.empty()) {
+    totalH += descH + spacing;
+  }
+
+  std::vector<std::string> tags;
+  for (int i = 0; i < 64; ++i) {
+    Tag t = static_cast<Tag>(1ULL << i);
+    if (HasTag(skill->tags, t)) {
+      tags.push_back(std::string(GetTagName(t)));
+    }
+  }
+
+  std::vector<std::string> displayTags;
+  displayTags.reserve(tags.size());
+
+  const float chipPad = 16.0f * scale;
+  const float chipGap = 6.0f * scale;
+  const float chipRowH = 24.0f * scale;
+  const float maxChipW = std::max(1.0f, maxW - padding * 2.0f);
+
+  float tagSectionH = 0;
+  if (!tags.empty()) {
+    float testX = padding;
+    float testY = 0;
+    for (const auto& tag : tags) {
+      const std::string fitTag =
+          TruncateTextToWidth(font, tag, std::max(1.0f, maxChipW - chipPad),
+                              13.0f * scale);
+      displayTags.push_back(fitTag);
+      const float tagW = std::min(
+          maxChipW,
+          MeasureTextEx(font, fitTag.c_str(), 13.0f * scale, 1.0f).x + chipPad);
+      if (testX + tagW > maxW - padding && testX > padding) {
+        testX = padding;
+        testY += chipRowH;
       }
-      overlay.CloseContextMenu();
+      testX += tagW + chipGap;
     }
+    tagSectionH = testY + chipRowH;
+    totalH += (16.0f * scale) + (6.0f * scale) + tagSectionH + spacing;
   }
-  if (showUse) {
-    auto view = registry.view<PlayerTag>();
-    if (view.begin() != view.end() && DrawMenuBtn("使用")) {
-      InventorySystem::useItem(registry, view.front(),
-                               overlay.ContextMenuItem());
-      overlay.CloseContextMenu();
+
+  totalH += padding;
+
+  if (!s_skillTooltipInitialized || forceDraw) {
+    Vector2 m = GetMousePosition();
+    float screenW = (float)GetScreenWidth();
+    float screenH = (float)GetScreenHeight();
+    float safeMargin = 12.0f * scale;
+
+    float targetX = m.x + 20.0f * scale;
+    float targetY = m.y - totalH * 0.3f;
+
+    if (targetX + maxW > screenW - safeMargin) {
+      targetX = m.x - maxW - 20.0f * scale;
     }
+    targetX = std::clamp(targetX, safeMargin,
+                         std::max(safeMargin, screenW - maxW - safeMargin));
+
+    if (targetY + totalH > screenH - safeMargin) {
+      targetY = screenH - totalH - safeMargin;
+    }
+    targetY = std::clamp(targetY, safeMargin,
+                         std::max(safeMargin, screenH - totalH - safeMargin));
+
+    s_skillTooltipPos = {targetX, targetY};
+    s_skillTooltipInitialized = true;
   }
-  if (showUnequip) {
-    auto view = registry.view<PlayerTag>();
-    if (view.begin() != view.end() && DrawMenuBtn("卸下")) {
-      if (!InventorySystem::unequipItem(registry, view.front(),
-                                        overlay.ContextSourceEquipmentSlot())) {
-        overlay.ShowMessageBox("背包已满！无法卸下装备。");
+
+  float x = s_skillTooltipPos.x;
+  float y = s_skillTooltipPos.y;
+
+  DrawRectangleRec({x + 4, y + 4, maxW, totalH}, Fade(BLACK, 0.4f * alpha));
+  DrawRectangleRec({x, y, maxW, totalH}, Fade(TT_COLOR_BG, alpha));
+  DrawRectangleLinesEx({x, y, maxW, totalH}, 1.0f, Fade(TT_COLOR_BORDER, alpha));
+
+  float curY = y;
+  DrawTooltipHeader(font, skill->name_key.c_str(), skill->icon_id, x, curY,
+                    maxW, alpha);
+  curY += (TT_HEADER_HEIGHT * scale) + spacing;
+
+  DrawLineEx({x + padding, curY - spacing / 2},
+             {x + maxW - padding, curY - spacing / 2}, 1.0f,
+             Fade(TT_COLOR_BORDER, 0.5f * alpha));
+
+  for (const auto& stat : coreStats) {
+    DrawTooltipStatRow(font, stat.label.c_str(), stat.value.c_str(), x, curY,
+                       maxW, stat.color, alpha);
+    curY += 18.0f * scale;
+  }
+  if (!coreStats.empty()) {
+    curY += spacing;
+  }
+
+  if (!descLines.empty()) {
+    DrawLineEx({x + padding, curY - spacing / 2},
+               {x + maxW - padding, curY - spacing / 2}, 1.0f,
+               Fade(TT_COLOR_BORDER, 0.3f * alpha));
+    for (const auto& line : descLines) {
+      DrawTextUI(font, line.c_str(), (x + padding) / scale, curY / scale,
+                 16.0f, {220, 220, 230, 255}, alpha);
+      curY += 20.0f * scale;
+    }
+    curY += spacing;
+  }
+
+  if (!displayTags.empty()) {
+    DrawTextUI(font, "标签", (x + padding) / scale, curY / scale, 14.0f,
+               TT_COLOR_STAT_LABEL, alpha);
+    curY += 22.0f * scale;
+
+    float tagX = x + padding;
+    float tagY = curY;
+    for (const auto& tag : displayTags) {
+      const float tagW =
+          std::min(maxChipW,
+                   MeasureTextEx(font, tag.c_str(), 13.0f * scale, 1.0f).x +
+                       chipPad);
+      if (tagX + tagW > x + maxW - padding && tagX > x + padding) {
+        tagX = x + padding;
+        tagY += chipRowH;
       }
-      overlay.CloseContextMenu();
-    }
-  }
-  if (showCraft) {
-    if (DrawMenuBtn("����", GOLD)) {
-      // U7 group 3: the crafting panel is host-owned; route through the
-      // SharedContext callback instead of the legacy static UICrafting.
-      if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
-        auto *shared = registry.ctx().get<NoMoreDay::SharedContext *>();
-        if (shared->craftingSetTargetItem) {
-          shared->craftingSetTargetItem(overlay.ContextMenuItem());
-        }
-      }
-      overlay.CloseContextMenu();
-    }
-  }
-  if (showDrop) {
-    auto view = registry.view<PlayerTag>();
-    if (view.begin() != view.end() && DrawMenuBtn("丢弃", s_theme.danger)) {
-      if (overlay.IsContextFromInventory() && itemComp->quantity > 1) {
-        // U8 收尾: 打开数量弹窗经 overlay 实例（原 State.showQuantityPopup 写）。
-        overlay.OpenQuantityPopup(overlay.ContextMenuItem(), 0,
-                                  itemComp->quantity);
-      } else {
-        InventorySystem::dropItem(registry, view.front(),
-                                  overlay.ContextMenuItem());
-      }
-      overlay.CloseContextMenu();
-    }
-  }
-
-  // Lock/Unlock toggle
-  const char* lockLabel = itemComp->isLocked ? "解锁 (Unlock)" : "锁定 (Lock)";
-  if (DrawMenuBtn(lockLabel, itemComp->isLocked ? GREEN : GOLD)) {
-      itemComp->isLocked = !itemComp->isLocked;
-      overlay.CloseContextMenu();
-  }
-
-  if (btnCount > 1) {
-    DrawLineEx({sx + 10 * s_uiScale, curSY + 2 * s_uiScale},
-               {sx + sw - 10 * s_uiScale, curSY + 2 * s_uiScale},
-               1.0f * s_uiScale, Fade(s_theme.panelBorder, 0.3f * alpha));
-    curSY += 5 * s_uiScale;
-  }
-
-  if (DrawMenuBtn("取消", s_theme.textSecondary)) {
-    overlay.CloseContextMenu();
-  }
-
-  if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) ||
-      IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-    if (!CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
-      overlay.CloseContextMenu();
+      DrawTagChip(font, tag.c_str(), tagX, tagY, alpha);
+      tagX += tagW + chipGap;
     }
   }
 }
 
-void UIRenderer::DrawMessageBox(const Font &font, const char *text,
-                                float alpha) {
-  if (text == nullptr || text[0] == '\0')
+void UIRenderer::DrawBuffTooltipFromView(const Font& font,
+                                         const GameUiBuffView& buff,
+                                         float alpha) {
+  if (buff.name[0] == '\0') {
     return;
+  }
 
-  float fontSize = 20;
-  int textW = IsFontValid(font)
-                  ? (int)MeasureTextEx(font, text, fontSize * s_uiScale, 1.0f).x
-                  : MeasureText(text, (int)(fontSize * s_uiScale));
+  std::vector<TooltipLine> lines;
 
-  float w_logic = (textW / s_uiScale) + 80.0f;
-  float h_logic = 60.0f;
-  float sx_logic = (UI_REF_WIDTH - w_logic) / 2.0f;
-  float sy_logic = (UI_REF_HEIGHT - h_logic) / 2.0f;
+  Color titleColor = buff.isDebuff ? RED : GREEN;
+  std::string title(buff.name.data());
+  if (buff.stacks > 1) {
+    title += TextFormat(" (x%d)", buff.stacks);
+  }
+  lines.push_back({title, titleColor});
 
-  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+  if (buff.description[0] != '\0') {
+    lines.push_back({std::string(buff.description.data()),
+                     s_theme.textPrimary});
+  }
 
-  // Use DrawButton as a decorative frame for the message box
-  UIRenderer::DrawButton(font, rectTex, {sx_logic, sy_logic, w_logic, h_logic}, text, fontSize, s_theme.textPrimary, WHITE, false, false, alpha);
+  if (buff.duration > 0 && buff.remaining < 3600.0f) {
+    char timeBuf[64];
+    utils::FormatToBuffer(timeBuf, "剩余时间: {:.1f}s", buff.remaining);
+    lines.push_back({timeBuf, s_theme.textSecondary});
+  }
+
+  float padding = 10.0f;
+  float fontSize = 16.0f;
+  float titleSize = 18.0f;
+
+  float maxW = 220.0f;
+  float h = padding * 2;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    h += (i == 0 ? titleSize : fontSize) + 4;
+  }
+
+  Vector2 m = GetMousePosition();
+  float x = m.x + 15 * s_uiScale;
+  float y = m.y + 15 * s_uiScale;
+  float sw = (maxW + padding * 2) * s_uiScale;
+  float sh = h * s_uiScale;
+
+  if (IsWindowReady()) {
+    if (x + sw > (float)GetScreenWidth()) {
+      x -= (sw + 20 * s_uiScale);
+    }
+    if (y + sh > (float)GetScreenHeight()) {
+      y -= (sh + 20 * s_uiScale);
+    }
+  }
+
+  DrawRectangle((int)x, (int)y, (int)sw, (int)sh,
+                Fade(s_theme.panelBackground, 0.95f * alpha));
+  DrawRectangleLinesEx({x, y, sw, sh}, 1.0f * s_uiScale,
+                       Fade(titleColor, alpha));
+
+  float curSY = y + padding * s_uiScale;
+  for (size_t i = 0; i < lines.size(); ++i) {
+    float size = (i == 0) ? titleSize : fontSize;
+    DrawTextScaled(font, lines[i].text.c_str(),
+                   (x + padding * s_uiScale) / s_uiScale, curSY / s_uiScale,
+                   size, maxW, lines[i].color, alpha);
+    curSY += (size + 4) * s_uiScale;
+  }
 }
+
 
 } // namespace NoMoreDay

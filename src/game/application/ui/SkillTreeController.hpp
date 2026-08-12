@@ -14,6 +14,9 @@ namespace NoMoreDay::ui {
 class GameUiHost;   // Back-pointer injected by the host (U8 sibling-close /
                     // hover channel).
 class TooltipController; // Skill hover channel (U8: tree hover writes).
+struct UiInputFrame; // R8: snapshot-driven interaction input.
+class UiDrawList;    // R8: render-phase paint target.
+class UiViewport;    // R8: logical viewport for the paint target.
 
 // Instance controller for the skill specialization UI (U7 group 4).
 //
@@ -23,6 +26,14 @@ class TooltipController; // Skill hover channel (U8: tree hover writes).
 // with the U8 final narrowing the legacy State fields are gone and the panel
 // bodies read controller/hub instance state directly (alpha parameter,
 // hub-owned selection, tooltip hover channel).
+//
+// R8 (remediation, design §3.1/§3.3): the controller is a snapshot/intent
+// surface. Update runs the active stage's interaction phase against the frame
+// snapshot + input (gameplay writes enqueue intents through the host);
+// Paint emits the stage's custom command through the draw list during
+// PrepareRender. The registry/player parameters are gone; the stage bodies
+// (hub + talent tree) resolve their data from the snapshot and their raylib
+// drawing lives in the registered backend painters only.
 class SkillTreeController {
 public:
   // U8: optional tooltip/host back-pointers. The tooltip is bound to the
@@ -43,10 +54,10 @@ public:
   void UpdateAlpha(float dt);
 
   // KEY_S handler (was UISystem::Update): toggles visibility and closes the
-  // sibling panels exactly like the legacy code did (routed through the
-  // host channels when present, otherwise the SharedContext closeAstrolabe
-  // callback, matching the legacy static coupling).
-  void Toggle(entt::registry& registry);
+  // sibling panels exactly like the legacy code did (routed through the host
+  // channels when present). R8: registry-free (the legacy SharedContext
+  // closeAstrolabe callback is gone; the host channel closes the astrolabe).
+  void Toggle();
 
   // ESC handler (was UISystem::Update): closes the panel.
   void Close();
@@ -56,16 +67,27 @@ public:
   // U8: instance alpha (authoritative; the legacy State.skillTreeAlpha mirror
   // is gone). Animated by UpdateAlpha.
   [[nodiscard]] float Alpha() const noexcept { return m_alpha; }
-  // U8: hub-owned selection read back by Draw (was the State.selectedSkillId
+  // U8: hub-owned selection read back by Update (was the State.selectedSkillId
   // round-trip); INVALID_SKILL_ID when the talent-tree view is closed.
   [[nodiscard]] uint32_t SelectedSkillId() const noexcept {
     return m_selectedSkillId;
   }
 
-  // Draws the active stage with the animated alpha. The hub writes the
-  // selection into its own instance member, which the controller reads back
-  // afterwards (was the State.selectedSkillId round-trip).
-  void Draw(entt::registry& registry, entt::entity player);
+  // R8: interaction phase (replaces Draw(registry, player)). Runs the active
+  // stage's UpdateInput against the frame snapshot + input; the hub/tree
+  // enqueue gameplay-writing intents through the host. The hub's selection is
+  // read back afterwards (was the State.selectedSkillId round-trip).
+  void Update(const GameUiSnapshot& snapshot, const UiInputFrame& input);
+
+  // R8: render-phase paint. Emits the active stage's custom command (Panels
+  // layer) through the draw list during PrepareRender; the registered backend
+  // painter draws the canvas from the stage's captured paint state.
+  void Paint(UiDrawList& drawList, const UiViewport& viewport,
+             const GameUiSnapshot& snapshot);
+
+  // R8: stage accessors for the host painter registration (userData targets).
+  [[nodiscard]] UISkillHub& Hub() noexcept { return m_hub; }
+  [[nodiscard]] SkillTreeUI& Tree() noexcept { return m_tree; }
 
   // Runtime node id of the panel root (kInvalidUiId if creation failed).
   [[nodiscard]] UiId NodeId() const noexcept;

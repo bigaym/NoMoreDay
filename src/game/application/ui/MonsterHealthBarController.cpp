@@ -1,35 +1,55 @@
 #include "game/application/ui/MonsterHealthBarController.hpp"
 
-#include "game/application/ui/UiDrawList.hpp"
-#include "game/application/ui/UIRenderer.hpp"
-#include "game/application/ui/UISystem.hpp"
-#include "game/foundation/components/AIComponent.hpp"
-#include "game/foundation/components/Buff.hpp"
-#include "game/foundation/components/Combat.hpp"
-#include "game/foundation/components/Common.hpp"
-#include "game/foundation/components/EliteModifierComponents.hpp"
+#include "game/application/ui/UiResourceIds.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
 
 #include <algorithm>
-#include <cfloat>
-#include <cstdint>
-#include <string>
-#include <vector>
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <string_view>
 
 namespace NoMoreDay::ui {
 
 namespace {
 
-struct HealthBarDrawCmd {
-    Rectangle bgRect;
-    Rectangle fgRect;
-    Color fgColor;
-    bool isRare;
-};
-
 inline constexpr UiId kMonsterHealthBarsRootNode =
-    static_cast<UiId>(entt::hashed_string("ui_monster_health_bars").value());
+    static_cast<UiId>(0x93A11D2Eu); // hashed "ui_monster_health_bars"
+
+// Palette (ported verbatim from the legacy MonsterHealthBarSystem).
+inline constexpr UiColor kOverheadBgColor{20, 20, 20, 180};
+inline constexpr UiColor kOverheadBorderColor{0, 0, 0, 200};
+inline constexpr UiColor kOverheadLowHpColor{255, 40, 40, 255};
+inline constexpr UiColor kOverheadNormalColor{200, 30, 30, 255};
+inline constexpr UiColor kOverheadRareColor{255, 180, 0, 255};
+inline constexpr UiColor kTargetBgColor{10, 10, 10, 230};
+inline constexpr UiColor kTargetBorderColor{50, 50, 50, 255};
+inline constexpr UiColor kTargetBarBgColor{30, 0, 0, 255};
+inline constexpr UiColor kTargetBarNormalColor{180, 20, 20, 255};
+inline constexpr UiColor kTargetNameColor{255, 255, 255, 255};
+inline constexpr UiColor kTargetBarColorChampion{135, 206, 235, 255}; // SKYBLUE
+inline constexpr UiColor kTargetBarColorElite{255, 215, 0, 255};      // GOLD
+inline constexpr UiColor kTargetBarColorBoss{255, 165, 0, 255};       // ORANGE
+inline constexpr UiColor kTargetBarColorNemesis{255, 0, 0, 255};      // RED
+inline constexpr float kHoverPickRadius = 40.0f;
+
+// Screen-space metrics of the top-center target widget (legacy layout).
+inline constexpr float kTargetWidth = 400.0f;
+inline constexpr float kTargetHeight = 40.0f;
+inline constexpr float kTargetTop = 50.0f;
+
+// Returns the rarity bar/name color for the given EnemyRarityComponent::Rarity
+// value. Default (NORMAL / unknown) is the normal red.
+UiColor RarityBarColor(std::uint8_t rarity) {
+    switch (rarity) {
+        case 1: return kTargetBarColorChampion; // CHAMPION
+        case 2: return kTargetBarColorElite;    // ELITE
+        case 3: return kTargetBarColorBoss;     // BOSS
+        case 4: return kTargetBarColorNemesis;  // NEMESIS
+        default: return kTargetBarNormalColor;
+    }
+}
 
 } // namespace
 
@@ -56,231 +76,203 @@ MonsterHealthBarController::MonsterHealthBarController(UiRuntime& runtime)
 }
 
 void MonsterHealthBarController::EnterGameplay() {
-    m_hoveredEntity = entt::null;
+    m_target = TargetData{};
 }
 
 void MonsterHealthBarController::LeaveGameplay() {
-    m_hoveredEntity = entt::null;
+    m_target = TargetData{};
 }
 
-void MonsterHealthBarController::RenderUI(entt::registry& registry) {
-    if (registry.valid(m_hoveredEntity)) {
-        DrawTargetWidget(registry, m_hoveredEntity);
+void MonsterHealthBarController::Update(const GameUiSnapshot& snapshot,
+                                        float camTargetX, float camTargetY,
+                                        float camOffsetX, float camOffsetY,
+                                        float camZoom, float mousePixelX,
+                                        float mousePixelY,
+                                        int screenPixelWidth,
+                                        int screenPixelHeight) {
+    m_camTargetX = camTargetX;
+    m_camTargetY = camTargetY;
+    m_camOffsetX = camOffsetX;
+    m_camOffsetY = camOffsetY;
+    m_camZoom = camZoom;
+    if (camZoom <= 0.0f) {
+        camZoom = 1.0f;
     }
-}
 
-void MonsterHealthBarController::Render(entt::registry& registry,
-                                        const Camera2D& camera) {
-    // --- 1. Setup & Mouse Detection ---
-    Vector2 mousePosScreen = GetMousePosition();
-    Vector2 mousePosWorld = GetScreenToWorld2D(mousePosScreen, camera);
+    m_barCount = 0;
+    m_target = TargetData{};
 
-    // Viewport Culling Bounds
-    Vector2 screenMin = GetScreenToWorld2D({ 0, 0 }, camera);
-    Vector2 screenMax = GetScreenToWorld2D(
-        { (float)GetScreenWidth(), (float)GetScreenHeight() }, camera);
-    float padding = 100.0f;
-    Rectangle viewBounds = {
-        screenMin.x - padding, screenMin.y - padding,
-        (screenMax.x - screenMin.x) + padding * 2.0f,
-        (screenMax.y - screenMin.y) + padding * 2.0f
-    };
+    if (!snapshot.player.hasPlayer || snapshot.monsters.empty()) {
+        return;
+    }
 
-    auto view = registry.view<EnemyTag, Position, HealthComponent>(
-        entt::exclude<KilledTag>);
+    // World-space mouse position (inverse of raylib GetScreenToWorld2D).
+    const float invZoom = 1.0f / camZoom;
+    const float mouseWorldX = (mousePixelX - camOffsetX) * invZoom + camTargetX;
+    const float mouseWorldY = (mousePixelY - camOffsetY) * invZoom + camTargetY;
 
-    std::vector<HealthBarDrawCmd> batch;
-    batch.reserve(200);
+    // Viewport culling bounds in world space (+100 padding, legacy).
+    const float viewMinX = (0.0f - camOffsetX) * invZoom + camTargetX - 100.0f;
+    const float viewMinY = (0.0f - camOffsetY) * invZoom + camTargetY - 100.0f;
+    const float viewMaxX = ((float)screenPixelWidth - camOffsetX) * invZoom +
+                           camTargetX + 100.0f;
+    const float viewMaxY = ((float)screenPixelHeight - camOffsetY) * invZoom +
+                           camTargetY + 100.0f;
 
-    // Reset hovered entity for this frame
-    m_hoveredEntity = entt::null;
-    float closestDistSq = FLT_MAX;
-    const float HOVER_RADIUS_SQ = 40.0f * 40.0f; // Mouse pick radius
+    float closestDistSq = 3.4028235e38f;
+    for (const GameUiMonsterHealthView& monster : snapshot.monsters) {
+        const float mx = monster.worldX;
+        const float my = monster.worldY;
 
-    // --- 2. Iterate Entities ---
-    for (auto entity : view) {
-        const auto& pos = view.get<Position>(entity);
-
-        // Culling
-        if (pos.x < viewBounds.x || pos.x > viewBounds.x + viewBounds.width ||
-            pos.y < viewBounds.y ||
-            pos.y > viewBounds.y + viewBounds.height) {
+        // Culling (world space).
+        if (mx < viewMinX || mx > viewMaxX || my < viewMinY || my > viewMaxY) {
+            continue;
+        }
+        if (monster.current <= 0.0f) {
             continue;
         }
 
-        const auto& hp = view.get<HealthComponent>(entity);
-        if (hp.current <= 0) continue;
-
-        // Mouse Hover Check (Find closest under cursor)
-        float dx = pos.x - mousePosWorld.x;
-        float dy = pos.y - mousePosWorld.y;
-        float distSq = dx * dx + dy * dy;
-
-        // Use Entity Radius if available, else default
-        float pickRadiusSq = HOVER_RADIUS_SQ;
-        if (registry.all_of<Radius>(entity)) {
-            float r = registry.get<Radius>(entity).value +
-                      10.0f; // slightly larger for easier picking
-            pickRadiusSq = r * r;
-        }
-
+        // Hover pick (closest under cursor, legacy pick radius logic).
+        const float dx = mx - mouseWorldX;
+        const float dy = my - mouseWorldY;
+        const float distSq = dx * dx + dy * dy;
+        const float pickRadius =
+            (monster.radius > 0.0f ? monster.radius + 10.0f
+                                   : kHoverPickRadius);
+        const float pickRadiusSq = pickRadius * pickRadius;
         if (distSq < pickRadiusSq && distSq < closestDistSq) {
             closestDistSq = distSq;
-            m_hoveredEntity = entity;
-        }
-
-        // --- Overhead Bar Logic ---
-        bool isDamaged = hp.current < hp.max - 0.1f;
-
-        // Optimization: Only draw overhead bar if DAMAGED
-        if (!isDamaged) continue;
-
-        float hpPercent = std::clamp(hp.current / hp.max, 0.0f, 1.0f);
-
-        // Simple Overhead Bar
-        float barWidth = 40.0f;
-        float barHeight = 4.0f;
-        float yOffset = -25.0f;
-
-        HealthBarDrawCmd cmd;
-        cmd.bgRect = { pos.x - barWidth / 2.0f, pos.y + yOffset, barWidth,
-                       barHeight };
-        cmd.fgRect = { cmd.bgRect.x, cmd.bgRect.y, barWidth * hpPercent,
-                       barHeight };
-
-        // Color coding by HP state
-        if (hpPercent < 0.25f)
-            cmd.fgColor = { 255, 40, 40, 255 }; // Vital
-        else
-            cmd.fgColor = { 200, 30, 30, 255 }; // Normal Red
-
-        // Tint for Rarity (Subtle)
-        if (auto* r = registry.try_get<EnemyRarityComponent>(entity)) {
-            if (r->rarity > EnemyRarityComponent::NORMAL) {
-                cmd.isRare = true;
-                cmd.fgColor = { 255, 180, 0, 255 }; // Gold-ish for damaged elites
-            } else {
-                cmd.isRare = false;
+            m_target.hasTarget = true;
+            m_target.domainId = monster.domainId;
+            m_target.current = monster.current;
+            m_target.max = monster.max > 0.0f ? monster.max : 1.0f;
+            m_target.rarity = monster.rarity;
+            m_target.raceType = monster.raceType;
+            m_target.affixCount = monster.affixCount;
+            for (std::uint8_t i = 0; i < monster.affixCount && i < 4; ++i) {
+                m_target.affixTypes[i] = monster.affixTypes[i];
             }
-        } else {
-            cmd.isRare = false;
+            m_target.worldX = mx;
+            m_target.worldY = my;
         }
 
-        batch.push_back(cmd);
-    }
+        // Overhead bar: only when damaged (legacy optimization).
+        if (monster.current >= monster.max - 0.1f) {
+            continue;
+        }
+        if (m_barCount >= m_bars.size()) {
+            break; // Capped; overflow is bounded by the monster cap.
+        }
 
-    // --- 3. Render Overhead Bars (Batch) ---
-    // Backgrounds
-    for (const auto& cmd : batch)
-        DrawRectangleRec(cmd.bgRect, { 20, 20, 20, 180 });
-    // Foregrounds
-    for (const auto& cmd : batch) DrawRectangleRec(cmd.fgRect, cmd.fgColor);
-    // Borders (Optional, keep for Rares for visual hierarchy)
-    for (const auto& cmd : batch) {
-        if (cmd.isRare)
-            DrawRectangleLinesEx(cmd.bgRect, 1.0f, { 0, 0, 0, 200 });
+        const float hpPercent =
+            std::clamp(monster.current / (monster.max > 0.0f ? monster.max
+                                                             : 1.0f),
+                       0.0f, 1.0f);
+        BarCmd& cmd = m_bars[m_barCount++];
+        cmd.worldX = mx - 20.0f;
+        cmd.worldY = my - 25.0f;
+        cmd.width = 40.0f;
+        cmd.height = 4.0f;
+        cmd.hpPercent = hpPercent;
+        cmd.isRare = monster.rarity > 0; // EnemyRarityComponent::NORMAL == 0
     }
-
-    // RenderUI will handle the widget later, outside Mode2D
 }
 
-// Helper for Top Widget
-void MonsterHealthBarController::DrawTargetWidget(entt::registry& registry,
-                                                  entt::entity entity) {
-    const auto& hp = registry.get<HealthComponent>(entity);
-    float hpPercent = std::clamp(hp.current / hp.max, 0.0f, 1.0f);
+void MonsterHealthBarController::Paint(UiDrawList& drawList,
+                                       const UiViewport& viewport) const {
+    const float invZoom = 1.0f / (m_camZoom > 0.0f ? m_camZoom : 1.0f);
 
-    float screenW = (float)GetScreenWidth();
-    float width = 400.0f;
-    float height = 40.0f; // Bar height
-    float x = (screenW - width) / 2.0f;
-    float y = 50.0f; // Top margin
+    // Overhead bars (world -> logical via the retained camera transform).
+    for (std::size_t i = 0; i < m_barCount; ++i) {
+        const BarCmd& cmd = m_bars[i];
+        const float screenX = (cmd.worldX - m_camTargetX) * m_camZoom +
+                              m_camOffsetX;
+        const float screenY = (cmd.worldY - m_camTargetY) * m_camZoom +
+                              m_camOffsetY;
+        const UiVec2 origin = viewport.ToLogical(UiVec2{screenX, screenY});
+        const float scale = viewport.Scale();
+        const UiRect bg{origin, {cmd.width * scale, cmd.height * scale}};
+        const UiRect fg{bg.origin,
+                        {bg.size.x * cmd.hpPercent, bg.size.y}};
 
-    // 1. Background Frame
-    Rectangle bgRect = { x, y, width, height };
-    DrawRectangleRounded(bgRect, 0.1f, 6, { 10, 10, 10, 230 });
-    DrawRectangleRoundedLinesEx(bgRect, 0.1f, 6, 2.0f, { 50, 50, 50, 255 });
-
-    // 2. Health Bar
-    float margin = 4.0f;
-    Rectangle barBg = { x + margin, y + margin, width - margin * 2,
-                        height - margin * 2 };
-    DrawRectangleRec(barBg, { 30, 0, 0, 255 }); // Dark Red backing
-
-    Rectangle barFg = { barBg.x, barBg.y, barBg.width * hpPercent,
-                        barBg.height };
-
-    // Rarity Colors
-    Color barColor = { 180, 20, 20, 255 }; // Normal Red
-    Color nameColor = WHITE;
-
-    EnemyRarityComponent::Rarity rarity = EnemyRarityComponent::NORMAL;
-    if (auto* r = registry.try_get<EnemyRarityComponent>(entity)) {
-        rarity = r->rarity;
-        switch (rarity) {
-            case EnemyRarityComponent::CHAMPION:
-                barColor = SKYBLUE;
-                nameColor = SKYBLUE;
-                break;
-            case EnemyRarityComponent::ELITE:
-                barColor = GOLD;
-                nameColor = GOLD;
-                break;
-            case EnemyRarityComponent::BOSS:
-                barColor = ORANGE;
-                nameColor = ORANGE;
-                break;
-            case EnemyRarityComponent::NEMESIS:
-                barColor = RED;
-                nameColor = RED;
-                break;
-            default:
-                break;
+        drawList.FillRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, bg,
+                          kOverheadBgColor);
+        drawList.FillRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, fg,
+                          cmd.isRare ? kOverheadRareColor
+                                     : (cmd.hpPercent < 0.25f
+                                            ? kOverheadLowHpColor
+                                            : kOverheadNormalColor));
+        if (cmd.isRare) {
+            drawList.StrokeRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode,
+                                bg, kOverheadBorderColor, 1.0f);
         }
     }
-    DrawRectangleRec(barFg, barColor);
 
-    // 3. Name & Info
-    Font font = UISystem::GetFont();
-    std::string name = "Enemy";
-    if (auto* s = registry.try_get<EnemyStateComponent>(entity)) {
-        if (static_cast<size_t>(s->raceType) < kRaceData.size())
-            name = kRaceData[static_cast<size_t>(s->raceType)].name;
+    // Top-center target widget for the hovered entity.
+    if (!m_target.hasTarget) {
+        return;
     }
 
-    // Draw Name (Above bar)
-    float nameSize = 18.0f;
-    Vector2 nameDim = MeasureTextEx(font, name.c_str(), nameSize, 0);
-    UIRenderer::DrawTextUI(font, name.c_str(),
-                           x + (width - nameDim.x) / 2.0f, y - 25.0f,
-                           nameSize, nameColor);
+    const UiVec2 viewSize = viewport.LogicalSize();
+    const float x = (viewSize.x - kTargetWidth) * 0.5f;
+    const float y = kTargetTop;
 
-    // Draw HP Text (Inside bar)
-    std::string hpText = TextFormat("%.0f / %.0f", hp.current, hp.max);
-    Vector2 hpDim = MeasureTextEx(font, hpText.c_str(), 16.0f, 0);
-    UIRenderer::DrawTextUI(font, hpText.c_str(),
-                           x + (width - hpDim.x) / 2.0f,
-                           y + (height - hpDim.y) / 2.0f, 16.0f, WHITE);
+    // 1. Background frame.
+    const UiRect bgRect{{x, y}, {kTargetWidth, kTargetHeight}};
+    drawList.FillRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, bgRect,
+                      kTargetBgColor);
+    drawList.StrokeRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, bgRect,
+                        kTargetBorderColor, 2.0f);
 
-    // 4. Affixes (Below bar)
-    if (auto* affixComp = registry.try_get<NoMoreDay::MonsterAffixComponent>(
-            entity)) {
-        if (!affixComp->affixes.empty()) {
-            float labelX = x;
-            float labelY = y + height + 8.0f;
+    // 2. Health bar.
+    constexpr float margin = 4.0f;
+    const UiRect barBg{{x + margin, y + margin},
+                       {kTargetWidth - margin * 2.0f,
+                        kTargetHeight - margin * 2.0f}};
+    drawList.FillRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, barBg,
+                      kTargetBarBgColor);
 
-            for (auto type : affixComp->affixes) {
-                const auto& def =
-                    NoMoreDay::MonsterAffixRegistry::GetAffixDef(type);
-                std::string label = "[" + std::string(def.name) + "]";
-                Color c = { def.tintR, def.tintG, def.tintB, 255 };
+    const float hpPercent = std::clamp(m_target.current / m_target.max, 0.0f,
+                                       1.0f);
+    const UiColor barColor = RarityBarColor(m_target.rarity);
+    const UiRect barFg{barBg.origin, {barBg.size.x * hpPercent, barBg.size.y}};
+    drawList.FillRect(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, barFg,
+                      barColor);
 
-                UIRenderer::DrawTextUI(font, label.c_str(), labelX, labelY,
-                                       14.0f, c);
-                labelX +=
-                    MeasureTextEx(font, label.c_str(), 14.0f, 0).x + 5.0f;
-            }
-        }
+    // 3. Name (above the bar; race display name from the static table).
+    std::string_view name = "Enemy";
+    if (static_cast<std::size_t>(m_target.raceType) < kRaceData.size()) {
+        name = kRaceData[static_cast<std::size_t>(m_target.raceType)].name;
+    }
+    drawList.Text(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, name,
+                  {x + kTargetWidth * 0.5f, y - 25.0f}, 18.0f,
+                  m_target.rarity > 0 ? RarityBarColor(m_target.rarity)
+                                      : kTargetNameColor,
+                  kGlobalFontResourceId, UiTextAlign::Center);
+
+    // HP text (inside the bar).
+    char hpText[48];
+    std::snprintf(hpText, sizeof(hpText), "%.0f / %.0f", m_target.current,
+                  m_target.max);
+    drawList.Text(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, hpText,
+                  {x + kTargetWidth * 0.5f, y + kTargetHeight * 0.5f - 8.0f},
+                  16.0f, kTargetNameColor, kGlobalFontResourceId,
+                  UiTextAlign::Center);
+
+    // 4. Affix labels (below the bar; static table names).
+    float labelX = x;
+    const float labelY = y + kTargetHeight + 8.0f;
+    for (std::uint8_t i = 0; i < m_target.affixCount; ++i) {
+        const auto& def =
+            MonsterAffixRegistry::GetAffixDef(
+                static_cast<MonsterAffixType>(m_target.affixTypes[i]));
+        char label[40];
+        std::snprintf(label, sizeof(label), "[%s]", def.name);
+        const UiColor tint{def.tintR, def.tintG, def.tintB, 255};
+        drawList.Text(UiDrawLayer::Hud, kMonsterHealthBarsRootNode, label,
+                      {labelX, labelY}, 14.0f, tint, kGlobalFontResourceId);
+        labelX += 14.0f * static_cast<float>(std::strlen(label)) * 0.55f +
+                  5.0f; // Approx advance (no raylib measure on paint path).
     }
 }
 

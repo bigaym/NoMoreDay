@@ -129,7 +129,7 @@ TEST_CASE("[Unit] UICraftingController - Toggle flips visibility with the node")
   controller.SetTargetItem(entt::null);
   CHECK(controller.IsVisible());
   controller.ClearTargetItem();
-  CHECK(controller.GetTargetItem() == static_cast<entt::entity>(entt::null));
+  CHECK(controller.GetForgeTargetDomainId() == kInvalidDomainId);
   CHECK(controller.IsVisible());
 
   // OpenMergePanel opens on the merge tab without toggling state twice.
@@ -142,115 +142,104 @@ TEST_CASE("[Unit] UICraftingController - Toggle flips visibility with the node")
   CHECK(mergeShown->visible);
 }
 
-TEST_CASE("[Unit] UICraftingController - Update runs headless against a world") {
-  // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so GetFrameTime() is available. The alpha is private to the
-  // controller, so the checks here focus on observable behavior: no crash on
-  // an empty registry and on a live world, and stale entity cleanup.
+TEST_CASE("[Unit] UICraftingController - Update runs headless against a snapshot") {
+  // R7: the controller no longer takes a registry — it consumes the snapshot
+  // view model and the input frame. The forge target is a stable domain id
+  // (kInvalidDomainId when empty); stale targets (destroyed items) are dropped
+  // on the next Update when the item is absent from snapshot.displayedItems,
+  // mirroring the legacy registry.valid() cleanup without touching the ECS.
   UiRuntime runtime;
   UICraftingController controller(runtime, nullptr);
   controller.EnterGameplay();
 
-  ResourceManager resourceManager;
-  entt::registry registry;
+  GameUiSnapshot snapshot;
+  snapshot.revision = 1;
 
-  // Empty registry before any world exists: Update must not crash.
-  controller.Update(registry);
+  UiInputFrame input;
+  input.deltaSeconds = 1.0f / 60.0f;
 
-  // Provide a real world plus a player (PlayerTag + InventoryComponent) so
-  // Update runs against live gameplay entities, mirroring the runtime wiring.
-  LevelManager levelManager;
-  levelManager.initialize(resourceManager, registry);
-  levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
+  // Empty snapshot before any world exists: Update must not crash.
+  controller.Update(snapshot, input);
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<InventoryComponent>(player);
+  // Valid forge target survives Update while it stays in displayedItems.
+  const entt::entity item = entt::entity(9001);
+  GameUiItemView itemView;
+  itemView.domainId = entt::to_integral(item);
+  itemView.itemType = static_cast<std::uint8_t>(NoMoreDay::ItemType::Weapon);
+  itemView.forgingPotential = 5;
+  snapshot.displayedItems.push_back(itemView);
 
-  controller.Update(registry);
-
-  // Valid forge target survives Update.
-  const entt::entity item = registry.create();
-  registry.emplace<ItemComponent>(item);
   controller.SetTargetItem(item);
-  CHECK(controller.GetTargetItem() == item);
-  controller.Update(registry);
-  CHECK(controller.GetTargetItem() == item);
+  CHECK(controller.GetForgeTargetDomainId() == entt::to_integral(item));
+  controller.Update(snapshot, input);
+  CHECK(controller.GetForgeTargetDomainId() == entt::to_integral(item));
 
-  // Destroyed forge target is dropped on the next Update.
-  registry.destroy(item);
-  controller.Update(registry);
-  CHECK(controller.GetTargetItem() == static_cast<entt::entity>(entt::null));
+  // Destroyed forge target (absent from displayedItems) is dropped on the
+  // next Update.
+  snapshot.displayedItems.clear();
+  controller.Update(snapshot, input);
+  CHECK(controller.GetForgeTargetDomainId() == kInvalidDomainId);
 }
 
-TEST_CASE("[Unit] UICraftingController - Draw runs headless for the reachable tabs") {
-  // Headless-safety was verified function by function: UIRenderer::DrawTextUI
-  // and MeasureTextUI fall back to the default font when State.globalFont is
-  // invalid in the headless runner, UIRenderer::DrawButton falls back to plain
-  // rects when the button texture is missing, and AssetLoadingSystem::GetTexture
-  // returns a null texture when uninitialized. The panel alpha gate is driven
-  // to 1.0 by rendering real frames (SetTargetFPS(60) in tests/main.cpp makes
-  // each BeginDrawing/EndDrawing cycle advance GetFrameTime() by ~16ms).
+TEST_CASE("[Unit] UICraftingController - Paint runs headless for the reachable tabs") {
+  // R7: the panel is painted from the snapshot view model into a UiDrawList
+  // (no registry, no raylib immediate mode). The panel alpha gate is driven to
+  // 1.0 through Update's input-driven animation.
   UiRuntime runtime;
   UICraftingController controller(runtime, nullptr);
   controller.EnterGameplay();
 
-  ResourceManager resourceManager;
-  entt::registry registry;
-  LevelManager levelManager;
-  levelManager.initialize(resourceManager, registry);
-  levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
+  UiViewport viewport = UiViewport::Fit({800, 600});
 
-  const entt::entity player = registry.create();
-  registry.emplace<PlayerTag>(player);
-  registry.emplace<InventoryComponent>(player);
+  // Forge item with a prefix and a suffix so PaintForgingTab runs both row
+  // kinds. The item is carried as a GameUiItemView in displayedItems (the
+  // snapshot carries no component references).
+  GameUiSnapshot snapshot;
+  snapshot.revision = 1;
 
-  // Forge item with a prefix and a suffix so DrawAffixList runs both row kinds.
-  const entt::entity item = registry.create();
-  auto& itemComp = registry.emplace<ItemComponent>(item);
-  itemComp.type = ItemType::Weapon;
-  itemComp.forgingPotential = 5;
-  Affix prefix;
-  prefix.type = AffixType::Strength;
+  const entt::entity item = entt::entity(9001);
+  GameUiItemView itemView;
+  itemView.domainId = entt::to_integral(item);
+  itemView.itemType = static_cast<std::uint8_t>(NoMoreDay::ItemType::Weapon);
+  itemView.forgingPotential = 5;
+  GameUiAffixView prefix;
+  prefix.type = static_cast<std::uint16_t>(NoMoreDay::AffixType::Strength);
+  prefix.value = 0.0f;
   prefix.tier = 3;
   prefix.isPrefix = true;
-  Affix suffix;
-  suffix.type = AffixType::FlatPhysicalDamage;
+  prefix.isLegendary = false;
+  GameUiAffixView suffix;
+  suffix.type = static_cast<std::uint16_t>(NoMoreDay::AffixType::FlatPhysicalDamage);
+  suffix.value = 0.0f;
   suffix.tier = 2;
   suffix.isPrefix = false;
-  itemComp.affixes.push_back(prefix);
-  itemComp.affixes.push_back(suffix);
+  suffix.isLegendary = false;
+  itemView.affixes.push_back(prefix);
+  itemView.affixes.push_back(suffix);
+  snapshot.displayedItems.push_back(itemView);
 
-  // Keep the mouse away from every panel control: no hover, no click, no drag.
-  SetMousePosition(50, 50);
-
-  // Real usage (GameUiHost::Draw) sets the scale before drawing panels.
-  const float savedUiScale = UIRenderer::GetScale();
-  UIRenderer::SetScale(1.0f);
+  UiInputFrame input;
+  input.deltaSeconds = 1.0f / 60.0f;
 
   // Forging tab: set the target (auto-opens the panel) and animate alpha to 1.
   controller.SetTargetItem(item);
   for (int i = 0; i < 90; ++i) {
-    BeginDrawing();
-    EndDrawing();
-    controller.Update(registry);
+    controller.Update(snapshot, input);
   }
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  UiDrawList forgeList;
+  controller.Paint(forgeList, viewport, snapshot);
+  CHECK(forgeList.CommandCount() > 0);
 
-  // Merging tab: OpenMergePanel switches tabs; draw with empty merge slots.
+  // Merging tab: OpenMergePanel switches tabs; paint with empty merge slots.
   controller.OpenMergePanel();
-  BeginDrawing();
-  controller.Draw(registry);
-  EndDrawing();
+  UiDrawList mergeList;
+  controller.Paint(mergeList, viewport, snapshot);
+  CHECK(mergeList.CommandCount() > 0);
 
   // The Salvaging tab is only reachable through a tab click, which cannot be
-  // synthesized headless; its primitives (DrawRing/DrawPolyLines/GetTime plus
-  // the shared UIRenderer/raylib calls) are covered by inspection and by the
-  // other two tabs above.
-
-  UIRenderer::SetScale(savedUiScale);
+  // synthesized headless; its primitives (salvage slot, yield preview from
+  // snapshot.crafting.salvageYield, filter popup, batch button) are covered by
+  // inspection and by the other two tabs above.
 }
 
 TEST_CASE("[Unit] UICraftingController - header declares no static data members") {

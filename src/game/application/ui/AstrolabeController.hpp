@@ -1,26 +1,28 @@
 #pragma once
 
 #include "game/application/ui/AstrolabeRenderer.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
+#include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiRuntime.hpp"
 #include "game/application/ui/UiRuntimeTypes.hpp"
+#include "game/application/ui/UiViewport.hpp"
 
 #include <cstdint>
 #include <string>
 
-#include <entt/entt.hpp>
-
 namespace NoMoreDay::ui {
+
+class GameUiHost;
 
 // Instance controller for the astrolabe panel (U7 group 5).
 //
-// Ports the legacy static class UIAstrolabe into a hostable instance: the
-// controller owns a UiRuntime root node (created in the ctor), a private
-// AstrolabeRenderer instance and all the panel state that used to be static
-// members (view, visibility, alpha, failure message, vow confirmation). The
-// host (GameUiHost) owns one instance and drives EnterGameplay/LeaveGameplay
-// around gameplay sessions; KEY_N / ESC / per-frame Update/Draw route in-place
-// through UISystem::Update/Draw parameters (frame-order coupling with the
-// sibling panels, same as the stash/crafting/skill-tree controllers).
+// R8: the panel runs the snapshot/intent/draw-list pipeline. Update() takes the
+// frame snapshot + UiInputFrame (interaction: camera, hit test, node/star
+// clicks that enqueue intents, vow hold-to-confirm), Paint() emits one custom
+// painter command on the Panels layer and the registered backend painter draws
+// through the AstrolabeRenderer. The controller never reads the registry, never
+// writes gameplay state (addPointToNode/takeVow go through
+// GameUiCommandHandler intents) and never calls raylib draw functions itself.
 //
 // The renderer is created lazily by Initialize() (reads the galaxy/node
 // shaders through AssetLoadingSystem, mirroring the legacy load path) and is
@@ -39,29 +41,39 @@ public:
   AstrolabeController(const AstrolabeController&) = delete;
   AstrolabeController& operator=(const AstrolabeController&) = delete;
 
+  // R8: intent sink (GameUiHost owns the enqueue queue). May be null in
+  // headless tests; interactions then degrade to UI-local state only.
+  void SetHost(GameUiHost* host) noexcept;
+
   // Loads the talent registry and initializes the renderer (legacy
   // UIAstrolabe::Initialize). Idempotent; must run after UISystem::Initialize
   // so the asset system is up. GameUiHost calls it once in Initialize().
   void Initialize();
 
-  // Per-frame update (legacy UIAstrolabe::Update; currently a no-op).
-  void Update(entt::registry& registry);
+  // R8: per-frame interaction phase. Reads the frame snapshot + UiInputFrame;
+  // node/star clicks and the vow hold-to-confirm enqueue intents (executed by
+  // the command handler on the next gameplay Update). Never touches the
+  // registry or gameplay components directly.
+  void Update(const GameUiSnapshot& snapshot, const UiInputFrame& input);
 
-  // Draws the panel (legacy UIAstrolabe::Draw): early-outs when hidden and
-  // falls back to the first PlayerTag entity. Route in-place inside
-  // UISystem::Draw (frame-order coupling with the sibling panels).
-  void Draw(entt::registry& registry);
+  // R8: emits a single custom painter command on the Panels layer when the
+  // panel is visible or still fading out. The registered backend painter
+  // (kAstrolabePainterResourceId) performs the actual drawing through
+  // AstrolabeRenderer.
+  void Paint(UiDrawList& drawList, const UiViewport& viewport);
 
-  // Flips panel visibility (legacy UIAstrolabe::Toggle). Opening loads the
-  // data/renderer, resets the camera view and closes the sibling panels
-  // (showInventory/showCharacterPanel/showContextMenu/showSkillTree) exactly
-  // like the legacy KEY_N handler did. Closing hides the panel; the fade
-  // alpha is animated down by the per-frame Draw.
-  void Toggle(entt::registry& registry, entt::entity player);
+  // R8: no longer needs the registry/player (pure panel-local visibility).
+  void Toggle();
+
+  // R8: canvas draw (registered custom-painter target). Draws the astrolabe
+  // panel with AstrolabeRenderer; read-only over the paint state. Public so
+  // the registered painter callback and tech tests can reach it without
+  // touching the private internals.
+  void PaintCanvas(UiRect nativeBounds);
 
   // Mirror of the legacy read accessor: visible once the panel is open or
   // still fading out.
-  [[nodiscard]] bool IsVisible(entt::registry& registry, entt::entity player) const;
+  [[nodiscard]] bool IsVisible() const noexcept;
 
   void Show();
   void Hide();
@@ -89,22 +101,21 @@ public:
   [[nodiscard]] UiId NodeId() const noexcept;
 
 private:
-  void DrawInternal(entt::registry& registry, entt::entity player);
-  void DrawVowDialog(entt::registry& registry, entt::entity player, const ProfessionStar& star);
-
-  // Refactored components
-  void HandleCameraInput(float dt);
-  void HandleInteraction(entt::registry& registry, entt::entity player, const TalentGraph& graph, const AstrolabeComponent* comp, uint32_t hoverId, const AstrolabeTalentNode* hoveredNode, const ProfessionStar* hoveredStar);
-  void DrawOverlay(const AstrolabeComponent* comp, float scale);
-  void DrawTooltips(const TalentGraph& graph, const AstrolabeComponent* comp, uint32_t hoverId, const AstrolabeTalentNode* hoveredNode, const ProfessionStar* hoveredStar, float scale);
-
-  void EmitEnergyFlow(const TalentGraph& graph, ProfessionID from, const AstrolabeTalentNode& to);
-  void EmitSupernova(const AstrolabeTalentNode& node);
+  void DrawInternal(); // painter-side: full canvas render
+  void HandleCameraInput(const UiInputFrame& input);
+  void HandleInteraction(const GameUiSnapshot& snapshot,
+                         const UiInputFrame& input);
+  void UpdateVowDialog(const GameUiSnapshot& snapshot,
+                       const UiInputFrame& input);
+  void DrawOverlay(float scale);
+  void DrawTooltips(float scale);
+  void DrawVowDialog(float scale);
 
   void EnsureLoaded();
   void SetNodeVisible(bool visible);
 
   UiRuntime& m_runtime;
+  GameUiHost* m_uiHost = nullptr;
   UiId m_rootNodeId = kInvalidUiId;
   bool m_visible = false;
   bool m_inGameplay = false;
@@ -123,6 +134,19 @@ private:
   float m_vowHoldProgress = 0.0f;
   static constexpr float VOW_HOLD_DURATION = 2.0f;
   bool m_showVowDialog = false;
+
+  // R8: painter-side payload rebuilt from the frame snapshot each Update.
+  // The custom painter reads this (via the controller) instead of the registry.
+  struct PaintState {
+    const GameUiSnapshot* snapshot = nullptr;
+    uint32_t hoverId = 0;
+    int hoveredStarIndex = -1;
+  };
+  PaintState m_paintState;
 };
+
+// R8: backend painter callback (registered by GameUiHost with
+// kAstrolabePainterResourceId). userData points to the controller.
+void AstrolabePaintCallback(void* userData, UiRect nativeBounds);
 
 } // namespace NoMoreDay::ui

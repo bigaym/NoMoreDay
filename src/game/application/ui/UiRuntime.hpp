@@ -31,6 +31,14 @@ struct UiPointerInput {
   UiVec2 logicalPosition{};
   bool pressed = false;
   bool released = false;
+  // R8: right-button edge (context menus; the hotbar/skill surfaces route
+  // right-click through this instead of reading raylib during Update).
+  bool pressedRight = false;
+  // R8: sustained button state + wheel delta. Astrolabe camera pan/zoom and
+  // the vow hold-to-confirm need these without touching raylib in Update.
+  bool down = false;
+  bool rightDown = false;
+  float mouseWheel = 0.0f;
 };
 
 struct UiInputFrame {

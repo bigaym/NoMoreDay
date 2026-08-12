@@ -2,9 +2,11 @@
 #include "TestCommon.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/GameUiHost.hpp"
+#include "game/application/ui/GameUiCommandHandler.hpp"
 #include "game/application/ui/OverlayController.hpp"
 #include "game/application/ui/UIAnimationSystem.hpp"
 #include "game/application/ui/UISkillSpecRenderer.hpp"
+#include "game/application/ui/UiRuntimeTypes.hpp"
 #include "game/foundation/components/UIAnimationComponent.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
@@ -279,7 +281,8 @@ TEST_CASE("[Tech] InventoryUI - button text uses shared emoji fallback path") {
     CHECK(directDrawPos == std::string::npos);
 }
 
-TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags through transactional swap path") {
+TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags "
+          "through the transactional handler, not the paint path (R6)") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
         fs::path("src/game/application/ui/UIInventoryController.cpp"),
@@ -303,16 +306,20 @@ TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags thr
 
     REQUIRE(!source.empty());
 
-    const size_t equipDropPos = source.find("if (allowInventoryInput && !handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && drag.draggedItem != entt::null)");
-    REQUIRE(equipDropPos != std::string::npos);
-
-    const size_t inventoryBranchPos = source.find("drag.isDraggingFromInventory", equipDropPos);
-    const size_t swapApiPos = source.find("InventorySystem::swapInventoryItemIntoEquipment(", equipDropPos);
-    const size_t genericEquipPos = source.find("InventorySystem::equipItem(", equipDropPos);
-
-    CHECK(inventoryBranchPos != std::string::npos);
-    CHECK(swapApiPos != std::string::npos);
-    CHECK(genericEquipPos == std::string::npos);
+    // R6: the equipment drop no longer mutates the registry during paint.
+    // The controller enqueues an EquipItem intent carrying the drag source
+    // (inventory slot index + itemSource) and the target equipment slot; the
+    // GameUiCommandHandler re-resolves and routes inventory-origin drags
+    // through InventorySystem::swapInventoryItemIntoEquipment (transactional
+    // swap). The old Draw-phase needles are gone.
+    const size_t equipIntentPos = source.find("GameUiIntentKind::EquipItem");
+    REQUIRE(equipIntentPos != std::string::npos);
+    const size_t itemSourcePos = source.find("intent.payload.itemSource", equipIntentPos);
+    const size_t sourceSlotPos = source.find("intent.payload.sourceSlot", equipIntentPos);
+    CHECK(itemSourcePos != std::string::npos);
+    CHECK(sourceSlotPos != std::string::npos);
+    CHECK(source.find("InventorySystem::equipItem(") == std::string::npos);
+    CHECK(source.find("IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && drag.draggedItemDomainId != 0") == std::string::npos);
 }
 
 TEST_CASE("[Tech] InventoryUI - gameplay fallback does not clear drags while inventory overlay is active") {
@@ -339,7 +346,9 @@ TEST_CASE("[Tech] InventoryUI - gameplay fallback does not clear drags while inv
 
     REQUIRE(!source.empty());
 
-    const size_t cleanupPos = source.find("m_uiHost->DrawDraggingPhantom(registry);");
+    // R8: the legacy call position is now registry-free (the phantom and the
+    // tooltip paint from the drag session + frame snapshot inside Draw).
+    const size_t cleanupPos = source.find("m_uiHost->DrawDraggingPhantom();");
     REQUIRE(cleanupPos != std::string::npos);
 
     // The repo sources are CRLF-terminated, so the source-text needle must
@@ -376,12 +385,18 @@ TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree ch
         REQUIRE_MESSAGE(!sources[index].empty(), candidates[index].string().c_str());
     }
 
-    CHECK(sources[0].find("GetBladeMasteryUIThemeProfile(profile.id)") != std::string::npos);
+    // R8: the hub reads mastery view models (GameUiMasteryCardView) whose
+    // field is masteryId, so the theme lookup casts that view id; the
+    // plumbing contract (theme driven by the mastery id) is unchanged.
+    CHECK(sources[0].find("GetBladeMasteryUIThemeProfile(static_cast<BladeMasteryId>(profile.masteryId))") != std::string::npos);
     CHECK(sources[1].find("ClassifyNodeVisual") != std::string::npos);
     CHECK(sources[2].find("GetBladeMasteryUIThemeProfile(tree->mastery_id)") != std::string::npos);
     CHECK(sources[2].find("ClassifyNodeVisual") != std::string::npos);
+    // R8: the talent tree no longer re-implements node classification; its
+    // painter delegates node drawing to UISkillSpecRenderer::Draw, which is
+    // the single home of ClassifyNodeVisual (locked above).
+    CHECK(sources[3].find("UISkillSpecRenderer::Draw(tree") != std::string::npos);
     CHECK(sources[3].find("GetBladeMasteryUIThemeProfile(tree->mastery_id)") != std::string::npos);
-    CHECK(sources[3].find("ClassifyNodeVisual") != std::string::npos);
 }
 
 TEST_CASE("[Tech] SkillUI - mastery hub exposes Heavenly Sword attunement controls") {
@@ -414,7 +429,11 @@ TEST_CASE("[Tech] SkillUI - mastery hub exposes Heavenly Sword attunement contro
     CHECK(source.find("Fire") != std::string::npos);
     CHECK(source.find("Rectangle buttonLogic") != std::string::npos);
     CHECK(source.find("CheckCollisionPointRec(UISystem::GetMousePositionLogic(), buttonLogic)") != std::string::npos);
-    CHECK(source.find("SetHeavenlySwordAttunement") != std::string::npos);
+    // R8: the attunement write moved out of the hub into the command handler
+    // (SkillSetAttunement intent). The hub keeps the UI-only hover/highlight
+    // chrome; the authoritative write must stay behind the handler so the hub
+    // surface stays registry-free.
+    CHECK(source.find("SkillSetAttunement") != std::string::npos);
 }
 
 TEST_CASE("[Tech] SkillUI - mastery hub locks all Blade Ascendant signature skills consistently") {
@@ -444,9 +463,12 @@ TEST_CASE("[Tech] SkillUI - mastery hub locks all Blade Ascendant signature skil
     // Signature-skill detection is data-driven (BladeMasteryProfile::signature_skill_id),
     // so no hardcoded skill-id literals may reappear.
     CHECK(source.find("id == 10 || id == 11 || id == 12") == std::string::npos);
-    CHECK(source.find("profile.signature_skill_id") != std::string::npos);
-    CHECK(source.find("IsSignatureSkillUnlocked(registry, player, id)") != std::string::npos);
+    // R8: the locked-signature set is resolved by the snapshot builder (the
+    // single registry read point; see GameUiSnapshotBuilder.cpp) and the hub
+    // reads it from the snapshot. The hub keeps the lock badge flag; the
+    // registry-touching detection must not reappear in the hub.
     CHECK(source.find("signatureLocked") != std::string::npos);
+    CHECK(source.find("lockedSignatureSkills") != std::string::npos);
 }
 
 TEST_CASE("[Tech] SkillUI - shared node visual classification drives radius consistently") {
@@ -520,51 +542,59 @@ TEST_CASE("[Tech] SkillUI - Persistence of Assignments") {
 }
 
 TEST_CASE("[Tech] SkillUI - Mastery Panel Draw Does Not Crash") {
-    entt::registry registry;
-
+    // R8: the hub is a snapshot surface — the draw path is the registered
+    // painter (PaintCanvas), fed by the paint state UpdateInput captured from
+    // the frame snapshot. The registry is gone from the hub API; the smoke
+    // drives UpdateInput + PaintCanvas with a minimal snapshot instead.
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
         "assets/data/blade_masteries.json"));
 
-    auto player = registry.create();
-    registry.emplace<PlayerTag>(player);
-    registry.emplace<ActiveSkillsComponent>(player);
-
-    auto& stats = registry.emplace<PlayerStats>(player);
-    stats.level = 50;
-
-    auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
-    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
-
-    NoMoreDay::UISkillHub hub;
-    CHECK_NOTHROW(hub.Draw(registry, player));
-}
-
-TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
-    entt::registry registry;
-    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
-    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
-        "assets/data/blade_masteries.json"));
-
-    // U8 final: the popup surfaces through the hosted message box channel
-    // (the legacy UISystem::State.showMessageBox fields are gone). The hub
-    // needs the host back-pointer to route the failure.
     NoMoreDay::ui::GameUiHost host;
     NoMoreDay::UISkillHub hub;
     hub.SetHost(&host);
 
+    NoMoreDay::ui::GameUiSnapshot snapshot;
+    snapshot.player.hasPlayer = true;
+    snapshot.player.level = 50;
+    snapshot.skillTree.hasBladeProfession = true;
+    snapshot.skillTree.availableTalentPoints = 3;
+
+    NoMoreDay::ui::UiInputFrame input;
+    input.deltaSeconds = 0.016f;
+    input.tooltipTarget = NoMoreDay::ui::kInvalidUiId;
+
+    CHECK_NOTHROW(hub.UpdateInput(snapshot, input, 1.0f));
+    CHECK_NOTHROW(hub.PaintCanvas(
+        NoMoreDay::ui::UiRect{{0.0f, 0.0f}, {1280.0f, 720.0f}}));
+}
+
+TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+
+    // R8: the mastery selection is a SkillSelectMastery intent executed by the
+    // command handler; its failure notification is the contractual popup text
+    // the host surfaces through the message box on the next Update (was
+    // hub.TrySelectMastery, which wrote gameplay directly).
+    NoMoreDay::ui::GameUiCommandHandler handler;
+    entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
     registry.emplace<ActiveSkillsComponent>(player);
-
     auto& stats = registry.emplace<PlayerStats>(player);
     stats.level = 12;
 
-    CHECK_FALSE(hub.TrySelectMastery(registry, player,
-                                     BladeMasteryId::SwordSaint));
-    CHECK(host.IsMessageBoxVisible());
-    CHECK(std::string(host.MessageBoxText()) ==
-          "等级或基础职业不满足职业专精条件");
+    NoMoreDay::ui::GameUiIntent intent;
+    intent.sourceNode = NoMoreDay::ui::kInvalidUiId;
+    intent.kind = NoMoreDay::ui::GameUiIntentKind::SkillSelectMastery;
+    intent.payload.masteryId =
+        static_cast<std::uint8_t>(BladeMasteryId::SwordSaint);
+
+    const auto result = handler.Execute(registry, intent);
+    CHECK_FALSE(result.success);
+    CHECK(result.notification == "等级或基础职业不满足职业专精条件");
 }
 
 TEST_CASE("[Tech] MonsterHealthBar - Visibility and Buffs") {
@@ -834,9 +864,12 @@ TEST_CASE("[Tech] SkillUI - SwordIntentWidget status text uses UI font rendering
 
     REQUIRE(!source.empty());
 
-    CHECK(source.find("UISystem::DrawTextUI(labelText.c_str()") != std::string::npos);
-    CHECK(source.find("UISystem::DrawTextUI(thresholdText") != std::string::npos);
-    CHECK(source.find("UISystem::DrawTextUI(detail.c_str()") != std::string::npos);
+    // R5 adaptation: the widget paints into the UiDrawList (backend renders
+    // text with the UI font). The guard now asserts the draw-list contract
+    // and that no raylib immediate-mode text call sneaks back in.
+    CHECK(source.find("drawList.Text(UiDrawLayer::Hud") != std::string::npos);
+    CHECK(source.find("kGlobalFontResourceId") != std::string::npos);
+    CHECK(source.find("drawList.Image(UiDrawLayer::Hud") != std::string::npos);
     CHECK(source.find("DrawText(labelText.c_str(),") == std::string::npos);
     CHECK(source.find("DrawText(thresholdText,") == std::string::npos);
     CHECK(source.find("DrawText(detail.c_str(),") == std::string::npos);
@@ -997,6 +1030,46 @@ TEST_CASE("[Tech] SkillUI - specialization tooltip renders quantitative lines") 
     CHECK(source.find("quantitative") != std::string::npos);
     CHECK(source.find("display_lines") != std::string::npos);
     CHECK(source.find("数值加成已启用") == std::string::npos);
+}
+
+TEST_CASE("[Tech] R2 - production GameUiHost has no test-data injection") {
+    // D-01 (R2): the production host must not contain the removed one-shot
+    // test item / skill / buff grant (m_hasGivenTestItems and the test_*
+    // buff ids), and must not create a bag for injection. createBag is a
+    // legitimate production API used by real game systems, so the guard is
+    // scoped to the host sources only (the narrowest expression): the host
+    // itself must never call it.
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 6> candidates = {
+        fs::path("src/game/application/ui/GameUiHost.cpp"),
+        fs::path("../src/game/application/ui/GameUiHost.cpp"),
+        fs::path("../../src/game/application/ui/GameUiHost.cpp"),
+        fs::path("src/game/application/ui/GameUiHost.hpp"),
+        fs::path("../src/game/application/ui/GameUiHost.hpp"),
+        fs::path("../../src/game/application/ui/GameUiHost.hpp"),
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source += ss.str();
+    }
+    REQUIRE(!source.empty());
+
+    const char* forbiddenTokens[] = {
+        "m_hasGivenTestItems", "test_power", "test_speed",
+        "test_stun",           "test_poison",
+    };
+    for (const char* needle : forbiddenTokens) {
+        CHECK_MESSAGE(source.find(needle) == std::string::npos, "host contains ",
+                      needle);
+    }
+    CHECK(source.find("ItemFactory::createBag") == std::string::npos);
 }
 
 } // namespace NoMoreDay

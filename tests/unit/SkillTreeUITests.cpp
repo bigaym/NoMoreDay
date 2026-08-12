@@ -1,6 +1,7 @@
 #include "doctest.h"
 
 #include "game/application/ui/UISkillTalentTree.hpp"
+#include "game/application/ui/UiRuntime.hpp" // UiInputFrame complete type
 
 #include <cctype>
 #include <fstream>
@@ -57,19 +58,21 @@ TEST_CASE("[Unit] SkillTreeUI ComputeTooltipLayoutMetrics is pure") {
   CHECK(metricsTall.descriptionBottom == doctest::Approx(108.0f + 220.0f));         // 328
 }
 
-TEST_CASE("[Unit] SkillTreeUI Draw is headless-safe") {
-  // The test harness (tests/main.cpp) opens a hidden raylib window, but the
-  // talent tree must still guard its early exits. alpha <= 0 makes Draw return
-  // before any GL call. Even with alpha forced to 1, an unmapped skill id
-  // makes GetSkill return nullptr, so Draw returns before touching the
-  // renderer or the registry. U8: the alpha is a Draw parameter (the legacy
-  // UISystem::State.skillTreeAlpha slot is gone).
+TEST_CASE("[Unit] SkillTreeUI UpdateInput/PaintCanvas are headless-safe") {
+  // R8: the tree is a snapshot surface. alpha <= 0 makes UpdateInput return
+  // before any work; an unmapped skill id makes GetSkill return nullptr, so
+  // UpdateInput returns before touching the renderer or the registry, and
+  // PaintCanvas early-outs on the invalid skill id / empty paint state.
   NoMoreDay::SkillTreeUI treeUI;
-  entt::registry registry;
-  const entt::entity player = registry.create();
+  NoMoreDay::ui::GameUiSnapshot snapshot;
+  NoMoreDay::ui::UiInputFrame input;
+  input.deltaSeconds = 0.016f;
+  input.tooltipTarget = NoMoreDay::ui::kInvalidUiId;
+  NoMoreDay::ui::UiRect bounds{{0.0f, 0.0f}, {1280.0f, 720.0f}};
 
-  treeUI.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 0.0f);
-  treeUI.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 1.0f);
+  treeUI.UpdateInput(snapshot, input, NoMoreDay::INVALID_SKILL_ID, nullptr, 0.0f);
+  treeUI.UpdateInput(snapshot, input, NoMoreDay::INVALID_SKILL_ID, nullptr, 1.0f);
+  treeUI.PaintCanvas(bounds);
 }
 
 TEST_CASE("[Unit] SkillTreeUI instances are independent") {
@@ -78,11 +81,16 @@ TEST_CASE("[Unit] SkillTreeUI instances are independent") {
   // with the same headless-safe inputs.
   NoMoreDay::SkillTreeUI a;
   NoMoreDay::SkillTreeUI b;
-  entt::registry registry;
-  const entt::entity player = registry.create();
+  NoMoreDay::ui::GameUiSnapshot snapshot;
+  NoMoreDay::ui::UiInputFrame input;
+  input.deltaSeconds = 0.016f;
+  input.tooltipTarget = NoMoreDay::ui::kInvalidUiId;
+  NoMoreDay::ui::UiRect bounds{{0.0f, 0.0f}, {1280.0f, 720.0f}};
 
-  a.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 1.0f);
-  b.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 1.0f);
+  a.UpdateInput(snapshot, input, NoMoreDay::INVALID_SKILL_ID, nullptr, 1.0f);
+  b.UpdateInput(snapshot, input, NoMoreDay::INVALID_SKILL_ID, nullptr, 1.0f);
+  a.PaintCanvas(bounds);
+  b.PaintCanvas(bounds);
 }
 
 TEST_CASE("[Unit] SkillTreeUI header holds no static mutable state") {

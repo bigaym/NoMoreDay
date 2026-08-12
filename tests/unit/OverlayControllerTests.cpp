@@ -107,20 +107,17 @@ TEST_CASE("[Unit] OverlayController (UI) - Open/Close quantity popup owns "
 
   entt::registry registry;
   const entt::entity item = registry.create();
-  // DrawQuantityPopup requires a valid item (with a quantity) and a player
-  // tag; otherwise it closes the popup immediately (legacy semantics).
+  // OpenQuantityPopup stores the target; the interaction/display refresh
+  // (UpdateOverlays) validates the item (with a quantity) and the player tag;
+  // otherwise it closes the popup immediately (legacy semantics).
   registry.emplace<NoMoreDay::ItemComponent>(item);
   registry.get<NoMoreDay::ItemComponent>(item).quantity = 5;
   registry.emplace<PlayerTag>(registry.create());
 
   controller.OpenQuantityPopup(item, 1); // 1: Destroy
   CHECK(controller.IsQuantityPopupVisible());
-  // isTyping is set by the draw pass while the popup input is live (legacy
-  // DrawQuantityPopup semantics), not by OpenQuantityPopup.
-  CHECK_FALSE(controller.IsTyping());
-  BeginDrawing();
-  controller.DrawOverlays(registry);
-  EndDrawing();
+  // R6: isTyping is the popup-input lifetime (set on open, cleared on close);
+  // the legacy DrawQuantityPopup set it only while drawing.
   CHECK(controller.IsTyping());
 
   controller.CloseQuantityPopup();
@@ -145,6 +142,16 @@ TEST_CASE("[Unit] OverlayController (UI) - UpdateMessageBox decays the timer "
           "and closes at zero") {
   ui::UiRuntime runtime;
   ui::OverlayController controller(runtime);
+
+  // Refresh raylib's frame timer before asserting timer decay. The first
+  // Begin/End pair consumes any stale frame delta left over from earlier
+  // tests in the full run; the second pair leaves GetFrameTime() near the
+  // target frame time, so the 2.0s message box lifetime cannot expire
+  // mid-test (same pattern as UiPickupFlowTests).
+  BeginDrawing();
+  EndDrawing();
+  BeginDrawing();
+  EndDrawing();
 
   // Mid-decay: a positive timer keeps the box visible (frame time in the
   // headless harness is far below the 2s lifetime).
@@ -189,12 +196,12 @@ TEST_CASE("[Unit] OverlayController (UI) - Enter/Leave gameplay resets all "
   CHECK_FALSE(controller.IsContextMenuVisible());
 }
 
-TEST_CASE("[Unit] OverlayController (UI) - DrawOverlays executes headless "
-          "without crashing") {
+TEST_CASE("[Unit] OverlayController (UI) - UpdateOverlays/Paint execute "
+          "headless without crashing") {
   // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
-  // context, so immediate-mode raylib drawing works. No pointer/keyboard input
-  // is delivered in the headless harness, so the menu/popup interaction
-  // branches (item use/drop, confirm/cancel) do not run; only the draw paths
+  // context, so draw-list painting works. No pointer/keyboard input is
+  // delivered in the headless harness, so the menu/popup interaction branches
+  // (item use/drop, confirm/cancel) do not run; only the update + paint paths
   // are exercised. A Consumable item keeps the craft branch (which would
   // require a SharedContext registry handle) out of the menu.
   ui::UiRuntime runtime;
@@ -209,32 +216,39 @@ TEST_CASE("[Unit] OverlayController (UI) - DrawOverlays executes headless "
   itemComp.type = ItemType::Consumable;
   itemComp.quantity = 5;
 
+  ui::UiViewport viewport = ui::UiViewport::Fit({800.0f, 600.0f});
+  ui::UiDrawList drawList;
+
   // Empty registry: every overlay early-outs.
-  BeginDrawing();
-  controller.DrawOverlays(registry);
-  EndDrawing();
+  controller.UpdateOverlays(registry, viewport);
+  drawList.Clear();
+  controller.Paint(drawList, viewport);
+  drawList.Finalize();
+  CHECK(drawList.CommandCount() == 0);
 
   // All three overlays open at once (legacy draw order: context menu ->
   // quantity popup -> message box).
   controller.OpenContextMenu(item, true, 0, NoMoreDay::EquipmentSlot::None);
   controller.OpenQuantityPopup(item, 0); // 0: Drop
   controller.ShowMessageBox("hello");
-  BeginDrawing();
-  controller.DrawOverlays(registry);
-  EndDrawing();
+  controller.UpdateOverlays(registry, viewport);
+  drawList.Clear();
+  controller.Paint(drawList, viewport);
+  drawList.Finalize();
 
   CHECK(controller.IsContextMenuVisible());
   CHECK(controller.IsQuantityPopupVisible());
   // While the popup is up, the input-gating flag is active.
   CHECK(controller.IsTyping());
   CHECK(controller.IsMessageBoxVisible());
+  // The migrated overlays paint through the draw list (context menu + popup
+  // + message box all emit commands).
+  CHECK(drawList.CommandCount() > 0);
 
   // Invalid target: the popup closes itself instead of crashing.
   controller.CloseQuantityPopup();
   controller.OpenQuantityPopup(entt::null, 0);
-  BeginDrawing();
-  controller.DrawOverlays(registry);
-  EndDrawing();
+  controller.UpdateOverlays(registry, viewport);
   CHECK_FALSE(controller.IsQuantityPopupVisible());
 }
 
@@ -266,7 +280,13 @@ TEST_CASE("[Unit] OverlayController - GameUiHost routes the overlays through "
   // The host never draws overlay primitives itself; only the drag phantom
   // uses UIRenderer::DrawSlot (a per-frame helper, not an overlay).
   CHECK(source.find("m_overlay.UpdateMessageBox()") != std::string::npos);
-  CHECK(source.find("m_overlay.DrawOverlays(registry)") != std::string::npos);
+  // R6: the overlays paint through the draw list (PrepareRender) and their
+  // interaction runs in Update (UpdateOverlays); the legacy registry-based
+  // draw pass is gone.
+  CHECK(source.find("m_overlay.Paint(m_drawList, m_viewport)") !=
+        std::string::npos);
+  CHECK(source.find("m_overlay.UpdateOverlays(registry, m_viewport)") !=
+        std::string::npos);
 }
 
 TEST_CASE("[Unit] OverlayController - UISystem no longer draws the overlays") {

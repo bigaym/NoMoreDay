@@ -43,7 +43,7 @@ private:
   };
 
   void DrawCommand(const UiViewport &viewport, const UiDrawCommand &command,
-                   const std::vector<UiRect> &clips);
+                   const std::vector<UiRect> &clips, const UiDrawList &drawList);
 
   std::unordered_map<UiResourceId, Font> m_fonts;
   std::unordered_map<UiResourceId, Texture2D> m_textures;

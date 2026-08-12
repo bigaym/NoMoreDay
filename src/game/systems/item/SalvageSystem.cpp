@@ -147,4 +147,39 @@ void BatchExecute(entt::registry& registry, const std::vector<entt::entity>& ent
     }
 }
 
+int BatchExecuteFiltered(entt::registry& registry, entt::entity playerEntity,
+                         uint32_t rarityMask, bool keepIfTier6Plus,
+                         bool excludeLocked,
+                         std::vector<entt::entity>* outSalvaged) {
+    auto* inv = registry.try_get<InventoryComponent>(playerEntity);
+    if (!inv) return 0;
+
+    std::vector<entt::entity> toSalvage;
+    for (auto entity : inv->items) {
+        if (!registry.valid(entity)) continue;
+        const auto& item = registry.get<ItemComponent>(entity);
+
+        // Filter rules (owned here, not in the UI layer).
+        if (excludeLocked && item.isLocked) continue;
+        if (rarityMask != 0 && !(rarityMask & (1u << static_cast<uint32_t>(item.rarity)))) continue;
+        if (keepIfTier6Plus) {
+            bool hasT6 = false;
+            for (const auto& aff : item.affixes) {
+                if (aff.tier >= 6) { hasT6 = true; break; }
+            }
+            if (hasT6) continue;
+        }
+        if (CanSalvage(item)) {
+            toSalvage.push_back(entity);
+        }
+    }
+
+    if (outSalvaged) {
+        *outSalvaged = toSalvage;
+    }
+    if (toSalvage.empty()) return 0;
+    BatchExecute(registry, toSalvage, playerEntity);
+    return static_cast<int>(toSalvage.size());
+}
+
 } // namespace NoMoreDay::SalvageSystem
