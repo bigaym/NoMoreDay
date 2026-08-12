@@ -4,7 +4,7 @@
 #include "raylib.h"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
-#include "game/application/ui/UIContext.hpp"
+#include "game/application/ui/OverlayController.hpp"
 #include "engine/render/GPUData.hpp"
 
 namespace NoMoreDay {
@@ -67,8 +67,11 @@ namespace NoMoreDay {
         static void DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha = 1.0f);
         static void DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha = 1.0f, bool forceDraw = false);
         static void DrawBuffTooltip(const Font& font, const BuffEffect& effect, float alpha = 1.0f);
-        static void DrawContextMenu(const Font& font, UIContext& uiContext, entt::registry& registry, float alpha = 1.0f);
-        static void DrawMessageBox(const Font& font, UIContext& uiContext, float alpha = 1.0f);
+        // U8 收尾: the overlays are instance-owned by OverlayController; the
+        // renderer draws from the controller's state and routes menu actions
+        // (close / open quantity popup / show message box) back through it.
+        static void DrawContextMenu(const Font& font, NoMoreDay::ui::OverlayController& overlay, entt::registry& registry, float alpha = 1.0f);
+        static void DrawMessageBox(const Font& font, const char* text, float alpha = 1.0f);
 
         struct TooltipLine {
             std::string text;
@@ -83,6 +86,12 @@ namespace NoMoreDay {
         static std::vector<TooltipLine> GetTooltipLines(const ItemComponent& item);
         static inline float s_uiScale = 1.0f;
         static inline UITheme s_theme;
+        // U8 收尾: skill-tooltip position lock (was State.tooltipPos /
+        // State.tooltipInitialized). Renderer-local draw state, same category
+        // as s_uiScale; TooltipController passes forceDraw = !locked to reset
+        // the lock when the hover target changes.
+        static inline Vector2 s_skillTooltipPos = {0.0f, 0.0f};
+        static inline bool s_skillTooltipInitialized = false;
     };
 
 }

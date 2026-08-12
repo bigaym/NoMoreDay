@@ -47,36 +47,35 @@ TEST_CASE("[Unit] UICharacterController - creates a panel root node") {
 TEST_CASE("[Unit] UICharacterController - SetVisible mirrors into the runtime node") {
   UiRuntime runtime;
   UICharacterController controller(runtime);
-  CHECK(controller.IsVisible());
-
-  controller.SetVisible(false);
+  // U8: the character panel starts closed (sessions begin with the panel
+  // hidden), matching the post-EnterGameplay semantics.
   CHECK_FALSE(controller.IsVisible());
-  const auto hidden = runtime.GetNode(controller.NodeId());
-  REQUIRE(hidden.has_value());
-  CHECK_FALSE(hidden->visible);
 
   controller.SetVisible(true);
   CHECK(controller.IsVisible());
   const auto shown = runtime.GetNode(controller.NodeId());
   REQUIRE(shown.has_value());
   CHECK(shown->visible);
+
+  controller.SetVisible(false);
+  CHECK_FALSE(controller.IsVisible());
+  const auto hidden = runtime.GetNode(controller.NodeId());
+  REQUIRE(hidden.has_value());
+  CHECK_FALSE(hidden->visible);
 }
 
-TEST_CASE("[Unit] UICharacterController - SetAlpha drives opacity and mirrors the legacy context") {
+TEST_CASE("[Unit] UICharacterController - SetAlpha drives opacity") {
   UiRuntime runtime;
   UICharacterController controller(runtime);
-  CHECK(controller.Alpha() == doctest::Approx(1.0f));
+  // U8: the instance alpha starts at 0.0 (matching the legacy
+  // State.characterPanelAlpha at startup) and is animated by Update.
+  CHECK(controller.Alpha() == doctest::Approx(0.0f));
 
-  const float savedAlpha = UISystem::State.characterPanelAlpha;
   controller.SetAlpha(0.5f);
   CHECK(controller.Alpha() == doctest::Approx(0.5f));
-  CHECK(UISystem::State.characterPanelAlpha == doctest::Approx(0.5f));
 
   controller.SetAlpha(1.0f);
   CHECK(controller.Alpha() == doctest::Approx(1.0f));
-  CHECK(UISystem::State.characterPanelAlpha == doctest::Approx(1.0f));
-
-  UISystem::State.characterPanelAlpha = savedAlpha;
 }
 
 TEST_CASE("[Unit] UICharacterController - Enter/Leave gameplay resets session state") {
@@ -86,22 +85,31 @@ TEST_CASE("[Unit] UICharacterController - Enter/Leave gameplay resets session st
   controller.EnterGameplay();
   controller.EnterGameplay();  // must be idempotent
   CHECK(controller.IsInGameplay());
+  // U8: a session starts with the character panel closed (host KEY_C opens
+  // it); the instance flag is authoritative.
+  CHECK_FALSE(controller.IsVisible());
   const auto inGame = runtime.GetNode(controller.NodeId());
   REQUIRE(inGame.has_value());
-  CHECK(inGame->visible);
+  CHECK_FALSE(inGame->visible);
+
+  // The panel can still be opened mid-session through SetVisible (host KEY_C).
+  controller.SetVisible(true);
+  CHECK(controller.IsVisible());
 
   controller.LeaveGameplay();
   CHECK_FALSE(controller.IsInGameplay());
+  CHECK_FALSE(controller.IsVisible());
   const auto left = runtime.GetNode(controller.NodeId());
   REQUIRE(left.has_value());
   CHECK_FALSE(left->visible);
 
-  // Re-entering gameplay restores the panel node.
+  // Re-entering gameplay keeps the panel closed (no stale session state).
   controller.EnterGameplay();
   CHECK(controller.IsInGameplay());
+  CHECK_FALSE(controller.IsVisible());
   const auto reentered = runtime.GetNode(controller.NodeId());
   REQUIRE(reentered.has_value());
-  CHECK(reentered->visible);
+  CHECK_FALSE(reentered->visible);
 }
 
 TEST_CASE("[Unit] UICharacterController - Draw executes headless without crashing") {

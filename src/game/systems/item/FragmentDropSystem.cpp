@@ -1,7 +1,7 @@
 #include "game/systems/item/FragmentDropSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
-#include "game/foundation/ui_shared/UiShared.hpp"
+#include "game/systems/item/LootGridSystem.hpp"
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
@@ -82,7 +82,7 @@ void FragmentDropSystem::Update(entt::registry &registry) {
       registry.emplace<LocalLevelTag>(fragment); // Clean up on map transition
       registry.emplace<LootTag>(fragment);
       registry.emplace<LabelCacheComponent>(fragment);
-      UiShared::s_itemGridDirty = true;
+      systems::LootGridSystem::MarkDirty();
     }
   }
 }

@@ -1,4 +1,6 @@
 #include "game/application/ui/SkillTreeController.hpp"
+#include "game/application/ui/GameUiHost.hpp"
+#include "game/application/ui/TooltipController.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/foundation/SharedContext.hpp"
@@ -8,7 +10,10 @@
 
 namespace NoMoreDay::ui {
 
-SkillTreeController::SkillTreeController(UiRuntime& runtime) : m_runtime(runtime) {
+SkillTreeController::SkillTreeController(UiRuntime& runtime,
+                                         TooltipController* tooltip,
+                                         GameUiHost* uiHost)
+    : m_runtime(runtime) {
   UiNodeDesc desc;
   desc.id = entt::hashed_string("ui_skill_tree");
   desc.parent = kRootUiId;
@@ -29,6 +34,11 @@ SkillTreeController::SkillTreeController(UiRuntime& runtime) : m_runtime(runtime
     // Hidden until EnterGameplay / Toggle; mirrors the panel default.
     m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
+  // U8: wire the hover channel (tree -> tooltip) and the sibling-close
+  // channel (host). Both are optional for headless unit tests.
+  m_tree.SetTooltip(tooltip);
+  m_hub.SetHost(uiHost);
+  m_uiHost = uiHost;
 }
 
 void SkillTreeController::EnterGameplay() {
@@ -36,8 +46,6 @@ void SkillTreeController::EnterGameplay() {
   m_visible = false;
   m_alpha = 0.0f;
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
-  UISystem::State.showSkillTree = false;
-  UISystem::State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
   if (m_rootNodeId != kInvalidUiId) {
     m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
@@ -47,8 +55,6 @@ void SkillTreeController::LeaveGameplay() {
   m_visible = false;
   m_alpha = 0.0f;
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
-  UISystem::State.showSkillTree = false;
-  UISystem::State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
   if (m_rootNodeId != kInvalidUiId) {
     m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
@@ -62,16 +68,19 @@ void SkillTreeController::UpdateAlpha(float dt) {
   } else {
     m_alpha = std::max(0.0f, m_alpha - dt * alphaSpeed);
   }
-  // Mirror: the legacy panel bodies still read UISystem::State.
-  UISystem::State.skillTreeAlpha = m_alpha;
 }
 
 void SkillTreeController::Toggle(entt::registry& registry) {
   m_visible = !m_visible;
   if (m_visible) {
-    UISystem::State.showInventory = false;
-    UISystem::State.showCharacterPanel = false;
-    UISystem::State.showContextMenu = false;
+    // U8: the sibling closes that used to write UISystem::State now route
+    // through the host channels when present (matching the legacy behavior:
+    // opening the skill tree closes inventory / character / context menu).
+    if (m_uiHost != nullptr) {
+      m_uiHost->CloseInventory();
+      m_uiHost->CloseCharacterPanel();
+      m_uiHost->CloseContextMenu();
+    }
     // Also close Astrolabe if open (U7 group 5): the skill tree lives below
     // the UI composition root, so the sibling close routes through the
     // SharedContext callback filled by Game (host-owned AstrolabeController).
@@ -82,9 +91,8 @@ void SkillTreeController::Toggle(entt::registry& registry) {
     }
   } else {
     m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // Reset view
-    UISystem::State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+    m_hub.ResetSelection();
   }
-  UISystem::State.showSkillTree = m_visible;
   if (m_rootNodeId != kInvalidUiId) {
     m_runtime.SetNodeVisible(m_rootNodeId, m_visible);
   }
@@ -93,7 +101,6 @@ void SkillTreeController::Toggle(entt::registry& registry) {
 void SkillTreeController::Close() {
   m_visible = false;
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
-  UISystem::State.showSkillTree = false;
   if (m_rootNodeId != kInvalidUiId) {
     m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
@@ -108,21 +115,17 @@ bool SkillTreeController::IsInGameplay() const noexcept {
 }
 
 void SkillTreeController::Draw(entt::registry& registry, entt::entity player) {
-  // Mirror into UISystem::State: the legacy panel bodies read these fields.
-  UISystem::State.showSkillTree = m_visible;
-  UISystem::State.skillTreeAlpha = m_alpha;
-  UISystem::State.selectedSkillId = m_selectedSkillId;
-
   if (!m_visible) {
     return;
   }
   if (m_selectedSkillId == NoMoreDay::INVALID_SKILL_ID) {
-    m_hub.Draw(registry, player);
+    m_hub.Draw(registry, player, m_alpha);
   } else {
-    m_tree.Draw(registry, player, m_selectedSkillId);
+    m_tree.Draw(registry, player, m_selectedSkillId, m_alpha);
   }
-  // Read back: UISkillHub::Draw writes State.selectedSkillId on selection.
-  m_selectedSkillId = UISystem::State.selectedSkillId;
+  // U8: the hub writes its selection into its own instance member (was the
+  // State.selectedSkillId read-back round trip).
+  m_selectedSkillId = m_hub.SelectedSkillId();
 }
 
 UiId SkillTreeController::NodeId() const noexcept {

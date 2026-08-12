@@ -34,7 +34,7 @@ std::string ReadFileContents(const char* path) {
 
 TEST_CASE("[Unit] UIStashController - creates a panel root node") {
   UiRuntime runtime;
-  UIStashController controller(runtime);
+  UIStashController controller(runtime, nullptr);
 
   const UiId root = controller.NodeId();
   CHECK(root != kInvalidUiId);
@@ -62,7 +62,7 @@ TEST_CASE("[Unit] UIStashController - creates a panel root node") {
 
 TEST_CASE("[Unit] UIStashController - Enter/Leave gameplay resets session state") {
   UiRuntime runtime;
-  UIStashController controller(runtime);
+  UIStashController controller(runtime, nullptr);
 
   const UiId root = controller.NodeId();
   CHECK_FALSE(controller.IsInGameplay());
@@ -96,27 +96,23 @@ TEST_CASE("[Unit] UIStashController - Enter/Leave gameplay resets session state"
   CHECK(reentered->visible);
 }
 
-TEST_CASE("[Unit] UIStashController - Open/Close/Toggle mirror shared UI state") {
+TEST_CASE("[Unit] UIStashController - Open/Close/Toggle flip instance visibility") {
   UiRuntime runtime;
-  UIStashController controller(runtime);
+  UIStashController controller(runtime, nullptr);
 
-  // Reset the shared UI state first: doctest runs cases in order and the
-  // session-lifecycle case above may leave showStash set.
-  UISystem::State.showStash = false;
-  UISystem::State.showInventory = false;
-
+  // U8: visibility is instance state (the legacy State.showStash mirror is
+  // gone); opening the stash also opens the inventory as drag target, which
+  // routes through the hosted GameUiHost (covered by GameUiHost tests) and is
+  // a no-op here because the test controller has no host.
   CHECK_FALSE(controller.IsVisible());
 
   controller.Open(NoMoreDay::StashType::Shared);
   CHECK(controller.IsVisible());
-  CHECK(UISystem::State.showStash);
-  CHECK(UISystem::State.showInventory);  // stash opens the inventory as drag target
   CHECK(controller.GetActiveType() == NoMoreDay::StashType::Shared);
   CHECK(controller.GetActiveTabIndex() == 0);
 
   controller.Toggle();  // visible -> close
   CHECK_FALSE(controller.IsVisible());
-  CHECK_FALSE(UISystem::State.showStash);
 
   controller.Toggle();  // hidden -> reopen with the last active type
   CHECK(controller.IsVisible());
@@ -124,17 +120,16 @@ TEST_CASE("[Unit] UIStashController - Open/Close/Toggle mirror shared UI state")
 
   controller.Close();
   CHECK_FALSE(controller.IsVisible());
-  CHECK_FALSE(UISystem::State.showStash);
 }
 
 TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
   // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
   // context, so GetFrameTime() is available; the alpha is animated towards the
-  // target implied by UISystem::State.showStash exactly like the legacy
-  // UIStash::Update. GetFrameTime may be 0 in the harness, so the checks use
-  // clamped-range + monotonicity invariants instead of exact deltas.
+  // visibility flag exactly like the legacy UIStash::Update. GetFrameTime may
+  // be 0 in the harness, so the checks use clamped-range + monotonicity
+  // invariants instead of exact deltas.
   UiRuntime runtime;
-  UIStashController controller(runtime);
+  UIStashController controller(runtime, nullptr);
   controller.EnterGameplay();
 
   ResourceManager resourceManager;
@@ -142,10 +137,10 @@ TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
   LevelManager levelManager;
 
   // Empty registry before any world exists: Update must not crash.
-  UISystem::State.showStash = true;
+  controller.SetVisible(true);
   controller.Update(registry);
-  CHECK(UISystem::State.stashAlpha >= 0.0f);
-  CHECK(UISystem::State.stashAlpha <= 1.0f);
+  CHECK(controller.Alpha() >= 0.0f);
+  CHECK(controller.Alpha() <= 1.0f);
 
   // Provide a real world so Update runs against live gameplay systems.
   levelManager.initialize(resourceManager, registry);
@@ -153,12 +148,11 @@ TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
 
   // Branch A: stash closed. Alpha must never increase and stays clamped
   // within [0, 1].
-  UISystem::State.showStash = false;
-  UISystem::State.stashAlpha = 0.5f;
+  controller.SetVisible(false);
   controller.Update(registry);
-  const float closedFirst = UISystem::State.stashAlpha;
+  const float closedFirst = controller.Alpha();
   controller.Update(registry);
-  const float closedSecond = UISystem::State.stashAlpha;
+  const float closedSecond = controller.Alpha();
   CHECK(closedFirst >= 0.0f);
   CHECK(closedFirst <= 1.0f);
   CHECK(closedSecond >= 0.0f);
@@ -167,12 +161,11 @@ TEST_CASE("[Unit] UIStashController - Update runs headless against a world") {
 
   // Branch B: stash open. Alpha must never decrease and stays clamped
   // within [0, 1].
-  UISystem::State.showStash = true;
-  UISystem::State.stashAlpha = 0.0f;
+  controller.SetVisible(true);
   controller.Update(registry);
-  const float openFirst = UISystem::State.stashAlpha;
+  const float openFirst = controller.Alpha();
   controller.Update(registry);
-  const float openSecond = UISystem::State.stashAlpha;
+  const float openSecond = controller.Alpha();
   CHECK(openFirst >= 0.0f);
   CHECK(openFirst <= 1.0f);
   CHECK(openSecond >= 0.0f);
@@ -188,15 +181,22 @@ TEST_CASE("[Unit] UIStashController - Draw executes headless without crashing") 
   // and raylib MeasureTextEx early-outs on a zeroed font, so the full panel
   // body is safe to run here without UISystem::Initialize.
   UiRuntime runtime;
-  UIStashController controller(runtime);
+  UIStashController controller(runtime, nullptr);
   controller.EnterGameplay();
 
   entt::registry registry;
 
   // Empty registry: no personal stash yet, so the tabs and grid are skipped,
   // but the panel frame, close button, search bar and footer still draw.
-  UISystem::State.showStash = true;
-  UISystem::State.stashAlpha = 1.0f;
+  // U8: alpha is instance state animated by Update (the legacy
+  // State.showStash/stashAlpha writes are gone); raise it to 1 by running the
+  // animation loop, then draw.
+  controller.SetVisible(true);
+  for (int i = 0; i < 90; ++i) {
+    BeginDrawing();
+    EndDrawing();
+    controller.Update(registry);
+  }
   BeginDrawing();
   controller.Draw(registry);
   EndDrawing();
@@ -215,14 +215,24 @@ TEST_CASE("[Unit] UIStashController - Draw executes headless without crashing") 
   stash.tabs[0].items[0] = item;
 
   // Hidden panel (alpha 0): Draw must early-out without touching the world.
-  UISystem::State.stashAlpha = 0.0f;
+  controller.SetVisible(false);
+  for (int i = 0; i < 90; ++i) {
+    BeginDrawing();
+    EndDrawing();
+    controller.Update(registry);
+  }
   BeginDrawing();
   controller.Draw(registry);
   EndDrawing();
 
   // Visible panel with a populated tab: full draw path (tabs, unlock button,
   // grid with one rendered item, search bar, footer buttons).
-  UISystem::State.stashAlpha = 1.0f;
+  controller.SetVisible(true);
+  for (int i = 0; i < 90; ++i) {
+    BeginDrawing();
+    EndDrawing();
+    controller.Update(registry);
+  }
   BeginDrawing();
   controller.Draw(registry);
   EndDrawing();

@@ -4,14 +4,13 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UIRenderer.hpp"
-#include "game/application/ui/UIContext.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/ItemStats.hpp"
-#include "game/foundation/ui_shared/UiShared.hpp"
 #include "game/systems/item/CraftingSystem.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/SalvageSystem.hpp"
@@ -33,8 +32,8 @@ inline constexpr UiId kUICraftingRootNode =
 
 } // namespace
 
-UICraftingController::UICraftingController(UiRuntime& runtime)
-    : m_runtime(runtime) {
+UICraftingController::UICraftingController(UiRuntime& runtime, GameUiHost* uiHost)
+    : m_runtime(runtime), m_uiHost(uiHost) {
   // The salvage filter defaults need the Rarity enumerators, which are only
   // complete in this translation unit; apply them up front so the migrated
   // session state is valid even before the first EnterGameplay.
@@ -120,6 +119,15 @@ bool UICraftingController::IsVisible() const noexcept {
   return m_visible;
 }
 
+UIDragSession& UICraftingController::DragSession() noexcept {
+  // U8: single host-owned drag session across all panels; fall back to a local
+  // session in headless tests where the host is absent.
+  if (m_uiHost != nullptr) {
+    return m_uiHost->DragSession();
+  }
+  return m_localDragSession;
+}
+
 void UICraftingController::OpenMergePanel() {
   m_visible = true;
   m_currentTab = CraftingTab::Merging;
@@ -169,7 +177,7 @@ void UICraftingController::Draw(entt::registry& registry) {
 }
 
 void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
-  auto &state = UISystem::State;
+  auto &drag = DragSession();
   auto &s_theme = UIRenderer::GetTheme();
   float alpha = m_craftingAlpha;
 
@@ -184,14 +192,27 @@ void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
   float startX_Logic = (UI_REF_WIDTH - panelW_Logic) / 2.0f;
   float startY_Logic = (UI_REF_HEIGHT - panelH_Logic) / 2.0f;
 
-  // Handle Drag in Logic Space
-  UISystem::UpdatePanelDrag(UIPanelID::Crafting, startX_Logic, startY_Logic, panelW_Logic, panelH_Logic, 60.0f);
+  // Handle Drag in Logic Space (U8: direct UIPanelDragService call with
+  // instance-owned panel state, was the legacy static drag entry point).
+  UIPanelDragInputs dragInputs;
+  dragInputs.mousePosition = UISystem::GetMousePositionLogic();
+  dragInputs.isMousePressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+  dragInputs.isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+  UIPanelDragBounds dragBounds;
+  dragBounds.panelWidth = panelW_Logic;
+  dragBounds.panelHeight = panelH_Logic;
+  dragBounds.headerHeight = 60.0f;
+  dragBounds.uiRefWidth = UI_REF_WIDTH;
+  dragBounds.uiRefHeight = UI_REF_HEIGHT;
+  UIPanelDragService::UpdatePanelDrag(m_panelState, UIPanelID::Crafting,
+                                      m_activeDragPanel, startX_Logic,
+                                      startY_Logic, dragInputs, dragBounds);
 
   // Convert to Screen Space for Drawing (legacy behavior of this file)
-  float panelW = panelW_Logic * state.scaleFactor;
-  float panelH = panelH_Logic * state.scaleFactor;
-  float startX = startX_Logic * state.scaleFactor;
-  float startY = startY_Logic * state.scaleFactor;
+  float panelW = panelW_Logic * UIRenderer::GetScale();
+  float panelH = panelH_Logic * UIRenderer::GetScale();
+  float startX = startX_Logic * UIRenderer::GetScale();
+  float startY = startY_Logic * UIRenderer::GetScale();
 
   // Background
   DrawRectangleRec({startX, startY, panelW, panelH},
@@ -218,7 +239,7 @@ void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
     Color tabTint = active ? GOLD : WHITE;
     Color textColor = active ? BLACK : WHITE;
 
-    UIRenderer::DrawButton(state.globalFont, rectTex, tabRect_Logic, label, 20.0f, textColor, tabTint, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, tabRect_Logic, label, 20.0f, textColor, tabTint, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
       m_currentTab = tab;
@@ -234,7 +255,7 @@ void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
   bool closeHover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), closeRect_Logic);
   Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
 
-  UIRenderer::DrawButton(state.globalFont, squareTex, closeRect_Logic, "X", 20, closeHover ? RED : WHITE, WHITE, closeHover, closeHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+  UIRenderer::DrawButton(UISystem::GetFont(), squareTex, closeRect_Logic, "X", 20, closeHover ? RED : WHITE, WHITE, closeHover, closeHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
   if (closeHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) Toggle();
 
   if (m_currentTab == CraftingTab::Merging) {
@@ -247,31 +268,36 @@ void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
   }
 
   // Target Item Slot
-  float slotSize = 80.0f * state.scaleFactor;
-  float slotX = startX_Logic * state.scaleFactor + (panelW - slotSize) / 2.0f;
-  float slotY = startY_Logic * state.scaleFactor + 80.0f * state.scaleFactor;
+  float slotSize = 80.0f * UIRenderer::GetScale();
+  float slotX = startX_Logic * UIRenderer::GetScale() + (panelW - slotSize) / 2.0f;
+  float slotY = startY_Logic * UIRenderer::GetScale() + 80.0f * UIRenderer::GetScale();
 
-  UIRenderer::DrawSlot(state.globalFont, registry, slotX, slotY, slotSize,
+  UIRenderer::DrawSlot(UISystem::GetFont(), registry, slotX, slotY, slotSize,
                        m_forgeItem, "放入装备", false, false, alpha);
 
   // Handle Item Drop for Forging
   Rectangle slotRect = {slotX, slotY, slotSize, slotSize};
   if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
-    if (state.draggedItem != entt::null &&
+    if (drag.draggedItem != entt::null &&
         IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-      if (registry.any_of<ItemComponent>(state.draggedItem)) {
-        auto &item = registry.get<ItemComponent>(state.draggedItem);
+      if (registry.any_of<ItemComponent>(drag.draggedItem)) {
+        auto &item = registry.get<ItemComponent>(drag.draggedItem);
         // Allow equipment
         if (item.type == ItemType::Weapon || item.type == ItemType::Armor ||
             item.type == ItemType::Jewelry || item.type == ItemType::Shield) {
-          m_forgeItem = state.draggedItem;
-          state.draggedItem = entt::null;
+          m_forgeItem = drag.draggedItem;
+          drag.draggedItem = entt::null;
         }
       }
     }
     if (m_forgeItem != entt::null) {
-      UiShared::HoveredItem() = entt::null;
-      UIRenderer::DrawTooltip(state.globalFont, registry, m_forgeItem, alpha);
+      // U8: clear the hover source through the host channel instead of the
+      // static UiShared::HoveredItem() slot; the slot tooltip is drawn
+      // directly below. m_uiHost may be null in headless unit tests.
+      if (m_uiHost) {
+        m_uiHost->SetHoveredItem(entt::null);
+      }
+      UIRenderer::DrawTooltip(UISystem::GetFont(), registry, m_forgeItem, alpha);
     }
   }
 
@@ -279,28 +305,28 @@ void UICraftingController::DrawCraftingPanel(entt::registry& registry) {
     auto &item = registry.get<ItemComponent>(m_forgeItem);
     char potBuf[64];
     utils::FormatToBuffer(potBuf, "锻造潜力: {}", item.forgingPotential);
-    float potW = MeasureTextEx(state.globalFont, potBuf, 20, 1.0f).x;
-    UISystem::DrawTextUI(potBuf, startX_Logic + (panelW_Logic - potW / state.scaleFactor) / 2.0f,
-                         80.0f + slotSize / state.scaleFactor + 10, 20, SKYBLUE, alpha);
+    float potW = MeasureTextEx(UISystem::GetFont(), potBuf, 20, 1.0f).x;
+    UISystem::DrawTextUI(potBuf, startX_Logic + (panelW_Logic - potW / UIRenderer::GetScale()) / 2.0f,
+                         80.0f + slotSize / UIRenderer::GetScale() + 10, 20, SKYBLUE, alpha);
 
     // Guidance Text
     const char* guide = "提示：锻造会消耗装备潜力。潜力耗尽后将无法再修改。";
-    float guideW = MeasureTextEx(state.globalFont, guide, 16 * state.scaleFactor, 1.0f).x;
-    UISystem::DrawTextUI(guide, (panelW_Logic - guideW / state.scaleFactor) / 2.0f + startX_Logic, panelH_Logic + startY_Logic - 40, 16, GRAY, alpha);
+    float guideW = MeasureTextEx(UISystem::GetFont(), guide, 16 * UIRenderer::GetScale(), 1.0f).x;
+    UISystem::DrawTextUI(guide, (panelW_Logic - guideW / UIRenderer::GetScale()) / 2.0f + startX_Logic, panelH_Logic + startY_Logic - 40, 16, GRAY, alpha);
 
     DrawAffixList(registry, m_forgeItem, startX_Logic, startY_Logic);
   } else {
     const char* guide = "将装备拖入上方槽位开始锻造（升级、粉碎、重置词缀）";
-    float guideW = MeasureTextEx(state.globalFont, guide, 16 * state.scaleFactor, 1.0f).x;
-    UISystem::DrawTextUI(guide, (panelW_Logic - guideW / state.scaleFactor) / 2.0f + startX_Logic, 80.0f + 100, 16, GRAY, alpha);
+    float guideW = MeasureTextEx(UISystem::GetFont(), guide, 16 * UIRenderer::GetScale(), 1.0f).x;
+    UISystem::DrawTextUI(guide, (panelW_Logic - guideW / UIRenderer::GetScale()) / 2.0f + startX_Logic, 80.0f + 100, 16, GRAY, alpha);
   }
 }
 
 void UICraftingController::DrawMergePanel(entt::registry& registry, float startX,
                                           float startY, float panelW,
                                           float panelH, float alpha) {
-  auto &state = UISystem::State;
-  float scale = state.scaleFactor;
+  auto &drag = DragSession();
+  float scale = UIRenderer::GetScale();
 
   float slotSize_Logic = 64.0f;
   float spacing_Logic = 20.0f;
@@ -310,18 +336,18 @@ void UICraftingController::DrawMergePanel(entt::registry& registry, float startX
 
   // Base Slot
   float baseX = midX - slotSize_Logic - spacing_Logic;
-  UIRenderer::DrawSlot(state.globalFont, registry, baseX * scale, topY * scale, slotSize_Logic * scale,
+  UIRenderer::DrawSlot(UISystem::GetFont(), registry, baseX * scale, topY * scale, slotSize_Logic * scale,
                        m_mergeBase, m_mergeBase == entt::null ? "放入暗金(LP > 0)" : "", false, false, alpha);
 
   // Fodder Slot
   float fodderX = midX + spacing_Logic;
-  UIRenderer::DrawSlot(state.globalFont, registry, fodderX * scale, topY * scale, slotSize_Logic * scale,
+  UIRenderer::DrawSlot(UISystem::GetFont(), registry, fodderX * scale, topY * scale, slotSize_Logic * scale,
                        m_mergeFodder, m_mergeFodder == entt::null ? "放入崇高(T6+)" : "", false, false, alpha);
 
   // Catalyst Slot
   float catX = midX - slotSize_Logic / 2.0f;
   float catY = topY + slotSize_Logic + spacing_Logic * 2;
-  UIRenderer::DrawSlot(state.globalFont, registry, catX * scale, catY * scale, slotSize_Logic * scale,
+  UIRenderer::DrawSlot(UISystem::GetFont(), registry, catX * scale, catY * scale, slotSize_Logic * scale,
                        m_mergeCatalyst, "放入时空核心", false, false, alpha);
 
   // Guidance Labels
@@ -333,11 +359,11 @@ void UICraftingController::DrawMergePanel(entt::registry& registry, float startX
   auto HandleMergeDrop = [&](entt::entity &target, float x_logic, float y_logic, int type) {
     Rectangle r_logic = {x_logic, y_logic, slotSize_Logic, slotSize_Logic};
     if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic)) {
-      if (state.draggedItem != entt::null &&
+      if (drag.draggedItem != entt::null &&
           IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        if (registry.any_of<ItemComponent>(state.draggedItem)) {
+        if (registry.any_of<ItemComponent>(drag.draggedItem)) {
             bool valid = false;
-            auto& item = registry.get<ItemComponent>(state.draggedItem);
+            auto& item = registry.get<ItemComponent>(drag.draggedItem);
 
             if (type == 0) { // Base: LP > 0
                 if (item.legendaryPotential > 0) valid = true;
@@ -351,14 +377,18 @@ void UICraftingController::DrawMergePanel(entt::registry& registry, float startX
             }
 
             if (valid) {
-                target = state.draggedItem;
-                state.draggedItem = entt::null;
+                target = drag.draggedItem;
+                drag.draggedItem = entt::null;
             }
         }
       }
       if (target != entt::null) {
-        UiShared::HoveredItem() = entt::null;
-        UIRenderer::DrawTooltip(state.globalFont, registry, target, alpha);
+        // U8: clear the hover source through the host channel (slot tooltip
+        // drawn directly below). m_uiHost may be null in headless unit tests.
+        if (m_uiHost) {
+          m_uiHost->SetHoveredItem(entt::null);
+        }
+        UIRenderer::DrawTooltip(UISystem::GetFont(), registry, target, alpha);
       }
     }
   };
@@ -418,7 +448,7 @@ void UICraftingController::DrawMergePanel(entt::registry& registry, float startX
   Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
   bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
 
-  UIRenderer::DrawButton(state.globalFont, rectTex, btnRect_Logic, "开始融合", 24, canFuse ? WHITE : GRAY, canFuse ? RED : DARKGRAY, canFuse && hover, canFuse && hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+  UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "开始融合", 24, canFuse ? WHITE : GRAY, canFuse ? RED : DARKGRAY, canFuse && hover, canFuse && hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
   if (canFuse && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       CraftingResult res =
@@ -458,7 +488,7 @@ void UICraftingController::DrawMergePanel(entt::registry& registry, float startX
   }
 
   const char* bottomGuide = "融合会将崇高物品的随机词缀转移到暗金基底上。";
-  float bW = MeasureTextEx(state.globalFont, bottomGuide, 14 * scale, 1.0f).x;
+  float bW = MeasureTextEx(UISystem::GetFont(), bottomGuide, 14 * scale, 1.0f).x;
   UISystem::DrawTextUI(bottomGuide, (midX - bW / scale / 2.0f), (panelH + startY - 30), 14, GRAY, alpha);
 }
 
@@ -466,11 +496,11 @@ void UICraftingController::DrawAffixList(entt::registry& registry,
                                          entt::entity entity,
                                          float panelStartX,
                                          float panelStartY) {
-  auto &state = UISystem::State;
+  auto &drag = DragSession();
   auto &item = registry.get<ItemComponent>(entity);
   auto playerEnt = UISystem::GetPlayerEntity(registry);
   float alpha = m_craftingAlpha;
-  float scale = state.scaleFactor;
+  float scale = UIRenderer::GetScale();
 
   float panelW = 600.0f;
   float startX = panelStartX;
@@ -510,7 +540,7 @@ void UICraftingController::DrawAffixList(entt::registry& registry,
         Rectangle btnRect_Logic = {btnX, currentY + 10, btnW, btnH};
         bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
 
-        UIRenderer::DrawButton(state.globalFont, rectTex, btnRect_Logic, "升级", 16, WHITE, canAfford ? (hover ? GREEN : DARKGREEN) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+        UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "升级", 16, WHITE, canAfford ? (hover ? GREEN : DARKGREEN) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
         if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             CraftingSystem::upgradeAffix(item, index);
@@ -524,7 +554,7 @@ void UICraftingController::DrawAffixList(entt::registry& registry,
       if (affix->tier < 5) {
         Rectangle cRect_Logic = {btnX - 35.0f, currentY + 10, 30.0f, btnH};
         bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), cRect_Logic);
-        UIRenderer::DrawButton(state.globalFont, squareTex, cRect_Logic, "C", 16, WHITE, canAfford ? (hover ? PURPLE : VIOLET) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+        UIRenderer::DrawButton(UISystem::GetFont(), squareTex, cRect_Logic, "C", 16, WHITE, canAfford ? (hover ? PURPLE : VIOLET) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
         if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             CraftingSystem::chaosAffix(item, index);
@@ -536,7 +566,7 @@ void UICraftingController::DrawAffixList(entt::registry& registry,
       {
         Rectangle rRect_Logic = {btnX - 70.0f, currentY + 10, 30.0f, btnH};
         bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), rRect_Logic);
-        UIRenderer::DrawButton(state.globalFont, squareTex, rRect_Logic, "R", 16, WHITE, canAfford ? (hover ? SKYBLUE : BLUE) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+        UIRenderer::DrawButton(UISystem::GetFont(), squareTex, rRect_Logic, "R", 16, WHITE, canAfford ? (hover ? SKYBLUE : BLUE) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
         if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             CraftingSystem::refineAffixValues(item, index);
@@ -556,7 +586,7 @@ void UICraftingController::DrawAffixList(entt::registry& registry,
       bool canAfford = item.forgingPotential > 0;
       bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
 
-      UIRenderer::DrawButton(state.globalFont, rectTex, btnRect_Logic, "添加", 16, WHITE, canAfford ? (hover ? BLUE : DARKBLUE) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+      UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "添加", 16, WHITE, canAfford ? (hover ? BLUE : DARKBLUE) : GRAY, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
       if (canAfford && hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             AffixType types[] = {
@@ -612,9 +642,9 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
                                             float startX, float startY,
                                             float panelW, float panelH,
                                             float alpha) {
-  auto &state = UISystem::State;
+  auto &drag = DragSession();
   auto &s_theme = UIRenderer::GetTheme();
-  float scale = state.scaleFactor;
+  float scale = UIRenderer::GetScale();
 
   float slotSize_Logic = 80.0f;
   float midX = startX + panelW / 2.0f;
@@ -633,26 +663,30 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
   DrawPolyLines(center, 3, radius + 35 * scale, -time * 20.0f, ringColor1);
 
   // Single Item Salvage Slot
-  UIRenderer::DrawSlot(state.globalFont, registry, (midX - slotSize_Logic / 2.0f) * scale, slotY * scale,
+  UIRenderer::DrawSlot(UISystem::GetFont(), registry, (midX - slotSize_Logic / 2.0f) * scale, slotY * scale,
                        slotSize_Logic * scale, m_salvageItem, "放入分解物品", false, false,
                        alpha);
 
   // Handle Drop
   Rectangle slotRect_Logic = {midX - slotSize_Logic / 2.0f, slotY, slotSize_Logic, slotSize_Logic};
   if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), slotRect_Logic)) {
-    if (state.draggedItem != entt::null &&
+    if (drag.draggedItem != entt::null &&
         IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-      if (registry.any_of<ItemComponent>(state.draggedItem)) {
-        const auto &item = registry.get<ItemComponent>(state.draggedItem);
+      if (registry.any_of<ItemComponent>(drag.draggedItem)) {
+        const auto &item = registry.get<ItemComponent>(drag.draggedItem);
         if (SalvageSystem::CanSalvage(item)) {
-          m_salvageItem = state.draggedItem;
-          state.draggedItem = entt::null;
+          m_salvageItem = drag.draggedItem;
+          drag.draggedItem = entt::null;
         }
       }
     }
     if (m_salvageItem != entt::null) {
-      UiShared::HoveredItem() = entt::null;
-      UIRenderer::DrawTooltip(state.globalFont, registry, m_salvageItem, alpha);
+      // U8: clear the hover source through the host channel (slot tooltip
+      // drawn directly below). m_uiHost may be null in headless unit tests.
+      if (m_uiHost) {
+        m_uiHost->SetHoveredItem(entt::null);
+      }
+      UIRenderer::DrawTooltip(UISystem::GetFont(), registry, m_salvageItem, alpha);
     }
   }
 
@@ -678,7 +712,7 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
 
     // Header
     const char* headerText = "分解产出预估:";
-    float headerW = MeasureTextEx(state.globalFont, headerText, 20, 1.0f).x;
+    float headerW = MeasureTextEx(UISystem::GetFont(), headerText, 20, 1.0f).x;
 
     UISystem::DrawTextUI(headerText, midX - headerW/2.0f, yieldY, 20, SKYBLUE, alpha);
 
@@ -727,7 +761,7 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
     bool hover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), btnRect_Logic);
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
 
-    UIRenderer::DrawButton(state.globalFont, rectTex, btnRect_Logic, "开始分解装备", 24, WHITE, hover ? RED : Color{120, 20, 20, 255}, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "开始分解装备", 24, WHITE, hover ? RED : Color{120, 20, 20, 255}, hover, hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       auto playerEnt = UISystem::GetPlayerEntity(registry);
@@ -754,7 +788,7 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
   bool filterHover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), filterBtn_Logic);
   Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
 
-  UIRenderer::DrawButton(state.globalFont, rectTex, filterBtn_Logic, "筛选设置", 16, WHITE, m_showSalvageFilter ? RED : DARKGRAY, filterHover, filterHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+  UIRenderer::DrawButton(UISystem::GetFont(), rectTex, filterBtn_Logic, "筛选设置", 16, WHITE, m_showSalvageFilter ? RED : DARKGRAY, filterHover, filterHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
   if (filterHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_showSalvageFilter = !m_showSalvageFilter;
 
   if (m_showSalvageFilter) {
@@ -771,7 +805,7 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
           bool h = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic);
           if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) val = !val;
 
-          UIRenderer::DrawButton(state.globalFont, rectTex, r_logic, label, 14, WHITE, val ? RED : DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+          UIRenderer::DrawButton(UISystem::GetFont(), rectTex, r_logic, label, 14, WHITE, val ? RED : DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
       };
 
       DrawOption("排除已锁定", m_salvageFilter.excludeLocked, 40.0f);
@@ -786,7 +820,7 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
               m_salvageFilter.rarityMask ^= (1 << (uint32_t)rar);
           }
 
-          UIRenderer::DrawButton(state.globalFont, rectTex, r_logic, label, 14, WHITE, active ? UIRenderer::GetRarityColor(rar) : DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+          UIRenderer::DrawButton(UISystem::GetFont(), rectTex, r_logic, label, 14, WHITE, active ? UIRenderer::GetRarityColor(rar) : DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
       };
       DrawRarity("Magic (蓝色)", Rarity::Magic, 140.0f);
       DrawRarity("Rare (黄色)", Rarity::Rare, 170.0f);
@@ -799,7 +833,7 @@ void UICraftingController::DrawSalvagePanel(entt::registry& registry,
     Rectangle r_logic = {x_logic, y_logic, bW, bH};
     bool h = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), r_logic);
 
-    UIRenderer::DrawButton(state.globalFont, rectTex, r_logic, label, 16, WHITE, DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, r_logic, label, 16, WHITE, DARKGRAY, h, h && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       auto playerEnt = UISystem::GetPlayerEntity(registry);

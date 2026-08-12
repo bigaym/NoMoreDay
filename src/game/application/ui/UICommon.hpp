@@ -2,7 +2,6 @@
 #include <entt/entt.hpp>
 #include "raylib.h"
 #include "game/foundation/components/ItemComponent.hpp"
-#include "game/application/ui/UIContext.hpp"
 
 namespace NoMoreDay
 {

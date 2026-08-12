@@ -1,7 +1,9 @@
 #include "game/application/ui/UISkillTalentTree.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UISkillHub.hpp"
 #include "game/application/ui/UISkillSpecRenderer.hpp"
+#include "game/application/ui/TooltipController.hpp"
 #include "game/application/ui/BladeMasteryUITheme.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
@@ -596,11 +598,9 @@ SkillTreeUI::TooltipLayoutMetrics SkillTreeUI::ComputeTooltipLayoutMetrics(
     return metrics;
 }
 
-void SkillTreeUI::Draw(entt::registry& registry, entt::entity player, uint32_t skillId) {
-    auto& state = UISystem::State;
-    if (state.skillTreeAlpha <= 0.0f) return;
-
-    float alpha = state.skillTreeAlpha;
+void SkillTreeUI::Draw(entt::registry& registry, entt::entity player,
+                       uint32_t skillId, float alpha) {
+    if (alpha <= 0.0f) return;
 
     auto& skillRegistry = SkillRegistry::Get();
     const auto* skillData = skillRegistry.GetSkill(skillId);
@@ -631,7 +631,7 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player, uint32_t s
     float startY = (logicH - panelH) / 2.0f;
 
     Vector2 mouseLogicPos = UISystem::GetMousePositionLogic();
-    float scale = state.scaleFactor;
+    float scale = UISystem::GetScaleFactor();
 
     // Draw Background
     DrawRectangleRec({startX * scale, startY * scale, panelW * scale, panelH * scale},
@@ -753,7 +753,7 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player, uint32_t s
                            backHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (backHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        state.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+        m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
         return;
     }
 
@@ -788,8 +788,11 @@ void SkillTreeUI::Draw(entt::registry& registry, entt::entity player, uint32_t s
                             (CheckCollisionPointCircle(mousePixelPos, hubCenter, hubHoverRadius) ||
                              CheckCollisionPointCircle(mouseLogicPos, hubCenterLogic, hubHoverRadiusLogic));
     if (hubHovered) {
-        state.hoveredSkillSlot = -1;
-        state.hoveredSkillId = skillId;
+        // U8: the hovered-skill channel routes through the bound tooltip
+        // controller (was the State.hoveredSkillId write).
+        if (m_tooltip != nullptr) {
+            m_tooltip->SetHoveredSkill(skillId);
+        }
     }
 
     for (const auto& [id, node] : tree->nodes) {

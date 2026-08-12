@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/application/ui/UIPanelDragService.hpp"
 #include "game/application/ui/UiRuntime.hpp"
 #include "game/application/ui/UiRuntimeTypes.hpp"
 
@@ -17,6 +18,8 @@ enum class StashType : std::uint8_t;
 
 namespace NoMoreDay::ui {
 
+class GameUiHost; // Back-pointer injected by the host (U8 hover channel).
+
 // Instance controller for the stash panel.
 //
 // Ports the legacy static panel UIStash into a hostable instance: the
@@ -33,7 +36,10 @@ namespace NoMoreDay::ui {
 // is migrated in a later U7 step.
 class UIStashController {
 public:
-  explicit UIStashController(UiRuntime& runtime);
+  // U8: the host back-pointer routes panel hover writes through the host's
+  // SetHoveredItem channel (instance hover pipeline) instead of the static
+  // UiShared::HoveredItem() slot.
+  explicit UIStashController(UiRuntime& runtime, GameUiHost* uiHost);
   ~UIStashController() = default;
 
   UIStashController(const UIStashController&) = delete;
@@ -47,8 +53,9 @@ public:
   // Clears session-scoped state and hides the panel root node. Idempotent.
   void LeaveGameplay();
 
-  // Per-frame update: mirrors the legacy UIStash::Update (alpha animation of
-  // the panel visibility). Does not draw anything.
+  // Per-frame update: instance alpha animation (was the legacy UIStash::Update
+  // driven by State.showStash/stashAlpha; the flag is now instance state
+  // written by Open/Close/Toggle). Does not draw anything.
   void Update(entt::registry& registry);
 
   // Opens/closes/toggles the stash panel. Mirrors the legacy UIStash API:
@@ -59,8 +66,19 @@ public:
   void Close();
   void Toggle();
 
-  // Mirrors the legacy UIStash read accessors.
+  // U8: instance visibility/alpha (replacing the legacy State.showStash /
+  // stashAlpha pair). SetVisible/Open/Close/Toggle write the instance flag and
+  // mirror it into State.showStash (compatibility contract: the legacy
+  // null-host fallback inside UISystem and the UIStashControllerTests still
+  // read the shared flag; the mirror is removed with the field in F2).
+  void SetVisible(bool visible);
   [[nodiscard]] bool IsVisible() const noexcept;
+  [[nodiscard]] float Alpha() const noexcept { return m_alpha; }
+  // U8 typing-gate source: true while the stash search box is focused
+  // (InputCapture aggregates this instead of State.isTyping).
+  [[nodiscard]] bool IsSearchFocused() const noexcept {
+    return m_isSearchFocused;
+  }
   [[nodiscard]] NoMoreDay::StashType GetActiveType() const noexcept;
   [[nodiscard]] int GetActiveTabIndex() const noexcept;
 
@@ -79,9 +97,29 @@ private:
   void ResetSessionState() noexcept;
   void SetNodeVisible(bool visible);
 
+  // U8 drag session accessor: routes to the host-owned session when the host
+  // is present (gameplay), otherwise to a local fallback (headless tests,
+  // where no cross-panel drag can occur anyway).
+  UIDragSession& DragSession() noexcept;
+
   UiRuntime& m_runtime;
+  // U8: borrowed back-pointer to the owning GameUiHost; used to forward panel
+  // hover writes to the tooltip controller's hover source and to access the
+  // host-owned drag session.
+  GameUiHost* m_uiHost = nullptr;
   UiId m_rootNodeId = kInvalidUiId;
   bool m_inGameplay = false; // Session state set by Enter/LeaveGameplay.
+
+  // U8: instance visibility + alpha animation + panel drag position,
+  // replacing the legacy State.showStash / stashAlpha / panelStates[Stash]
+  // triple. PanelState.position == {-1,-1} means "not yet placed" (the draw
+  // passes the default position and UIPanelDragService stores it).
+  bool m_visible = false;
+  float m_alpha = 0.0f;
+  PanelState m_panelState;
+  UIPanelID m_activeDragPanel = UIPanelID::None;
+  // Headless-test fallback for the drag session (see DragSession).
+  UIDragSession m_localDragSession;
 
   // Session-scoped panel state migrated from the legacy static members of
   // UIStash (U7 cleanup: static mutable state -> instance members).

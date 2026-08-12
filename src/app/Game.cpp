@@ -284,6 +284,11 @@ void Game::init() {
   // the legacy facade is initialized through the host.
   m_uiHost.Initialize(m_resourceManager);
 
+  // U8: bind the world-space UI frame so the render write side and the host
+  // read side exchange visible-item/hover data through it instead of the
+  // UiShared static slots.
+  m_uiHost.BindWorldFrame(&m_worldFrame);
+
   // U7 group 3: cross-layer crafting entry points route through these
   // callbacks (see SharedContext) so systems below the UI layer never touch
   // the static UICrafting panel.
@@ -294,6 +299,12 @@ void Game::init() {
   // U7 group 5: skill-tree sibling coupling routes the astrolabe close
   // through the host-owned controller.
   m_context.closeAstrolabe = [this]() { m_uiHost.CloseAstrolabe(); };
+  // U8: gameplay-layer message box notifications (InventorySystem etc.) route
+  // through the host-owned OverlayController instead of the legacy static
+  // State.showMessageBox (see SharedContext).
+  m_context.showMessageBox = [this](const char* text) {
+    m_uiHost.ShowMessageBox(text);
+  };
 
   // Initialize GPU Systems
   if (m_gpuInfo.computeShaderSupported) {
@@ -322,7 +333,15 @@ void Game::init() {
     // context pointer is latched here so the hooks can reach Game state.
     m_gameplayRenderAdapter.SetContext(&m_context);
     m_gameplayRenderAdapter.Init();
-    m_context.gameplayRenderHooks = &m_gameplayRenderAdapter;
+    // U8: route the UI world pass into the frame object owned by Game.
+  m_gameplayRenderAdapter.BindWorldUiFrame(&m_worldFrame);
+  m_context.gameplayRenderHooks = &m_gameplayRenderAdapter;
+
+  // U8 final: the render adapter no longer reads the UiShared global font
+  // (removed); the composition root injects the font loaded during
+  // GameUiHost::Initialize (UISystem private static) after both the host and
+  // the adapter are ready.
+  m_gameplayRenderAdapter.SetFont(UISystem::GetFont());
 
     m_mdiRenderer.Init(m_resourceManager, 30000);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,

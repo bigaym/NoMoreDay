@@ -13,6 +13,7 @@
 #include "game/application/ui/UICharacterController.hpp"
 #include "game/application/ui/UICraftingController.hpp"
 #include "game/application/ui/UIInventoryController.hpp"
+#include "game/application/ui/UIPanelDragService.hpp"
 #include "game/application/ui/UIStashController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiRaylibBackend.hpp"
@@ -34,14 +35,18 @@ class SpatialHashGrid;
 
 namespace NoMoreDay::ui {
 
+class WorldUiFrame;
+
 // Composition root of the UI layer (design §4.2 lifecycle). Owns the retained
 // runtime core (UiViewport / UiRuntime / UiRaylibBackend) plus the draw list
 // and gameplay-session scoping. Not a singleton: the application owns exactly
 // one instance and injects it into states via SharedContext.
 //
-// Transitional (U4): Update/Draw forward to the legacy panel renderer
-// (UISystem) unchanged so the ownership path change does not alter panel
-// output. The new runtime core is owned here and is driven from U5 on.
+// U8 final: Update/Draw own the full UI orchestration in-place (the legacy
+// UISystem::Update/Draw/DrawDraggingPhantom facade functions and the static
+// UIContext are gone); the panel controllers and the overlay are the
+// authoritative instance state, and the host provides the cross-panel
+// channels (drag session, hover, modal/pointer gates, message box).
 class GameUiHost {
 public:
   GameUiHost();
@@ -61,16 +66,17 @@ public:
   void EnterGameplay();
   void LeaveGameplay();
 
-  // Per-frame update. Transitional: forwards to the legacy panel renderer.
-  // Compatibility overload that runs the update against an empty snapshot;
-  // the gameplay Update phase should prefer the snapshot overload below.
+  // Per-frame update. Owns the full UI update orchestration in-place (global
+  // hotkeys, animations, the one-shot test-item grant, per-frame panel
+  // updates; see GameUiHost.cpp). Compatibility overload that runs the update
+  // against an empty snapshot; the gameplay Update phase should prefer the
+  // snapshot overload below.
   void Update(entt::registry &registry, const LevelManager &levelManager);
 
   // U6b: update against the frame-scoped read-only snapshot. Saves the
-  // snapshot for later panel migrations (U7), consumes pending intent results
+  // snapshot for later panel migrations, consumes pending intent results
   // through the compatibility bridge (failure notifications surface via the
-  // legacy message box; U7 removes this bridge), then forwards to the legacy
-  // panel renderer unchanged.
+  // hosted message box), then runs the in-place UI update.
   void Update(entt::registry &registry, const LevelManager &levelManager,
               const GameUiSnapshot &snapshot);
 
@@ -97,12 +103,21 @@ public:
   // list. Call after the scene composite, before Draw.
   void PrepareRender();
 
-  // Transitional: forwards to the legacy panel renderer (UISystem), then
-  // submits the new draw list through the raylib backend. Must run after the
-  // scene composite and before EndDrawing.
+  // U8 final: draws the full UI in-place (scale fit, per-frame hover/mouse
+  // resets, panel passes, overlays, tooltip state machine; see
+  // GameUiHost.cpp), then submits the new draw list through the raylib
+  // backend. Must run after the scene composite and before EndDrawing.
   void Draw(entt::registry &registry, const LevelManager &levelManager,
             const Camera2D &camera,
             NoMoreDay::systems::SpatialHashGrid *spatialGrid = nullptr);
+
+  // U8 host read-side migration: binds the frame-scoped WorldUiFrame the
+  // render adapter fills with visible ground-item hit proxies. The host reads
+  // it for ground pickup detection (DetectPickupClick) and forwards it to the
+  // tooltip controller (ground hover detection + hover highlight write-back).
+  // Called by the composition root (Game) after the frame is created; the
+  // host degrades gracefully (no ground pickup / hover) until bound.
+  void BindWorldFrame(NoMoreDay::ui::WorldUiFrame *frame);
 
   // U7 group 1: panel routes. GameplayState calls these at the original
   // legacy call positions so the native UI render order is unchanged; the
@@ -110,11 +125,11 @@ public:
   void DrawMinimap(entt::registry &registry, const LevelManager &levelManager,
                    NoMoreDay::systems::SpatialHashGrid *grid = nullptr);
   void DrawHud(entt::registry &registry);
-  // U7 group 6-B: the drag phantom + top-most tooltip pass (was
+  // U8 final: the drag phantom + top-most tooltip pass (was
   // UISystem::DrawDraggingPhantom). GameplayState calls this at the original
-  // legacy position (after the player HUD); the tooltip routes through the
-  // hosted TooltipController, the legacy static path remains as the null-host
-  // fallback only.
+  // legacy position (after the player HUD); the phantom draws directly from
+  // the host-owned drag session and the tooltip routes through the hosted
+  // TooltipController.
   void DrawDraggingPhantom(entt::registry &registry);
   // Monster health bars: world-pass overhead bars + hover pick (runs inside
   // Mode2D) and the screen-pass top-center target widget.
@@ -140,6 +155,121 @@ public:
   // coupling (wired through SharedContext.closeAstrolabe, filled by Game).
   void CloseAstrolabe();
 
+  // U8 panel-hover convergence channel: forwards the hovered item to the
+  // tooltip controller's hover source (TooltipController::SetHoveredItem).
+  // Panel hover write points (stash/crafting controllers, states) route
+  // through this host channel instead of the static UiShared::HoveredItem()
+  // slot, so hover flows into the instance hover pipeline (UpdateState
+  // write-back) and the static slot stays write-free except for the U8
+  // fallback branches. Pass entt::null to clear the hover source.
+  void SetHoveredItem(entt::entity entity);
+
+  // U8 inventory takeover: host routes for the inventory panel instance
+  // visibility (the panel is an instance controller now; the legacy
+  // GameplayState PushState<InventoryState> path is gone). GameplayState uses
+  // these for the KEY_I/Esc gating and the anyPanelOpen check; InputCapture
+  // uses IsInventoryVisible to capture pointer input while the panel is open.
+  void SetInventoryVisible(bool visible);
+  [[nodiscard]] bool IsInventoryVisible() const noexcept;
+
+  // U8 final: opens the item context menu through the hosted
+  // OverlayController. The inventory controller routes its right-click
+  // interaction through this host channel.
+  void OpenContextMenu(entt::entity item, bool fromInventory, int inventoryIndex,
+                       NoMoreDay::EquipmentSlot slot);
+
+  // --- U8 host read-side migration: aggregated panel visibility ---
+  // True while any hosted panel/overlay is open (inventory, skill tree,
+  // character, stash, crafting, astrolabe). Replaces the legacy
+  // State.showSkillTree || State.showCharacterPanel anyPanelOpen check in
+  // GameplayState. Requires the registry to resolve the player entity
+  // (astrolabe visibility); each hosted controller reports its own instance
+  // visibility (character also counts the fading-out alpha).
+  [[nodiscard]] bool IsAnyPanelOpen(entt::registry &registry) const;
+
+  // U8 final: character-panel visibility channel. The KEY_C/ESC writers and
+  // GameplayState route through this host channel; the controller owns the
+  // instance visibility and alpha animation.
+  void SetCharacterPanelVisible(bool visible);
+  [[nodiscard]] bool IsCharacterPanelVisible() const noexcept;
+
+  // U8 astrolabe sibling-close channel (was AstrolabeController writing
+  // State.showInventory/showCharacterPanel/showSkillTree=false on open).
+  void CloseInventory();
+  void CloseCharacterPanel();
+  void CloseSkillTree();
+  // U8 astrolabe sibling-close channel for the context menu (was the same
+  // legacy State.write; forwards to the hosted OverlayController).
+  void CloseContextMenu();
+
+  // U8 final: quantity popup and skill-tree toggle forwarded to the hosted
+  // overlay / skill-tree controller (tests drive the modal input gate through
+  // these).
+  void OpenQuantityPopup(entt::entity item, int actionType,
+                         int quantityMax = 1) {
+    m_overlay.OpenQuantityPopup(item, actionType, quantityMax);
+  }
+  void CloseQuantityPopup() { m_overlay.CloseQuantityPopup(); }
+  void ToggleSkillTree(entt::registry& registry) {
+    m_skillTree.Toggle(registry);
+  }
+
+  // U8 message box channel: forwards to the hosted OverlayController. Wired
+  // to SharedContext.showMessageBox by Game so gameplay-layer systems
+  // (InventorySystem) surface notifications without including UI headers.
+  void ShowMessageBox(const char *text);
+
+  // U8 final: message box visibility/text (for tests and tech guards; the
+  // hosted OverlayController owns the state).
+  [[nodiscard]] bool IsMessageBoxVisible() const noexcept {
+    return m_overlay.IsMessageBoxVisible();
+  }
+  [[nodiscard]] const char* MessageBoxText() const noexcept {
+    return m_overlay.MessageBoxText();
+  }
+  // U8 final: dismiss the hosted message box (forwarded; tests use this to
+  // reset the overlay between cases).
+  void ClearMessageBox() { m_overlay.HideMessageBox(); }
+
+  // U8 drag session: the single instance owner of the cross-panel drag state
+  // (replaces the legacy State.draggedItem/isDragging*/dragSource* fields).
+  // Inventory/stash controllers and the skill hotbar/hub read and write this
+  // session through the host back-pointer; GameplayState's drag cleanup calls
+  // ClearDragSession.
+  [[nodiscard]] UIDragSession &DragSession() noexcept { return m_dragSession; }
+  void ClearDragSession() noexcept { m_dragSession.Clear(); }
+  [[nodiscard]] bool IsDragging() const noexcept {
+    return m_dragSession.IsDragging();
+  }
+
+  // U8 skill-hover channel: forwards the hovered skill id to the tooltip
+  // controller (the skill hub/tree hover writes route through this host
+  // channel instead of the static State.hoveredSkillId slot; F2 removes the
+  // slot).
+  void SetHoveredSkillId(uint32_t skillId);
+
+  // U8 typing-gate aggregation: true while any text input is focused
+  // (inventory/stash search, quantity popup). Replaces the legacy
+  // State.isTyping read in InputCapture; the per-frame write in GameplayState
+  // is removed with it (the controllers own their focus flags).
+  [[nodiscard]] bool IsTyping() const noexcept;
+
+  // --- U8 final: host-owned per-frame UI gates (legacy static state gone) ---
+  // Per-frame pointer-capture flag written by the panel controllers (hotbar /
+  // stash / inventory hover) through this host channel; InputCapture reads it
+  // (replaces the legacy UISystem::State.isMouseOverUI slot).
+  void SetMouseOverUI(bool v) noexcept { m_mouseOverUI = v; }
+  // Modal surfaces (quantity popup, skill tree) capture all input. Replaces
+  // the legacy UISystem::IsModalInputCaptured() query.
+  [[nodiscard]] bool IsModalInputCaptured() const noexcept {
+    return m_overlay.IsQuantityPopupVisible() || m_skillTree.IsVisible();
+  }
+  // Skill-slot right-click opens the skill context menu through the hosted
+  // overlay (replaces the legacy State field writes in the hotbar).
+  void OpenSkillContextMenu(int skillSlot) {
+    m_overlay.OpenSkillContextMenu(skillSlot);
+  }
+
   // --- New runtime core access (migration stages U5+) ---
   [[nodiscard]] UiViewport &Viewport() noexcept { return m_viewport; }
   [[nodiscard]] const UiViewport &Viewport() const noexcept {
@@ -160,9 +290,8 @@ public:
   [[nodiscard]] bool IsInGameplay() const noexcept { return m_inGameplay; }
 
 private:
-  // Clears gameplay-scoped session state (panels, drag, tooltip, message box,
-  // quantity popup). Delegates to the legacy facade's internal reset so no new
-  // static-state writes are introduced elsewhere.
+  // Clears gameplay-scoped session state (host-owned drag session; the panel
+  // controllers reset their own state on Enter/LeaveGameplay).
   void ResetSessionState();
 
   // Render-phase ground-item pickup click detection (U6b). Read-only: checks
@@ -211,6 +340,9 @@ private:
   // update. Enter/LeaveGameplay reset all overlay state.
   OverlayController m_overlay;
 
+  // U8: cross-panel drag session (single instance owner; see DragSession).
+  UIDragSession m_dragSession;
+
   // Frame-scoped read model handed in by the Update phase (U6b). Retained so
   // later panel migrations (U7) can read it without re-querying the ECS.
   GameUiSnapshot m_snapshot{};
@@ -220,6 +352,17 @@ private:
   // Results published back by the gameplay Update phase; consumed (and
   // cleared) on the next Update through the compatibility bridge.
   std::vector<GameUiResult> m_pendingNotifications;
+
+  // U8: frame-scoped world UI bridge (bound via BindWorldFrame by the
+  // composition root; null until then). Read side: ground pickup detection
+  // and tooltip ground hover / highlight write-back.
+  NoMoreDay::ui::WorldUiFrame *m_worldFrame = nullptr;
+
+  // U8 final: per-frame UI pointer-capture flag (see SetMouseOverUI).
+  bool m_mouseOverUI = false;
+  // U8 final: one-shot debug/test item grant per gameplay session (was the
+  // legacy UISystem::s_hasGivenTestItems static).
+  bool m_hasGivenTestItems = false;
 
   bool m_initialized = false;
   bool m_inGameplay = false;

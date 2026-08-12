@@ -28,6 +28,7 @@
 #include "game/foundation/data/BiomeRegistry.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/item/LootFilter.hpp"
+#include "game/systems/item/LootGridSystem.hpp"
 #include "game/foundation/ui_shared/UiShared.hpp"
 #include "game/systems/vfx/HoloBladeRenderSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
@@ -42,16 +43,17 @@ namespace NoMoreDay {
 
 // Static definitions for the shared visibility cache + loot grid now live in
 // NoMoreDayGameUiShared (UiShared.cpp) — design §5.3 ring 2 break.
+// U8 收尾：战利品空间网格迁入 item 域 LootGridSystem（生命周期委托本类 Init/Shutdown）。
 
-void GameplayRenderAdapter::Init() { UiShared::Init(); }
+void GameplayRenderAdapter::Init() { systems::LootGridSystem::Init(); }
 
-void GameplayRenderAdapter::Shutdown() { UiShared::Shutdown(); }
+void GameplayRenderAdapter::Shutdown() { systems::LootGridSystem::Shutdown(); }
 
 void GameplayRenderAdapter::BuildFrameData(render::GameplayRenderFrame &frame) {
   m_cameraZoom =
       (m_context->settings != nullptr) ? m_context->settings->cameraZoom : 1.5f;
   m_fontScale = (m_cameraZoom > 1e-4f) ? (1.0f / m_cameraZoom) : 1.0f;
-  m_font = UiShared::GlobalFont();
+  // U8 收尾: m_font 由组合根经 SetFont 注入（原 UiShared::GlobalFont() 读取删除）。
 
   auto playerView = frame.registry.view<PlayerTag, Position>();
   if (playerView.begin() != playerView.end()) {
@@ -611,7 +613,12 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
   }
 
   NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
-  UiShared::VisibleItemCache::Clear();
+  // U8 (plan §11): the static UiShared::VisibleItemCache slot is replaced by
+  // the frame-scoped WorldUiFrame. BeginFrame opens a fresh frame (clears item
+  // proxies and hover, bumps the frame token). Skipped when no frame is bound.
+  if (m_worldFrame != nullptr) {
+    m_worldFrame->BeginFrame(++m_frameCounter);
+  }
   if (frame.labelBuffer != nullptr) {
     frame.labelBuffer->clear();
   }
@@ -655,8 +662,9 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
   constexpr int kMaxCollectCandidates = 256;
   int collectedCount = 0;
 
-  if (UiShared::s_itemGrid) {
-    UiShared::s_itemGrid->query(
+  // U8 收尾: 网格本体与脏标记归 item 域 LootGridSystem（原 UiShared::s_itemGrid 读取）。
+  if (systems::LootGridSystem::GetGrid() != nullptr) {
+    systems::LootGridSystem::GetGrid()->query(
         {frame.camera.target.x, frame.camera.target.y}, 1000.0f,
         [&](entt::entity entity, const Vector2 &pos) -> bool {
           if (collectedCount >= kMaxCollectCandidates) {
@@ -834,7 +842,11 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
         ++safety;
       }
 
-      const bool hovered = (cand.entity == UiShared::HoveredItem());
+      // U8 (plan §11): hover read moves from UiShared::HoveredItem() to the
+      // frame-scoped WorldUiFrame. Unbound frame => no hover highlight.
+      const bool hovered =
+          (m_worldFrame != nullptr) &&
+          (cand.entity == m_worldFrame->HoveredItem());
       components::GPULabelInstance inst;
       inst.position = {cand.currentRect.x, cand.currentRect.y};
       inst.size = {cand.currentRect.width, cand.currentRect.height};
@@ -846,8 +858,13 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
       if (frame.labelBuffer != nullptr) {
         frame.labelBuffer->push_back(inst);
       }
-      UiShared::VisibleItemCache::visibleItems.push_back(
-          {cand.entity, cand.currentRect});
+      // U8 (plan §11): visible-item write moves from the static
+      // UiShared::VisibleItemCache to the frame-scoped WorldUiFrame. Depth is
+      // reserved for draw/pick priority (design §4.1); candidates are already
+      // y-sorted and overlap-resolved, so 0.0f (unset) is passed for now.
+      if (m_worldFrame != nullptr) {
+        m_worldFrame->AddItem(cand.entity, cand.currentRect, 0.0f);
+      }
 
       if (IsFontValid(frame.font) && frame.glyphBuffer != nullptr) {
         int fSize = cand.isGold ? static_cast<int>(16.0f * m_fontScale)

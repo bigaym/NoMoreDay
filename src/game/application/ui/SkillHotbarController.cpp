@@ -2,6 +2,7 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UICommon.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UIRenderer.hpp"
@@ -21,8 +22,9 @@
 namespace NoMoreDay::ui {
 
 SkillHotbarController::SkillHotbarController(UiRuntime& runtime,
-                                             TooltipController* tooltipController)
-    : m_tooltip(tooltipController), m_runtime(runtime) {
+                                             TooltipController* tooltipController,
+                                             GameUiHost* uiHost)
+    : m_tooltip(tooltipController), m_uiHost(uiHost), m_runtime(runtime) {
   UiNodeDesc desc;
   desc.id = static_cast<UiId>(entt::hashed_string("ui_skill_hotbar").value());
   desc.parent = kRootUiId;
@@ -50,6 +52,10 @@ SkillHotbarController::SkillHotbarController(UiRuntime& runtime,
   } else {
     m_rootNodeId = kInvalidUiId;
   }
+}
+
+UIDragSession& SkillHotbarController::DragSession() noexcept {
+  return m_uiHost ? m_uiHost->DragSession() : m_localDragSession;
 }
 
 void SkillHotbarController::EnterGameplay() {
@@ -167,34 +173,36 @@ void SkillHotbarController::DrawHotbar(entt::registry& registry) {
       if (m_tooltip) {
         m_tooltip->SetHoveredSkillSlot(i);
       }
-      UISystem::State.isMouseOverUI = true;
+      // U8 收尾: mouse-over-UI 门控经 host 实例成员（原 State.isMouseOverUI）。
+      if (m_uiHost) {
+        m_uiHost->SetMouseOverUI(true);
+      }
 
       // Drop logic
-      if (UISystem::State.isDraggingSkill &&
+      UIDragSession& drag = DragSession();
+      if (drag.isDraggingSkill &&
           IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
         auto *activePtr = registry.try_get<ActiveSkillsComponent>(player);
         if (activePtr) {
-          activePtr->slots[i].id = UISystem::State.draggedSkillId;
-          LOG_INFO("Assigned skill {} to hotbar slot {}",
-                   UISystem::State.draggedSkillId, i);
+          activePtr->slots[i].id = drag.draggedSkillId;
+          LOG_INFO("Assigned skill {} to hotbar slot {}", drag.draggedSkillId,
+                   i);
         }
-        UISystem::State.isDraggingSkill = false;
-        UISystem::State.draggedSkillId = INVALID_SKILL_ID;
+        drag.isDraggingSkill = false;
+        drag.draggedSkillId = INVALID_SKILL_ID;
       }
 
       // Right-click context menu
+      // U8 收尾: 技能右键菜单经 host → overlay 实例（原 State 五字段写）。
       if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-        UISystem::State.showContextMenu = true;
-        UISystem::State.contextMenuPos = GetMousePosition();
-        UISystem::State.isSkillContext = true;
-        UISystem::State.contextSourceSkillSlot = i;
-        UISystem::State.isContextFromInventory = false;
-        UISystem::State.contextMenuItem = entt::null;
+        if (m_uiHost) {
+          m_uiHost->OpenSkillContextMenu(i);
+        }
       }
     }
 
     UIRenderer::DrawSkillSlot(
-        UISystem::State.globalFont, x, y, slotSize, icon, labels[i],
+        UISystem::GetFont(), x, y, slotSize, icon, labels[i],
         cooldownRatio, slot.cooldown, manaCost, slot.current_charges,
         maxCharges, hasEnoughMana, isHovered, isPressed, 0.8f);
   }
@@ -261,7 +269,7 @@ void SkillHotbarController::DrawBuffStrip(entt::registry& registry) {
       ratio = std::clamp(effect.remaining / effect.duration, 0.0f, 1.0f);
     }
 
-    UIRenderer::DrawBuffIcon(UISystem::State.globalFont, x, y, iconSize, icon,
+    UIRenderer::DrawBuffIcon(UISystem::GetFont(), x, y, iconSize, icon,
                              iconText, ratio, effect.stacks, isDebuff, 0.9f);
 
     if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(),
@@ -271,7 +279,10 @@ void SkillHotbarController::DrawBuffStrip(entt::registry& registry) {
       if (m_tooltip) {
         m_tooltip->SetHoveredBuff(i);
       }
-      UISystem::State.isMouseOverUI = true;
+      // U8 收尾: mouse-over-UI 门控经 host 实例成员（原 State.isMouseOverUI）。
+      if (m_uiHost) {
+        m_uiHost->SetMouseOverUI(true);
+      }
     }
   }
 }

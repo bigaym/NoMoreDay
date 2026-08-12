@@ -1,62 +1,98 @@
 #include "doctest.h"
 
-#include "game/application/ui/UISystem.hpp"
+#include "game/application/ui/GameUiHost.hpp"
+#include "game/application/ui/OverlayController.hpp"
+#include "game/application/ui/UiRuntime.hpp"
+#include "game/application/ui/UiRuntimeTypes.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+
+#include <fstream>
+#include <iterator>
+#include <string>
 
 namespace NoMoreDay {
 
-TEST_CASE("[Integration] UISystem - Panel Drag initializes default panel position") {
-  UISystem::State.panelStates[(int)UIPanelID::Inventory] = PanelState{};
-  UISystem::State.activeDragPanel = UIPanelID::None;
-  UISystem::State.scaleFactor = 1.0f;
+// U8 final: UISystem::UpdatePanelDrag / IsModalInputCaptured /
+// DrawQuantityPopup are gone; the panel-drag state lives in each panel
+// controller (UIPanelDragServiceTests covers the drag math) and the modal
+// input gate lives on GameUiHost, driven by the hosted overlay.
 
-  float x = 150.0f;
-  float y = 260.0f;
-  UISystem::UpdatePanelDrag(UIPanelID::Inventory, x, y, 240.0f, 320.0f, 48.0f);
-
-  const PanelState &panel = UISystem::State.panelStates[(int)UIPanelID::Inventory];
-  CHECK(panel.position.x == doctest::Approx(150.0f));
-  CHECK(panel.position.y == doctest::Approx(260.0f));
-}
-
-TEST_CASE("[Integration] UISystem - Panel Drag clears stale drag when button is not held") {
-  PanelState panel;
-  panel.position = {410.0f, 470.0f};
-  panel.isDragging = true;
-  panel.dragOffset = {15.0f, 15.0f};
-  UISystem::State.panelStates[(int)UIPanelID::Inventory] = panel;
-  UISystem::State.activeDragPanel = UIPanelID::Inventory;
-  UISystem::State.scaleFactor = 1.0f;
-
-  float x = 410.0f;
-  float y = 470.0f;
-  UISystem::UpdatePanelDrag(UIPanelID::Inventory, x, y, 240.0f, 320.0f, 48.0f);
-
-  const PanelState &updated = UISystem::State.panelStates[(int)UIPanelID::Inventory];
-  CHECK_FALSE(updated.isDragging);
-  CHECK(UISystem::State.activeDragPanel == UIPanelID::None);
-}
-
-TEST_CASE("[Integration] UISystem - Quantity popup reports modal input capture") {
-  UISystem::State.showQuantityPopup = false;
-  CHECK_FALSE(UISystem::IsModalInputCaptured());
-
-  UISystem::State.showQuantityPopup = true;
-  CHECK(UISystem::IsModalInputCaptured());
-
-  UISystem::State.showQuantityPopup = false;
-}
-
-TEST_CASE("[Integration] UISystem - Quantity popup close clears typing flag") {
+TEST_CASE("[Integration] GameUiHost - modal input capture follows the quantity popup") {
+  ui::UiRuntime runtime;
+  ui::GameUiHost host;
   entt::registry registry;
 
-  UISystem::State.showQuantityPopup = true;
-  UISystem::State.isTyping = true;
-  UISystem::State.quantityTargetItem = entt::null;
+  CHECK_FALSE(host.IsModalInputCaptured());
 
-  UISystem::DrawQuantityPopup(registry);
+  host.OpenQuantityPopup(entt::null, 0);
+  CHECK(host.IsModalInputCaptured());
 
-  CHECK_FALSE(UISystem::State.showQuantityPopup);
-  CHECK_FALSE(UISystem::State.isTyping);
+  host.CloseQuantityPopup();
+  CHECK_FALSE(host.IsModalInputCaptured());
+}
+
+TEST_CASE("[Integration] GameUiHost - modal input capture follows the skill tree") {
+  ui::UiRuntime runtime;
+  ui::GameUiHost host;
+  entt::registry registry;
+
+  host.ToggleSkillTree(registry);
+  CHECK(host.IsModalInputCaptured());
+
+  host.CloseSkillTree();
+  CHECK_FALSE(host.IsModalInputCaptured());
+}
+
+TEST_CASE("[Integration] OverlayController - quantity popup close clears typing") {
+  ui::UiRuntime runtime;
+  ui::OverlayController overlay(runtime);
+
+  entt::registry registry;
+  const entt::entity item = registry.create();
+  // DrawQuantityPopup requires a valid item (with a quantity) and a player
+  // tag; otherwise it closes the popup immediately (legacy semantics).
+  registry.emplace<ItemComponent>(item);
+  registry.get<ItemComponent>(item).quantity = 5;
+  registry.emplace<PlayerTag>(registry.create());
+
+  overlay.OpenQuantityPopup(item, 1);
+  CHECK(overlay.IsQuantityPopupVisible());
+  // isTyping is set by the draw pass while the popup input is live (legacy
+  // DrawQuantityPopup semantics), not by OpenQuantityPopup.
+  BeginDrawing();
+  overlay.DrawOverlays(registry);
+  EndDrawing();
+  CHECK(overlay.IsTyping());
+
+  overlay.CloseQuantityPopup();
+  CHECK_FALSE(overlay.IsQuantityPopupVisible());
+  CHECK_FALSE(overlay.IsTyping());
+}
+
+TEST_CASE("[Integration] panel controllers own instance drag state") {
+  // U8 final: no panel controller reads the removed UISystem::State panel
+  // drag fields (PanelState/activeDragPanel live per controller). The
+  // controllers call UIPanelDragService::UpdatePanelDrag directly, so only
+  // the legacy UISystem::UpdatePanelDrag entry point is forbidden.
+  const std::string needles[] = {"UISystem::UpdatePanelDrag", "State.panelStates",
+                                 "State.activeDragPanel"};
+  const std::string files[] = {
+      "src/game/application/ui/UIInventoryController.cpp",
+      "src/game/application/ui/UIStashController.cpp",
+      "src/game/application/ui/UICharacterController.cpp",
+      "src/game/application/ui/UICraftingController.cpp",
+  };
+  for (const auto& file : files) {
+    std::ifstream in(file);
+    REQUIRE_MESSAGE(in.good(), "cannot open ", file);
+    const std::string contents((std::istreambuf_iterator<char>(in)),
+                               std::istreambuf_iterator<char>());
+    for (const auto& needle : needles) {
+      CHECK_MESSAGE(contents.find(needle) == std::string::npos, file, " -> ",
+                    needle);
+    }
+  }
 }
 
 } // namespace NoMoreDay

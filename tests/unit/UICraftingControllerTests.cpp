@@ -36,7 +36,7 @@ std::string ReadFileContents(const char* path) {
 
 TEST_CASE("[Unit] UICraftingController - creates a panel root node") {
   UiRuntime runtime;
-  UICraftingController controller(runtime);
+  UICraftingController controller(runtime, nullptr);
 
   const UiId root = controller.NodeId();
   CHECK(root != kInvalidUiId);
@@ -64,7 +64,7 @@ TEST_CASE("[Unit] UICraftingController - creates a panel root node") {
 
 TEST_CASE("[Unit] UICraftingController - Enter/Leave gameplay resets session state") {
   UiRuntime runtime;
-  UICraftingController controller(runtime);
+  UICraftingController controller(runtime, nullptr);
 
   const UiId root = controller.NodeId();
   CHECK_FALSE(controller.IsInGameplay());
@@ -102,7 +102,7 @@ TEST_CASE("[Unit] UICraftingController - Enter/Leave gameplay resets session sta
 
 TEST_CASE("[Unit] UICraftingController - Toggle flips visibility with the node") {
   UiRuntime runtime;
-  UICraftingController controller(runtime);
+  UICraftingController controller(runtime, nullptr);
   controller.EnterGameplay();
 
   const UiId root = controller.NodeId();
@@ -148,7 +148,7 @@ TEST_CASE("[Unit] UICraftingController - Update runs headless against a world") 
   // controller, so the checks here focus on observable behavior: no crash on
   // an empty registry and on a live world, and stale entity cleanup.
   UiRuntime runtime;
-  UICraftingController controller(runtime);
+  UICraftingController controller(runtime, nullptr);
   controller.EnterGameplay();
 
   ResourceManager resourceManager;
@@ -192,7 +192,7 @@ TEST_CASE("[Unit] UICraftingController - Draw runs headless for the reachable ta
   // to 1.0 by rendering real frames (SetTargetFPS(60) in tests/main.cpp makes
   // each BeginDrawing/EndDrawing cycle advance GetFrameTime() by ~16ms).
   UiRuntime runtime;
-  UICraftingController controller(runtime);
+  UICraftingController controller(runtime, nullptr);
   controller.EnterGameplay();
 
   ResourceManager resourceManager;
@@ -224,11 +224,9 @@ TEST_CASE("[Unit] UICraftingController - Draw runs headless for the reachable ta
   // Keep the mouse away from every panel control: no hover, no click, no drag.
   SetMousePosition(50, 50);
 
-  // Real usage (UISystem::Draw) sets the scale before drawing panels.
+  // Real usage (GameUiHost::Draw) sets the scale before drawing panels.
   const float savedUiScale = UIRenderer::GetScale();
-  const float savedScaleFactor = UISystem::State.scaleFactor;
   UIRenderer::SetScale(1.0f);
-  UISystem::State.scaleFactor = 1.0f;
 
   // Forging tab: set the target (auto-opens the panel) and animate alpha to 1.
   controller.SetTargetItem(item);
@@ -253,7 +251,6 @@ TEST_CASE("[Unit] UICraftingController - Draw runs headless for the reachable ta
   // other two tabs above.
 
   UIRenderer::SetScale(savedUiScale);
-  UISystem::State.scaleFactor = savedScaleFactor;
 }
 
 TEST_CASE("[Unit] UICraftingController - header declares no static data members") {

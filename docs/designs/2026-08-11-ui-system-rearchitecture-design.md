@@ -169,6 +169,8 @@ GameUiSnapshot
 
 `UIContext` 最终删除。迁移期间只允许 `UISystem` facade 读取/同步兼容字段，禁止新 panel 直接引用它。
 
+> 实现注记（2026-08-12，U8 收尾）：上表全部达成——`UIContext` 与 `UISystem::State` 已删除（UIPanelID/PanelState 迁入 `UIPanelDragService.hpp`），各 panel/overlay 状态均为实例成员，fonts 由 `GameUiHost` 持 resource handle（`UISystem` 私有 static `s_globalFont`），world hit proxies 经 `WorldUiFrame`。
+
 ### 4.2 生命周期
 
 ```text

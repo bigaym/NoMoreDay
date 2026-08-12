@@ -1,7 +1,9 @@
 # NoMoreDayGameStates: the game states static library (top layer, M4).
 # Owns DimensionalLevelSelectState, GameplayState, HeirloomVaultState,
-# InventoryState, LoadingState, MainMenuState, MosaicEditorState,
+# LoadingState, MainMenuState, MosaicEditorState,
 # NightmareFloorState, PauseState, SettingsState (states/).
+# (InventoryState was removed by the U8 inventory takeover: the inventory
+# panel is a hosted overlay toggled by GameUiHost, no longer a pushed state.)
 # States has the widest dependency fan: combat, skill, world, scene
 # (StateManager/SceneManager), persistence (SaveManager), input, render,
 # ui, item, physics, ai, vfx, data, contracts. Depends on all top targets
@@ -11,7 +13,6 @@ add_library(NoMoreDayGameStates STATIC
     DimensionalLevelSelectState.cpp
     GameplayState.cpp
     HeirloomVaultState.cpp
-    InventoryState.cpp
     LoadingState.cpp
     MainMenuState.cpp
     MosaicEditorState.cpp

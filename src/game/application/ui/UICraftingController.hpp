@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/application/ui/UIPanelDragService.hpp"
 #include "game/application/ui/UiRuntime.hpp"
 #include "game/application/ui/UiRuntimeTypes.hpp"
 
@@ -8,6 +9,8 @@
 #include <entt/entt.hpp>
 
 namespace NoMoreDay::ui {
+
+class GameUiHost; // Back-pointer injected by the host (U8 hover channel).
 
 // Instance controller for the crafting panel (锻造 / 融合 / 分解).
 //
@@ -26,7 +29,10 @@ namespace NoMoreDay::ui {
 // flag (Toggle/SetTargetItem/OpenMergePanel keep the two in sync).
 class UICraftingController {
 public:
-  explicit UICraftingController(UiRuntime& runtime);
+  // U8: the host back-pointer routes panel hover writes through the host's
+  // SetHoveredItem channel (instance hover pipeline) instead of the static
+  // UiShared::HoveredItem() slot.
+  explicit UICraftingController(UiRuntime& runtime, GameUiHost* uiHost);
   ~UICraftingController() = default;
 
   UICraftingController(const UICraftingController&) = delete;
@@ -99,9 +105,25 @@ private:
   void ResetSessionState() noexcept;
   void SetNodeVisible(bool visible);
 
+  // U8 drag session accessor (same pattern as UIInventoryController): routes
+  // to the host-owned session when the host is present (gameplay), otherwise
+  // to a local fallback (headless tests, where no cross-panel drag can occur).
+  UIDragSession& DragSession() noexcept;
+
   UiRuntime& m_runtime;
+  // U8: borrowed back-pointer to the owning GameUiHost; used to forward panel
+  // hover writes to the tooltip controller's hover source and to route the
+  // drag session reads (was UISystem::State.draggedItem).
+  GameUiHost* m_uiHost = nullptr;
   UiId m_rootNodeId = kInvalidUiId;
   bool m_inGameplay = false; // Session state set by Enter/LeaveGameplay.
+
+  // U8: instance panel-drag state (was UISystem::State.panelStates + the
+  // UISystem::UpdatePanelDrag helper; same pattern as UIStashController).
+  NoMoreDay::PanelState m_panelState;
+  UIPanelID m_activeDragPanel = UIPanelID::None;
+  // Headless-test fallback for the drag session (see DragSession).
+  UIDragSession m_localDragSession;
 
   // Session-scoped panel state migrated from the legacy static members of
   // UICrafting (U7 cleanup: static mutable state -> instance members).

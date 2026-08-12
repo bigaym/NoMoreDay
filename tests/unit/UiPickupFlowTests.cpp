@@ -94,27 +94,25 @@ TEST_CASE("[Unit] UiPickupFlow - failed result surfaces via the legacy message b
   levelManager.initialize(resourceManager, registry);
   levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
 
-  UISystem::State.showMessageBox = false;
-  UISystem::State.messageBoxText[0] = '\0';
-
   // Refresh raylib's frame timer so the 2.0s message box timer set by the
-  // compatibility bridge does not expire inside UISystem::Update mid-test.
+  // notification bridge does not expire inside GameUiHost::Update mid-test.
   BeginDrawing();
   EndDrawing();
 
   host.Publish({false, "Inventory is full"});
   host.Update(registry, levelManager, ui::GameUiSnapshot{});
 
-  CHECK(UISystem::State.showMessageBox);
-  CHECK(std::string(UISystem::State.messageBoxText).find("Inventory is full") !=
+  // U8: the notification routes through the hosted overlay message box (the
+  // legacy UISystem::State.showMessageBox write is gone).
+  CHECK(host.IsMessageBoxVisible());
+  CHECK(std::string(host.MessageBoxText()).find("Inventory is full") !=
         std::string::npos);
 
   // A successful result must not trigger the failure box.
-  UISystem::State.showMessageBox = false;
-  UISystem::State.messageBoxText[0] = '\0';
+  host.ClearMessageBox();
   host.Publish({true, ""});
   host.Update(registry, levelManager, ui::GameUiSnapshot{});
-  CHECK_FALSE(UISystem::State.showMessageBox);
+  CHECK_FALSE(host.IsMessageBoxVisible());
 
   host.LeaveGameplay();
   host.Shutdown();

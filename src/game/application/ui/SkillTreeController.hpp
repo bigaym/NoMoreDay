@@ -11,17 +11,26 @@
 
 namespace NoMoreDay::ui {
 
+class GameUiHost;   // Back-pointer injected by the host (U8 sibling-close /
+                    // hover channel).
+class TooltipController; // Skill hover channel (U8: tree hover writes).
+
 // Instance controller for the skill specialization UI (U7 group 4).
 //
 // Owns the two-stage skill UI: the mastery hub (UISkillHub) and the talent
 // tree view (SkillTreeUI). The controller holds the panel state that used to
 // live in UISystem::State (showSkillTree / skillTreeAlpha / selectedSkillId);
-// those UIContext fields remain as a *write-back mirror* while the migrated
-// panel bodies (UISkillHub::Draw, SkillTreeUI::Draw) still read them. The
-// mirror is removed when the panel internals are rewired in U8.
+// with the U8 final narrowing the legacy State fields are gone and the panel
+// bodies read controller/hub instance state directly (alpha parameter,
+// hub-owned selection, tooltip hover channel).
 class SkillTreeController {
 public:
-  explicit SkillTreeController(UiRuntime& runtime);
+  // U8: optional tooltip/host back-pointers. The tooltip is bound to the
+  // talent tree (hovered-skill channel) and the host routes the sibling
+  // panel closes of Toggle. Both are null in headless unit tests.
+  explicit SkillTreeController(UiRuntime& runtime,
+                               TooltipController* tooltip = nullptr,
+                               GameUiHost* uiHost = nullptr);
   ~SkillTreeController() = default;
 
   SkillTreeController(const SkillTreeController&) = delete;
@@ -30,12 +39,13 @@ public:
   void EnterGameplay();
   void LeaveGameplay();
 
-  // Runs the transition alpha animation (was UISystem::Update). Mirrors the
-  // result back to UISystem::State.skillTreeAlpha for the panel bodies.
+  // Runs the transition alpha animation (was UISystem::Update).
   void UpdateAlpha(float dt);
 
   // KEY_S handler (was UISystem::Update): toggles visibility and closes the
-  // sibling panels exactly like the legacy code did.
+  // sibling panels exactly like the legacy code did (routed through the
+  // host channels when present, otherwise the SharedContext closeAstrolabe
+  // callback, matching the legacy static coupling).
   void Toggle(entt::registry& registry);
 
   // ESC handler (was UISystem::Update): closes the panel.
@@ -43,10 +53,18 @@ public:
 
   [[nodiscard]] bool IsVisible() const noexcept;
   [[nodiscard]] bool IsInGameplay() const noexcept;
+  // U8: instance alpha (authoritative; the legacy State.skillTreeAlpha mirror
+  // is gone). Animated by UpdateAlpha.
+  [[nodiscard]] float Alpha() const noexcept { return m_alpha; }
+  // U8: hub-owned selection read back by Draw (was the State.selectedSkillId
+  // round-trip); INVALID_SKILL_ID when the talent-tree view is closed.
+  [[nodiscard]] uint32_t SelectedSkillId() const noexcept {
+    return m_selectedSkillId;
+  }
 
-  // Draws the active stage. Mirrors controller state into UISystem::State
-  // first so the legacy panel bodies read current values, and reads back
-  // State.selectedSkillId afterwards (UISkillHub writes it on selection).
+  // Draws the active stage with the animated alpha. The hub writes the
+  // selection into its own instance member, which the controller reads back
+  // afterwards (was the State.selectedSkillId round-trip).
   void Draw(entt::registry& registry, entt::entity player);
 
   // Runtime node id of the panel root (kInvalidUiId if creation failed).
@@ -62,6 +80,8 @@ private:
 
   UISkillHub m_hub;
   SkillTreeUI m_tree;
+
+  GameUiHost* m_uiHost = nullptr; // Sibling-close routing (Toggle).
 };
 
 } // namespace NoMoreDay::ui

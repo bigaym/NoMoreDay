@@ -27,7 +27,8 @@ TEST_CASE("[Tech] GameUiHost - UI lifecycle across gameplay sessions") {
 
     entt::registry registry;
     // Mirror GameplayState::OnEnter: the level systems must exist before the
-    // UI draw path touches them (UIMinimap reads levelManager.getFogSystem()).
+    // UI draw path touches them (MinimapController reads
+    // levelManager.getFogSystem()).
     LevelManager levelManager;
     levelManager.initialize(resourceManager, registry);
     levelManager.loadNewLevel(NoMoreDay::BiomeID::Town, 64, 64);
@@ -37,14 +38,16 @@ TEST_CASE("[Tech] GameUiHost - UI lifecycle across gameplay sessions") {
     // Run 1: enter gameplay, dirty some session state, run a frame, leave.
     host.EnterGameplay();
     CHECK(host.IsInGameplay());
-    UISystem::State.showInventory = true;
-    UISystem::State.showCharacterPanel = true;
-    UISystem::State.showContextMenu = true;
-    UISystem::State.showMessageBox = true;
-    UISystem::State.isDraggingSkill = true;
-    UISystem::State.draggedSkillId = 1;
-    UISystem::State.tooltipAlpha = 0.5f;
-    UISystem::State.draggedItem = registry.create();
+    // U8 final: session state is dirtied through the host instance APIs (the
+    // legacy UISystem::State static context is gone).
+    host.SetInventoryVisible(true);
+    host.SetCharacterPanelVisible(true);
+    host.OpenContextMenu(entt::null, false, 0, NoMoreDay::EquipmentSlot::None);
+    host.ShowMessageBox("test");
+    auto &drag = host.DragSession();
+    drag.isDraggingSkill = true;
+    drag.draggedSkillId = 1;
+    drag.draggedItem = registry.create();
 
     host.Update(registry, levelManager);
     host.PrepareRender();
@@ -56,15 +59,12 @@ TEST_CASE("[Tech] GameUiHost - UI lifecycle across gameplay sessions") {
 
     // Session state must not leak into the next run.
     CHECK_FALSE(host.IsInGameplay());
-    CHECK_FALSE(UISystem::State.showInventory);
-    CHECK_FALSE(UISystem::State.showCharacterPanel);
-    CHECK_FALSE(UISystem::State.showContextMenu);
-    CHECK_FALSE(UISystem::State.showMessageBox);
-    CHECK_FALSE(UISystem::State.isDraggingSkill);
-    CHECK_FALSE(UISystem::State.isTyping);
-    CHECK(UISystem::State.draggedItem == entt::entity{entt::null});
-    CHECK(UISystem::State.draggedSkillId == NoMoreDay::INVALID_SKILL_ID);
-    CHECK(UISystem::State.tooltipAlpha == doctest::Approx(0.0f));
+    CHECK_FALSE(host.IsInventoryVisible());
+    CHECK_FALSE(host.IsCharacterPanelVisible());
+    CHECK_FALSE(host.IsMessageBoxVisible());
+    CHECK_FALSE(host.DragSession().isDraggingSkill);
+    CHECK(host.DragSession().draggedItem == entt::entity{entt::null});
+    CHECK(host.DragSession().draggedSkillId == NoMoreDay::INVALID_SKILL_ID);
 
     // Run 2: re-entering gameplay after a session reset works and can render.
     host.EnterGameplay();

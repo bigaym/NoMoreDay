@@ -52,6 +52,12 @@ struct SharedContext {
   // controller (below the UI composition root) uses this to keep the legacy
   // "opening the skill tree closes the astrolabe" coupling.
   std::function<void()> closeAstrolabe;
+  // U8: gameplay-layer message box notifications. Gameplay systems
+  // (InventorySystem) sit below the UI layer and must not include UI headers,
+  // so they route through this callback instead of the legacy static
+  // UISystem::State.showMessageBox. Game fills it with a lambda capturing the
+  // host-owned OverlayController message box API; an empty callback is silent.
+  std::function<void(const char* text)> showMessageBox;
   // Window* window; // Raylib uses global state mostly, add if wrapper exists
 };
 

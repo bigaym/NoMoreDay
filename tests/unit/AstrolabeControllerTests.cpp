@@ -1,11 +1,13 @@
 #include "doctest.h"
 
 #include "game/application/ui/AstrolabeController.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/SkillTreeController.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/foundation/SharedContext.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
 
 #include <fstream>
 #include <iterator>
@@ -35,24 +37,28 @@ TEST_CASE("[Unit] AstrolabeController registers a hidden full-screen node") {
   CHECK_FALSE(controller.IsInGameplay());
 }
 
-TEST_CASE("[Unit] AstrolabeController Toggle flips visibility and mirrors siblings") {
+TEST_CASE("[Unit] AstrolabeController Toggle flips visibility and closes siblings via host") {
   UiRuntime runtime;
   AstrolabeController controller(runtime);
   entt::registry registry;
+  NoMoreDay::ui::GameUiHost host;
+  NoMoreDay::SharedContext shared;
+  shared.uiHost = &host;
+  registry.ctx().emplace<NoMoreDay::SharedContext *>(&shared);
 
-  // Pre-set legacy sibling state: opening the astrolabe must clear it exactly
-  // like the old KEY_N handler did.
-  UISystem::State.showInventory = true;
-  UISystem::State.showCharacterPanel = true;
-  UISystem::State.showContextMenu = true;
-  UISystem::State.showSkillTree = true;
+  // Pre-open the sibling panels: opening the astrolabe must close them
+  // exactly like the old KEY_N handler did (routed through the host
+  // channels; the legacy UISystem::State mirror is gone with U8).
+  host.SetInventoryVisible(true);
+  host.SetCharacterPanelVisible(true);
+  host.OpenContextMenu(entt::null, false, 0, NoMoreDay::EquipmentSlot::None);
+  CHECK(host.IsInventoryVisible());
+  CHECK(host.IsCharacterPanelVisible());
 
   controller.Toggle(registry, entt::null);
   CHECK(controller.IsVisible(registry, entt::null));
-  CHECK_FALSE(UISystem::State.showInventory);
-  CHECK_FALSE(UISystem::State.showCharacterPanel);
-  CHECK_FALSE(UISystem::State.showContextMenu);
-  CHECK_FALSE(UISystem::State.showSkillTree);
+  CHECK_FALSE(host.IsInventoryVisible());
+  CHECK_FALSE(host.IsCharacterPanelVisible());
   const auto openNode = runtime.GetNode(controller.NodeId());
   REQUIRE(openNode.has_value());
   CHECK(openNode->visible);

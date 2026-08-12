@@ -195,7 +195,7 @@ void PlayerHUD::Draw(entt::registry& registry) {
     const auto* intent = registry.try_get<SwordIntentComponent>(player);
     const auto* mastery = registry.try_get<BladeMasteryComponent>(player);
     
-    float scale = UISystem::State.scaleFactor;
+    float scale = UISystem::GetScaleFactor();
 
     // --- Logic Metrics (2K Reference) ---
     // Hotbar Metrics (Sync with UISystem.cpp)
@@ -360,7 +360,7 @@ void PlayerHUD::Draw(entt::registry& registry) {
             displayName += " x" + std::to_string(data.second);
         }
         
-        UIRenderer::DrawSummonIcon(UISystem::State.globalFont, 10.0f, startY, 150.0f, 40.0f, icon, data.first, displayName.c_str(), 1.0f);
+        UIRenderer::DrawSummonIcon(UISystem::GetFont(), 10.0f, startY, 150.0f, 40.0f, icon, data.first, displayName.c_str(), 1.0f);
         startY += 45.0f;
     }
 }

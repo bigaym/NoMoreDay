@@ -1,10 +1,8 @@
 #include "doctest.h"
 
 #include "game/application/ui/TooltipController.hpp"
-#include "game/application/ui/UISystem.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
-#include "game/foundation/ui_shared/UiShared.hpp"
 
 #include <entt/entt.hpp>
 
@@ -15,14 +13,6 @@
 using namespace NoMoreDay;
 
 namespace {
-
-// Ground-item hover lives in the legacy UiShared singleton and the direct
-// skill-id hover in the UISystem::State mirror (skill hub / talent tree
-// writes); restore both so each case starts from a clean slate.
-void ResetLegacyHover() {
-  UiShared::HoveredItem() = entt::null;
-  UISystem::State.hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
-}
 
 // Player with the default empty hotbar slots; a slot can be assigned by
 // writing ActiveSkillsComponent::slots[i].id.
@@ -38,7 +28,6 @@ entt::entity MakePlayer(entt::registry &registry) {
 TEST_CASE("[Unit] TooltipController (UI) - hover starts: delay decays then alpha rises") {
   entt::registry registry;
   ui::TooltipController tooltip;
-  ResetLegacyHover();
 
   const uint32_t skillId = 100;
   tooltip.SetHoveredSkill(skillId);
@@ -70,7 +59,6 @@ TEST_CASE("[Unit] TooltipController (UI) - hover starts: delay decays then alpha
 TEST_CASE("[Unit] TooltipController (UI) - target switch resets the delay") {
   entt::registry registry;
   ui::TooltipController tooltip;
-  ResetLegacyHover();
 
   tooltip.SetHoveredSkill(100);
   tooltip.UpdateState(registry, 0.12f); // delay drained
@@ -89,7 +77,6 @@ TEST_CASE("[Unit] TooltipController (UI) - target switch resets the delay") {
 TEST_CASE("[Unit] TooltipController (UI) - no hover: alpha decays and active clears") {
   entt::registry registry;
   ui::TooltipController tooltip;
-  ResetLegacyHover();
 
   tooltip.SetHoveredSkill(100);
   tooltip.UpdateState(registry, 0.12f); // delay drained
@@ -124,7 +111,6 @@ TEST_CASE("[Unit] TooltipController (UI) - no hover: alpha decays and active cle
 TEST_CASE("[Unit] TooltipController (UI) - hover priority: item > skillId > slot > buff") {
   entt::registry registry;
   ui::TooltipController tooltip;
-  ResetLegacyHover();
   const entt::entity player = MakePlayer(registry);
   auto &active = registry.get<ActiveSkillsComponent>(player);
   const uint32_t slotSkillId = 300;
@@ -169,26 +155,25 @@ TEST_CASE("[Unit] TooltipController (UI) - hover priority: item > skillId > slot
   CHECK((tooltip.ActiveTooltipItem() == entt::null));
 }
 
-TEST_CASE("[Unit] TooltipController (UI) - adopts the skill-hub hover from the State mirror") {
+TEST_CASE("[Unit] TooltipController (UI) - adopts the skill-hub hover via SetHoveredSkill") {
   entt::registry registry;
   ui::TooltipController tooltip;
-  ResetLegacyHover();
 
-  // The skill hub / talent tree still write UISystem::State.hoveredSkillId
-  // during their draw; UpdateState adopts it as the direct skill-id source.
-  UISystem::State.hoveredSkillId = 400;
+  // U8: the skill hub / talent tree route their hovered node through
+  // SetHoveredSkill (the legacy UISystem::State.hoveredSkillId slot is gone);
+  // UpdateState uses the cached hover as the direct skill-id source.
+  tooltip.SetHoveredSkill(400);
   tooltip.UpdateState(registry, 0.1f);
   CHECK(tooltip.ActiveTooltipSkillId() == 400);
   CHECK((tooltip.ActiveTooltipItem() == entt::null));
   CHECK(tooltip.ActiveTooltipBuffIdx() == -1);
 
-  UISystem::State.hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
+  tooltip.SetHoveredSkill(NoMoreDay::INVALID_SKILL_ID);
 }
 
 TEST_CASE("[Unit] TooltipController (UI) - Enter/LeaveGameplay clear all state") {
   entt::registry registry;
   ui::TooltipController tooltip;
-  ResetLegacyHover();
 
   tooltip.SetHoveredSkill(100);
   tooltip.UpdateState(registry, 0.12f); // delay drained
@@ -203,13 +188,6 @@ TEST_CASE("[Unit] TooltipController (UI) - Enter/LeaveGameplay clear all state")
   CHECK(tooltip.DelayTimer() == doctest::Approx(0.0f));
   CHECK_FALSE(tooltip.TooltipInitialized());
   CHECK_FALSE(tooltip.HoveredLastFrame());
-  // The mirror is cleared for the legacy readers too.
-  CHECK(UISystem::State.activeTooltipSkillId == NoMoreDay::INVALID_SKILL_ID);
-  CHECK((UISystem::State.activeTooltipItem == entt::null));
-  CHECK(UISystem::State.activeTooltipBuffIdx == -1);
-  CHECK(UISystem::State.tooltipAlpha == doctest::Approx(0.0f));
-  CHECK_FALSE(UISystem::State.tooltipInitialized);
-  CHECK_FALSE(UISystem::State.tooltipHoveredLastFrame);
 
   // A fresh hover still works after the reset...
   tooltip.SetHoveredSkill(200);

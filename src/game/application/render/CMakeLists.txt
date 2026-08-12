@@ -3,7 +3,8 @@
 # GPULootAdapter, HeightFieldAdapter, LightAdapter, OccluderProjector
 # (render/) plus render/AirWallRenderer.cpp.
 # GameplayRenderAdapter talks to combat (MonsterAffixSystem), item
-# (LootFilter), ui_shared (UiShared: loot grid / font / rarity / hovered item),
+# (LootFilter / LootGridSystem), ui_shared (UiShared: rarity colors only;
+# the loot grid / font / hovered item static slots were removed in U8),
 # vfx (HoloBladeRenderSystem/SwordIntent/TrailSystem), world
 # (FogOfWarSystem/LevelManager), stats (AttributePipeline) and data
 # (BiomeRegistry). Depends on combat/item/ui_shared/vfx/world/stats/data

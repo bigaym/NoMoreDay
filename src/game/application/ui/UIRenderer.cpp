@@ -851,11 +851,10 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
 
   // [NEW] Item Level Display
   int playerLevel = 1;
-  // Optimization: Use cached playerEntity from UISystem::State
-  if (UISystem::State.playerEntity != entt::null && registry.valid(UISystem::State.playerEntity)) {
-      if (auto* stats = registry.try_get<PlayerStats>(UISystem::State.playerEntity)) {
-          playerLevel = stats->level;
-      }
+  // U8 收尾: 玩家实体经 registry 查询（原 State.playerEntity 缓存已删）。
+  auto playerView = registry.view<PlayerTag, PlayerStats>();
+  if (playerView.begin() != playerView.end()) {
+    playerLevel = playerView.get<PlayerStats>(playerView.front()).level;
   }
 
   char lvlBuf[64];
@@ -1351,8 +1350,10 @@ void UIRenderer::DrawSkillTooltip(const Font &font, entt::registry &registry,
   totalH += padding;
 
   // --- 3. Positioning (Smart Anchor & Lock) ---
-  auto &uiState = UISystem::State;
-  if (!uiState.tooltipInitialized || forceDraw) {
+  // U8 收尾: the position lock is renderer-local state (was
+  // State.tooltipPos / State.tooltipInitialized); TooltipController passes
+  // forceDraw = !locked so the lock resets when the hover target changes.
+  if (!s_skillTooltipInitialized || forceDraw) {
       Vector2 m = GetMousePosition();
       float screenW = (float)GetScreenWidth();
       float screenH = (float)GetScreenHeight();
@@ -1367,12 +1368,12 @@ void UIRenderer::DrawSkillTooltip(const Font &font, entt::registry &registry,
       if (targetY + totalH > screenH - safeMargin) targetY = screenH - totalH - safeMargin;
       targetY = std::clamp(targetY, safeMargin, std::max(safeMargin, screenH - totalH - safeMargin));
 
-      uiState.tooltipPos = {targetX, targetY};
-      uiState.tooltipInitialized = true;
+      s_skillTooltipPos = {targetX, targetY};
+      s_skillTooltipInitialized = true;
   }
 
-  float x = uiState.tooltipPos.x;
-  float y = uiState.tooltipPos.y;
+  float x = s_skillTooltipPos.x;
+  float y = s_skillTooltipPos.y;
 
   // --- 4. Rendering ---
   DrawRectangleRec({x + 4, y + 4, maxW, totalH}, Fade(BLACK, 0.4f * alpha)); // Shadow
@@ -1597,12 +1598,13 @@ void UIRenderer::DrawBuffTooltip(const Font &font, const BuffEffect &effect,
   }
 }
 
-void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
+void UIRenderer::DrawContextMenu(const Font &font,
+                                 NoMoreDay::ui::OverlayController &overlay,
                                  entt::registry &registry, float alpha) {
-  if (!uiContext.showContextMenu)
+  if (!overlay.IsContextMenuVisible())
     return;
 
-  if (uiContext.isSkillContext) {
+  if (overlay.IsSkillContext()) {
     // Draw Skill Selection Menu
     const auto &allSkills = SkillRegistry::Get().GetAllSkills();
     std::vector<uint32_t> availableSkills;
@@ -1615,8 +1617,8 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
     float btnH = 40.0f;
     float h = availableSkills.size() * btnH + 20.0f;
 
-    float sx = uiContext.contextMenuPos.x;
-    float sy = uiContext.contextMenuPos.y;
+    float sx = overlay.ContextMenuPos().x;
+    float sy = overlay.ContextMenuPos().y;
     float sw = w * s_uiScale;
     float sh = std::min(h * s_uiScale,
                         (float)GetScreenHeight() * 0.8f); // Limit height
@@ -1668,15 +1670,14 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
         auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
         if (view.begin() != view.end()) {
           auto &active = view.get<ActiveSkillsComponent>(view.front());
-          if (uiContext.contextSourceSkillSlot >= 0 &&
-              uiContext.contextSourceSkillSlot < 5) {
-            active.slots[uiContext.contextSourceSkillSlot].id = skillId;
+          if (overlay.ContextSourceSkillSlot() >= 0 &&
+              overlay.ContextSourceSkillSlot() < 5) {
+            active.slots[overlay.ContextSourceSkillSlot()].id = skillId;
             LOG_INFO("Assigned skill {} to hotbar slot {} via context menu",
-                     skillId, uiContext.contextSourceSkillSlot);
+                     skillId, overlay.ContextSourceSkillSlot());
           }
         }
-        uiContext.showContextMenu = false;
-        uiContext.isSkillContext = false;
+        overlay.CloseContextMenu();
       }
 
       curSY += sBtnH;
@@ -1686,20 +1687,19 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
 
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
         !CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
-      uiContext.showContextMenu = false;
-      uiContext.isSkillContext = false;
+      overlay.CloseContextMenu();
     }
     return;
   }
 
-  if (!registry.valid(uiContext.contextMenuItem)) {
-    uiContext.showContextMenu = false;
+  if (!registry.valid(overlay.ContextMenuItem())) {
+    overlay.CloseContextMenu();
     return;
   }
 
-  auto *itemComp = registry.try_get<ItemComponent>(uiContext.contextMenuItem);
+  auto *itemComp = registry.try_get<ItemComponent>(overlay.ContextMenuItem());
   if (!itemComp) {
-    uiContext.showContextMenu = false;
+    overlay.CloseContextMenu();
     return;
   }
 
@@ -1709,7 +1709,7 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
 
   bool showEquip = false;
   bool showUse = false;
-  if (uiContext.isContextFromInventory) {
+  if (overlay.IsContextFromInventory()) {
     if (itemComp->type == ItemType::Weapon ||
         itemComp->type == ItemType::Armor ||
         itemComp->type == ItemType::Shield ||
@@ -1722,8 +1722,8 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
   }
 
   bool showUnequip =
-      !uiContext.isContextFromInventory &&
-      uiContext.contextSourceEquipmentSlot != EquipmentSlot::None;
+      !overlay.IsContextFromInventory() &&
+      overlay.ContextSourceEquipmentSlot() != EquipmentSlot::None;
   bool showDrop = true;
   bool showCraft = false;
 
@@ -1748,8 +1748,8 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
 
   float h = btnCount * btnH + 20.0f;
 
-  float sx = uiContext.contextMenuPos.x;
-  float sy = uiContext.contextMenuPos.y;
+  float sx = overlay.ContextMenuPos().x;
+  float sy = overlay.ContextMenuPos().y;
   float sw = w * s_uiScale;
   float sh = h * s_uiScale;
   float sBtnH = btnH * s_uiScale;
@@ -1814,37 +1814,34 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
           }
           if (emptySlot != -1) {
             InventorySystem::equipBag(registry, player,
-                                      uiContext.contextMenuItem, emptySlot);
+                                      overlay.ContextMenuItem(), emptySlot);
           } else {
             InventorySystem::equipBag(registry, player,
-                                      uiContext.contextMenuItem, 0);
+                                      overlay.ContextMenuItem(), 0);
           }
         }
       } else {
-        InventorySystem::equipItem(registry, player, uiContext.contextMenuItem);
+        InventorySystem::equipItem(registry, player, overlay.ContextMenuItem());
       }
-      uiContext.showContextMenu = false;
+      overlay.CloseContextMenu();
     }
   }
   if (showUse) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() != view.end() && DrawMenuBtn("使用")) {
       InventorySystem::useItem(registry, view.front(),
-                               uiContext.contextMenuItem);
-      uiContext.showContextMenu = false;
+                               overlay.ContextMenuItem());
+      overlay.CloseContextMenu();
     }
   }
   if (showUnequip) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() != view.end() && DrawMenuBtn("卸下")) {
       if (!InventorySystem::unequipItem(registry, view.front(),
-                                        uiContext.contextSourceEquipmentSlot)) {
-        uiContext.showMessageBox = true;
-        utils::FormatToBuffer(uiContext.messageBoxText,
-                              "背包已满！无法卸下装备。");
-        uiContext.messageBoxTimer = 2.0f;
+                                        overlay.ContextSourceEquipmentSlot())) {
+        overlay.ShowMessageBox("背包已满！无法卸下装备。");
       }
-      uiContext.showContextMenu = false;
+      overlay.CloseContextMenu();
     }
   }
   if (showCraft) {
@@ -1854,28 +1851,24 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
       if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
         auto *shared = registry.ctx().get<NoMoreDay::SharedContext *>();
         if (shared->craftingSetTargetItem) {
-          shared->craftingSetTargetItem(uiContext.contextMenuItem);
+          shared->craftingSetTargetItem(overlay.ContextMenuItem());
         }
       }
-      uiContext.showContextMenu = false;
+      overlay.CloseContextMenu();
     }
   }
   if (showDrop) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() != view.end() && DrawMenuBtn("丢弃", s_theme.danger)) {
-      if (uiContext.isContextFromInventory && itemComp->quantity > 1) {
-        uiContext.showQuantityPopup = true;
-        uiContext.quantityTargetItem = uiContext.contextMenuItem;
-        uiContext.quantityActionType = 0;
-        uiContext.quantityMax = itemComp->quantity;
-        uiContext.quantityVal = 1;
-        utils::FormatToBuffer(uiContext.quantityInputBuf, "{}",
-                              uiContext.quantityVal);
+      if (overlay.IsContextFromInventory() && itemComp->quantity > 1) {
+        // U8 收尾: 打开数量弹窗经 overlay 实例（原 State.showQuantityPopup 写）。
+        overlay.OpenQuantityPopup(overlay.ContextMenuItem(), 0,
+                                  itemComp->quantity);
       } else {
         InventorySystem::dropItem(registry, view.front(),
-                                  uiContext.contextMenuItem);
+                                  overlay.ContextMenuItem());
       }
-      uiContext.showContextMenu = false;
+      overlay.CloseContextMenu();
     }
   }
 
@@ -1883,7 +1876,7 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
   const char* lockLabel = itemComp->isLocked ? "解锁 (Unlock)" : "锁定 (Lock)";
   if (DrawMenuBtn(lockLabel, itemComp->isLocked ? GREEN : GOLD)) {
       itemComp->isLocked = !itemComp->isLocked;
-      uiContext.showContextMenu = false;
+      overlay.CloseContextMenu();
   }
 
   if (btnCount > 1) {
@@ -1894,23 +1887,22 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
   }
 
   if (DrawMenuBtn("取消", s_theme.textSecondary)) {
-    uiContext.showContextMenu = false;
+    overlay.CloseContextMenu();
   }
 
   if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) ||
       IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
     if (!CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
-      uiContext.showContextMenu = false;
+      overlay.CloseContextMenu();
     }
   }
 }
 
-void UIRenderer::DrawMessageBox(const Font &font, UIContext &uiContext,
+void UIRenderer::DrawMessageBox(const Font &font, const char *text,
                                 float alpha) {
-  if (!uiContext.showMessageBox)
+  if (text == nullptr || text[0] == '\0')
     return;
 
-  const char *text = uiContext.messageBoxText;
   float fontSize = 20;
   int textW = IsFontValid(font)
                   ? (int)MeasureTextEx(font, text, fontSize * s_uiScale, 1.0f).x

@@ -1,7 +1,6 @@
 #include "doctest.h"
 
 #include "game/application/ui/UISkillTalentTree.hpp"
-#include "game/application/ui/UISystem.hpp"
 
 #include <cctype>
 #include <fstream>
@@ -60,20 +59,17 @@ TEST_CASE("[Unit] SkillTreeUI ComputeTooltipLayoutMetrics is pure") {
 
 TEST_CASE("[Unit] SkillTreeUI Draw is headless-safe") {
   // The test harness (tests/main.cpp) opens a hidden raylib window, but the
-  // talent tree must still guard its early exits. skillTreeAlpha defaults to
-  // 0 (UISystem::State), which makes Draw return before any GL call. Even
-  // with alpha forced to 1, an unmapped skill id makes GetSkill return
-  // nullptr, so Draw returns before touching the renderer or the registry.
+  // talent tree must still guard its early exits. alpha <= 0 makes Draw return
+  // before any GL call. Even with alpha forced to 1, an unmapped skill id
+  // makes GetSkill return nullptr, so Draw returns before touching the
+  // renderer or the registry. U8: the alpha is a Draw parameter (the legacy
+  // UISystem::State.skillTreeAlpha slot is gone).
   NoMoreDay::SkillTreeUI treeUI;
   entt::registry registry;
   const entt::entity player = registry.create();
 
-  const float savedAlpha = UISystem::State.skillTreeAlpha;
-  UISystem::State.skillTreeAlpha = 0.0f;
-  treeUI.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID);
-  UISystem::State.skillTreeAlpha = 1.0f;
-  treeUI.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID);
-  UISystem::State.skillTreeAlpha = savedAlpha;
+  treeUI.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 0.0f);
+  treeUI.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 1.0f);
 }
 
 TEST_CASE("[Unit] SkillTreeUI instances are independent") {
@@ -85,11 +81,8 @@ TEST_CASE("[Unit] SkillTreeUI instances are independent") {
   entt::registry registry;
   const entt::entity player = registry.create();
 
-  const float savedAlpha = UISystem::State.skillTreeAlpha;
-  UISystem::State.skillTreeAlpha = 1.0f;
-  a.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID);
-  b.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID);
-  UISystem::State.skillTreeAlpha = savedAlpha;
+  a.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 1.0f);
+  b.Draw(registry, player, NoMoreDay::INVALID_SKILL_ID, 1.0f);
 }
 
 TEST_CASE("[Unit] SkillTreeUI header holds no static mutable state") {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/application/ui/TooltipController.hpp"
+#include "game/application/ui/UIPanelDragService.hpp"
 #include "game/application/ui/UiRuntime.hpp"
 
 #include <string>
@@ -19,6 +20,9 @@ struct CombatStats;
 
 namespace NoMoreDay::ui {
 
+class GameUiHost; // U8 back-pointer for the skill-drag session (same pattern
+                  // as UIStashController).
+
 // Instance controller for the gameplay skill hotbar and buff/debuff strip.
 //
 // Ports the legacy static panels UISystem::DrawSkillHotbar and UISystem::DrawBuffs
@@ -33,7 +37,8 @@ namespace NoMoreDay::ui {
 class SkillHotbarController {
 public:
   explicit SkillHotbarController(UiRuntime& runtime,
-                                 TooltipController* tooltipController = nullptr);
+                                 TooltipController* tooltipController = nullptr,
+                                 GameUiHost* uiHost = nullptr);
   ~SkillHotbarController() = default;
 
   SkillHotbarController(const SkillHotbarController&) = delete;
@@ -76,11 +81,19 @@ private:
   // injects its own controller; a null pointer keeps the legacy hotbar tests
   // compiling and simply skips the hover write.
   TooltipController* m_tooltip = nullptr;
+  // U8: host back-pointer for the skill-drag session (drop target reads
+  // isDraggingSkill/draggedSkillId from the host-owned UIDragSession). Null in
+  // headless tests, where the drag read falls back to a local session.
+  GameUiHost* m_uiHost = nullptr;
   UiRuntime& m_runtime;
   UiId m_rootNodeId = kInvalidUiId;
   bool m_visible = true;        // Mirrors the runtime node visibility.
   bool m_inGameplay = false;    // Session state set by Enter/LeaveGameplay.
   bool m_hasPlayerData = false; // Refreshed by Update from the registry.
+
+  // U8 drag session accessor (same pattern as UIStashController).
+  UIDragSession& DragSession() noexcept;
+  UIDragSession m_localDragSession;
 };
 
 } // namespace NoMoreDay::ui

@@ -31,7 +31,7 @@ std::string ReadFileContents(const char* path) {
 
 TEST_CASE("[Unit] UIInventoryController - creates a panel root node") {
   UiRuntime runtime;
-  UIInventoryController controller(runtime);
+  UIInventoryController controller(runtime, nullptr);
 
   const UiId root = controller.NodeId();
   CHECK(root != kInvalidUiId);
@@ -59,7 +59,7 @@ TEST_CASE("[Unit] UIInventoryController - creates a panel root node") {
 
 TEST_CASE("[Unit] UIInventoryController - Enter/Leave gameplay resets session state") {
   UiRuntime runtime;
-  UIInventoryController controller(runtime);
+  UIInventoryController controller(runtime, nullptr);
 
   const UiId root = controller.NodeId();
   CHECK_FALSE(controller.IsInGameplay());
@@ -89,11 +89,11 @@ TEST_CASE("[Unit] UIInventoryController - Enter/Leave gameplay resets session st
 TEST_CASE("[Unit] UIInventoryController - Update runs headless against a world") {
   // The test harness (tests/main.cpp) opens a hidden raylib window with a GL
   // context, so GetFrameTime() is available; the alpha is animated towards the
-  // target implied by UISystem::State.showInventory exactly like the legacy
-  // UIInventory::Update. GetFrameTime may be 0 in the harness, so the checks
-  // use clamped-range + monotonicity invariants instead of exact deltas.
+  // visibility flag exactly like the legacy UIInventory::Update. GetFrameTime
+  // may be 0 in the harness, so the checks use clamped-range + monotonicity
+  // invariants instead of exact deltas.
   UiRuntime runtime;
-  UIInventoryController controller(runtime);
+  UIInventoryController controller(runtime, nullptr);
   controller.EnterGameplay();
 
   ResourceManager resourceManager;
@@ -101,10 +101,10 @@ TEST_CASE("[Unit] UIInventoryController - Update runs headless against a world")
   LevelManager levelManager;
 
   // Empty registry before any world exists: Update must not crash.
-  UISystem::State.showInventory = true;
+  controller.SetVisible(true);
   controller.Update(registry, levelManager);
-  CHECK(UISystem::State.inventoryAlpha >= 0.0f);
-  CHECK(UISystem::State.inventoryAlpha <= 1.0f);
+  CHECK(controller.Alpha() >= 0.0f);
+  CHECK(controller.Alpha() <= 1.0f);
 
   // Provide a real world so Update runs against live gameplay systems.
   levelManager.initialize(resourceManager, registry);
@@ -112,12 +112,11 @@ TEST_CASE("[Unit] UIInventoryController - Update runs headless against a world")
 
   // Branch A: inventory closed. Alpha must never increase and stays clamped
   // within [0, 1].
-  UISystem::State.showInventory = false;
-  UISystem::State.inventoryAlpha = 0.5f;
+  controller.SetVisible(false);
   controller.Update(registry, levelManager);
-  const float closedFirst = UISystem::State.inventoryAlpha;
+  const float closedFirst = controller.Alpha();
   controller.Update(registry, levelManager);
-  const float closedSecond = UISystem::State.inventoryAlpha;
+  const float closedSecond = controller.Alpha();
   CHECK(closedFirst >= 0.0f);
   CHECK(closedFirst <= 1.0f);
   CHECK(closedSecond >= 0.0f);
@@ -126,12 +125,11 @@ TEST_CASE("[Unit] UIInventoryController - Update runs headless against a world")
 
   // Branch B: inventory open. Alpha must never decrease and stays clamped
   // within [0, 1].
-  UISystem::State.showInventory = true;
-  UISystem::State.inventoryAlpha = 0.0f;
+  controller.SetVisible(true);
   controller.Update(registry, levelManager);
-  const float openFirst = UISystem::State.inventoryAlpha;
+  const float openFirst = controller.Alpha();
   controller.Update(registry, levelManager);
-  const float openSecond = UISystem::State.inventoryAlpha;
+  const float openSecond = controller.Alpha();
   CHECK(openFirst >= 0.0f);
   CHECK(openFirst <= 1.0f);
   CHECK(openSecond >= 0.0f);

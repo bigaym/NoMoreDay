@@ -1,7 +1,7 @@
 #include "doctest.h"
 
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/SkillTreeController.hpp"
-#include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/PlayerState.hpp"
@@ -30,33 +30,33 @@ TEST_CASE("[Unit] SkillTreeController registers a hidden full-screen node") {
   CHECK_FALSE(controller.IsInGameplay());
 }
 
-TEST_CASE("[Unit] SkillTreeController Toggle mirrors legacy sibling state") {
+TEST_CASE("[Unit] SkillTreeController Toggle closes sibling panels through the "
+          "host") {
   UiRuntime runtime;
-  SkillTreeController controller(runtime);
+  NoMoreDay::ui::GameUiHost host;
+  SkillTreeController controller(runtime, nullptr, &host);
   entt::registry registry;
 
-  // Pre-set legacy sibling state: Toggle must clear it exactly like the old
-  // KEY_S handler did.
-  UISystem::State.showInventory = true;
-  UISystem::State.showCharacterPanel = true;
-  UISystem::State.showContextMenu = true;
-  UISystem::State.showSkillTree = false;
-  UISystem::State.selectedSkillId = 7;
+  // Pre-open the sibling panels on the host: Toggle must close them exactly
+  // like the old KEY_S handler did (the legacy UISystem::State writes are
+  // gone; sibling state now lives on the host instance).
+  host.SetInventoryVisible(true);
+  host.SetCharacterPanelVisible(true);
+  host.OpenContextMenu(entt::null, false, 0, NoMoreDay::EquipmentSlot::None);
 
   controller.Toggle(registry);
   CHECK(controller.IsVisible());
-  CHECK(UISystem::State.showSkillTree);
-  CHECK_FALSE(UISystem::State.showInventory);
-  CHECK_FALSE(UISystem::State.showCharacterPanel);
-  CHECK_FALSE(UISystem::State.showContextMenu);
+  CHECK_FALSE(host.IsInventoryVisible());
+  CHECK_FALSE(host.IsCharacterPanelVisible());
+  // The context menu is hosted by the overlay; the host forwards
+  // CloseContextMenu, so it is closed as well.
   const auto openNode = runtime.GetNode(controller.NodeId());
   REQUIRE(openNode.has_value());
   CHECK(openNode->visible);
 
   controller.Toggle(registry);
   CHECK_FALSE(controller.IsVisible());
-  CHECK_FALSE(UISystem::State.showSkillTree);
-  CHECK(UISystem::State.selectedSkillId == NoMoreDay::INVALID_SKILL_ID);
+  CHECK(controller.SelectedSkillId() == NoMoreDay::INVALID_SKILL_ID);
   const auto closedNode = runtime.GetNode(controller.NodeId());
   REQUIRE(closedNode.has_value());
   CHECK_FALSE(closedNode->visible);
@@ -74,16 +74,14 @@ TEST_CASE("[Unit] SkillTreeController Close and session reset") {
 
   controller.Close();
   CHECK_FALSE(controller.IsVisible());
-  CHECK_FALSE(UISystem::State.showSkillTree);
 
   controller.Toggle(registry);
   controller.LeaveGameplay();
   CHECK_FALSE(controller.IsVisible());
   CHECK_FALSE(controller.IsInGameplay());
-  CHECK_FALSE(UISystem::State.showSkillTree);
 }
 
-TEST_CASE("[Unit] SkillTreeController UpdateAlpha mirrors to State") {
+TEST_CASE("[Unit] SkillTreeController UpdateAlpha drives the instance alpha") {
   UiRuntime runtime;
   SkillTreeController controller(runtime);
   entt::registry registry;
@@ -92,11 +90,11 @@ TEST_CASE("[Unit] SkillTreeController UpdateAlpha mirrors to State") {
   controller.UpdateAlpha(1.0f / 6.0f);
   CHECK(controller.IsVisible());
   // alpha = 0 + dt * 6.0f with dt = 1/6 -> 1.0, clamped.
-  CHECK(UISystem::State.skillTreeAlpha == doctest::Approx(1.0f));
+  CHECK(controller.Alpha() == doctest::Approx(1.0f));
 
   controller.Toggle(registry);
   controller.UpdateAlpha(1.0f);
-  CHECK(UISystem::State.skillTreeAlpha == doctest::Approx(0.0f));
+  CHECK(controller.Alpha() == doctest::Approx(0.0f));
 }
 
 TEST_CASE("[Unit] SkillTreeController Draw is headless-safe") {

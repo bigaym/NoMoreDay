@@ -1,14 +1,16 @@
 # NoMoreDayGameUi: the UI static library (top layer, M4).
 # Owns GameUiHost, AstrolabeController, AstrolabeRenderer, BladeMasteryUITheme,
 # MonsterHealthBarSystem, PlayerHUD, SwordIntentWidget, UIAnimationSystem,
-# UICharacter, UICrafting, UIInventory, UIMinimap,
 # UIPanelDragService, UIRenderer, UISkillHub, UISkillSpecRenderer,
-# UISkillTalentTree, UIStash, UISystem.
+# UISkillTalentTree, UISystem.
+# (The legacy static panels UIStash/UICrafting/UICharacter/UIMinimap and the
+# legacy UISystem::State / UIContext static context were removed by the U8
+# final wave; every panel draws through its hosted instance controller.)
 # UI is the widest dependency fan: combat (DamagePipeline/ProgressionSystem),
 # item, skill, world, data, persistence (SharedStash), stats (AttributePipeline),
-# contracts (CombatAntiMeta), ui_shared (UiShared: hovered item / loot cache /
-# global font / rarity colors). Depends on skill/item/world/combat/data/
-# persistence/contracts/stats/ui_shared + engine (design §5.4 top band).
+# contracts (CombatAntiMeta), ui_shared (UiShared: rarity colors). Depends on
+# skill/item/world/combat/data/persistence/contracts/stats/ui_shared + engine
+# (design §5.4 top band).
 # The former ui<->render edges are both replaced by ui_shared (design §5.3
 # ring 2 break): ui writes UiShared state, render reads it.
 
@@ -30,19 +32,14 @@ add_library(NoMoreDayGameUi STATIC
     SwordIntentWidget.cpp
     TooltipController.cpp
     UIAnimationSystem.cpp
-    UICharacter.cpp
     UICharacterController.cpp
-    UICrafting.cpp
     UICraftingController.cpp
-    UIInventory.cpp
     UIInventoryController.cpp
-    UIMinimap.cpp
     UIPanelDragService.cpp
     UIRenderer.cpp
     UISkillHub.cpp
     UISkillSpecRenderer.cpp
     UISkillTalentTree.cpp
-    UIStash.cpp
     UIStashController.cpp
     UISystem.cpp
     UiDrawList.cpp
@@ -51,6 +48,7 @@ add_library(NoMoreDayGameUi STATIC
     UiRuntime.cpp
     UiTooltipController.cpp
     UiViewport.cpp
+    WorldUiFrame.cpp
 )
 
 target_include_directories(NoMoreDayGameUi PUBLIC ${CMAKE_SOURCE_DIR}/src)

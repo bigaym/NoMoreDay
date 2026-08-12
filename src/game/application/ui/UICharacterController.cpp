@@ -62,8 +62,8 @@ UICharacterController::UICharacterController(UiRuntime& runtime)
   desc.id = static_cast<UiId>(entt::hashed_string("ui_character_panel").value());
   desc.parent = kRootUiId;
   // Full-viewport anchor. Draw is immediate-mode raylib (2K reference scaled
-  // by UISystem::State.scaleFactor), so the node is a declarative root for
-  // future host-driven layout; it always spans the whole viewport.
+  // by UIRenderer::GetScale), so the node is a declarative root for future
+  // host-driven layout; it always spans the whole viewport.
   desc.layout.kind = UiLayoutKind::Overlay;
   desc.layout.width = UiLength::Fraction(1.0f);
   desc.layout.height = UiLength::Fraction(1.0f);
@@ -90,13 +90,20 @@ UICharacterController::UICharacterController(UiRuntime& runtime)
 void UICharacterController::EnterGameplay() {
   m_inGameplay = true;
   ResetSessionState();
-  SetVisible(true);
+  // Session starts with the panel closed (opened via host KEY_C); U8: the
+  // instance flag is authoritative, so no legacy State re-adopt overrides it.
+  SetVisible(false);
+  SetAlpha(0.0f);
 }
 
 void UICharacterController::LeaveGameplay() {
   m_inGameplay = false;
   ResetSessionState();
   SetVisible(false);
+  // The visibility query includes the fade-out alpha gate
+  // (host IsCharacterPanelVisible), so reset alpha at the session boundary
+  // to keep the panel fully closed for the next run.
+  SetAlpha(0.0f);
 }
 
 void UICharacterController::SetVisible(bool visible) {
@@ -106,11 +113,18 @@ void UICharacterController::SetVisible(bool visible) {
   }
 }
 
-void UICharacterController::SetAlpha(float alpha) {
-  m_alpha = alpha;
-  // Keep the legacy static UI context coherent for consumers that still read
-  // it directly (e.g. gameplay input gating in GameplayState).
-  UISystem::State.characterPanelAlpha = alpha;
+void UICharacterController::SetAlpha(float alpha) { m_alpha = alpha; }
+
+void UICharacterController::Update(float dt) {
+  // U8: m_visible is the authoritative flag (host KEY_C/ESC route through
+  // SetVisible); only the instance alpha animation remains here. alphaSpeed
+  // matches the legacy UISystem::Update block (6.0f).
+  constexpr float kAlphaSpeed = 6.0f;
+  if (m_visible) {
+    m_alpha = std::min(1.0f, m_alpha + dt * kAlphaSpeed);
+  } else {
+    m_alpha = std::max(0.0f, m_alpha - dt * kAlphaSpeed);
+  }
 }
 
 void UICharacterController::ResetSessionState() {
@@ -167,11 +181,21 @@ void UICharacterController::Draw(entt::registry& registry,
   float panelX = margin;
   float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
 
-  // Enable Dragging (Header Height ~60px). The drag state itself is owned by
-  // the legacy UISystem panel-state service; the controller keeps using it so
-  // the panel position stays in sync with the other legacy panels.
-  UISystem::UpdatePanelDrag(UIPanelID::Character, panelX, panelY, panelW,
-                            panelH, 60.0f);
+  // Enable Dragging (Header Height ~60px). U8: direct UIPanelDragService call
+  // with instance-owned panel state (was the legacy static drag entry point).
+  UIPanelDragInputs dragInputs;
+  dragInputs.mousePosition = UISystem::GetMousePositionLogic();
+  dragInputs.isMousePressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+  dragInputs.isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+  UIPanelDragBounds dragBounds;
+  dragBounds.panelWidth = panelW;
+  dragBounds.panelHeight = panelH;
+  dragBounds.headerHeight = 60.0f;
+  dragBounds.uiRefWidth = UI_REF_WIDTH;
+  dragBounds.uiRefHeight = UI_REF_HEIGHT;
+  UIPanelDragService::UpdatePanelDrag(m_panelState, UIPanelID::Character,
+                                      m_activeDragPanel, panelX, panelY,
+                                      dragInputs, dragBounds);
 
   const float padding = 25.0f;
 

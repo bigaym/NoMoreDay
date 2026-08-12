@@ -9,6 +9,7 @@
 #include "game/application/scene/SceneManager.hpp"
 #include "game/application/scene/StateManager.hpp"
 #include "game/application/ui/GameUiHost.hpp"
+#include "game/application/ui/WorldUiFrame.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
@@ -78,6 +79,11 @@ private:
   // legacy facade during migration. Destroyed after the shared context that
   // references it (cleanup() also shuts it down explicitly).
   NoMoreDay::ui::GameUiHost m_uiHost;
+
+  // U8: world-space UI bridge owned by the composition root. The render write
+  // side (GameplayRenderAdapter) fills it per frame; the host read side
+  // (pickup hit-testing, ground hover, render highlight) consumes it.
+  NoMoreDay::ui::WorldUiFrame m_worldFrame;
 
   // 3. 逻辑管理器 (最先析构)
   std::unique_ptr<LevelManager> m_levelManager;

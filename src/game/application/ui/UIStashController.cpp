@@ -1,16 +1,15 @@
 #include "game/application/ui/UIStashController.hpp"
 
 #include "core/logging/Logger.hpp"
-#include "core/utils/FmtBuffer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UICommon.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UIRenderer.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/StashComponent.hpp"
-#include "game/foundation/ui_shared/UiShared.hpp"
 #include "game/systems/item/SharedStash.hpp"
 #include "game/systems/item/StashSystem.hpp"
 
@@ -28,8 +27,8 @@ constexpr UiId kUIStashRootNode =
 
 } // namespace
 
-UIStashController::UIStashController(UiRuntime& runtime)
-    : m_runtime(runtime) {
+UIStashController::UIStashController(UiRuntime& runtime, GameUiHost* uiHost)
+    : m_runtime(runtime), m_uiHost(uiHost) {
   // StashType is forward-declared in the header, so the "Personal" default is
   // applied here instead of as an in-class initializer.
   m_activeType = NoMoreDay::StashType::Personal;
@@ -64,6 +63,10 @@ UIStashController::UIStashController(UiRuntime& runtime)
 
 void UIStashController::EnterGameplay() {
   ResetSessionState();
+  // U8 收尾: 面板可见性是实例权威状态（原逐帧 re-adopt State.showStash 已删），
+  // 进入新会话时显式复位。
+  m_visible = false;
+  m_alpha = 0.0f;
   m_inGameplay = true;
   SetNodeVisible(true);
 }
@@ -77,40 +80,44 @@ void UIStashController::LeaveGameplay() {
 void UIStashController::Update(entt::registry& registry) {
   (void)registry;
 
-  // Ported from UIStash::Update: animate the panel alpha towards the target
-  // implied by UISystem::State.showStash. Time-driven, no static state.
+  // U8 收尾: 实例 alpha 动画（m_visible 为实例权威状态，由 Open/Close/Toggle
+  // 写入；原逐帧 re-adopt State.showStash 与 mirror State.stashAlpha 已删）。
   const float dt = GetFrameTime();
   const float alphaSpeed = 6.0f;
-  if (UISystem::State.showStash) {
-    UISystem::State.stashAlpha =
-        std::min(1.0f, UISystem::State.stashAlpha + dt * alphaSpeed);
+  if (m_visible) {
+    m_alpha = std::min(1.0f, m_alpha + dt * alphaSpeed);
   } else {
-    UISystem::State.stashAlpha =
-        std::max(0.0f, UISystem::State.stashAlpha - dt * alphaSpeed);
+    m_alpha = std::max(0.0f, m_alpha - dt * alphaSpeed);
   }
+}
+
+void UIStashController::SetVisible(bool visible) {
+  m_visible = visible;
+  SetNodeVisible(visible);
 }
 
 bool UIStashController::IsVisible() const noexcept {
-  return UISystem::State.showStash;
+  return m_visible;
 }
 
 void UIStashController::Toggle() {
-  if (UISystem::State.showStash) {
-    Close();
-  } else {
-    Open(m_activeType);
-  }
+  SetVisible(!m_visible);
 }
 
 void UIStashController::Open(NoMoreDay::StashType type) {
-  UISystem::State.showStash = true;
-  UISystem::State.showInventory = true; // Auto open inventory
+  m_visible = true;
+  SetNodeVisible(true);
+  // U8 收尾: 打开仓库连带打开背包面板（legacy 语义：State.showStash 与
+  // State.showInventory 同置 true）——经 host 路由到实例化背包控制器。
+  if (m_uiHost) {
+    m_uiHost->SetInventoryVisible(true);
+  }
   m_activeType = type;
   m_activeTabIndex = 0; // Reset to first tab
 }
 
 void UIStashController::Close() {
-  UISystem::State.showStash = false;
+  SetVisible(false);
 }
 
 NoMoreDay::StashType UIStashController::GetActiveType() const noexcept {
@@ -122,7 +129,7 @@ int UIStashController::GetActiveTabIndex() const noexcept {
 }
 
 void UIStashController::Draw(entt::registry& registry) {
-  float alpha = UISystem::State.stashAlpha;
+  float alpha = m_alpha;
   if (alpha <= 0.0f) return;
 
   // Layout
@@ -132,22 +139,32 @@ void UIStashController::Draw(entt::registry& registry) {
   float defaultX = 100.0f;
   float defaultY = (UI_REF_HEIGHT - panelH) / 2.0f;
 
-  UISystem::UpdatePanelDrag(UIPanelID::Stash, defaultX, defaultY, panelW,
-                            panelH, 60.0f);
-
-  float panelX = UISystem::State.panelStates[(int)UIPanelID::Stash].position.x;
-  float panelY = UISystem::State.panelStates[(int)UIPanelID::Stash].position.y;
-
-  if (panelX < 0) {
-    panelX = defaultX;
-    panelY = defaultY;
-    UISystem::State.panelStates[(int)UIPanelID::Stash].position = {panelX,
-                                                                  panelY};
-  }
+  // U8: panel drag state is instance-owned (m_panelState / m_activeDragPanel)
+  // and runs through the stateless service directly, replacing the legacy
+  // the legacy static drag wrapper that bound the shared panel-drag state /
+  // the shared active-drag panel.
+  UIPanelDragInputs dragInputs;
+  dragInputs.mousePosition = UISystem::GetMousePositionLogic();
+  dragInputs.isMousePressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+  dragInputs.isMouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+  UIPanelDragBounds dragBounds;
+  dragBounds.panelWidth = panelW;
+  dragBounds.panelHeight = panelH;
+  dragBounds.headerHeight = 60.0f;
+  dragBounds.uiRefWidth = UI_REF_WIDTH;
+  dragBounds.uiRefHeight = UI_REF_HEIGHT;
+  float panelX = defaultX;
+  float panelY = defaultY;
+  UIPanelDragService::UpdatePanelDrag(m_panelState, UIPanelID::Stash,
+                                      m_activeDragPanel, panelX, panelY,
+                                      dragInputs, dragBounds);
 
   Vector2 mousePos = UISystem::GetMousePositionLogic();
   if (CheckCollisionPointRec(mousePos, {panelX, panelY, panelW, panelH})) {
-    UISystem::State.isMouseOverUI = true;
+    // U8 收尾: mouse-over-UI 门控经 host 实例成员（原 State.isMouseOverUI）。
+    if (m_uiHost) {
+      m_uiHost->SetMouseOverUI(true);
+    }
   }
 
   float scale = UIRenderer::GetScale();
@@ -264,9 +281,12 @@ void UIStashController::Draw(entt::registry& registry) {
         if (StashSystem::unlockTab(registry, m_activeType)) {
           // Success
         } else {
-          UISystem::State.showMessageBox = true;
-          utils::FormatToBuffer(UISystem::State.messageBoxText, "金币不足");
-          UISystem::State.messageBoxTimer = 1.0f;
+          // U8: message box routes through the host channel (overlay
+          // controller); the host is null in headless tests, where the
+          // notification is skipped.
+          if (m_uiHost) {
+            m_uiHost->ShowMessageBox("金币不足");
+          }
         }
       }
     }
@@ -292,6 +312,9 @@ void UIStashController::Draw(entt::registry& registry) {
   StashTab* currentTab = StashSystem::getTab(registry, m_activeType,
                                              m_activeTabIndex);
   if (currentTab) {
+    // U8: the drag session is host-owned (single instance across panels);
+    // reads/writes below route through it instead of the legacy State fields.
+    UIDragSession& drag = DragSession();
     for (int i = 0; i < StashTab::CAPACITY; ++i) {
       int r = i / 12; // 12 cols
       int c = i % 12;
@@ -314,22 +337,28 @@ void UIStashController::Draw(entt::registry& registry) {
       }
 
       if (isHovered && item != entt::null &&
-          UISystem::State.draggedItem == entt::null) {
-        UiShared::HoveredItem() = item;
+          drag.draggedItem == entt::null) {
+        // U8: route the panel hover write through the host channel instead of
+        // the static UiShared::HoveredItem() slot (hover highlight consumer is
+        // the tooltip controller / frame write-back). m_uiHost may be null in
+        // headless unit tests, where the hover pipeline is not exercised.
+        if (m_uiHost) {
+          m_uiHost->SetHoveredItem(item);
+        }
       }
 
       // Drag Start
       if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) &&
           item != entt::null) {
-        UISystem::State.draggedItem = item;
-        UISystem::State.isDraggingFromStash = true;
-        UISystem::State.dragSourceStashTab = m_activeTabIndex;
-        UISystem::State.dragSourceStashSlot = i;
-        UISystem::State.dragSourceStashType = m_activeType;
+        drag.draggedItem = item;
+        drag.isDraggingFromStash = true;
+        drag.dragSourceStashTab = m_activeTabIndex;
+        drag.dragSourceStashSlot = i;
+        drag.dragSourceStashType = m_activeType;
 
-        UISystem::State.isDraggingFromInventory = false;
-        UISystem::State.dragSourceEquipmentSlot = EquipmentSlot::None;
-        UISystem::State.dragSourceBagSlotIndex = -1;
+        drag.isDraggingFromInventory = false;
+        drag.dragSourceEquipmentSlot = EquipmentSlot::None;
+        drag.dragSourceBagSlotIndex = -1;
       }
 
       // Ctrl+Click Withdraw
@@ -340,37 +369,34 @@ void UIStashController::Draw(entt::registry& registry) {
 
       // Drop
       if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) &&
-          UISystem::State.draggedItem != entt::null) {
+          drag.draggedItem != entt::null) {
         bool success = false;
-        if (UISystem::State.isDraggingFromStash) {
+        if (drag.isDraggingFromStash) {
           success = StashSystem::transferItem(
-              registry, UISystem::State.dragSourceStashType,
-              UISystem::State.dragSourceStashTab,
-              UISystem::State.dragSourceStashSlot, m_activeType,
-              m_activeTabIndex, i);
-        } else if (UISystem::State.isDraggingFromInventory) {
+              registry, drag.dragSourceStashType, drag.dragSourceStashTab,
+              drag.dragSourceStashSlot, m_activeType, m_activeTabIndex, i);
+        } else if (drag.isDraggingFromInventory) {
           // Inv -> Stash
           if (StashSystem::depositFromInventory(
-                  registry, UISystem::State.draggedItem,
-                  UISystem::State.dragSourceInventoryIndex, m_activeType,
-                  m_activeTabIndex, i)) {
+                  registry, drag.draggedItem, drag.dragSourceInventoryIndex,
+                  m_activeType, m_activeTabIndex, i)) {
             success = true;
           } else {
-            UISystem::State.showMessageBox = true;
-            utils::FormatToBuffer(UISystem::State.messageBoxText, "该物品无法存入");
-            UISystem::State.messageBoxTimer = 1.0f;
+            // U8: message box routes through the host channel.
+            if (m_uiHost) {
+              m_uiHost->ShowMessageBox("该物品无法存入");
+            }
           }
         }
 
         if (success) {
-          UISystem::State.draggedItem = entt::null;
+          drag.draggedItem = entt::null;
         }
       }
 
       float itemAlpha = isMatch ? alpha : alpha * 0.3f;
       UIRenderer::DrawSlot(font, registry, x, y, slotSize,
-                           (UISystem::State.draggedItem == item) ? entt::null
-                                                                 : item,
+                           (drag.draggedItem == item) ? entt::null : item,
                            nullptr, isHovered, false, itemAlpha);
     }
   }
@@ -388,8 +414,9 @@ void UIStashController::Draw(entt::registry& registry) {
     m_isSearchFocused = false;
   }
 
-  // Propagate blocking state
-  if (m_isSearchFocused) UISystem::State.isTyping = true;
+  // Search focus is instance state; the host InputCapture aggregates
+  // IsSearchFocused() for the typing gate (the legacy State.isTyping write is
+  // gone; F2 removes the legacy field).
 
   DrawRectScaled(searchRect.x, searchRect.y, searchRect.width, searchRect.height,
                  m_isSearchFocused ? theme.buttonHover : theme.buttonNormal);
@@ -501,6 +528,10 @@ void UIStashController::SetNodeVisible(bool visible) {
   if (m_rootNodeId != kInvalidUiId) {
     (void)m_runtime.SetNodeVisible(m_rootNodeId, visible);
   }
+}
+
+UIDragSession& UIStashController::DragSession() noexcept {
+  return m_uiHost ? m_uiHost->DragSession() : m_localDragSession;
 }
 
 } // namespace NoMoreDay::ui

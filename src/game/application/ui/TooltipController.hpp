@@ -5,8 +5,12 @@
 #include <cstdint>
 
 #include <entt/entt.hpp>
+#include <raylib.h>
 
 namespace NoMoreDay::ui {
+
+class WorldUiFrame;
+class GameUiHost; // U8 收尾: modal-input gate via host instance query.
 
 // Instance controller for the legacy tooltip state machine (U7 group 6-B).
 //
@@ -18,20 +22,19 @@ namespace NoMoreDay::ui {
 //
 //   1. ResetFrame  - clears the hover cache (was the frame-start hover reset).
 //   2. hover write - the hotbar slot / buff strip call SetHoveredSkillSlot /
-//                    SetHoveredBuff; the skill hub and talent tree still write
-//                    UISystem::State.hoveredSkillId (adopted in UpdateState);
-//                    ground items still live in UiShared::HoveredItem().
+//                    SetHoveredBuff; the skill hub and talent tree write the
+//                    hover through SetHoveredSkill (U8 收尾: 原
+//                    State.hoveredSkillId fallback 已删); ground hover is
+//                    produced by DetectGroundHover from the frame-scoped
+//                    WorldUiFrame (U8; was UiShared::HoveredItem).
 //   3. UpdateState - the state machine (was UISystem::Draw section 4). Must
 //                    run after every hover producer of the frame has written.
 //   4. DrawTooltip - the top-most tooltip pass (was the tail of
 //                    UISystem::DrawDraggingPhantom), after the drag phantom.
 //
-// The active-tooltip members are written back to the UISystem::State mirror
-// (activeTooltip* / tooltipAlpha / tooltipDelayTimer / tooltipInitialized /
-// tooltipHoveredLastFrame) because UIRenderer still reads
-// State.tooltipInitialized for the tooltip position lock and the
-// null-controller draw fallback reads the mirrors. The mirror is removed in
-// U8.
+// U8 收尾: the UISystem::State mirror is gone; all tooltip state is instance
+// state. The modal-input gate (DetectGroundHover) queries the host's instance
+// IsModalInputCaptured() through the host back-pointer bound by BindHost.
 class TooltipController {
 public:
   TooltipController() = default;
@@ -39,6 +42,10 @@ public:
 
   TooltipController(const TooltipController&) = delete;
   TooltipController& operator=(const TooltipController&) = delete;
+
+  // U8 收尾: binds the owning GameUiHost for the modal-input gate. The host
+  // calls this from its ctor body; null until then (headless tests are safe).
+  void BindHost(GameUiHost* uiHost) noexcept;
 
   // Clears the per-frame hover cache. Called by the host right before the
   // legacy draw pass (was the frame-start hover reset in UISystem::Draw).
@@ -58,6 +65,20 @@ public:
   // UiShared::HoveredItem(); the cache takes priority when set (tests, and
   // future U8 rewires).
   void SetHoveredItem(entt::entity item) noexcept;
+
+  // U8 host read-side migration: binds the frame-scoped WorldUiFrame the
+  // render adapter fills with visible ground-item hit proxies. The controller
+  // reads it for ground hover detection and writes the resolved hover back to
+  // it for the render-side highlight (design §4.1 direction contract).
+  void BindWorldFrame(WorldUiFrame *frame) noexcept;
+
+  // Ground hover producers (U8): DetectGroundHover resolves the mouse-over
+  // ground item against the bound frame's visible proxies and feeds the
+  // resolved entity through SetGroundHover + SetHoveredItem; the frame is
+  // bound from the composition root (Game), null before that.
+  void SetGroundHover(entt::entity entity) noexcept;
+  void ClearGroundHover() noexcept;
+  void DetectGroundHover(entt::registry &registry, const Camera2D &camera);
 
   // Runs the delay/fade state machine (was UISystem::Draw section 4). Reads
   // the hover cache plus the legacy live inputs and updates the active-tooltip
@@ -98,12 +119,8 @@ public:
   }
 
 private:
-  // Clears every member (hover cache + active tooltip state) and mirrors the
-  // cleared state back to UISystem::State.
+  // Clears every member (hover cache + active tooltip state).
   void ResetAll() noexcept;
-  // Writes the active-tooltip members into UISystem::State for the legacy
-  // readers (UIRenderer position lock, null-controller draw fallback).
-  void MirrorToState() noexcept;
 
   // Frame-scoped hover input cache (filled by the Set* methods, cleared by
   // ResetFrame).
@@ -111,6 +128,14 @@ private:
   uint32_t m_hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
   entt::entity m_hoveredItem = entt::null;
   int m_hoveredBuffIdx = -1;
+
+  // U8: frame-scoped world UI bridge (bound by the composition root) and the
+  // ground hover resolved from it each frame (cleared by ResetFrame).
+  WorldUiFrame *m_frame = nullptr;
+  entt::entity m_groundHover = entt::null;
+
+  // U8 收尾: owning host for the modal-input gate (null until BindHost).
+  GameUiHost *m_uiHost = nullptr;
 
   // Active tooltip state (the state machine output).
   uint32_t m_activeTooltipSkillId = NoMoreDay::INVALID_SKILL_ID;

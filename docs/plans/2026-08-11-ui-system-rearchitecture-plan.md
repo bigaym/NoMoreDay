@@ -1,8 +1,13 @@
 # UI 系统重构实施计划（UI System Rearchitecture Plan）
 
-> **Status:** in progress; U0-U7 implemented (2026-08-12), U8 pending
+> **Status:** in progress; U0-U7 implemented (2026-08-12), U8 implementation done, verification pending (2026-08-12)
 >
 > **Progress note (2026-08-12):** U3-U7 已全部实施并通过验证（focused + 全量 UI 回归 211 cases / 2803 assertions 全绿；全量 976 cases 中仅 3 个既有无关失败：GraphBindingEquivalenceGLTest 渲染图集成、RadianceCascadesBenchmark 性能基准）。U7 六个组全部完成：组1 HUD/minimap/hotbar/buffs/MonsterHealthBar、组2 character/inventory、组3 stash/crafting、组4 skill hub/talent tree、组5 astrolabe（UIAstrolabe 删除）、组6 context menu/quantity popup/message box/tooltip。所有面板/overlay 均为 GameUiHost 持有的实例控制器（src/game/application/ui/*Controller.{hpp,cpp}），无静态可变 UI 状态，UISystem::State 保留为兼容镜像（U8 断开）。U8（WorldUiFrame bridge + UiShared 静态槽替换 + UIContext/UISystem facade 删除）未实施，工作量较大（涉及 render 层写侧、GameplayState/Game/UIRenderer/InventorySystem/InventoryState 等全部 State 读方迁移），建议独立一轮。
+>
+> **Progress note (U8, 2026-08-12):** U8 已启动：WorldUiFrame 帧对象桥类型已建立（含 frame token/lifetime 合同单测）。写侧 GameplayRenderAdapter 与读侧 GameUiHost/TooltipController 迁移进行中；
+> Game.cpp 的 frame 绑定与 UiShared/UIContext 删除待集成。
+>
+> **Progress note (U8 final wave, 2026-08-12):** U8 收尾波完成（见 §11 尾部「U8 收尾波完成摘要」）。`UISystem::State`/`UIContext` 已删除，UiShared 静态槽清零，U8 达成完成标准。
 >
 > **Design:** [`2026-08-11-ui-system-rearchitecture-design.md`](../designs/2026-08-11-ui-system-rearchitecture-design.md)
 >
@@ -319,6 +324,24 @@ Render:
 - grep/source guard 找不到 `UISystem::State`、`UiShared::HoveredItem`、`VisibleItemCache` 的旧静态读写。
 - 新 world bridge 通过 frame token/lifetime test，不读取过期上一帧 vector。
 - UI 核心、render adapter、gameplay command handler 的依赖图仍为单向，`build.bat check` 无违规。
+
+### U8 收尾：UiShared 剩余成员处置决议（2026-08-12 调研，以实证为准）
+
+- 引用面实证（与任务清单的出入）：s_itemGrid 写点共 14 处（InventorySystem.cpp:114/:154/:233/:270/:310/:1090、DropSystem.cpp:126/:142/:282/:299/:444/:489/:519、FragmentDropSystem.cpp:85），重建方 LootGridSystem.cpp:9-16（清单遗漏），读方 GameplayRenderAdapter.cpp:663-664；s_globalFont 写点 UISystem.cpp:74/:154/:169/:179，读面经 UISystem::GetFont()/State.globalFont 遍布 UI 层（含 GameUiHost.cpp:37），engine 层零引用；HoveredItem 遗留引用——UICraftingController.cpp:273/:360/:654、UIStashController.cpp:318 已迁 host 通道（SetHoveredItem），剩余 legacy 面板（UIInventory.cpp:256/:471/:806、UIStash.cpp:232、UICrafting.cpp:178/:265/:555）、UISystem.cpp:257/:703（null-host fallback）及 InventoryState.cpp:65/:77-78 完整 legacy 读路径（GameplayState.cpp:477 按 I PushState）；Game.cpp frame 绑定已集成（:290/:331）。
+- 处置决议：
+  1. s_itemGrid/s_itemGridDirty：属 gameplay 世界数据（战利品空间网格）非 UI 状态，迁出 UiShared——网格本体与重建收归 item 域 LootGridSystem（MarkDirty()/GetGrid()），14 处写点改调，读方经 registry ctx 取网格；工作量中（~16 点+Init/Shutdown 迁移），风险低。
+  2. s_globalFont：render 资源非 UI 状态；engine 层无读方，不违反边界。删除 UiShared 镜像：State.globalFont 规范持有，GameplayRenderAdapter 增 SetFont 注入，组合根 Game 于 m_uiHost.Initialize 后注入；工作量小。
+  3. GetRarityColor：无状态纯函数，符合「foundation 无状态合同」，保留于 UiShared（或并入 foundation 工具头）；工作量小。
+  4. 前置清理：迁移/删除上述 HoveredItem 遗留引用（InventoryState 背包接管后删；legacy 面板删除），完成后删 Init/Shutdown 与全部静态槽。
+- 边界检查：check_module_boundaries.py（ledger 无 ui_shared 条目）、check_legacy_reintroduction.py（单词计数只禁增加）、conductor/ 均不受删除影响；需同步移除 NoMoreDayGameUiShared 链接（foundation:7、game:41、ui:69、render:36、states:41）并更新 ui/render CMakeLists 头注释。
+
+### U8 收尾波完成摘要（2026-08-12，删除清单）
+
+- 文件删除：`UIContext.hpp`（UIPanelID/PanelState 迁入 UIPanelDragService.hpp）、legacy 静态面板 `UIStash.cpp/.hpp`、`UICrafting.cpp/.hpp`、`UICharacter.cpp/.hpp`、`UIMinimap.cpp/.hpp`；`UISystem::State` 定义与 `UIContext` 静态对象删除。
+- UISystem API 删除：Update/Draw/DrawDraggingPhantom/DrawQuantityPopup/OpenContextMenu/UpdatePanelDrag/ResetSessionState/IsModalInputCaptured/Benchmark/s_hasGivenTestItems——编排整体内嵌 GameUiHost::Update/Draw；拖拽 phantom 改经 host 的 UIDragSession 直绘；modal gate 改 host 实例方法（overlay quantity popup + skill tree）。
+- UiShared 清理：VisibleItemCache/HoveredItem/GlobalFont/SetGlobalFont/s_itemGrid/s_itemGridDirty 删除；s_itemGrid 网格本体+MarkDirty()/GetGrid() 收归 `LootGridSystem`（14 写点改调，读方 GameplayRenderAdapter 经 GetGrid()）；s_globalFont 转 UISystem 私有 static（GetFont/GetEmojiFont 读之）；GameplayRenderAdapter 增 `SetFont(Font)` 注入（Game.cpp 组合根于 m_uiHost.Initialize 后调用）；GetRarityColor 保留于 UiShared。
+- 状态迁移：scaleFactor 读方统一 UISystem::GetScaleFactor()（→UIRenderer::GetScale()）；isMouseOverUI → GameUiHost 实例（SetMouseOverUI）；hoveredSkillId → TooltipController 缓存（树经 SetHoveredSkill）；equipmentSlotAnims 实例化进 UIInventoryController；context menu/quantity popup/message box 状态全部 overlay 实例成员；UIRenderer::DrawContextMenu/DrawMessageBox 签名去 UIContext。
+- 验证：NoMoreDayGameUi/NoMoreDayTests/NoMoreDay 三目标 RelWithDebInfo 构建通过；ctest `nmd.tests.ui.` 2/2（unit 182 cases / 2572 assertions + integration）全绿；focused UI 回归 `*Overlay*`/`*SkillTree*`/`*SkillHotbar*`/`*PlayerHud*`/`*ContextMenu*`/`*Quantity*`/`*MessageBox*`/`*Drag*` 全绿；`*[Tech]*UI*` 24 cases / 138 assertions 全绿；grep 门禁 `UISystem::State`/`UIContext`/`VisibleItemCache`/`HoveredItem`/`s_itemGrid`/`s_globalFont` 代码引用归零（仅迁移说明注释）。
 
 ## 12. 最终验证矩阵
 

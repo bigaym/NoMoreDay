@@ -13,17 +13,13 @@ namespace NoMoreDay::ui {
 // Instance controller for the three global overlays (U7 group 6): the context
 // menu, the quantity popup and the message box. These used to live as static
 // state and static draw functions on UISystem; the controller now owns them as
-// instance members.
+// instance members (U8 收尾: the UISystem::State mirror is gone, so the
+// overlay instance is the single source of truth).
 //
-// The corresponding UIContext fields (showContextMenu / contextMenuItem /
-// contextMenuPos / showQuantityPopup / quantity* / showMessageBox /
-// messageBox* / isTyping) remain as a *write-back mirror* because cross-layer
-// readers still touch UISystem::State during the transition: UIRenderer opens
-// the context menu and the quantity popup (and picks menu items), the host
-// compatibility bridge surfaces notifications through the message box, and
-// input gating reads State.isTyping / State.showQuantityPopup. Draw/Update
-// re-adopt externally opened state each frame and every controller mutation
-// mirrors it back; the mirror is removed when the overlays are rewired in U8.
+// UIRenderer draws the context menu from this controller's state (via the
+// getters below) and routes menu actions back through it (CloseContextMenu /
+// OpenQuantityPopup / ShowMessageBox); the quantity popup input/validation and
+// the message box timer are fully owned here.
 class OverlayController {
 public:
   explicit OverlayController(UiRuntime& runtime);
@@ -35,11 +31,24 @@ public:
   // --- Context menu (was UISystem::OpenContextMenu / ESC / Draw) ---
   void OpenContextMenu(entt::entity item, bool fromInventory, int inventoryIndex,
                        NoMoreDay::EquipmentSlot slot);
+  // U8 收尾: opens the skill-assignment context menu (hotbar right-click).
+  void OpenSkillContextMenu(int skillSlot);
   void CloseContextMenu();
   [[nodiscard]] bool IsContextMenuVisible() const noexcept;
 
+  // Context menu field getters (read by UIRenderer::DrawContextMenu).
+  [[nodiscard]] entt::entity ContextMenuItem() const noexcept { return m_contextMenuItem; }
+  [[nodiscard]] Vector2 ContextMenuPos() const noexcept { return m_contextMenuPos; }
+  [[nodiscard]] bool IsContextFromInventory() const noexcept { return m_isContextFromInventory; }
+  [[nodiscard]] int ContextSourceInventoryIndex() const noexcept { return m_contextSourceInventoryIndex; }
+  [[nodiscard]] NoMoreDay::EquipmentSlot ContextSourceEquipmentSlot() const noexcept { return m_contextSourceEquipmentSlot; }
+  [[nodiscard]] bool IsSkillContext() const noexcept { return m_isSkillContext; }
+  [[nodiscard]] int ContextSourceSkillSlot() const noexcept { return m_contextSourceSkillSlot; }
+
   // --- Quantity popup (was UIRenderer open + UISystem::DrawQuantityPopup) ---
-  void OpenQuantityPopup(entt::entity item, int actionType);
+  // quantityMax seeds the popup range (UIRenderer passes the item quantity).
+  void OpenQuantityPopup(entt::entity item, int actionType,
+                         int quantityMax = 1);
   void CloseQuantityPopup();
   [[nodiscard]] bool IsQuantityPopupVisible() const noexcept;
 
@@ -47,10 +56,19 @@ public:
   void ShowMessageBox(const char* text);
   void HideMessageBox();
   [[nodiscard]] bool IsMessageBoxVisible() const noexcept;
+  // U8 final: message box text (for tests/tooltips; the timer decay is owned
+  // here and exposed through the visible flag only).
+  [[nodiscard]] const char* MessageBoxText() const noexcept {
+    return m_messageBoxText;
+  }
+
+  // True while the quantity popup text input is focused. InputCapture reads
+  // this (plus the panel search-focus flags) to gate gameplay input.
+  [[nodiscard]] bool IsTyping() const noexcept { return m_isTyping; }
 
   // Per-frame message box timer decay (was the UISystem::Update block).
-  // Called by the host right after the legacy update so the frame position
-  // matches the original decay.
+  // Called by the host right after the update so the frame position matches
+  // the original decay.
   void UpdateMessageBox();
 
   // Draws the three overlays in the legacy order (context menu -> quantity
@@ -62,23 +80,11 @@ public:
   void LeaveGameplay();
 
   // Runtime node id of the overlay root (kInvalidUiId if creation failed).
-  // The node is a placeholder during the U7 transition: overlay rendering is
-  // still driven by the legacy mirrors, so the node stays hidden until U8.
+  // The node is a placeholder: overlay rendering is driven by the controller's
+  // legacy-compatible draw pass, so the node stays hidden.
   [[nodiscard]] UiId NodeId() const noexcept;
 
 private:
-  // Cross-layer writers still open/close overlays by writing UISystem::State
-  // directly during the transition (UIRenderer right-click flow, GameUiHost
-  // compatibility bridge, sibling-panel closes). These helpers re-adopt that
-  // state into the instance members (adopt) and write the members back to the
-  // legacy fields (mirror) so both views stay consistent.
-  void AdoptContextMenuFromState();
-  void MirrorContextMenuToState();
-  void AdoptQuantityFromState();
-  void MirrorQuantityToState();
-  void AdoptMessageBoxFromState();
-  void MirrorMessageBoxToState();
-
   void DrawContextMenu(entt::registry& registry);
   void DrawQuantityPopup(entt::registry& registry);
   void DrawMessageBox();
@@ -105,7 +111,7 @@ private:
   int m_quantityVal = 1;
   int m_quantityMax = 1;
   char m_quantityInputBuf[16] = {0};
-  bool m_isTyping = false; // Mirrors UISystem::State.isTyping (input gating).
+  bool m_isTyping = false;
 
   // Message box state.
   bool m_messageBoxVisible = false;

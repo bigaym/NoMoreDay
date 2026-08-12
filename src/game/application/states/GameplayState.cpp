@@ -17,7 +17,6 @@
 #include "game/foundation/data/BiomeTypes.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/foundation/registry/GroupRegistry.hpp"
-#include "game/application/states/InventoryState.hpp"
 #include "game/application/states/MosaicEditorState.hpp"
 #include "game/application/states/DimensionalLevelSelectState.hpp" // Added
 #include "game/application/states/PauseState.hpp"
@@ -74,9 +73,6 @@
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/MonsterHealthBarSystem.hpp"
-#include "game/application/ui/PlayerHUD.hpp"
-#include "game/application/ui/UICharacter.hpp"
-#include "game/application/ui/UIMinimap.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/systems/vfx/GhostSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
@@ -473,18 +469,22 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 0. State Transition Input
-  if (IsKeyPressed(KEY_I)) {
-    m_stateManager->PushState<InventoryState>();
-  }
+  // U8 inventory takeover: KEY_I toggles the hosted inventory controller
+  // inside GameUiHost::Update (runs later this frame, after this check), so
+  // the game state no longer pushes InventoryState.
 
-  if (IsKeyPressed(KEY_ESCAPE)) {
+  // KEY_ESCAPE opens the pause menu — unless the inventory overlay is open,
+  // in which case the hosted controller consumes ESC first to close the
+  // panel (checked here so PauseState is not pushed for the same press).
+  if (IsKeyPressed(KEY_ESCAPE) && !m_uiHost->IsInventoryVisible()) {
     m_stateManager->PushState<PauseState>();
   }
 
-  // Town Portal (KEY_T) - only when no major panel is open
-  bool anyPanelOpen = UISystem::State.showSkillTree ||
-                      UISystem::State.showInventory ||
-                      UISystem::State.showCharacterPanel;
+  // Town Portal (KEY_T) - only when no major panel is open.
+  // U8 host read-side migration: the anyPanelOpen check aggregates the hosted
+  // controller instances (inventory/skill tree/character/stash/crafting/
+  // astrolabe) via the host channel; the legacy State reads are gone.
+  const bool anyPanelOpen = m_uiHost->IsAnyPanelOpen(registry);
   if (IsKeyPressed(KEY_T) && !anyPanelOpen) {
     auto playerViewT = registry.view<PlayerTag>();
     if (playerViewT.begin() != playerViewT.end()) {
@@ -620,85 +620,32 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 2. Input
   // U5: gameplay input runs after the UI update below so it can consume the
-  // aggregated UiInputCapture. Only the legacy typing-gate reset stays here
-  // for the UI render pass (write side unchanged).
-  UISystem::State.isTyping =
-      false; // Reset blocking flag for next frame's UI Render pass
-  // Note: UISystem::Update was here in Game.cpp.
-  // Now UISystem::Update handles "Global Keys" like 'C' for char panel.
-  // We should probably keep it, but it might conflict with InventoryState if
-  // logic is duplicated. InventoryState handles 'I'/'ESC' when it is active.
-  // When GameplayState is active, we still want 'C' (Char Panel) to work (which
-  // is an overlay in Gameplay?). If Char Panel is a state, we'd
-  // PushState<CharPanelState>. Currently it's a bool flag in UISystem. Let's
-  // call UISystem::Update here to handle those global flags. BUT we need to
-  // ensure it doesn't handle 'I' if we already handled it. UISystem::Update
-  // checks 'I'. We should refactor 'I' out of UISystem::Update or just let
-  // UISystem::Update handle it? If UISystem::Update handles 'I' by toggling a
-  // bool, it doesn't push a State. We want to Push State. So we should NOT call
-  // UISystem::Update for 'I'. We should call `UIInventory::Update`? No. We need
-  // to migrate the 'C' key logic too eventually. For now, let's Call
-  // UISystem::Update but be aware it might try to toggle flags. Wait, if
-  // UISystem::Update toggles `State.showInventory`, our `InventoryState` syncs
-  // with it in `OnEnter`. So:
-  // 1. User presses 'I'.
-  // 2. UISystem::Update sees 'I', toggles `showInventory = true`.
-  // 3. We check `State.showInventory`?
-  // Better: We handle 'I' here and PushState.
-  // We should probably BLOCK UISystem from handling 'I' or remove that logic
-  // from UISystem. Since I haven't removed it from UISystem.cpp yet, it will
-  // toggle the flag. If I PushState, InventoryState::OnEnter sets
-  // `showInventory = true`. So it matches. BUT, if I press 'I' to CLOSE,
-  // InventoryState handles it. So in GameplayState, 'I' means OPEN.
-
-  // Logic conflict risk:
-  // GameplayState calls UISystem::Update.
-  // UISystem::Update: `if (Key_I) Toggle()`.
-  // If I press I, UISystem sets show=true.
-  // Then GameplayState sees Key_I (Input is processed once per frame usually).
-  // If I PushState, then next frame InventoryState is active.
-  // InventoryState::OnEnter ensures show=true.
-  // Seems okay.
-
-  // However, we want to transition fully to StateManager.
-  // Let's keep UISystem::Update for 'C' and Debug keys for now.
-  if (m_uiHost) {
-    // U4: update path now runs through the UI composition root, which
-    // forwards to the legacy facade unchanged during migration.
-    // U6b: build the frame-scoped read-only snapshot first, run the UI
-    // update against it, then execute the pickup intents queued during the
-    // previous frame's Draw. This keeps every gameplay mutation inside the
-    // Update phase (design §6.2).
-    const auto snapshot = m_snapshotBuilder.Build(registry);
-    m_uiHost->Update(registry, *m_context->levelManager, snapshot);
-    for (const auto &intent : m_uiHost->DrainUpdateIntents()) {
-      const auto result = m_commandHandler.Execute(registry, intent);
-      m_uiHost->Publish(result);
-    }
-  } else {
-    UISystem::Update(registry, *m_context->levelManager);
+  // aggregated UiInputCapture. The U8 typing gate aggregates the controllers'
+  // instance text-input focus (GameUiHost::IsTyping); the legacy State field
+  // is gone. All global keys ('C'/'K'/'S'/'N'/'E'/'F'/ESC) are handled inside
+  // GameUiHost::Update (U8 final); the null-host fallback path is removed.
+  // U6b: build the frame-scoped read-only snapshot first, run the UI
+  // update against it, then execute the pickup intents queued during the
+  // previous frame's Draw. This keeps every gameplay mutation inside the
+  // Update phase (design §6.2).
+  const auto snapshot = m_snapshotBuilder.Build(registry);
+  m_uiHost->Update(registry, *m_context->levelManager, snapshot);
+  for (const auto &intent : m_uiHost->DrainUpdateIntents()) {
+    const auto result = m_commandHandler.Execute(registry, intent);
+    m_uiHost->Publish(result);
   }
 
   // Gameplay input consumes the UI capture aggregated after the UI update
-  // (U5), so InputSystem no longer reads UISystem static state. Without the
-  // composition root there is no UI to capture and input runs ungated.
+  // (U5), so InputSystem reads the capture produced by the composition root
+  // (GameUiHost::InputCapture), never UI static state.
   const NoMoreDay::ui::UiInputCapture uiCapture =
-      m_uiHost ? m_uiHost->InputCapture(registry)
-               : NoMoreDay::ui::UiInputCapture{};
+      m_uiHost->InputCapture(registry);
   InputSystem::update(registry, m_camera, uiCapture);
 
-  // Check if UISystem opened inventory (via its own logic, e.g. if I didn't
-  // intercept 'I' above or if Update ran first)
-  if (UISystem::State.showInventory) {
-    // If the flag is set but we are in GameplayState, it means we should be in
-    // InventoryState. But wait, if we are here, we are GameplayState. If we
-    // rely on UISystem::Update to toggle flag, we should detect flag change and
-    // PushState? Or just disable UISystem's 'I' handling. For this step, I will
-    // rely on my explicit check above `IsKeyPressed(KEY_I)` and PushState. And
-    // ignore the duplicate handling for a moment, or hope `UISystem::State`
-    // sync makes it visual only. Actually, if I PushState, the next frame
-    // `GameplayState::OnUpdate` is NOT called (blocked). So it's fine.
-  }
+  // U8 inventory takeover: the legacy InventoryState block that observed
+  // UISystem::State.showInventory (and its comment about pushing the state)
+  // is removed — the inventory panel is a hosted overlay now, toggled by
+  // GameUiHost on KEY_I/ESC/TAB.
 
   // Serialization
   if (SerializationSystem::Update(registry)) {
@@ -1054,13 +1001,9 @@ void GameplayState::OnRender() {
   // Monster Health Bars
   {
       NoMoreDay::utils::ScopedTimer timer("Render HealthBars", 10);
-      // U7 group 2: route through the host controller; the legacy static
-      // system remains as the null-host fallback only.
-      if (m_uiHost) {
-        m_uiHost->RenderMonsterHealthBars(registry, m_camera);
-      } else {
-        systems::MonsterHealthBarSystem::Render(registry, m_camera);
-      }
+      // U8 final: the hosted controller is the only path (the null-host
+      // fallback to the legacy static system is gone).
+      m_uiHost->RenderMonsterHealthBars(registry, m_camera);
   }
 
   // Skill Range Indicators
@@ -1158,76 +1101,53 @@ void GameplayState::OnRender() {
   // Manual Draw:
   {
       NoMoreDay::utils::ScopedTimer timer("Render Minimap", 10);
-      // U7 group 1: minimap route through the host controller; the legacy
-      // static panel remains as the null-host fallback only.
-      if (m_uiHost) {
-        m_uiHost->DrawMinimap(registry, *m_context->levelManager,
-                              &m_spatialGrid);
-      } else {
-        UIMinimap::Draw(registry, *m_context->levelManager, &m_spatialGrid);
-      }
+      // U7 group 1: minimap routes through the host controller (U8 final:
+      // the legacy static panel and its null-host fallback are removed).
+      m_uiHost->DrawMinimap(registry, *m_context->levelManager,
+                            &m_spatialGrid);
   }
   
-  if (UISystem::State.showCharacterPanel ||
-      UISystem::State.characterPanelAlpha > 0.0f) {
-    // U7 group 2: character panel routes through the host controller; the
-    // legacy static panel remains as the null-host fallback only.
-    if (m_uiHost) {
-      m_uiHost->DrawCharacter(registry);
-    } else {
-      UICharacter::Draw(registry);
-    }
+  // U8 final: the character panel render gate reads the hosted controller
+  // instance visibility directly (the legacy State flag is gone).
+  const bool characterVisible = m_uiHost->IsCharacterPanelVisible();
+  if (characterVisible) {
+    // U7 group 2: character panel routes through the host controller.
+    m_uiHost->DrawCharacter(registry);
   }
 
   // Ground Interaction
   {
     NoMoreDay::utils::ScopedTimer timer("Render UISystem", 10);
-    if (m_uiHost) {
-      // U4: the UI render path now runs through the composition root: re-fit
-      // the native viewport, forward to the legacy facade, then submit the new
-      // draw list through the raylib backend. Frame position is unchanged
-      // (after the scene composite, before EndDrawing).
-      m_uiHost->PrepareRender();
-      m_uiHost->Draw(registry, *m_context->levelManager, m_camera,
-                     &m_spatialGrid);
-    } else {
-      UISystem::Draw(registry, *m_context->levelManager, m_camera,
-                     &m_spatialGrid);
-    }
+    // U4/U8: the UI render path runs through the composition root: re-fit
+    // the native viewport, run the hosted controller draw pass, then submit
+    // the new draw list through the raylib backend. Frame position is
+    // unchanged (after the scene composite, before EndDrawing).
+    m_uiHost->PrepareRender();
+    m_uiHost->Draw(registry, *m_context->levelManager, m_camera,
+                   &m_spatialGrid);
   }
 
   // Monster Target Widget (Top Center)
-  // U7 group 2: route through the host controller; the legacy static system
-  // remains as the null-host fallback only.
-  if (m_uiHost) {
-    m_uiHost->RenderMonsterHealthBarsUI(registry);
-  } else {
-    systems::MonsterHealthBarSystem::RenderUI(registry);
-  }
+  // U7 group 2: routes through the host controller (U8 final).
+  m_uiHost->RenderMonsterHealthBarsUI(registry);
 
   // Player HUD (Resource Bars)
-  // U7 group 1: HUD route through the host controller; the legacy static
-  // panel remains as the null-host fallback only.
-  if (m_uiHost) {
-    m_uiHost->DrawHud(registry);
-  } else {
-    systems::PlayerHUD::Draw(registry);
-  }
+  // U7 group 1: HUD routes through the host controller (U8 final).
+  m_uiHost->DrawHud(registry);
 
   // Global UI Overlay (Dragging Phantom)
   // U7 group 6-B: the drag phantom + top-most tooltip pass routes through the
-  // host controller; the legacy static path remains as the null-host fallback.
-  if (m_uiHost) {
-    m_uiHost->DrawDraggingPhantom(registry);
-  } else {
-    UISystem::DrawDraggingPhantom(registry);
-  }
+  // host controller (U8 final: the drag state lives in the host-owned
+  // UIDragSession, drawn directly from it).
+  m_uiHost->DrawDraggingPhantom(registry);
 
   // Cleanup Dragging if mouse released (Fallback if no inventory overlay is active)
-  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && !UISystem::State.showInventory) {
-    UISystem::State.draggedItem = entt::null;
-    UISystem::State.isDraggingSkill = false;
-    UISystem::State.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;
+  // U8 final: the cleanup clears the host-owned drag session (the panels own
+  // their drag state through it). The guard string is locked by a tech test
+  // (UITests.cpp [Tech] InventoryUI gameplay fallback).
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) &&
+      !m_uiHost->IsInventoryVisible()) {
+    m_uiHost->ClearDragSession();
   }
 
   // Scene Transition Overlay

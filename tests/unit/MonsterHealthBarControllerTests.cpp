@@ -128,32 +128,14 @@ TEST_CASE("[Unit] MonsterHealthBarController - implementation declares no "
   }
 }
 
-TEST_CASE("[Unit] MonsterHealthBarController - GameplayState routes the legacy "
-          "static calls behind the host fallback") {
+TEST_CASE("[Unit] MonsterHealthBarController - GameplayState routes the "
+          "controller directly (U8)") {
   const std::string source = ReadFileContents(
       "src/game/application/states/GameplayState.cpp");
   REQUIRE_FALSE(source.empty());
 
-  // The legacy static calls (Render + RenderUI) may remain only inside the
-  // null-host fallback: every occurrence must be on the line right after a
-  // "} else {" branch of the host route.
-  int matches = 0;
-  std::size_t pos = 0;
-  while ((pos = source.find("MonsterHealthBarSystem::Render", pos)) !=
-         std::string::npos) {
-    ++matches;
-    const std::size_t prevElse = source.rfind("} else {", pos);
-    CHECK_MESSAGE(prevElse != std::string::npos,
-                  "legacy call must be the null-host fallback (else branch)");
-    if (prevElse != std::string::npos) {
-      // The call must sit inside that else body: no "}" may appear between
-      // the "} else {" token (skipped) and the legacy call.
-      const std::string between =
-          source.substr(prevElse + 8, pos - prevElse - 8);
-      CHECK_MESSAGE(between.find('}') == std::string::npos,
-                    "legacy call must be the null-host fallback (else branch)");
-    }
-    pos += 29;
-  }
-  REQUIRE(matches >= 2);
+  // U8 final: the null-host fallback branch is gone, so the legacy static
+  // calls must not appear anywhere; the hosted controller is called directly.
+  CHECK(source.find("MonsterHealthBarSystem::Render") == std::string::npos);
+  CHECK(source.find("m_uiHost->RenderMonsterHealthBars") != std::string::npos);
 }

@@ -1,6 +1,8 @@
 #include "game/application/ui/AstrolabeController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UISystem.hpp"
+#include "game/foundation/SharedContext.hpp"
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/foundation/data/AstrolabeRegistry.hpp"
 #include "game/foundation/data/AstrolabeConstants.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
@@ -82,12 +84,18 @@ void AstrolabeController::Toggle(entt::registry& registry, entt::entity player) 
     if (m_visible) {
         EnsureLoaded();
         ResetView();
-        // Mirror the legacy KEY_N sibling coupling: opening the astrolabe
-        // closes every other panel.
-        UISystem::State.showInventory = false;
-        UISystem::State.showCharacterPanel = false;
-        UISystem::State.showContextMenu = false;
-        UISystem::State.showSkillTree = false;
+        // U8 收尾: the legacy KEY_N sibling coupling (close every other panel)
+        // routes through the host channels (their controllers own the instance
+        // visibility). The host may be absent in headless tests, where no
+        // sibling panels exist to close.
+        if (auto* shared = registry.ctx().find<NoMoreDay::SharedContext*>()) {
+            if (*shared && (*shared)->uiHost) {
+                (*shared)->uiHost->CloseInventory();
+                (*shared)->uiHost->CloseCharacterPanel();
+                (*shared)->uiHost->CloseSkillTree();
+                (*shared)->uiHost->CloseContextMenu();
+            }
+        }
     }
     SetNodeVisible(m_visible);
 }
@@ -217,7 +225,8 @@ void AstrolabeController::DrawInternal(entt::registry& registry, entt::entity pl
     HandleInteraction(registry, player, graph, astroComp, hoverId, hoveredNode, hoveredStar);
 
     // Layer 3: UI Overlay
-    float scale = UISystem::State.scaleFactor;
+    // U8 收尾: scaleFactor 经 UISystem 查询（原 State.scaleFactor）。
+    float scale = UISystem::GetScaleFactor();
     DrawOverlay(astroComp, scale);
 
     // Layer 4: Tooltips
@@ -458,7 +467,8 @@ void AstrolabeController::EmitSupernova(const AstrolabeTalentNode& node) {
 }
 
 void AstrolabeController::DrawVowDialog(entt::registry& registry, entt::entity player, const ProfessionStar& star) {
-    float scale = UISystem::State.scaleFactor;
+    // U8 收尾: scaleFactor 经 UISystem 查询（原 State.scaleFactor）。
+    float scale = UISystem::GetScaleFactor();
     Font font = UISystem::GetFont();
     float dt = GetFrameTime();
     float screenWidth = (float)GetScreenWidth();

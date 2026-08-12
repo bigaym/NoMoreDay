@@ -1,10 +1,11 @@
 #include "game/application/ui/TooltipController.hpp"
 
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UIRenderer.hpp"
 #include "game/application/ui/UISystem.hpp"
+#include "game/application/ui/WorldUiFrame.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
-#include "game/foundation/ui_shared/UiShared.hpp"
 
 #include "raylib.h"
 
@@ -18,6 +19,7 @@ void TooltipController::ResetFrame() noexcept {
   m_hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
   m_hoveredItem = entt::null;
   m_hoveredBuffIdx = -1;
+  m_groundHover = entt::null;
 }
 
 void TooltipController::SetHoveredSkillSlot(int slotIndex) noexcept {
@@ -36,6 +38,52 @@ void TooltipController::SetHoveredItem(entt::entity item) noexcept {
   m_hoveredItem = item;
 }
 
+void TooltipController::BindHost(GameUiHost *uiHost) noexcept {
+  m_uiHost = uiHost;
+}
+
+void TooltipController::BindWorldFrame(WorldUiFrame *frame) noexcept {
+  m_frame = frame;
+}
+
+void TooltipController::SetGroundHover(entt::entity entity) noexcept {
+  m_groundHover = entity;
+}
+
+void TooltipController::ClearGroundHover() noexcept {
+  m_groundHover = entt::null;
+}
+
+void TooltipController::DetectGroundHover(entt::registry &registry,
+                                          const Camera2D &camera) {
+  // Ground hover detection migrated out of UISystem::Draw (U8 host read-side
+  // migration; was UISystem::Draw section 3). Read-only: resolves the
+  // mouse-over visible ground item against the frame-scoped WorldUiFrame and
+  // feeds the hit through the existing tooltip hover channel. Runs before the
+  // legacy UISystem::Draw pass; the detection only depends on the frame /
+  // mouse / camera / modal gate, never on hotbar frame state, so the early
+  // position is behaviour-equivalent.
+  if (m_frame == nullptr) {
+    return; // Frame not bound: no visible item proxies to test against.
+  }
+  // U8 收尾: modal-input gate 经 host 实例查询（原 UISystem::IsModalInputCaptured）。
+  if (m_uiHost != nullptr && m_uiHost->IsModalInputCaptured()) {
+    return; // Modal UI captures pointer input, matching the legacy gate.
+  }
+
+  const Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
+
+  // Iterate ONLY visible items (already culled by RenderSystem). First hit is
+  // the top-most item, mirroring the legacy loop.
+  for (const auto &itemData : m_frame->VisibleItems()) {
+    if (CheckCollisionPointRec(mouseWorldPos, itemData.worldRect)) {
+      SetGroundHover(itemData.entity);
+      SetHoveredItem(itemData.entity); // Reuse the existing tooltip hover channel.
+      break;
+    }
+  }
+}
+
 void TooltipController::UpdateState(entt::registry& registry) {
   UpdateState(registry, GetFrameTime());
 }
@@ -43,25 +91,38 @@ void TooltipController::UpdateState(entt::registry& registry) {
 void TooltipController::UpdateState(entt::registry& registry,
                                     float deltaSeconds) {
   // Resolve the hover input with the original priority order (item > skill id
-  // > hotbar slot > buff index). Item and direct skill-id hover keep their
-  // legacy live sources (UiShared::HoveredItem / UISystem::State.hoveredSkillId
-  // written by the skill hub and talent tree); the hotbar slot and buff-strip
-  // hovers arrive through the per-frame cache. The slot hover is resolved
-  // against ActiveSkillsComponent at state-machine time, exactly like the
-  // original inline block.
+  // > hotbar slot > buff index). Item hover comes from the per-frame cache
+  // (SetHoveredItem; the U8 ground path feeds it through DetectGroundHover)
+  // with the frame-scoped ground hover as the fallback source; direct
+  // skill-id hover keeps its legacy live source
+  // (UISystem::State.hoveredSkillId written by the skill hub and talent
+  // tree); the hotbar slot and buff-strip hovers arrive through the per-frame
+  // cache. The slot hover is resolved against ActiveSkillsComponent at
+  // state-machine time, exactly like the original inline block.
   uint32_t hoverSkillId = NoMoreDay::INVALID_SKILL_ID;
   entt::entity hoverItem = entt::null;
   int hoverBuffIdx = -1;
 
   const entt::entity item = (m_hoveredItem != entt::null)
                                 ? m_hoveredItem
-                                : UiShared::HoveredItem();
+                                : m_groundHover;
+  // U8: mirror the resolved hover onto the frame object for the render-side
+  // highlight. The render adapter reads the previous frame's write (its
+  // UIWorldPass runs before Draw), matching the legacy UiShared::HoveredItem
+  // timing (design §4.1 direction contract: UI writes, render reads).
+  if (m_frame != nullptr) {
+    if (item != entt::null) {
+      m_frame->SetHovered(item);
+    } else {
+      m_frame->ClearHovered();
+    }
+  }
   if (item != entt::null && registry.valid(item)) {
     hoverItem = item;
   } else {
-    const uint32_t skillId = (m_hoveredSkillId != NoMoreDay::INVALID_SKILL_ID)
-                                 ? m_hoveredSkillId
-                                 : UISystem::State.hoveredSkillId;
+    // U8 收尾: skill-hub / talent-tree hovers 已改经 SetHoveredSkill 写缓存，
+    // 原 UISystem::State.hoveredSkillId fallback 已删。
+    const uint32_t skillId = m_hoveredSkillId;
     if (skillId != NoMoreDay::INVALID_SKILL_ID) {
       hoverSkillId = skillId;
     } else if (m_hoveredSkillSlot != -1) {
@@ -121,8 +182,6 @@ void TooltipController::UpdateState(entt::registry& registry,
     }
   }
   m_tooltipHoveredLastFrame = isAnythingHovered;
-
-  MirrorToState();
 }
 
 void TooltipController::DrawTooltip(entt::registry& registry) {
@@ -135,8 +194,11 @@ void TooltipController::DrawTooltip(entt::registry& registry) {
     UIRenderer::DrawTooltip(UISystem::GetFont(), registry, m_activeTooltipItem,
                             m_tooltipAlpha);
   } else if (m_activeTooltipSkillId != NoMoreDay::INVALID_SKILL_ID) {
+    // U8 收尾: forceDraw = !locked 让技能 tooltip 在 hover 目标切换时重置
+    // 位置锁定（UIRenderer 内 renderer-local 锁定，原 State.tooltipPos）。
     UIRenderer::DrawSkillTooltip(UISystem::GetFont(), registry,
-                                 m_activeTooltipSkillId, m_tooltipAlpha);
+                                 m_activeTooltipSkillId, m_tooltipAlpha,
+                                 !m_tooltipInitialized);
   } else if (m_activeTooltipBuffIdx != -1) {
     auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
     if (view.begin() != view.end()) {
@@ -163,18 +225,6 @@ void TooltipController::ResetAll() noexcept {
   m_tooltipDelayTimer = 0.0f;
   m_tooltipInitialized = false;
   m_tooltipHoveredLastFrame = false;
-  MirrorToState();
-}
-
-void TooltipController::MirrorToState() noexcept {
-  auto &state = UISystem::State;
-  state.activeTooltipSkillId = m_activeTooltipSkillId;
-  state.activeTooltipItem = m_activeTooltipItem;
-  state.activeTooltipBuffIdx = m_activeTooltipBuffIdx;
-  state.tooltipAlpha = m_tooltipAlpha;
-  state.tooltipDelayTimer = m_tooltipDelayTimer;
-  state.tooltipInitialized = m_tooltipInitialized;
-  state.tooltipHoveredLastFrame = m_tooltipHoveredLastFrame;
 }
 
 } // namespace NoMoreDay::ui

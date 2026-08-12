@@ -30,8 +30,8 @@ OverlayController::OverlayController(UiRuntime& runtime) : m_runtime(runtime) {
   desc.customPainter = kInvalidUiResourceId;
   if (m_runtime.CreateNode(desc)) {
     m_rootNodeId = desc.id;
-    // Placeholder node only: the overlays still render through the legacy
-    // mirrors during the U7 transition, so the node stays hidden until U8.
+    // Placeholder node only: the overlays still render through the
+    // legacy-compatible draw pass, so the node stays hidden.
     (void)m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
 }
@@ -54,12 +54,23 @@ void OverlayController::OpenContextMenu(entt::entity item, bool fromInventory,
   m_isContextFromInventory = fromInventory;
   m_contextSourceInventoryIndex = inventoryIndex;
   m_contextSourceEquipmentSlot = slot;
-  MirrorContextMenuToState();
+  // Item menus are not skill menus; reset the skill-menu markers so a stale
+  // skill context can never leak into an item menu.
+  m_isSkillContext = false;
+  m_contextSourceSkillSlot = -1;
+}
+
+void OverlayController::OpenSkillContextMenu(int skillSlot) {
+  m_contextMenuVisible = true;
+  m_isSkillContext = true;
+  m_contextSourceSkillSlot = skillSlot;
+  m_contextMenuPos = GetMousePosition(); // Screen-space menu position.
+  m_contextMenuItem = entt::null;
+  m_isContextFromInventory = false;
 }
 
 void OverlayController::CloseContextMenu() {
   m_contextMenuVisible = false;
-  MirrorContextMenuToState();
 }
 
 bool OverlayController::IsContextMenuVisible() const noexcept {
@@ -67,52 +78,22 @@ bool OverlayController::IsContextMenuVisible() const noexcept {
 }
 
 void OverlayController::DrawContextMenu(entt::registry& registry) {
-  // Re-adopt visibility each frame: cross-layer writers (UIRenderer
-  // right-click flow, hotbar/skill-tree opens, sibling closes) still toggle
-  // the menu through UISystem::State during the U7 transition.
-  m_contextMenuVisible = UISystem::State.showContextMenu;
   if (!m_contextMenuVisible) {
     return;
   }
-  AdoptContextMenuFromState();
-  UIRenderer::DrawContextMenu(UISystem::State.globalFont, UISystem::State,
-                              registry, 1.0f);
-  // UIRenderer picks menu items (and closes the menu) by writing State
-  // directly; pick the close back up so the visibility flag stays truthful.
-  m_contextMenuVisible = UISystem::State.showContextMenu;
-}
-
-void OverlayController::AdoptContextMenuFromState() {
-  m_contextMenuItem = UISystem::State.contextMenuItem;
-  m_contextMenuPos = UISystem::State.contextMenuPos;
-  m_isContextFromInventory = UISystem::State.isContextFromInventory;
-  m_contextSourceInventoryIndex = UISystem::State.contextSourceInventoryIndex;
-  m_contextSourceEquipmentSlot = UISystem::State.contextSourceEquipmentSlot;
-  m_isSkillContext = UISystem::State.isSkillContext;
-  m_contextSourceSkillSlot = UISystem::State.contextSourceSkillSlot;
-}
-
-void OverlayController::MirrorContextMenuToState() {
-  UISystem::State.showContextMenu = m_contextMenuVisible;
-  UISystem::State.contextMenuItem = m_contextMenuItem;
-  UISystem::State.contextMenuPos = m_contextMenuPos;
-  UISystem::State.isContextFromInventory = m_isContextFromInventory;
-  UISystem::State.contextSourceInventoryIndex = m_contextSourceInventoryIndex;
-  UISystem::State.contextSourceEquipmentSlot = m_contextSourceEquipmentSlot;
-  UISystem::State.isSkillContext = m_isSkillContext;
-  UISystem::State.contextSourceSkillSlot = m_contextSourceSkillSlot;
+  UIRenderer::DrawContextMenu(UISystem::GetFont(), *this, registry, 1.0f);
 }
 
 // --- Quantity popup ---
 
-void OverlayController::OpenQuantityPopup(entt::entity item, int actionType) {
+void OverlayController::OpenQuantityPopup(entt::entity item, int actionType,
+                                          int quantityMax) {
   m_quantityVisible = true;
   m_quantityTargetItem = item;
   m_quantityActionType = actionType;
   m_quantityVal = 1;
-  m_quantityMax = 1;
+  m_quantityMax = std::max(1, quantityMax);
   m_quantityInputBuf[0] = '\0';
-  MirrorQuantityToState();
 }
 
 void OverlayController::CloseQuantityPopup() {
@@ -120,7 +101,6 @@ void OverlayController::CloseQuantityPopup() {
   m_quantityTargetItem = entt::null;
   m_quantityInputBuf[0] = '\0';
   m_isTyping = false;
-  MirrorQuantityToState();
 }
 
 bool OverlayController::IsQuantityPopupVisible() const noexcept {
@@ -128,7 +108,6 @@ bool OverlayController::IsQuantityPopupVisible() const noexcept {
 }
 
 void OverlayController::DrawQuantityPopup(entt::registry& registry) {
-  AdoptQuantityFromState();
   if (!m_quantityVisible) {
     return;
   }
@@ -138,7 +117,6 @@ void OverlayController::DrawQuantityPopup(entt::registry& registry) {
     m_quantityTargetItem = entt::null;
     m_quantityInputBuf[0] = '\0';
     m_isTyping = false;
-    MirrorQuantityToState();
   };
 
   m_isTyping = true;
@@ -256,35 +234,7 @@ void OverlayController::DrawQuantityPopup(entt::registry& registry) {
     closeQuantityPopup();
   } else if (cancelAction) {
     closeQuantityPopup();
-  } else {
-    MirrorQuantityToState();
   }
-}
-
-void OverlayController::AdoptQuantityFromState() {
-  // Legacy writers (UIRenderer drop/destroy menu clicks) still open the popup
-  // by writing UISystem::State directly; re-adopt visibility and data each
-  // frame so the controller stays the single owner of the input/validation
-  // logic during the transition.
-  m_quantityVisible = UISystem::State.showQuantityPopup;
-  m_quantityTargetItem = UISystem::State.quantityTargetItem;
-  m_quantityActionType = UISystem::State.quantityActionType;
-  m_quantityVal = UISystem::State.quantityVal;
-  m_quantityMax = UISystem::State.quantityMax;
-  std::memcpy(m_quantityInputBuf, UISystem::State.quantityInputBuf,
-              sizeof(m_quantityInputBuf));
-  m_isTyping = UISystem::State.isTyping;
-}
-
-void OverlayController::MirrorQuantityToState() {
-  UISystem::State.showQuantityPopup = m_quantityVisible;
-  UISystem::State.quantityTargetItem = m_quantityTargetItem;
-  UISystem::State.quantityActionType = m_quantityActionType;
-  UISystem::State.quantityVal = m_quantityVal;
-  UISystem::State.quantityMax = m_quantityMax;
-  std::memcpy(UISystem::State.quantityInputBuf, m_quantityInputBuf,
-              sizeof(m_quantityInputBuf));
-  UISystem::State.isTyping = m_isTyping;
 }
 
 // --- Message box ---
@@ -293,13 +243,11 @@ void OverlayController::ShowMessageBox(const char* text) {
   utils::FormatToBuffer(m_messageBoxText, "{}", text);
   m_messageBoxTimer = 2.0f;
   m_messageBoxVisible = true;
-  MirrorMessageBoxToState();
 }
 
 void OverlayController::HideMessageBox() {
   m_messageBoxVisible = false;
   m_messageBoxTimer = 0.0f;
-  MirrorMessageBoxToState();
 }
 
 bool OverlayController::IsMessageBoxVisible() const noexcept {
@@ -307,41 +255,21 @@ bool OverlayController::IsMessageBoxVisible() const noexcept {
 }
 
 void OverlayController::UpdateMessageBox() {
-  // The host compatibility bridge (and legacy panels) still open the message
-  // box by writing UISystem::State directly; re-adopt the timer each frame.
-  m_messageBoxVisible = UISystem::State.showMessageBox;
   if (!m_messageBoxVisible) {
     return;
   }
-  AdoptMessageBoxFromState();
   m_messageBoxTimer -= GetFrameTime();
   if (m_messageBoxTimer <= 0.0f) {
     m_messageBoxTimer = 0.0f;
     m_messageBoxVisible = false;
   }
-  MirrorMessageBoxToState();
 }
 
 void OverlayController::DrawMessageBox() {
-  m_messageBoxVisible = UISystem::State.showMessageBox;
   if (!m_messageBoxVisible) {
     return;
   }
-  AdoptMessageBoxFromState();
-  UIRenderer::DrawMessageBox(UISystem::State.globalFont, UISystem::State, 1.0f);
-}
-
-void OverlayController::AdoptMessageBoxFromState() {
-  m_messageBoxTimer = UISystem::State.messageBoxTimer;
-  std::memcpy(m_messageBoxText, UISystem::State.messageBoxText,
-              sizeof(m_messageBoxText));
-}
-
-void OverlayController::MirrorMessageBoxToState() {
-  UISystem::State.showMessageBox = m_messageBoxVisible;
-  std::memcpy(UISystem::State.messageBoxText, m_messageBoxText,
-              sizeof(m_messageBoxText));
-  UISystem::State.messageBoxTimer = m_messageBoxTimer;
+  UIRenderer::DrawMessageBox(UISystem::GetFont(), m_messageBoxText, 1.0f);
 }
 
 // --- Session scoping ---
@@ -375,10 +303,6 @@ void OverlayController::ResetOverlays() {
   m_messageBoxVisible = false;
   m_messageBoxText[0] = '\0';
   m_messageBoxTimer = 0.0f;
-
-  MirrorContextMenuToState();
-  MirrorQuantityToState();
-  MirrorMessageBoxToState();
 }
 
 UiId OverlayController::NodeId() const noexcept {

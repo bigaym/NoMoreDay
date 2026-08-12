@@ -1,7 +1,7 @@
 #include "doctest.h"
 
+#include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/UISkillHub.hpp"
-#include "game/application/ui/UISystem.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
@@ -28,15 +28,12 @@ std::string ReadFileContents(const char* path) {
                      std::istreambuf_iterator<char>());
 }
 
-// Draw early-outs while UISystem::State.skillTreeAlpha <= 0. Raising it lets
-// the legacy draw body run; the previous value is restored afterwards.
+// Draw early-outs while the supplied alpha <= 0. Raising it lets the draw
+// body run; the hub takes the alpha as a parameter (U8: the legacy
+// UISystem::State.skillTreeAlpha slot is gone).
 struct SkillTreeAlphaScoped {
-  explicit SkillTreeAlphaScoped(float alpha)
-      : previous(UISystem::State.skillTreeAlpha) {
-    UISystem::State.skillTreeAlpha = alpha;
-  }
-  ~SkillTreeAlphaScoped() { UISystem::State.skillTreeAlpha = previous; }
-  float previous;
+  explicit SkillTreeAlphaScoped(float alpha) : alpha(alpha) {}
+  float alpha;
 };
 
 // Minimal Blade Ascendant player (profession + level), mirroring the setup in
@@ -56,18 +53,18 @@ TEST_CASE("[Unit] UISkillHub Draw is headless-safe with no valid player") {
   UISkillHub hub;
   entt::registry registry;
 
-  // skillTreeAlpha defaults to 0: Draw early-outs before touching the player.
-  hub.Draw(registry, entt::null);
+  // alpha 0: Draw early-outs before touching the player.
+  hub.Draw(registry, entt::null, 0.0f);
 
   // With the panel visible, Draw reaches the player lookup and early-outs on
   // try_get<ActiveSkillsComponent> == nullptr (entt::null and bare entities
   // must not crash).
   {
-    SkillTreeAlphaScoped alpha(1.0f);
-    hub.Draw(registry, entt::null);
+    const float alpha = 1.0f;
+    hub.Draw(registry, entt::null, alpha);
 
     const entt::entity bare = registry.create();
-    hub.Draw(registry, bare);
+    hub.Draw(registry, bare, alpha);
   }
 }
 
@@ -89,7 +86,7 @@ TEST_CASE("[Unit] UISkillHub Draw renders a minimal player without crashing") {
 
   SkillTreeAlphaScoped alpha(1.0f);
   BeginDrawing();
-  hub.Draw(registry, player);
+  hub.Draw(registry, player, alpha.alpha);
   EndDrawing();
 }
 
@@ -103,7 +100,11 @@ TEST_CASE("[Unit] UISkillHub TrySelectMastery mirrors BladeMasteryService") {
       systems::BladeMasteryService::IsDebugUnlockOverrideEnabled();
   systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(false);
 
+  // U8: the failure box routes through the hosted GameUiHost (the legacy
+  // UISystem::State.showMessageBox write is gone).
+  NoMoreDay::ui::GameUiHost host;
   UISkillHub hub;
+  hub.SetHost(&host);
   entt::registry registry;
 
   // Level 99 Blade Ascendant: SwordSaint (unlock_level 50) is selectable.
@@ -118,8 +119,7 @@ TEST_CASE("[Unit] UISkillHub TrySelectMastery mirrors BladeMasteryService") {
   const entt::entity lowLevel = CreateBladeAscendant(registry, 1);
   CHECK_FALSE(
       hub.TrySelectMastery(registry, lowLevel, BladeMasteryId::SwordSaint));
-  CHECK(UISystem::State.showMessageBox);
-  CHECK(UISystem::State.messageBoxTimer == doctest::Approx(2.0f));
+  CHECK(host.IsMessageBoxVisible());
 
   // No Blade Ascendant profession: reject regardless of level.
   const entt::entity noProfession = registry.create();
@@ -131,10 +131,6 @@ TEST_CASE("[Unit] UISkillHub TrySelectMastery mirrors BladeMasteryService") {
   // Invalid mastery id (no profile in the registry): reject.
   CHECK_FALSE(hub.TrySelectMastery(registry, player, BladeMasteryId::None));
 
-  // Restore shared singletons for other test cases.
-  UISystem::State.showMessageBox = false;
-  UISystem::State.messageBoxTimer = 0.0f;
-  UISystem::State.messageBoxText[0] = '\0';
   systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(
       previousDebugOverride);
 }

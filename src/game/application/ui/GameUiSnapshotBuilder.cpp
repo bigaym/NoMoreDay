@@ -72,8 +72,9 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(const Registry& registry) const {
   // Ground items are queried directly from the registry (ItemComponent +
   // Position), mirroring the semantics of the existing pickup path: the item
   // must be a valid world item within pickup range of the player. This is a
-  // pure read; no static state (UiShared::VisibleItemCache) is touched and
-  // the builder never calls InventorySystem::pickUpItem.
+  // pure read; visible items come from the render write side via the
+  // WorldUiFrame frame object (U8), so no static UI slot is touched, and the
+  // builder never calls InventorySystem::pickUpItem.
   if (hasPlayerPosition) {
     const auto itemView =
         registry.template view<const NoMoreDay::ItemComponent, const Position>();

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/application/ui/UIPanelDragService.hpp"
 #include "game/application/ui/UiRuntime.hpp"
 #include "game/application/ui/UiRuntimeTypes.hpp"
 
@@ -29,12 +30,19 @@ public:
   UICharacterController(const UICharacterController&) = delete;
   UICharacterController& operator=(const UICharacterController&) = delete;
 
-  // Resets session-scoped state (tab, scroll) and shows the panel root node.
+  // Resets session-scoped state (tab, scroll) and hides the panel root node
+  // (a gameplay session starts with the panel closed; KEY_C opens it).
   // Idempotent.
   void EnterGameplay();
 
   // Clears session-scoped state and hides the panel root node. Idempotent.
   void LeaveGameplay();
+
+  // U8: per-frame instance alpha update towards the authoritative visibility
+  // flag (m_visible; host KEY_C/ESC route through SetVisible, so no legacy
+  // State re-adopt remains). Does not draw anything. Called by the host right
+  // after the legacy update.
+  void Update(float dt);
 
   // Draws the character attribute panel for the given player entity. When
   // player is entt::null (or no longer valid), the legacy PlayerTag lookup is
@@ -45,9 +53,7 @@ public:
   void SetVisible(bool visible);
   [[nodiscard]] bool IsVisible() const noexcept;
 
-  // Sets the panel opacity used by Draw (1.0 = fully opaque). Also mirrors
-  // the value into UISystem::State.characterPanelAlpha so legacy consumers of
-  // the static UI context (e.g. gameplay input gating) stay coherent.
+  // Sets the panel opacity used by Draw (1.0 = fully opaque).
   void SetAlpha(float alpha);
   [[nodiscard]] float Alpha() const noexcept;
 
@@ -68,9 +74,18 @@ private:
 
   UiRuntime& m_runtime;
   UiId m_rootNodeId = kInvalidUiId;
-  bool m_visible = true;      // Mirrors the runtime node visibility.
+  // U8: instance visibility (authoritative; host KEY_C/ESC route through
+  // SetVisible). Defaults to false so the panel does not show at startup.
+  bool m_visible = false;
   bool m_inGameplay = false;  // Session state set by Enter/LeaveGameplay.
-  float m_alpha = 1.0f;       // Panel opacity, driven by the host.
+  // U8: panel opacity, animated by Update; starts at 0.0 (matching the legacy
+  // State.characterPanelAlpha) so the render gate never opens at startup.
+  float m_alpha = 0.0f;
+
+  // U8: instance panel-drag state (was UISystem::State.panelStates + the
+  // UISystem::UpdatePanelDrag helper; same pattern as UIStashController).
+  NoMoreDay::PanelState m_panelState;
+  UIPanelID m_activeDragPanel = UIPanelID::None;
 
   // Panel session state (ported from the file-scope statics of the legacy
   // UICharacter.cpp; reset by Enter/LeaveGameplay).

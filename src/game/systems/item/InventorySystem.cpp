@@ -1,7 +1,7 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
-#include "game/foundation/ui_shared/UiShared.hpp"
+#include "game/systems/item/LootGridSystem.hpp"
 #include "game/systems/item/ItemConstants.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp" // ADDED THIS LINE
@@ -16,7 +16,6 @@
 #include <vector>
 #include "game/foundation/SharedContext.hpp"
 #include "game/foundation/components/PlayerState.hpp"
-#include "game/application/ui/UISystem.hpp"
 #include "game/systems/item/ItemEquipValidationService.hpp"
 
 using namespace NoMoreDay;
@@ -111,7 +110,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
 
             LOG_INFO("Material System: Auto-banked '{}' x{} (Total: {})", itemComp->name, itemComp->quantity, newCount);
             registry.destroy(item);
-            UiShared::s_itemGridDirty = true;
+            systems::LootGridSystem::MarkDirty();
             return true;
         }
     }
@@ -151,7 +150,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
                     }
 
                     registry.destroy(item);
-                    UiShared::s_itemGridDirty = true;
+                    systems::LootGridSystem::MarkDirty();
                     return true;
                 }
             }
@@ -230,7 +229,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
     LOG_INFO("背包: 角色 {} 拾取了物品 '{}' ({})",
              (uint32_t)character, itemComp ? itemComp->name : "未知", (uint32_t)item);
 
-    UiShared::s_itemGridDirty = true;
+    systems::LootGridSystem::MarkDirty();
     return true;
 }
 
@@ -267,7 +266,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         registry.emplace<LocalLevelTag>(droppedEntity); // Ensure it's cleaned up on scene change
         registry.emplace<LootTag>(droppedEntity); // Optimization for spatial grid
         registry.emplace<LabelCacheComponent>(droppedEntity); // Pre-calculate for render
-        UiShared::s_itemGridDirty = true;
+        systems::LootGridSystem::MarkDirty();
 
         // 恢复视觉效果 (简单处理：根据类型给颜色，或者复制原实体的 Sprite 如果有)
         if (registry.any_of<SpriteComponent>(item))
@@ -307,7 +306,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         registry.emplace_or_replace<Radius>(item, 15.0f);
         registry.emplace_or_replace<LootTag>(item); // Optimization for spatial grid
         registry.get_or_emplace<LabelCacheComponent>(item).Invalidate(); // Ensure re-render
-        UiShared::s_itemGridDirty = true;
+        systems::LootGridSystem::MarkDirty();
 
         // 恢复视觉效果 (如果之前被移除了)
         if (!registry.any_of<SpriteComponent>(item) && !registry.any_of<ColorComponent>(item))
@@ -372,10 +371,18 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
         if (stats.level < itemComp->itemLevel) {
             LOG_WARN("背包: 无法装备 - 等级不足 (需 Lv.{}, 当前 Lv.{})", itemComp->itemLevel, stats.level);
             
-            UISystem::State.showMessageBox = true;
-            utils::FormatToBuffer(UISystem::State.messageBoxText,
-                                  "等级不足 ({})", itemComp->itemLevel);
-            UISystem::State.messageBoxTimer = 1.5f;
+            // U8: the message box routes through the SharedContext callback
+            // (InventorySystem sits below the UI layer and must not include UI
+            // headers; Game fills the callback with the host message box API).
+            if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
+                auto *shared = registry.ctx().get<NoMoreDay::SharedContext *>();
+                if (shared->showMessageBox) {
+                    char buffer[64] = {0};
+                    utils::FormatToBuffer(buffer, "等级不足 ({})",
+                                          itemComp->itemLevel);
+                    shared->showMessageBox(buffer);
+                }
+            }
             return false;
         }
     }
@@ -1087,7 +1094,7 @@ void InventorySystem::update(entt::registry &registry, float dt)
 
                     LOG_DEBUG("InventorySystem: Picked up {} gold. Total: {}", goldComp.amount, inventory.gold);
                     registry.destroy(goldEntity);
-                    UiShared::s_itemGridDirty = true;
+                    systems::LootGridSystem::MarkDirty();
                 }
                 else
                 {

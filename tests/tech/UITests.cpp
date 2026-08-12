@@ -1,6 +1,8 @@
 #pragma once
 #include "TestCommon.hpp"
 #include "game/application/ui/UISystem.hpp"
+#include "game/application/ui/GameUiHost.hpp"
+#include "game/application/ui/OverlayController.hpp"
 #include "game/application/ui/UIAnimationSystem.hpp"
 #include "game/application/ui/UISkillSpecRenderer.hpp"
 #include "game/foundation/components/UIAnimationComponent.hpp"
@@ -38,26 +40,28 @@ TEST_CASE("[Tech] SkillUI - Drag and Drop Assignment") {
     registry.emplace<PlayerTag>(player);
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
 
-    // Ensure state is clean
-    UISystem::State.isDraggingSkill = true;
-    UISystem::State.draggedSkillId = 1; // Assuming skill 1 exists
-    UISystem::State.scaleFactor = 1.0f;
+    // U8 final: drag state lives in the host-owned UIDragSession (the legacy
+    // UISystem::State drag fields are gone).
+    NoMoreDay::ui::GameUiHost host;
+    auto& drag = host.DragSession();
+    drag.isDraggingSkill = true;
+    drag.draggedSkillId = 1; // Assuming skill 1 exists
 
     // Simulation logic omitted but structure remains for verification
 }
 
 TEST_CASE("[Tech] SkillUI - Context Menu State") {
-    UISystem::State.showContextMenu = false;
-    UISystem::State.isSkillContext = false;
-    
+    // U8 final: the skill context menu state lives in the hosted overlay
+    // controller (the legacy UISystem::State fields are gone).
+    NoMoreDay::ui::UiRuntime runtime;
+    NoMoreDay::ui::OverlayController overlay(runtime);
+
     // Simulate opening context menu
-    UISystem::State.showContextMenu = true;
-    UISystem::State.isSkillContext = true;
-    UISystem::State.contextSourceSkillSlot = 3;
-    
-    CHECK(UISystem::State.showContextMenu == true);
-    CHECK(UISystem::State.isSkillContext == true);
-    CHECK(UISystem::State.contextSourceSkillSlot == 3);
+    overlay.OpenSkillContextMenu(3);
+
+    CHECK(overlay.IsContextMenuVisible() == true);
+    CHECK(overlay.IsSkillContext() == true);
+    CHECK(overlay.ContextSourceSkillSlot() == 3);
 }
 
 TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope uses exactly one pair") {
@@ -278,9 +282,9 @@ TEST_CASE("[Tech] InventoryUI - button text uses shared emoji fallback path") {
 TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags through transactional swap path") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/game/application/ui/UIInventory.cpp"),
-        fs::path("../src/game/application/ui/UIInventory.cpp"),
-        fs::path("../../src/game/application/ui/UIInventory.cpp")
+        fs::path("src/game/application/ui/UIInventoryController.cpp"),
+        fs::path("../src/game/application/ui/UIInventoryController.cpp"),
+        fs::path("../../src/game/application/ui/UIInventoryController.cpp")
     };
 
     std::string source;
@@ -299,10 +303,10 @@ TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags thr
 
     REQUIRE(!source.empty());
 
-    const size_t equipDropPos = source.find("if (allowInventoryInput && !handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null)");
+    const size_t equipDropPos = source.find("if (allowInventoryInput && !handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && drag.draggedItem != entt::null)");
     REQUIRE(equipDropPos != std::string::npos);
 
-    const size_t inventoryBranchPos = source.find("UISystem::State.isDraggingFromInventory", equipDropPos);
+    const size_t inventoryBranchPos = source.find("drag.isDraggingFromInventory", equipDropPos);
     const size_t swapApiPos = source.find("InventorySystem::swapInventoryItemIntoEquipment(", equipDropPos);
     const size_t genericEquipPos = source.find("InventorySystem::equipItem(", equipDropPos);
 
@@ -335,10 +339,12 @@ TEST_CASE("[Tech] InventoryUI - gameplay fallback does not clear drags while inv
 
     REQUIRE(!source.empty());
 
-    const size_t cleanupPos = source.find("UISystem::DrawDraggingPhantom(registry);");
+    const size_t cleanupPos = source.find("m_uiHost->DrawDraggingPhantom(registry);");
     REQUIRE(cleanupPos != std::string::npos);
 
-    const size_t releaseGuardPos = source.find("if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && !UISystem::State.showInventory)", cleanupPos);
+    // The repo sources are CRLF-terminated, so the source-text needle must
+    // use \r\n to match the actual file bytes.
+    const size_t releaseGuardPos = source.find("if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) &&\r\n      !m_uiHost->IsInventoryVisible())", cleanupPos);
 
     CHECK(releaseGuardPos != std::string::npos);
 }
@@ -515,7 +521,6 @@ TEST_CASE("[Tech] SkillUI - Persistence of Assignments") {
 
 TEST_CASE("[Tech] SkillUI - Mastery Panel Draw Does Not Crash") {
     entt::registry registry;
-    UISystem::State.scaleFactor = 1.0f;
 
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
@@ -541,9 +546,12 @@ TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
     REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
         "assets/data/blade_masteries.json"));
 
-    UISystem::State.showMessageBox = false;
-    UISystem::State.messageBoxText[0] = '\0';
-    UISystem::State.messageBoxTimer = 0.0f;
+    // U8 final: the popup surfaces through the hosted message box channel
+    // (the legacy UISystem::State.showMessageBox fields are gone). The hub
+    // needs the host back-pointer to route the failure.
+    NoMoreDay::ui::GameUiHost host;
+    NoMoreDay::UISkillHub hub;
+    hub.SetHost(&host);
 
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
@@ -552,13 +560,11 @@ TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
     auto& stats = registry.emplace<PlayerStats>(player);
     stats.level = 12;
 
-    NoMoreDay::UISkillHub hub;
     CHECK_FALSE(hub.TrySelectMastery(registry, player,
                                      BladeMasteryId::SwordSaint));
-    CHECK(UISystem::State.showMessageBox);
-    CHECK(std::string(UISystem::State.messageBoxText) ==
+    CHECK(host.IsMessageBoxVisible());
+    CHECK(std::string(host.MessageBoxText()) ==
           "等级或基础职业不满足职业专精条件");
-    CHECK(UISystem::State.messageBoxTimer > 0.0f);
 }
 
 TEST_CASE("[Tech] MonsterHealthBar - Visibility and Buffs") {
@@ -606,8 +612,8 @@ TEST_CASE("[Tech] MonsterHealthBar - Visibility and Buffs") {
 TEST_CASE("[Tech] PlayerHUD - Render Logic") {
     entt::registry registry;
     
-    // Setup UISystem state scale
-    UISystem::State.scaleFactor = 1.0f;
+    // U8 final: scale comes from UISystem::GetScaleFactor() (UIRenderer
+    // internal scale) with a safe default; no State field to preset.
 
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);

@@ -112,7 +112,7 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
     float targetIntensity = (currentStacks >= maxStacks) ? 1.0f : 0.0f;
     m_glowIntensity = Lerp(m_glowIntensity, targetIntensity, dt * 3.0f);
 
-    float scale = UISystem::State.scaleFactor;
+    float scale = UISystem::GetScaleFactor();
     
     // Config
     float spacing = 30.0f;  // Increased logic spacing
