@@ -253,6 +253,13 @@ void GameUiHost::Update(entt::registry &registry,
   uiInput.pointer.pressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
   uiInput.pointer.released = IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
   uiInput.pointer.pressedRight = IsMouseButtonPressed(MOUSE_RIGHT_BUTTON);
+  // R8: sustained button state + wheel delta must reach the UiInputFrame
+  // consumers (astrolabe camera pan/zoom, talent-tree pan/zoom, vow
+  // hold-to-confirm) — they read pointer.down/rightDown/mouseWheel instead of
+  // touching raylib inside Update.
+  uiInput.pointer.down = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+  uiInput.pointer.rightDown = IsMouseButtonDown(MOUSE_RIGHT_BUTTON);
+  uiInput.pointer.mouseWheel = GetMouseWheelMove();
   uiInput.deltaSeconds = dt;
   // R4: the runtime tooltip controller stays unused until the tooltip surface
   // migrates (R6/R8); no target is fed this frame.
@@ -302,6 +309,13 @@ void GameUiHost::Update(entt::registry &registry,
   // Skill tree alpha animation (was the legacy UISystem::Update alpha block;
   // inventory/character alphas animate in their controllers below).
   m_skillTree.UpdateAlpha(dt);
+
+  // U7 group 4: the skill tree interaction phase (hub/talent-tree input +
+  // frame-scoped paint-state capture). R8 moved the hub canvas behind a
+  // registered backend painter that reads m_paint.snapshot; without this call
+  // the painter's snapshot stays null and the tree renders nothing while its
+  // visible flag still blocks gameplay input (modal capture).
+  m_skillTree.Update(m_snapshot, uiInput);
 
   // 1. Global Hotkeys
 

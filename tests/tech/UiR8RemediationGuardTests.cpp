@@ -252,3 +252,38 @@ TEST_CASE("[Tech] R8 - the skill-tree controller takes no registry and closes "
                     std::string::npos,
                 "the draw-list paint entry must exist");
 }
+
+TEST_CASE("[Tech] R8 - the host drives the skill-tree interaction phase every "
+          "frame (B-01)") {
+  // BUG: the host never called SkillTreeController::Update, so the hub/talent
+  // tree painters captured no snapshot (m_paint.snapshot stayed null), the
+  // tree rendered nothing while its visible flag still blocked gameplay input.
+  // The host Update must feed the controller Update(snapshot, input) every
+  // frame, like the other migrated panels (stash/astrolabe/crafting).
+  const std::string source =
+      ReadSource("src/game/application/ui/GameUiHost.cpp");
+  REQUIRE_MESSAGE(!source.empty(), "GameUiHost.cpp not found");
+  CHECK_MESSAGE(source.find("m_skillTree.Update(m_snapshot, uiInput)") !=
+                    std::string::npos,
+                "the host must drive the skill-tree Update(snapshot, input)");
+}
+
+TEST_CASE("[Tech] R8 - the host frame input carries sustained buttons and "
+          "wheel (B-01)") {
+  // BUG: the UiInputFrame builder only populated pressed/released/pressedRight
+  // edges. The astrolabe camera pan/zoom, the talent-tree pan/zoom and the vow
+  // hold-to-confirm all read pointer.down/rightDown/mouseWheel, which stayed
+  // at their defaults — the N panel could no longer be panned or zoomed.
+  const std::string source =
+      ReadSource("src/game/application/ui/GameUiHost.cpp");
+  REQUIRE_MESSAGE(!source.empty(), "GameUiHost.cpp not found");
+  CHECK_MESSAGE(source.find("uiInput.pointer.down = IsMouseButtonDown(") !=
+                    std::string::npos,
+                "the frame input must carry the held left-button state");
+  CHECK_MESSAGE(source.find("uiInput.pointer.rightDown = IsMouseButtonDown(") !=
+                    std::string::npos,
+                "the frame input must carry the held right-button state");
+  CHECK_MESSAGE(source.find("uiInput.pointer.mouseWheel = GetMouseWheelMove();") !=
+                    std::string::npos,
+                "the frame input must carry the wheel delta");
+}
