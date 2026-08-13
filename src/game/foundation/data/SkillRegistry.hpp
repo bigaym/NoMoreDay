@@ -36,6 +36,13 @@ class SkillRegistry {
 public:
   static SkillRegistry &Get();
 
+  /// @brief Resets loaded skill slots that reference skills missing from the
+  /// registry (e.g. unknown/injected ids from older saves). Slots with
+  /// skill_id == 0 (empty active slot / basic attack) are preserved.
+  /// Specialized slots are reset to their default empty state
+  /// (INVALID_SKILL_ID sentinel) including cleared talent allocation.
+  static void SanitizeLoadedSkillSlots(ActiveSkillsComponent &active);
+
   void LoadFromJson(const std::string &path);
   const SkillData *GetSkill(uint32_t id) const;
   const SkillTreeDefinition *GetSkillTree(uint32_t skill_id) const;

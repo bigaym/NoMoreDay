@@ -604,6 +604,7 @@ void SkillTreeUI::UpdateInput(const GameUiSnapshot& snapshot,
         m_viewZoom = 1.0f;
         m_lastSkillId = skillId;
         m_layoutEditMode = false;
+        m_layoutDirty = false; // Skill switch exits edit mode without writing.
         m_draggingNodeId = 0;
     }
 
@@ -644,10 +645,22 @@ void SkillTreeUI::UpdateInput(const GameUiSnapshot& snapshot,
     bool editHover = CheckCollisionPointRec(mouseLogicPos, editRectLogic);
     if (editHover && input.pointer.pressed) {
         if (m_layoutEditMode) {
-            const bool saved = skillRegistry.SaveSkillTreeLayout(skillId);
-            LOG_INFO("Skill tree layout save for skill {}: {}", skillId,
-                     saved ? "success" : "failed");
+            // R8 design ruling: layout editing is panel-local state kept in
+            // controllers (GameUiIntent.hpp contract, hence no intent kind),
+            // persisted to the SkillRegistry JSON here. TODO: move audit /
+            // rollback / migration to a host-level file write service.
+            if (m_layoutDirty) {
+                const bool saved = skillRegistry.SaveSkillTreeLayout(skillId);
+                if (saved) {
+                    m_layoutDirty = false;
+                } else {
+                    LOG_WARN("Failed to save skill tree layout for skill {}",
+                             skillId);
+                }
+            }
             m_draggingNodeId = 0;
+        } else {
+            m_layoutDirty = false; // Fresh edit session on entry.
         }
         m_layoutEditMode = !m_layoutEditMode;
     }
@@ -741,6 +754,7 @@ void SkillTreeUI::UpdateInput(const GameUiSnapshot& snapshot,
             auto& dragged = mutableTree->nodes.at(m_draggingNodeId);
             dragged.x = mouseTreePos.x + m_dragNodeOffset.x;
             dragged.y = mouseTreePos.y + m_dragNodeOffset.y;
+            m_layoutDirty = true; // Node position actually changed.
         }
         if (input.pointer.released) {
             m_draggingNodeId = 0;

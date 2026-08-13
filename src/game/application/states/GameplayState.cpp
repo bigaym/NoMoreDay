@@ -1109,8 +1109,7 @@ void GameplayState::OnRender() {
       NoMoreDay::utils::ScopedTimer timer("Render Minimap", 10);
       // U7 group 1: minimap routes through the host controller (U8 final:
       // the legacy static panel and its null-host fallback are removed).
-      m_uiHost->DrawMinimap(registry, *m_context->levelManager,
-                            &m_spatialGrid);
+      m_uiHost->DrawMinimap(*m_context->levelManager, &m_spatialGrid);
   }
   
   // U8 final: the character panel render gate reads the hosted controller

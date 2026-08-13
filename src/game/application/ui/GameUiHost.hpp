@@ -127,7 +127,7 @@ public:
   // U7 group 1: panel routes. GameplayState calls these at the original
   // legacy call positions so the native UI render order is unchanged; the
   // legacy static panels remain only as fallbacks for the null-host path.
-  void DrawMinimap(entt::registry &registry, const LevelManager &levelManager,
+  void DrawMinimap(const LevelManager &levelManager,
                    NoMoreDay::systems::SpatialHashGrid *grid = nullptr);
   void DrawHud(entt::registry &registry);
   // U8 final: the drag phantom + top-most tooltip pass (was

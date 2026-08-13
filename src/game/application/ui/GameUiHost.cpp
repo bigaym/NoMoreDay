@@ -737,16 +737,12 @@ void GameUiHost::Draw(const LevelManager &levelManager,
   m_backend.Render(m_viewport, m_drawList);
 }
 
-void GameUiHost::DrawMinimap(entt::registry &registry,
-                             const LevelManager &levelManager,
+void GameUiHost::DrawMinimap(const LevelManager &levelManager,
                              NoMoreDay::systems::SpatialHashGrid *grid) {
   // R5: minimap is a snapshot-only paint (design §3.4 Hud layer). Update keeps
   // the fog-texture maintenance (retained GPU resource driven by the world's
   // LevelManager — not the ECS registry) and resolves the overlay markers from
   // the frame snapshot; Paint emits the draw-list commands in PrepareRender.
-  // The registry argument is retained for the public API contract; the
-  // controller no longer reads it.
-  (void)registry;
   m_minimap.Update(m_snapshot, levelManager, grid, GetFrameTime());
   // R5: keep the backend's registered handle for the controller-owned minimap
   // texture in sync (the texture is recreated when the fog grid resizes).

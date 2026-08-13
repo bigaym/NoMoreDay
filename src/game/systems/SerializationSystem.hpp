@@ -16,6 +16,7 @@
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/PlayerState.hpp"
@@ -242,6 +243,11 @@ public:
             TryDeserialize<NoMoreDay::AstrolabeComponent>(registry, entity, entityJson, "Astrolabe");
             TryDeserialize<DashComponent>(registry, entity, entityJson, "Dash");
             TryDeserialize<NoMoreDay::ActiveSkillsComponent>(registry, entity, entityJson, "ActiveSkills");
+            // 旧存档可能注入未知 skill_id（如 test_power）：读档后清除无效槽位，
+            // 避免后续技能系统查询到悬空技能指针。空槽哨兵（id==0 / INVALID_SKILL_ID）不受影响。
+            if (auto *active = registry.try_get<NoMoreDay::ActiveSkillsComponent>(entity)) {
+                NoMoreDay::SkillRegistry::Get().SanitizeLoadedSkillSlots(*active);
+            }
             TryDeserialize<NoMoreDay::ActiveEffectsComponent>(registry, entity, entityJson, "ActiveEffects");
             TryDeserialize<NoMoreDay::MaterialBankComponent>(registry, entity, entityJson, "MaterialBank");
             

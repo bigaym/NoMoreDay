@@ -8,6 +8,7 @@
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 
 #include <entt/entt.hpp>
 #include <cstdint>
@@ -174,4 +175,69 @@ TEST_CASE("[Unit] GameUiSnapshot - player without optional components keeps defa
   CHECK(snapshot.player.inventoryUsed == 0);
   CHECK(snapshot.player.inventoryCapacity == 0);
   CHECK(snapshot.pickups.empty());
+}
+
+TEST_CASE("[Unit] GameUiSnapshot - all-empty skill slots yield empty skill bar views") {
+  entt::registry registry;
+
+  const entt::entity player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  // Default-constructed ActiveSkillsComponent: every slot has id == 0 and every
+  // specialized slot has skill_id == INVALID_SKILL_ID (the empty sentinels).
+  registry.emplace<ActiveSkillsComponent>(player);
+
+  NoMoreDay::ui::GameUiSnapshotBuilder builder;
+  const NoMoreDay::ui::GameUiSnapshot snapshot = builder.Build(registry);
+
+  REQUIRE(snapshot.player.hasPlayer);
+  // No non-empty skill slot: the bar view must not expose any slot.
+  CHECK(snapshot.skillBar.slots.empty());
+  CHECK(snapshot.skillBar.availableTalentPoints == 0);
+  // No learned skills are reported for all-empty slots.
+  CHECK(snapshot.skillTree.skills.empty());
+  CHECK(snapshot.skillTree.availableTalentPoints == 0);
+  // Every specialized slot view stays at its default value.
+  for (const auto& specialized : snapshot.skillTree.specializedSlots) {
+    CHECK(specialized.skillId == NoMoreDay::ui::kInvalidSkillId);
+    CHECK(specialized.level == 0);
+    CHECK(specialized.iconAssetId == 0);
+    CHECK(specialized.allocatedPoints.empty());
+  }
+}
+
+TEST_CASE("[Unit] GameUiSnapshot - skill bar keeps only non-empty slots in source order") {
+  entt::registry registry;
+
+  const entt::entity player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  auto& active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 2001;
+  active.slots[0].cooldown = 1.5f;
+  active.slots[0].current_charges = 2;
+  // slots[1] intentionally left as the default empty sentinel (id == 0).
+  active.slots[3].id = 2003;
+  active.slots[3].cooldown = 0.75f;
+  active.slots[3].current_charges = 1;
+
+  NoMoreDay::ui::GameUiSnapshotBuilder builder;
+  const NoMoreDay::ui::GameUiSnapshot snapshot = builder.Build(registry);
+
+  // Only the two non-empty slots are exposed, in ascending source order.
+  REQUIRE(snapshot.skillBar.slots.size() == 2);
+  CHECK(snapshot.skillBar.slots[0].slotIndex == 0);
+  CHECK(snapshot.skillBar.slots[0].skillId == 2001);
+  CHECK(snapshot.skillBar.slots[0].cooldown == doctest::Approx(1.5f));
+  CHECK(snapshot.skillBar.slots[0].currentCharges == 2);
+  CHECK(snapshot.skillBar.slots[1].slotIndex == 3);
+  CHECK(snapshot.skillBar.slots[1].skillId == 2003);
+  CHECK(snapshot.skillBar.slots[1].cooldown == doctest::Approx(0.75f));
+  CHECK(snapshot.skillBar.slots[1].currentCharges == 1);
+  // Views must be ordered by ascending source slot index.
+  CHECK(snapshot.skillBar.slots[0].slotIndex < snapshot.skillBar.slots[1].slotIndex);
+  // Learned-skill views mirror the same non-empty slots only.
+  REQUIRE(snapshot.skillTree.skills.size() == 2);
+  CHECK(snapshot.skillTree.skills[0].skillId == 2001);
+  CHECK(snapshot.skillTree.skills[1].skillId == 2003);
 }

@@ -738,6 +738,21 @@ const SkillData *SkillRegistry::GetSkill(uint32_t id) const {
   return nullptr;
 }
 
+void SkillRegistry::SanitizeLoadedSkillSlots(ActiveSkillsComponent &active) {
+  // 空槽哨兵：SkillSlot id == 0（空/普攻）；SpecializedSkill skill_id ==
+  // INVALID_SKILL_ID（空专精槽，见 BUG-20260305-001 裁决）。
+  for (auto &slot : active.slots) {
+    if (slot.id != 0 && Get().GetSkill(slot.id) == nullptr) {
+      slot = SkillSlot{};
+    }
+  }
+  for (auto &slot : active.specialized_slots) {
+    if (slot.skill_id != 0 && Get().GetSkill(slot.skill_id) == nullptr) {
+      slot = SpecializedSkill{};
+    }
+  }
+}
+
 const SkillTreeDefinition *
 SkillRegistry::GetSkillTree(uint32_t skill_id) const {
   auto it = skill_trees_.find(skill_id);

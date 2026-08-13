@@ -102,6 +102,7 @@ private:
     bool m_layoutEditMode = false;
     uint32_t m_draggingNodeId = 0;
     Vec2 m_dragNodeOffset = { 0, 0 };
+    bool m_layoutDirty = false; // Edit-mode save gate: set when a drag moved a node.
     ui::TooltipController* m_tooltip = nullptr; // Hover channel (U8).
     uint32_t m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // View reset (U8).
 
