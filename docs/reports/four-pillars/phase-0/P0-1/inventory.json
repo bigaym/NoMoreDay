@@ -1,10 +1,10 @@
 {
-  "generated_at_utc": "2026-03-02T15:52:46+00:00",
-  "repo_root": "F:\\NoMoreDay",
+  "generated_at_utc": "2026-08-13T02:01:54+00:00",
+  "repo_root": "D:\\PRJ\\NoMoreDay",
   "scan_root": "src",
-  "scanned_files": 476,
-  "files_with_matches": 71,
-  "total_matches": 222,
+  "scanned_files": 640,
+  "files_with_matches": 31,
+  "total_matches": 133,
   "markers": [
     "v2",
     "v3",
@@ -15,23 +15,20 @@
     "fallback"
   ],
   "marker_counts": {
-    "deprecated": 7,
-    "fallback": 118,
-    "legacy": 14,
-    "v2": 4,
-    "v3": 63,
-    "v4": 8,
-    "v5": 8
+    "deprecated": 2,
+    "fallback": 72,
+    "legacy": 3,
+    "v2": 3,
+    "v3": 53
   },
   "classification_counts": {
-    "metadata_only": 2,
-    "migration_path_dependent": 86,
-    "removable_runtime_branch": 134
+    "migration_path_dependent": 57,
+    "removable_runtime_branch": 76
   },
   "hotspots": [
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
-      "match_count": 51
+      "match_count": 49
     },
     {
       "file": "src/engine/vfx/VFXSequenceManager.cpp",
@@ -42,34 +39,6 @@
       "match_count": 11
     },
     {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "match_count": 7
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "match_count": 6
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "match_count": 6
-    },
-    {
-      "file": "src/engine/render/RenderSystem.cpp",
-      "match_count": 6
-    },
-    {
-      "file": "src/game/systems/item/ItemFactory.cpp",
-      "match_count": 5
-    },
-    {
-      "file": "src/game/systems/skill/SkillSystem.cpp",
-      "match_count": 5
-    },
-    {
-      "file": "src/game/systems/ui/UIMinimap.cpp",
-      "match_count": 5
-    },
-    {
       "file": "src/engine/render/GPUSkillEffectSystem.cpp",
       "match_count": 5
     },
@@ -78,199 +47,67 @@
       "match_count": 4
     },
     {
-      "file": "src/engine/render/RenderConstants.hpp",
+      "file": "src/engine/render/RenderSystem.cpp",
       "match_count": 4
-    },
-    {
-      "file": "src/engine/vfx/VFXSequenceManager.hpp",
-      "match_count": 4
-    },
-    {
-      "file": "src/engine/vfx/VFXSequencerSystem.cpp",
-      "match_count": 4
-    },
-    {
-      "file": "src/game/data/BiomeRegistry.cpp",
-      "match_count": 3
-    },
-    {
-      "file": "src/game/utils/MonsterScaling.cpp",
-      "match_count": 3
     },
     {
       "file": "src/game/systems/combat/AilmentEngine.cpp",
       "match_count": 3
     },
     {
-      "file": "src/game/systems/nemesis/NemesisGenerator.cpp",
+      "file": "src/game/systems/vfx/VFXSequencerSystem.cpp",
       "match_count": 3
     },
     {
-      "file": "src/engine/render/GPUEntitySystem.cpp",
+      "file": "src/game/foundation/data/BiomeRegistry.cpp",
       "match_count": 3
+    },
+    {
+      "file": "src/game/application/ui/MinimapController.cpp",
+      "match_count": 3
+    },
+    {
+      "file": "src/engine/render/passes/LightCullingPass.cpp",
+      "match_count": 3
+    },
+    {
+      "file": "src/game/systems/skill/SkillSystem.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/game/foundation/data/SkillRegistry.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/game/application/states/SettingsState.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/game/application/ui/CMakeLists.txt",
+      "match_count": 2
+    },
+    {
+      "file": "src/game/application/ui/UISystem.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/engine/render/MDIRenderer.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/engine/render/passes/FluidSimulationPass.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/engine/render/passes/JFAPass.cpp",
+      "match_count": 2
+    },
+    {
+      "file": "src/engine/render/passes/PostProcessPass.cpp",
+      "match_count": 2
     }
   ],
   "matches": [
-    {
-      "file": "src/app/Settings.hpp",
-      "marker": "fallback",
-      "line": 122,
-      "column": 20,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback to defaults on error"
-    },
-    {
-      "file": "src/game/data/BiomeRegistry.cpp",
-      "marker": "fallback",
-      "line": 20,
-      "column": 59,
-      "classification": "removable_runtime_branch",
-      "excerpt": "Color ParseColor(const json &item, const char *key, Color fallback) {"
-    },
-    {
-      "file": "src/game/data/BiomeRegistry.cpp",
-      "marker": "fallback",
-      "line": 22,
-      "column": 12,
-      "classification": "removable_runtime_branch",
-      "excerpt": "return fallback;"
-    },
-    {
-      "file": "src/game/data/BiomeRegistry.cpp",
-      "marker": "fallback",
-      "line": 49,
-      "column": 43,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"Unknown biome style '{}', fallback to Open\", style);"
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "marker": "fallback",
-      "line": 80,
-      "column": 34,
-      "classification": "removable_runtime_branch",
-      "excerpt": "uint8_t ClampToU8(int value, int fallback) {"
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "marker": "fallback",
-      "line": 82,
-      "column": 33,
-      "classification": "removable_runtime_branch",
-      "excerpt": "return static_cast<uint8_t>(fallback);"
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "marker": "fallback",
-      "line": 112,
-      "column": 16,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Cycle fallback: keep local offset to avoid deadlock."
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "marker": "fallback",
-      "line": 444,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback: Try converting to lowercase for case-insensitive match"
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "marker": "legacy",
-      "line": 454,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Legacy capitalized names not in kTagInfoTable"
-    },
-    {
-      "file": "src/game/data/SkillRegistry.cpp",
-      "marker": "fallback",
-      "line": 562,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback: If ID 0 (Basic Attack) is requested but not mapped, return a"
-    },
-    {
-      "file": "src/game/states/GameplayState.cpp",
-      "marker": "fallback",
-      "line": 884,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback if map not ready"
-    },
-    {
-      "file": "src/game/states/GameplayState.cpp",
-      "marker": "fallback",
-      "line": 1097,
-      "column": 42,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Cleanup Dragging if mouse released (Fallback if no other state active)"
-    },
-    {
-      "file": "src/game/states/MosaicEditorState.cpp",
-      "marker": "fallback",
-      "line": 705,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback for systems without SceneManager (though unlikely in current architecture)"
-    },
-    {
-      "file": "src/game/states/SettingsState.cpp",
-      "marker": "v3",
-      "line": 205,
-      "column": 36,
-      "classification": "migration_path_dependent",
-      "excerpt": "DrawGraphicsToggleRow(\"V3 Rendering\","
-    },
-    {
-      "file": "src/game/states/SettingsState.cpp",
-      "marker": "v3",
-      "line": 398,
-      "column": 38,
-      "classification": "migration_path_dependent",
-      "excerpt": "LOG_INFO(\"SettingsState: V3 rendering -> {}\", next ? \"ON\" : \"OFF\");"
-    },
-    {
-      "file": "src/game/utils/MonsterScaling.cpp",
-      "marker": "deprecated",
-      "line": 115,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Deprecated or used as helper for Base Area Level determination if needed."
-    },
-    {
-      "file": "src/game/utils/MonsterScaling.cpp",
-      "marker": "fallback",
-      "line": 116,
-      "column": 17,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// \u76ee\u524d\u4fdd\u7559\u4f5c\u4e3a\u7b80\u6613 fallback"
-    },
-    {
-      "file": "src/game/utils/MonsterScaling.cpp",
-      "marker": "fallback",
-      "line": 135,
-      "column": 74,
-      "classification": "removable_runtime_branch",
-      "excerpt": "case EnemyRarityComponent::NEMESIS: return RARITY_HP_NEMESIS; // Fallback if added"
-    },
-    {
-      "file": "src/game/systems/ai/AISystem.cpp",
-      "marker": "fallback",
-      "line": 212,
-      "column": 36,
-      "classification": "removable_runtime_branch",
-      "excerpt": "AIType::PATROL; // Fallback to PATROL if no state component"
-    },
-    {
-      "file": "src/game/systems/ai/AISystem.cpp",
-      "marker": "fallback",
-      "line": 289,
-      "column": 36,
-      "classification": "removable_runtime_branch",
-      "excerpt": "AIType::PATROL; // Fallback to PATROL if no state component"
-    },
     {
       "file": "src/game/systems/combat/AilmentEngine.cpp",
       "marker": "fallback",
@@ -296,36 +133,12 @@
       "excerpt": "LOG_WARN(\"AilmentRegistry: failed to open {}, fallback to builtins.\", path);"
     },
     {
-      "file": "src/game/systems/combat/CombatEvents.hpp",
-      "marker": "legacy",
-      "line": 96,
-      "column": 30,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// keep value/value2 for legacy consumers, add explicit damage payload fields."
-    },
-    {
       "file": "src/game/systems/combat/CombatSystem.hpp",
       "marker": "deprecated",
       "line": 31,
       "column": 7,
       "classification": "migration_path_dependent",
       "excerpt": "[[deprecated(\"Use DamagePipeline::Calculate\")]]"
-    },
-    {
-      "file": "src/game/systems/combat/DamagePipeline.cpp",
-      "marker": "fallback",
-      "line": 1421,
-      "column": 36,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// === Suppressor Check (Fallback) ==="
-    },
-    {
-      "file": "src/game/systems/combat/DamagePopupManager.hpp",
-      "marker": "v4",
-      "line": 43,
-      "column": 12,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V4 GPU text path. String table mapping is provisional and will be"
     },
     {
       "file": "src/game/systems/combat/EndgameModifierContract.cpp",
@@ -336,89 +149,9 @@
       "excerpt": "LOG_WARN(\"EndgameModifierRegistry: failed to open {}, fallback to builtins.\","
     },
     {
-      "file": "src/game/systems/combat/VisualFXSystem.cpp",
-      "marker": "fallback",
-      "line": 114,
-      "column": 51,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// duplicate emissions and to keep quality-tier fallback centralized."
-    },
-    {
-      "file": "src/game/systems/item/ItemFactory.cpp",
-      "marker": "fallback",
-      "line": 507,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback to hardcoded logic"
-    },
-    {
-      "file": "src/game/systems/item/ItemFactory.cpp",
-      "marker": "fallback",
-      "line": 523,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback if not found in definitions (maybe it was from fillAffixDetails)"
-    },
-    {
-      "file": "src/game/systems/item/ItemFactory.cpp",
-      "marker": "fallback",
-      "line": 973,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback or generic visuals for materials etc."
-    },
-    {
-      "file": "src/game/systems/item/ItemFactory.cpp",
-      "marker": "legacy",
-      "line": 1114,
-      "column": 45,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Assign Sprite based on item type/name (Legacy/World)"
-    },
-    {
-      "file": "src/game/systems/item/ItemFactory.cpp",
-      "marker": "fallback",
-      "line": 1125,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback"
-    },
-    {
-      "file": "src/game/systems/item/StashSystem.cpp",
-      "marker": "fallback",
-      "line": 334,
-      "column": 56,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Assuming implicit level or similar, fallback to name"
-    },
-    {
-      "file": "src/game/systems/nemesis/NemesisGenerator.cpp",
-      "marker": "fallback",
-      "line": 203,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback to old stats-based method if no history"
-    },
-    {
-      "file": "src/game/systems/nemesis/NemesisGenerator.cpp",
-      "marker": "fallback",
-      "line": 205,
-      "column": 22,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Stats view as fallback?) For brevity, let's just return None or implement"
-    },
-    {
-      "file": "src/game/systems/nemesis/NemesisGenerator.cpp",
-      "marker": "fallback",
-      "line": 206,
-      "column": 17,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// a simple fallback."
-    },
-    {
       "file": "src/game/systems/skill/SkillSystem.cpp",
       "marker": "fallback",
-      "line": 119,
+      "line": 73,
       "column": 44,
       "classification": "removable_runtime_branch",
       "excerpt": "Vector2 fallback = {0.0f, 0.0f}) {"
@@ -426,127 +159,39 @@
     {
       "file": "src/game/systems/skill/SkillSystem.cpp",
       "marker": "fallback",
-      "line": 121,
+      "line": 75,
       "column": 12,
       "classification": "removable_runtime_branch",
       "excerpt": "return fallback;"
     },
     {
-      "file": "src/game/systems/skill/SkillSystem.cpp",
+      "file": "src/game/systems/vfx/VFXSequencerSystem.cpp",
       "marker": "fallback",
-      "line": 663,
-      "column": 50,
+      "line": 177,
+      "column": 34,
       "classification": "removable_runtime_branch",
-      "excerpt": "// Use cast_id if available, otherwise fallback to skill_id."
+      "excerpt": "Vector2 fallback) {"
     },
     {
-      "file": "src/game/systems/skill/SkillSystem.cpp",
+      "file": "src/game/systems/vfx/VFXSequencerSystem.cpp",
       "marker": "fallback",
-      "line": 1628,
+      "line": 179,
+      "column": 12,
+      "classification": "removable_runtime_branch",
+      "excerpt": "return fallback;"
+    },
+    {
+      "file": "src/game/systems/vfx/VFXSequencerSystem.cpp",
+      "marker": "fallback",
+      "line": 184,
       "column": 10,
       "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback path for missing buff entry: decay locally and exit."
-    },
-    {
-      "file": "src/game/systems/skill/SkillSystem.cpp",
-      "marker": "fallback",
-      "line": 1758,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback: Use current owner stats"
-    },
-    {
-      "file": "src/game/systems/stats/AttributePipeline.cpp",
-      "marker": "v2",
-      "line": 561,
-      "column": 8,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V2 path: evaluate through nodePoints map only."
-    },
-    {
-      "file": "src/game/systems/ui/UICrafting.cpp",
-      "marker": "legacy",
-      "line": 94,
-      "column": 43,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Convert to Screen Space for Drawing (legacy behavior of this file)"
-    },
-    {
-      "file": "src/game/systems/ui/UIInventory.cpp",
-      "marker": "legacy",
-      "line": 113,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Legacy full-window inventory frame removed."
-    },
-    {
-      "file": "src/game/systems/ui/UIMinimap.cpp",
-      "marker": "fallback",
-      "line": 199,
-      "column": 10,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback to full iteration (slow)"
-    },
-    {
-      "file": "src/game/systems/ui/UIMinimap.cpp",
-      "marker": "v2",
-      "line": 313,
-      "column": 17,
-      "classification": "migration_path_dependent",
-      "excerpt": "Vector2 v2 = {center.x + cosf(angle + 2.4f) * arrowSize * 0.6f,"
-    },
-    {
-      "file": "src/game/systems/ui/UIMinimap.cpp",
-      "marker": "v3",
-      "line": 315,
-      "column": 17,
-      "classification": "migration_path_dependent",
-      "excerpt": "Vector2 v3 = {center.x + cosf(angle - 2.4f) * arrowSize * 0.6f,"
-    },
-    {
-      "file": "src/game/systems/ui/UIMinimap.cpp",
-      "marker": "v2",
-      "line": 318,
-      "column": 26,
-      "classification": "migration_path_dependent",
-      "excerpt": "DrawTriangle(v1, v2, v3, theme.success);"
-    },
-    {
-      "file": "src/game/systems/ui/UIMinimap.cpp",
-      "marker": "v3",
-      "line": 318,
-      "column": 30,
-      "classification": "migration_path_dependent",
-      "excerpt": "DrawTriangle(v1, v2, v3, theme.success);"
-    },
-    {
-      "file": "src/game/systems/ui/UISystem.cpp",
-      "marker": "fallback",
-      "line": 100,
-      "column": 42,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_INFO(\"UISystem: Loaded emoji fallback font from '{}'\", emojiPath);"
-    },
-    {
-      "file": "src/game/systems/ui/UISystem.cpp",
-      "marker": "fallback",
-      "line": 105,
-      "column": 31,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"UISystem: Emoji fallback font unavailable, emoji will degrade to '?'\");"
-    },
-    {
-      "file": "src/game/systems/vfx/TrailSystem.cpp",
-      "marker": "fallback",
-      "line": 199,
-      "column": 16,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback angle if first point"
+      "excerpt": "return fallback;"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
       "marker": "fallback",
-      "line": 11,
+      "line": 12,
       "column": 15,
       "classification": "removable_runtime_branch",
       "excerpt": "BiomeConfig fallback;"
@@ -554,7 +199,7 @@
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
       "marker": "fallback",
-      "line": 12,
+      "line": 13,
       "column": 3,
       "classification": "removable_runtime_branch",
       "excerpt": "fallback.id = \"generated_fallback\";"
@@ -562,16 +207,8 @@
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
       "marker": "fallback",
-      "line": 13,
+      "line": 14,
       "column": 3,
-      "classification": "removable_runtime_branch",
-      "excerpt": "fallback.name = \"Generated Fallback\";"
-    },
-    {
-      "file": "src/game/systems/world/BiomeMapGenerator.cpp",
-      "marker": "fallback",
-      "line": 13,
-      "column": 30,
       "classification": "removable_runtime_branch",
       "excerpt": "fallback.name = \"Generated Fallback\";"
     },
@@ -579,9 +216,9 @@
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
       "marker": "fallback",
       "line": 14,
-      "column": 3,
+      "column": 30,
       "classification": "removable_runtime_branch",
-      "excerpt": "fallback.numericId = BiomeID::None;"
+      "excerpt": "fallback.name = \"Generated Fallback\";"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
@@ -589,7 +226,7 @@
       "line": 15,
       "column": 3,
       "classification": "removable_runtime_branch",
-      "excerpt": "fallback.style = BiomeStyle::Open;"
+      "excerpt": "fallback.numericId = BiomeID::None;"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
@@ -597,7 +234,7 @@
       "line": 16,
       "column": 3,
       "classification": "removable_runtime_branch",
-      "excerpt": "fallback.wallProbability = wallProb;"
+      "excerpt": "fallback.style = BiomeStyle::Open;"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
@@ -605,7 +242,7 @@
       "line": 17,
       "column": 3,
       "classification": "removable_runtime_branch",
-      "excerpt": "fallback.smoothIterations = iterations;"
+      "excerpt": "fallback.wallProbability = wallProb;"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
@@ -613,7 +250,7 @@
       "line": 18,
       "column": 3,
       "classification": "removable_runtime_branch",
-      "excerpt": "fallback.wallBirthLimit = 4;"
+      "excerpt": "fallback.smoothIterations = iterations;"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
@@ -621,204 +258,148 @@
       "line": 19,
       "column": 3,
       "classification": "removable_runtime_branch",
+      "excerpt": "fallback.wallBirthLimit = 4;"
+    },
+    {
+      "file": "src/game/systems/world/BiomeMapGenerator.cpp",
+      "marker": "fallback",
+      "line": 20,
+      "column": 3,
+      "classification": "removable_runtime_branch",
       "excerpt": "fallback.wallDeathLimit = 3;"
     },
     {
       "file": "src/game/systems/world/BiomeMapGenerator.cpp",
       "marker": "fallback",
-      "line": 21,
+      "line": 22,
       "column": 42,
       "classification": "removable_runtime_branch",
       "excerpt": "return GenerateForBiome(width, height, fallback, seed);"
     },
     {
-      "file": "src/game/systems/world/EnemySpawnSystem.hpp",
-      "marker": "legacy",
-      "line": 57,
-      "column": 13,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// \u521d\u59cb\u5316\u5173\u5361 (Legacy)"
-    },
-    {
-      "file": "src/game/systems/world/LevelManager.hpp",
-      "marker": "legacy",
-      "line": 32,
-      "column": 25,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// \u52a0\u8f7d\u65b0\u5173\u5361 (Synchronous legacy wrapper)"
-    },
-    {
-      "file": "src/game/systems/world/MapAffixCalculator.hpp",
-      "marker": "legacy",
-      "line": 31,
-      "column": 31,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// This allows converting legacy/simple fragments into the new Affix system dynamically."
-    },
-    {
-      "file": "src/game/systems/world/MapAffixRegistry.hpp",
+      "file": "src/game/foundation/data/BiomeRegistry.cpp",
       "marker": "fallback",
-      "line": 29,
-      "column": 55,
+      "line": 21,
+      "column": 59,
       "classification": "removable_runtime_branch",
-      "excerpt": "return G_AFFIX_DEFINITIONS[0]; // Unknown fallback"
+      "excerpt": "Color ParseColor(const json &item, const char *key, Color fallback) {"
     },
     {
-      "file": "src/game/systems/skill/behaviors/FlowingThrust.cpp",
-      "marker": "legacy",
-      "line": 440,
-      "column": 66,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// ID 121: Jian Yi Ying Ying (Chance to gain Intent) - Legacy, not in"
-    },
-    {
-      "file": "src/game/systems/skill/behaviors/FlowingThrust.cpp",
-      "marker": "legacy",
-      "line": 452,
-      "column": 50,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_DEBUG(\"Flowing Thrust (121 Legacy): Gained Intent via"
-    },
-    {
-      "file": "src/game/systems/skill/behaviors/RendingWave.cpp",
+      "file": "src/game/foundation/data/BiomeRegistry.cpp",
       "marker": "fallback",
-      "line": 217,
-      "column": 15,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Visual fallback for proxy casters (e.g. spirit swords): when local talent"
-    },
-    {
-      "file": "src/engine/persistence/SaveManager.cpp",
-      "marker": "fallback",
-      "line": 330,
-      "column": 45,
-      "classification": "removable_runtime_branch",
-      "excerpt": "SharedStash::Get().initialize(); // Fallback"
-    },
-    {
-      "file": "src/engine/physics/PhysicsSystem.cpp",
-      "marker": "fallback",
-      "line": 218,
-      "column": 55,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// [BOUNDARY] World boundary clamping with generous fallback"
-    },
-    {
-      "file": "src/engine/physics/PhysicsSystem.cpp",
-      "marker": "fallback",
-      "line": 322,
-      "column": 15,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Serial Fallback"
-    },
-    {
-      "file": "src/engine/physics/PhysicsSystem.hpp",
-      "marker": "fallback",
-      "line": 27,
-      "column": 42,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Update all entities sequentially (fallback or simple usage)"
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "marker": "v3",
-      "line": 239,
-      "column": 4,
-      "classification": "metadata_only",
-      "excerpt": "// V3 Baseline ABI placeholders (Step A)"
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "marker": "v4",
-      "line": 523,
-      "column": 14,
-      "classification": "migration_path_dependent",
-      "excerpt": "* 16 bytes, V4 text pipeline command input."
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "marker": "v4",
-      "line": 582,
-      "column": 41,
-      "classification": "migration_path_dependent",
-      "excerpt": "* @brief GPU loot instance payload for V4 loot rendering path."
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "marker": "v5",
-      "line": 602,
-      "column": 11,
-      "classification": "migration_path_dependent",
-      "excerpt": "* @brief V5 radiance cascade runtime configuration payload."
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "marker": "v5",
-      "line": 622,
-      "column": 11,
-      "classification": "migration_path_dependent",
-      "excerpt": "* @brief V5 SPH particle payload."
-    },
-    {
-      "file": "src/engine/render/GPUData.hpp",
-      "marker": "v5",
-      "line": 641,
-      "column": 11,
-      "classification": "migration_path_dependent",
-      "excerpt": "* @brief V5 SPH runtime config payload."
-    },
-    {
-      "file": "src/engine/render/GPUEntitySystem.cpp",
-      "marker": "fallback",
-      "line": 29,
-      "column": 28,
-      "classification": "removable_runtime_branch",
-      "excerpt": "static GPUEntitySystem fallback;"
-    },
-    {
-      "file": "src/engine/render/GPUEntitySystem.cpp",
-      "marker": "fallback",
-      "line": 30,
+      "line": 23,
       "column": 12,
       "classification": "removable_runtime_branch",
       "excerpt": "return fallback;"
     },
     {
-      "file": "src/engine/render/GPUEntitySystem.cpp",
-      "marker": "legacy",
-      "line": 91,
-      "column": 6,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Legacy slot management removed in favor of GPUSlotManager"
-    },
-    {
-      "file": "src/engine/render/GPUEntitySystem.hpp",
-      "marker": "deprecated",
-      "line": 21,
-      "column": 5,
-      "classification": "migration_path_dependent",
-      "excerpt": "[[deprecated(\"Use RenderContext injection instead\")]]"
-    },
-    {
-      "file": "src/engine/render/GPUEntitySystem.hpp",
+      "file": "src/game/foundation/data/BiomeRegistry.cpp",
       "marker": "fallback",
-      "line": 42,
-      "column": 68,
+      "line": 50,
+      "column": 39,
       "classification": "removable_runtime_branch",
-      "excerpt": "void RenderLegacy(float alpha);      // CPU-Instanced rendering (Fallback)"
+      "excerpt": "LOG_WARN(\"Unknown biome style '{}', fallback to Open\", style);"
     },
     {
-      "file": "src/engine/render/GPUEntitySystem.hpp",
-      "marker": "legacy",
-      "line": 95,
-      "column": 6,
+      "file": "src/game/foundation/data/SkillRegistry.cpp",
+      "marker": "fallback",
+      "line": 169,
+      "column": 34,
       "classification": "removable_runtime_branch",
-      "excerpt": "// Legacy members removed"
+      "excerpt": "uint8_t ClampToU8(int value, int fallback) {"
+    },
+    {
+      "file": "src/game/foundation/data/SkillRegistry.cpp",
+      "marker": "fallback",
+      "line": 171,
+      "column": 33,
+      "classification": "removable_runtime_branch",
+      "excerpt": "return static_cast<uint8_t>(fallback);"
+    },
+    {
+      "file": "src/game/application/scene/SceneManager.cpp",
+      "marker": "fallback",
+      "line": 388,
+      "column": 33,
+      "classification": "removable_runtime_branch",
+      "excerpt": "LOG_WARN(\"Rift resume fallback to nearest walkable tile ({}, {}) from ({:.1f}, {:.1f})\","
+    },
+    {
+      "file": "src/game/application/states/SettingsState.cpp",
+      "marker": "v3",
+      "line": 205,
+      "column": 36,
+      "classification": "migration_path_dependent",
+      "excerpt": "DrawGraphicsToggleRow(\"V3 Rendering\","
+    },
+    {
+      "file": "src/game/application/states/SettingsState.cpp",
+      "marker": "v3",
+      "line": 398,
+      "column": 38,
+      "classification": "migration_path_dependent",
+      "excerpt": "LOG_INFO(\"SettingsState: V3 rendering -> {}\", next ? \"ON\" : \"OFF\");"
+    },
+    {
+      "file": "src/game/application/ui/CMakeLists.txt",
+      "marker": "legacy",
+      "line": 6,
+      "column": 8,
+      "classification": "removable_runtime_branch",
+      "excerpt": "# (The legacy static panels UIStash/UICrafting/UICharacter/UIMinimap and the"
+    },
+    {
+      "file": "src/game/application/ui/CMakeLists.txt",
+      "marker": "legacy",
+      "line": 7,
+      "column": 3,
+      "classification": "removable_runtime_branch",
+      "excerpt": "# legacy UISystem::State / UIContext static context were removed by the U8"
+    },
+    {
+      "file": "src/game/application/ui/MinimapController.cpp",
+      "marker": "v2",
+      "line": 418,
+      "column": 14,
+      "classification": "migration_path_dependent",
+      "excerpt": "UiVec2 v2{arrowX + std::cos(m_portalAngle - 2.4f) * size * 0.6f,"
+    },
+    {
+      "file": "src/game/application/ui/MinimapController.cpp",
+      "marker": "v2",
+      "line": 423,
+      "column": 62,
+      "classification": "migration_path_dependent",
+      "excerpt": "drawList.Line(UiDrawLayer::Hud, kMinimapRootNode, tip, v2, success, 1.0f);"
+    },
+    {
+      "file": "src/game/application/ui/MinimapController.cpp",
+      "marker": "v2",
+      "line": 424,
+      "column": 61,
+      "classification": "migration_path_dependent",
+      "excerpt": "drawList.Line(UiDrawLayer::Hud, kMinimapRootNode, v1, v2, success, 1.0f);"
+    },
+    {
+      "file": "src/game/application/ui/UISystem.cpp",
+      "marker": "fallback",
+      "line": 72,
+      "column": 42,
+      "classification": "removable_runtime_branch",
+      "excerpt": "LOG_INFO(\"UISystem: Loaded emoji fallback font from '{}'\", emojiPath);"
+    },
+    {
+      "file": "src/game/application/ui/UISystem.cpp",
+      "marker": "fallback",
+      "line": 77,
+      "column": 31,
+      "classification": "removable_runtime_branch",
+      "excerpt": "LOG_WARN(\"UISystem: Emoji fallback font unavailable, emoji will degrade to '?'\");"
     },
     {
       "file": "src/engine/render/GPULootSystem.cpp",
       "marker": "fallback",
-      "line": 74,
+      "line": 67,
       "column": 38,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_ERROR(\"GPULootSystem: OpenGL fallback compiler unavailable for '{}'\", label);"
@@ -826,7 +407,7 @@
     {
       "file": "src/engine/render/GPULootSystem.cpp",
       "marker": "fallback",
-      "line": 80,
+      "line": 73,
       "column": 38,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_ERROR(\"GPULootSystem: OpenGL fallback failed to create shader '{}'\", label);"
@@ -834,7 +415,7 @@
     {
       "file": "src/engine/render/GPULootSystem.cpp",
       "marker": "fallback",
-      "line": 92,
+      "line": 85,
       "column": 37,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"GPULootSystem: OpenGL fallback compiled shader '{}' after rlCompileShader \""
@@ -842,31 +423,15 @@
     {
       "file": "src/engine/render/GPULootSystem.cpp",
       "marker": "fallback",
-      "line": 109,
+      "line": 102,
       "column": 36,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_ERROR(\"GPULootSystem: OpenGL fallback compile failed for '{}': {}\","
     },
     {
-      "file": "src/engine/render/GPUParticleSystem.cpp",
-      "marker": "deprecated",
-      "line": 222,
-      "column": 8,
-      "classification": "migration_path_dependent",
-      "excerpt": "// Deprecated: Logical Clear is sufficient and faster."
-    },
-    {
-      "file": "src/engine/render/GPUParticleSystem.hpp",
-      "marker": "deprecated",
-      "line": 82,
-      "column": 49,
-      "classification": "migration_path_dependent",
-      "excerpt": "bool m_atomicPingPong = false;           // Deprecated: PersistentBuffer handles this internally"
-    },
-    {
       "file": "src/engine/render/GPUSkillEffectSystem.cpp",
       "marker": "fallback",
-      "line": 261,
+      "line": 268,
       "column": 66,
       "classification": "removable_runtime_branch",
       "excerpt": "Color ResolveElementColor(const uint8_t elementType, const Color fallback) {"
@@ -874,7 +439,7 @@
     {
       "file": "src/engine/render/GPUSkillEffectSystem.cpp",
       "marker": "fallback",
-      "line": 273,
+      "line": 280,
       "column": 12,
       "classification": "removable_runtime_branch",
       "excerpt": "return fallback;"
@@ -882,7 +447,7 @@
     {
       "file": "src/engine/render/GPUSkillEffectSystem.cpp",
       "marker": "fallback",
-      "line": 901,
+      "line": 923,
       "column": 31,
       "classification": "removable_runtime_branch",
       "excerpt": "\"using fallback routing\");"
@@ -890,7 +455,7 @@
     {
       "file": "src/engine/render/GPUSkillEffectSystem.cpp",
       "marker": "legacy",
-      "line": 1114,
+      "line": 1136,
       "column": 47,
       "classification": "removable_runtime_branch",
       "excerpt": "\"GPUSkillEffectSystem: legacy effect missing skillId, \""
@@ -898,31 +463,15 @@
     {
       "file": "src/engine/render/GPUSkillEffectSystem.cpp",
       "marker": "fallback",
-      "line": 1115,
+      "line": 1137,
       "column": 31,
       "classification": "removable_runtime_branch",
       "excerpt": "\"using fallback routing\");"
     },
     {
-      "file": "src/engine/render/GPUUtils.cpp",
-      "marker": "fallback",
-      "line": 302,
-      "column": 42,
-      "classification": "removable_runtime_branch",
-      "excerpt": "return 0x911D; // GL_WAIT_FAILED (safe fallback)"
-    },
-    {
-      "file": "src/engine/render/LootTextBatcher.cpp",
-      "marker": "fallback",
-      "line": 61,
-      "column": 57,
-      "classification": "removable_runtime_branch",
-      "excerpt": "currentX += (fontSize * 0.5f + spacing); // Fallback for unknown chars"
-    },
-    {
       "file": "src/engine/render/MDIRenderer.cpp",
       "marker": "fallback",
-      "line": 22,
+      "line": 23,
       "column": 24,
       "classification": "removable_runtime_branch",
       "excerpt": "static MDIRenderer fallback;"
@@ -930,7 +479,7 @@
     {
       "file": "src/engine/render/MDIRenderer.cpp",
       "marker": "fallback",
-      "line": 23,
+      "line": 24,
       "column": 12,
       "classification": "removable_runtime_branch",
       "excerpt": "return fallback;"
@@ -944,73 +493,9 @@
       "excerpt": "[[deprecated(\"Use RenderContext injection instead\")]]"
     },
     {
-      "file": "src/engine/render/MDIRenderer.hpp",
-      "marker": "legacy",
-      "line": 71,
-      "column": 23,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Full Update API (Legacy/Alternative)"
-    },
-    {
-      "file": "src/engine/render/PersistentBuffer.hpp",
-      "marker": "fallback",
-      "line": 14,
-      "column": 19,
-      "classification": "removable_runtime_branch",
-      "excerpt": "Compat,    // Fallback using glBufferSubData"
-    },
-    {
-      "file": "src/engine/render/PopupRenderer.hpp",
-      "marker": "deprecated",
-      "line": 18,
-      "column": 4,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// DEPRECATED(v4_gpu_text_rendering): CPU popup renderer fallback path."
-    },
-    {
-      "file": "src/engine/render/PopupRenderer.hpp",
-      "marker": "fallback",
-      "line": 18,
-      "column": 58,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// DEPRECATED(v4_gpu_text_rendering): CPU popup renderer fallback path."
-    },
-    {
-      "file": "src/engine/render/RenderConstants.hpp",
-      "marker": "v4",
-      "line": 33,
-      "column": 44,
-      "classification": "migration_path_dependent",
-      "excerpt": "SSBO_TEXT_QUAD = SSBO_GLYPH_INSTANCE, // V4 GPUTextPass alias"
-    },
-    {
-      "file": "src/engine/render/RenderConstants.hpp",
-      "marker": "v3",
-      "line": 268,
-      "column": 27,
-      "classification": "migration_path_dependent",
-      "excerpt": "// Baseline constants for V3 shadow pipeline."
-    },
-    {
-      "file": "src/engine/render/RenderConstants.hpp",
-      "marker": "v5",
-      "line": 281,
-      "column": 48,
-      "classification": "migration_path_dependent",
-      "excerpt": "// Texture internal formats (OpenGL enums) for V5 JFA/GI resources."
-    },
-    {
-      "file": "src/engine/render/RenderConstants.hpp",
-      "marker": "v5",
-      "line": 288,
-      "column": 32,
-      "classification": "migration_path_dependent",
-      "excerpt": "// Reserved image bindings for V5 compute pipelines."
-    },
-    {
       "file": "src/engine/render/RenderSystem.cpp",
       "marker": "v3",
-      "line": 203,
+      "line": 201,
       "column": 27,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"RenderSystem: V3 runtime toggle disabled, released V3 placeholder \""
@@ -1018,7 +503,7 @@
     {
       "file": "src/engine/render/RenderSystem.cpp",
       "marker": "v3",
-      "line": 203,
+      "line": 201,
       "column": 64,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"RenderSystem: V3 runtime toggle disabled, released V3 placeholder \""
@@ -1026,7 +511,7 @@
     {
       "file": "src/engine/render/RenderSystem.cpp",
       "marker": "v3",
-      "line": 223,
+      "line": 221,
       "column": 29,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"RenderSystem: V3 runtime toggle enabled (baseline no-op passes).\");"
@@ -1034,42 +519,10 @@
     {
       "file": "src/engine/render/RenderSystem.cpp",
       "marker": "v3",
-      "line": 1660,
-      "column": 34,
-      "classification": "migration_path_dependent",
-      "excerpt": "\"RenderSystem: offscreen V3 safe mode active (skip color-rewrite passes to \""
-    },
-    {
-      "file": "src/engine/render/RenderSystem.cpp",
-      "marker": "v3",
-      "line": 1763,
-      "column": 61,
-      "classification": "migration_path_dependent",
-      "excerpt": "// Seed HDR scene buffer from current composite target so V3 passes operate on"
-    },
-    {
-      "file": "src/engine/render/RenderSystem.cpp",
-      "marker": "v3",
-      "line": 1848,
+      "line": 1372,
       "column": 29,
       "classification": "migration_path_dependent",
       "excerpt": "\"RenderSystem: skip V3 shadow/cluster passes because HDR scene buffer is disabled \""
-    },
-    {
-      "file": "src/engine/render/UIRenderer.cpp",
-      "marker": "fallback",
-      "line": 197,
-      "column": 8,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback"
-    },
-    {
-      "file": "src/engine/scene/SceneManager.cpp",
-      "marker": "fallback",
-      "line": 386,
-      "column": 33,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"Rift resume fallback to nearest walkable tile ({}, {}) from ({:.1f}, {:.1f})\","
     },
     {
       "file": "src/engine/vfx/VFXSequenceManager.cpp",
@@ -1200,73 +653,9 @@
       "excerpt": "\"runtime will fallback\","
     },
     {
-      "file": "src/engine/vfx/VFXSequenceManager.hpp",
-      "marker": "v3",
-      "line": 40,
-      "column": 61,
-      "classification": "metadata_only",
-      "excerpt": "// - current writer/reader version is VFX_SCHEMA_VERSION (v3)."
-    },
-    {
-      "file": "src/engine/vfx/VFXSequenceManager.hpp",
-      "marker": "v2",
-      "line": 41,
-      "column": 28,
-      "classification": "migration_path_dependent",
-      "excerpt": "// - supports loading v1/v2/v3 with compatibility defaults for missing v3 fields."
-    },
-    {
-      "file": "src/engine/vfx/VFXSequenceManager.hpp",
-      "marker": "v3",
-      "line": 41,
-      "column": 31,
-      "classification": "migration_path_dependent",
-      "excerpt": "// - supports loading v1/v2/v3 with compatibility defaults for missing v3 fields."
-    },
-    {
-      "file": "src/engine/vfx/VFXSequenceManager.hpp",
-      "marker": "v3",
-      "line": 41,
-      "column": 74,
-      "classification": "migration_path_dependent",
-      "excerpt": "// - supports loading v1/v2/v3 with compatibility defaults for missing v3 fields."
-    },
-    {
-      "file": "src/engine/vfx/VFXSequencerSystem.cpp",
-      "marker": "fallback",
-      "line": 175,
-      "column": 34,
-      "classification": "removable_runtime_branch",
-      "excerpt": "Vector2 fallback) {"
-    },
-    {
-      "file": "src/engine/vfx/VFXSequencerSystem.cpp",
-      "marker": "fallback",
-      "line": 177,
-      "column": 12,
-      "classification": "removable_runtime_branch",
-      "excerpt": "return fallback;"
-    },
-    {
-      "file": "src/engine/vfx/VFXSequencerSystem.cpp",
-      "marker": "fallback",
-      "line": 182,
-      "column": 10,
-      "classification": "removable_runtime_branch",
-      "excerpt": "return fallback;"
-    },
-    {
-      "file": "src/engine/vfx/VFXSequencerSystem.cpp",
-      "marker": "fallback",
-      "line": 1087,
-      "column": 88,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// This now requires registry access, so it's handled in the test itself or we use a fallback."
-    },
-    {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 35,
+      "line": 39,
       "column": 39,
       "classification": "migration_path_dependent",
       "excerpt": "constexpr const char *kRenderV3Key = \"v3\";"
@@ -1274,7 +663,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 40,
+      "line": 45,
       "column": 57,
       "classification": "migration_path_dependent",
       "excerpt": "constexpr const char *kRenderV3FlatEnabledKey = \"render.v3.enabled\";"
@@ -1282,15 +671,31 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 97,
-      "column": 18,
+      "line": 125,
+      "column": 19,
       "classification": "migration_path_dependent",
-      "excerpt": "nlohmann::json v3 = nlohmann::json::object();"
+      "excerpt": "nlohmann::json &v3 = render[kRenderV3Key];"
     },
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 98,
+      "line": 126,
+      "column": 8,
+      "classification": "removable_runtime_branch",
+      "excerpt": "if (!v3.is_object()) {"
+    },
+    {
+      "file": "src/engine/render/core/QualityTierManager.cpp",
+      "marker": "v3",
+      "line": 127,
+      "column": 5,
+      "classification": "migration_path_dependent",
+      "excerpt": "v3 = nlohmann::json::object();"
+    },
+    {
+      "file": "src/engine/render/core/QualityTierManager.cpp",
+      "marker": "v3",
+      "line": 129,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"enabled\"] = config.v3Enabled;"
@@ -1298,7 +703,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 99,
+      "line": 130,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"shadowEnabled\"] = config.shadowEnabled;"
@@ -1306,7 +711,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 100,
+      "line": 131,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"shadowMode\"] = ToString(config.shadowMode);"
@@ -1314,7 +719,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 101,
+      "line": 132,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"maxShadowedLights\"] = config.maxShadowedLights;"
@@ -1322,7 +727,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 102,
+      "line": 133,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"shadowAtlasSize\"] = config.shadowAtlasSize;"
@@ -1330,7 +735,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 103,
+      "line": 134,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"shadowSoftness\"] = config.shadowSoftness;"
@@ -1338,7 +743,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 104,
+      "line": 135,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"clusteredLightingEnabled\"] = config.clusteredLightingEnabled;"
@@ -1346,7 +751,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 105,
+      "line": 136,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"clusteredLightingV4Enabled\"] = config.clusteredLightingV4Enabled;"
@@ -1354,7 +759,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 106,
+      "line": 137,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"clusterTileSize\"] = config.clusterTileSize;"
@@ -1362,7 +767,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 107,
+      "line": 138,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"clusterZSliceCount\"] = config.clusterZSliceCount;"
@@ -1370,7 +775,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 108,
+      "line": 139,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"normalLightingEnabled\"] = config.normalLightingEnabled;"
@@ -1378,7 +783,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 109,
+      "line": 140,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"specularEnabled\"] = config.specularEnabled;"
@@ -1386,7 +791,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 110,
+      "line": 141,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"materialQualityLevel\"] = config.materialQualityLevel;"
@@ -1394,7 +799,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 111,
+      "line": 142,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"heightShadowEnabled\"] = config.heightShadowEnabled;"
@@ -1402,7 +807,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 112,
+      "line": 143,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"heightShadowSteps\"] = config.heightShadowSteps;"
@@ -1410,7 +815,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 113,
+      "line": 144,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"selfShadowEnabled\"] = config.selfShadowEnabled;"
@@ -1418,7 +823,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 114,
+      "line": 145,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"selfShadowSteps\"] = config.selfShadowSteps;"
@@ -1426,7 +831,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 115,
+      "line": 146,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"pomEnabled\"] = config.pomEnabled;"
@@ -1434,7 +839,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 116,
+      "line": 147,
       "column": 3,
       "classification": "migration_path_dependent",
       "excerpt": "v3[\"pomLayers\"] = config.pomLayers;"
@@ -1442,15 +847,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 119,
-      "column": 54,
-      "classification": "migration_path_dependent",
-      "excerpt": "jsonSettings[kRenderKey][kRenderV3Key] = std::move(v3);"
-    },
-    {
-      "file": "src/engine/render/core/QualityTierManager.cpp",
-      "marker": "v3",
-      "line": 388,
+      "line": 575,
       "column": 42,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"QualityTierManager: render.v3.enabled {} -> {}\", previous ? 1 : 0,"
@@ -1458,7 +855,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 408,
+      "line": 595,
       "column": 42,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"QualityTierManager: render.v3.clusteredLightingEnabled {} -> {}\","
@@ -1466,7 +863,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 425,
+      "line": 612,
       "column": 42,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"QualityTierManager: render.v3.normalLightingEnabled {} -> {}\","
@@ -1474,7 +871,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 442,
+      "line": 629,
       "column": 42,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_INFO(\"QualityTierManager: render.v3.specularEnabled {} -> {}\", previous ? 1 : 0,"
@@ -1482,7 +879,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 545,
+      "line": 732,
       "column": 53,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3 settings, defaults applied\","
@@ -1490,7 +887,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 554,
+      "line": 741,
       "column": 59,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: failed to open {} for V3 config\", settingsPath);"
@@ -1498,7 +895,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 559,
+      "line": 746,
       "column": 58,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: failed to parse {} for V3 config\", settingsPath);"
@@ -1506,7 +903,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 570,
+      "line": 757,
       "column": 54,
       "classification": "migration_path_dependent",
       "excerpt": "\"QualityTierManager: {} has invalid render.v3 section, defaults applied\","
@@ -1514,7 +911,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 581,
+      "line": 768,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3.{}, default used\","
@@ -1522,7 +919,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 587,
+      "line": 774,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} invalid render.v3.{} (expected bool), \""
@@ -1530,7 +927,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 598,
+      "line": 785,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3.{}, default used\","
@@ -1538,7 +935,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 604,
+      "line": 791,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} invalid render.v3.{} (expected uint32), \""
@@ -1546,7 +943,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 614,
+      "line": 801,
       "column": 62,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} out-of-range render.v3.{}={}, default used\","
@@ -1554,7 +951,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 626,
+      "line": 813,
       "column": 60,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} out-of-range render.v3.{}={}, default used\","
@@ -1562,7 +959,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 636,
+      "line": 823,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3.{}, default used\","
@@ -1570,7 +967,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 642,
+      "line": 829,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} invalid render.v3.{} (expected number), \""
@@ -1578,7 +975,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 651,
+      "line": 838,
       "column": 60,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} out-of-range render.v3.{}={:.3f}, \""
@@ -1586,7 +983,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 674,
+      "line": 861,
       "column": 53,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3 object, V3 defaults used\","
@@ -1594,7 +991,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 674,
+      "line": 861,
       "column": 64,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3 object, V3 defaults used\","
@@ -1602,7 +999,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 688,
+      "line": 875,
       "column": 57,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} invalid render.v3.shadowMode, default used\","
@@ -1610,7 +1007,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 699,
+      "line": 886,
       "column": 57,
       "classification": "migration_path_dependent",
       "excerpt": "\"QualityTierManager: {} out-of-range render.v3.shadowMode={}, default \""
@@ -1618,7 +1015,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 705,
+      "line": 892,
       "column": 55,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} invalid render.v3.shadowMode type, \""
@@ -1626,7 +1023,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "v3",
-      "line": 711,
+      "line": 898,
       "column": 53,
       "classification": "migration_path_dependent",
       "excerpt": "LOG_WARN(\"QualityTierManager: {} missing render.v3.shadowMode, default used\","
@@ -1634,15 +1031,7 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "fallback",
-      "line": 1031,
-      "column": 21,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Conservative fallback when no GPU context is available."
-    },
-    {
-      "file": "src/engine/render/core/QualityTierManager.cpp",
-      "marker": "fallback",
-      "line": 1042,
+      "line": 1338,
       "column": 47,
       "classification": "removable_runtime_branch",
       "excerpt": "auto queryIntegerv = [](uint32_t token, int fallback) -> int {"
@@ -1650,98 +1039,10 @@
     {
       "file": "src/engine/render/core/QualityTierManager.cpp",
       "marker": "fallback",
-      "line": 1043,
+      "line": 1339,
       "column": 17,
       "classification": "removable_runtime_branch",
       "excerpt": "int value = fallback;"
-    },
-    {
-      "file": "src/engine/render/core/QualityTierManager.cpp",
-      "marker": "v4",
-      "line": 1512,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V4: HeightShadow quality chain 64 -> 16 -> Off."
-    },
-    {
-      "file": "src/engine/render/core/QualityTierManager.cpp",
-      "marker": "v5",
-      "line": 1523,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V5: progressively reduce GI quality under pressure, then disable."
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v3",
-      "line": 20,
-      "column": 4,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V3 pass budget contract (ms), aligned with GPU_Rendering_System_3.md \u00a715.2."
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v3",
-      "line": 94,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V3 Baseline Contracts (Step A)"
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v4",
-      "line": 108,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V4 advanced lighting controls."
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v4",
-      "line": 117,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V4 GPU text feature routing."
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v4",
-      "line": 121,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V4 GPU loot feature routing."
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v5",
-      "line": 125,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V5 GI feature routing."
-    },
-    {
-      "file": "src/engine/render/core/RenderConstants.hpp",
-      "marker": "v5",
-      "line": 134,
-      "column": 6,
-      "classification": "migration_path_dependent",
-      "excerpt": "// V5 fluid feature routing."
-    },
-    {
-      "file": "src/engine/render/debug/RenderProfiler.cpp",
-      "marker": "fallback",
-      "line": 65,
-      "column": 60,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"RenderProfiler: GPU timer query unavailable, fallback to CPU-only mode\");"
-    },
-    {
-      "file": "src/engine/render/debug/RenderProfiler.cpp",
-      "marker": "fallback",
-      "line": 106,
-      "column": 58,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"RenderProfiler: query allocation failed, fallback to CPU-only mode\");"
     },
     {
       "file": "src/engine/render/passes/DistortionPass.cpp",
@@ -1770,7 +1071,7 @@
     {
       "file": "src/engine/render/passes/JFAPass.cpp",
       "marker": "fallback",
-      "line": 430,
+      "line": 606,
       "column": 21,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"JFAPass fallback: frame={} reason={}\", m_frameIndex, m_lastFailureReason);"
@@ -1778,39 +1079,39 @@
     {
       "file": "src/engine/render/passes/JFAPass.cpp",
       "marker": "fallback",
-      "line": 554,
-      "column": 30,
+      "line": 834,
+      "column": 42,
       "classification": "removable_runtime_branch",
-      "excerpt": "ReportFailure(\"JFA+2 fallback failed\");"
+      "excerpt": "ReportFailure(\"verification full fallback failed\");"
     },
     {
       "file": "src/engine/render/passes/LightCullingPass.cpp",
       "marker": "fallback",
-      "line": 105,
+      "line": 97,
+      "column": 55,
+      "classification": "removable_runtime_branch",
+      "excerpt": "uint32_t fallback) -> uint32_t {"
+    },
+    {
+      "file": "src/engine/render/passes/LightCullingPass.cpp",
+      "marker": "fallback",
+      "line": 102,
+      "column": 14,
+      "classification": "removable_runtime_branch",
+      "excerpt": "return fallback;"
+    },
+    {
+      "file": "src/engine/render/passes/LightCullingPass.cpp",
+      "marker": "fallback",
+      "line": 216,
       "column": 44,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_LIMITED_WARN(1.0f, \"LightCullingPass fallback: frame={} reason={}\","
     },
     {
-      "file": "src/engine/render/passes/LightingPass.cpp",
-      "marker": "fallback",
-      "line": 298,
-      "column": 51,
-      "classification": "removable_runtime_branch",
-      "excerpt": "1.0f, \"ShadowFallback: frame={} reason={} fallback=V2Lighting\","
-    },
-    {
-      "file": "src/engine/render/passes/LightingPass.cpp",
-      "marker": "fallback",
-      "line": 398,
-      "column": 63,
-      "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"ClusteredLightingFallback: frame={} reason={} fallback=V2Lighting\","
-    },
-    {
       "file": "src/engine/render/passes/OccluderExtractPass.cpp",
       "marker": "fallback",
-      "line": 340,
+      "line": 284,
       "column": 33,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"OccluderExtractPass fallback: frame={} reason={}\", m_frameIndex,"
@@ -1818,7 +1119,7 @@
     {
       "file": "src/engine/render/passes/PostProcessPass.cpp",
       "marker": "fallback",
-      "line": 273,
+      "line": 275,
       "column": 63,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"PostProcessPass: transient pool acquire failed, fallback to persistent buffers\");"
@@ -1826,7 +1127,7 @@
     {
       "file": "src/engine/render/passes/PostProcessPass.cpp",
       "marker": "fallback",
-      "line": 466,
+      "line": 499,
       "column": 54,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"PostProcessPass: LUT '{}' load failed, fallback to neutral_16\","
@@ -1834,7 +1135,7 @@
     {
       "file": "src/engine/render/passes/RadianceCascadesPass.cpp",
       "marker": "fallback",
-      "line": 722,
+      "line": 714,
       "column": 34,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"RadianceCascadesPass fallback: frame={} reason={}\", m_frameIndex,"
@@ -1842,18 +1143,18 @@
     {
       "file": "src/engine/render/passes/ShadowBuildPass.cpp",
       "marker": "fallback",
-      "line": 81,
+      "line": 207,
       "column": 49,
       "classification": "removable_runtime_branch",
-      "excerpt": "1.0f, \"ShadowFallback: frame={} reason={} fallback=V2Lighting\","
+      "excerpt": "1.0f, \"ShadowFallback: frame={} reason={} fallback=NoShadowMask\","
     },
     {
       "file": "src/engine/render/passes/ShadowResolvePass.cpp",
       "marker": "fallback",
-      "line": 78,
+      "line": 110,
       "column": 48,
       "classification": "removable_runtime_branch",
-      "excerpt": "LOG_WARN(\"ShadowFallback: frame={} reason={} fallback=V2Lighting\", m_frameIndex,"
+      "excerpt": "LOG_WARN(\"ShadowFallback: frame={} reason={} fallback=NoShadowMask\", m_frameIndex,"
     },
     {
       "file": "src/engine/render/resource/MSDFAtlasLoader.cpp",
@@ -1870,22 +1171,6 @@
       "column": 71,
       "classification": "removable_runtime_branch",
       "excerpt": "LOG_WARN(\"TextureArrayManager: default texture missing, generated fallback {}\","
-    },
-    {
-      "file": "src/core/logging/Logger.cpp",
-      "marker": "fallback",
-      "line": 77,
-      "column": 71,
-      "classification": "removable_runtime_branch",
-      "excerpt": "s_CoreLogger.reset(); // \u91ca\u653e shared_ptr\uff0c\u914d\u5408 GetCoreLogger \u7684 fallback \u673a\u5236"
-    },
-    {
-      "file": "src/core/logging/Logger.cpp",
-      "marker": "fallback",
-      "line": 86,
-      "column": 16,
-      "classification": "removable_runtime_branch",
-      "excerpt": "// Fallback to a simple console logger if not initialized"
     }
   ]
 }

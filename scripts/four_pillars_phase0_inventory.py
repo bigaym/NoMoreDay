@@ -60,6 +60,60 @@ def classify_match(line_text: str) -> str:
     return "migration_path_dependent"
 
 
+def strip_comments(line_text: str, in_block_comment: bool) -> tuple[str, bool]:
+    """Mask comment sections with spaces, preserving string/char literals.
+
+    Line comments (//) run to end of line; block comments (/* */) may span
+    lines and are tracked via the in_block_comment state. String and character
+    literals are kept so markers inside them are still counted (they can
+    reflect runtime behaviour), while comment text is ignored.
+    """
+    length = len(line_text)
+    masked = []
+    index = 0
+    while index < length:
+        if in_block_comment:
+            if line_text.startswith("*/", index):
+                in_block_comment = False
+                masked.append("  ")
+                index += 2
+            else:
+                masked.append(" ")
+                index += 1
+            continue
+        if line_text.startswith("//", index):
+            masked.append(" " * (length - index))
+            break
+        if line_text.startswith("/*", index):
+            in_block_comment = True
+            masked.append("  ")
+            index += 2
+            continue
+        char = line_text[index]
+        if char in ('"', "'"):
+            masked.append(char)
+            index += 1
+            while index < length:
+                current = line_text[index]
+                if current == "\\":
+                    masked.append(current)
+                    index += 1
+                    if index < length:
+                        masked.append(line_text[index])
+                        index += 1
+                elif current == char:
+                    masked.append(current)
+                    index += 1
+                    break
+                else:
+                    masked.append(current)
+                    index += 1
+            continue
+        masked.append(char)
+        index += 1
+    return "".join(masked), in_block_comment
+
+
 def scan_file(
     path: Path, root: Path
 ) -> tuple[list[dict[str, object]], Counter[str], Counter[str]]:
@@ -67,12 +121,16 @@ def scan_file(
     marker_counts: Counter[str] = Counter()
     class_counts: Counter[str] = Counter()
     matches: list[dict[str, object]] = []
+    in_block_comment = False
 
     with path.open("r", encoding="utf-8", errors="ignore") as file_stream:
         for line_number, line_text in enumerate(file_stream, start=1):
+            code_text, in_block_comment = strip_comments(
+                line_text, in_block_comment
+            )
             for marker_name, marker_regex in MARKERS:
-                for hit in marker_regex.finditer(line_text):
-                    classification = classify_match(line_text)
+                for hit in marker_regex.finditer(code_text):
+                    classification = classify_match(code_text)
                     marker_counts[marker_name] += 1
                     class_counts[classification] += 1
                     matches.append(
