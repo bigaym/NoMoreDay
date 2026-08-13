@@ -293,9 +293,9 @@ void Game::init() {
   // callbacks (see SharedContext) so systems below the UI layer never touch
   // the static UICrafting panel.
   m_context.openCraftingMergePanel = [this]() { m_uiHost.CraftingOpenMergePanel(); };
-  m_context.craftingSetTargetItem = [this](entt::entity item) {
-    m_uiHost.CraftingSetTargetItem(item);
-  };
+  // R10 (收尾): the craftingSetTargetItem callback is gone (no callers); the
+  // overlay context-menu Craft action calls GameUiHost::CraftingSetTargetItem
+  // directly, and InventorySystem only needs the merge-panel callback above.
   // R8: the legacy closeAstrolabe callback is gone (the skill-tree controller
   // routes the astrolabe close through the host channel directly).
   // U8: gameplay-layer message box notifications (InventorySystem etc.) route

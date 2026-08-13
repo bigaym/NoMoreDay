@@ -1,4 +1,5 @@
 #include "game/application/ui/GameUiCommandHandler.hpp"
+#include "game/application/ui/UiCraftBurst.hpp" // R10: crafting success bursts
 
 #include <entt/entt.hpp>
 
@@ -66,6 +67,22 @@ bool PickupWithinRange(const entt::registry& registry, entt::entity player,
   const float dy = itemPos->y - playerPos->y;
   const float distSq = dx * dx + dy * dy;
   return distSq <= kPickupRange * kPickupRange;
+}
+
+// R10 (收尾): crafting success feedback. Restores the fuse / salvage bursts
+// that the R7 removal of the UIRenderer draw path dropped, by emitting through
+// the existing world-space particle channel (same EmitBatch path as the R8
+// astrolabe particles). The anchor is the player's world position; without a
+// Position component (unit tests) the burst falls back to the origin.
+template <typename Registry>
+void EmitCraftSuccessBurst(Registry& registry, entt::entity player,
+                           UiCraftBurstKind kind) {
+  Vector2 anchor{0.0f, 0.0f};
+  if (const auto* pos = registry.template try_get<const Position>(player)) {
+    anchor = {pos->x, pos->y};
+  }
+  NoMoreDay::systems::GPUParticleSystem::Get().EmitBatch(
+      BuildCraftSuccessBurst(kind, anchor));
 }
 
 bool TryResolvePlayer(const entt::registry& registry, entt::entity& outPlayer) {
@@ -1059,25 +1076,30 @@ GameUiResult GameUiCommandHandler::ExecuteCraftFuse(
   }
 
   const entt::entity catalyst = ToEntity(payload.catalystDomainId);
+  GameUiResult uiResult;
   if (catalyst != entt::null && IsValidItem(registry, catalyst) &&
       IsItemOwnedByPlayer(registry, player, catalyst)) {
     // Legendary fusion path (merge panel): consumes fodder + catalyst.
     const NoMoreDay::CraftingResult result =
         NoMoreDay::CraftingSystem::fuseLegendary(
             registry, base, fodder, catalyst, payload.affixIndex);
-    GameUiResult uiResult = ToCraftingResult(result);
+    uiResult = ToCraftingResult(result);
     if (uiResult.success) {
       uiResult.clearedDomainIds.push_back(entt::to_integral(fodder));
       uiResult.clearedDomainIds.push_back(entt::to_integral(catalyst));
     }
-    return uiResult;
+  } else {
+    // Plain fusion path (forging tab): mutates the base item in place.
+    auto& baseComp = registry.get<NoMoreDay::ItemComponent>(base);
+    auto& fodderComp = registry.get<NoMoreDay::ItemComponent>(fodder);
+    uiResult = ToCraftingResult(NoMoreDay::CraftingSystem::fuseItems(
+        baseComp, fodderComp));
   }
-
-  // Plain fusion path (forging tab): mutates the base item in place.
-  auto& baseComp = registry.get<NoMoreDay::ItemComponent>(base);
-  auto& fodderComp = registry.get<NoMoreDay::ItemComponent>(fodder);
-  return ToCraftingResult(NoMoreDay::CraftingSystem::fuseItems(baseComp,
-                                                               fodderComp));
+  // R10 (收尾): restore the fuse success burst (removed in R7).
+  if (uiResult.success) {
+    EmitCraftSuccessBurst(registry, player, UiCraftBurstKind::Fuse);
+  }
+  return uiResult;
 }
 
 template <typename Registry>
@@ -1106,6 +1128,8 @@ GameUiResult GameUiCommandHandler::ExecuteCraftSalvage(
             "Item cannot be salvaged", {}};
   }
   NoMoreDay::SalvageSystem::Execute(registry, item, player);
+  // R10 (收尾): restore the salvage success burst (removed in R7).
+  EmitCraftSuccessBurst(registry, player, UiCraftBurstKind::Salvage);
   std::vector<std::uint64_t> cleared{entt::to_integral(item)};
   return {true, GameUiResultCode::Success, "", std::move(cleared)};
 }
@@ -1127,6 +1151,8 @@ GameUiResult GameUiCommandHandler::ExecuteCraftBatchSalvage(
     cleared.push_back(entt::to_integral(e));
   }
   if (count > 0) {
+    // R10 (收尾): mass-salvage feedback reuses the single salvage burst.
+    EmitCraftSuccessBurst(registry, player, UiCraftBurstKind::Salvage);
     return {true, GameUiResultCode::Success,
             "Salvaged " + std::to_string(count) + " items", std::move(cleared)};
   }

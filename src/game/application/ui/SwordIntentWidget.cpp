@@ -166,6 +166,26 @@ void SwordIntentWidget::Paint(UiDrawList& drawList,
                         ? kSwordIntentMaxIconColor
                         : kSwordIntentActiveIconColor;
         }
+        // R10 (收尾): restore the max-stack glow that the R5 removal of the
+        // raylib ui_shine shader dropped. Legacy combined a moving diagonal
+        // shine band with a gold pulse tint; the draw-list backend has no
+        // per-pixel gradient channel, so the equivalent visual here is a
+        // low-alpha gold halo behind every active icon, driven by the same
+        // m_glowIntensity ramp as legacy and the legacy sin(time*3) pulse
+        // phase. Allocation-free: no state beyond the command append.
+        if (isActive && m_glowIntensity > 0.01f) {
+            const float pulse = 0.5f + 0.5f * std::sin(m_timeSeconds * 3.0f);
+            const float haloAlpha = (0.15f + 0.15f * pulse) * m_glowIntensity;
+            const float haloSize = 64.0f * iconScale * 1.3f;
+            UiColor haloColor = kSwordIntentMaxIconColor;
+            haloColor.a = static_cast<std::uint8_t>(
+                255.0f * std::min(1.0f, haloAlpha));
+            UiRect haloDest;
+            haloDest.origin = {lx - haloSize * 0.5f, logicY - haloSize * 0.5f};
+            haloDest.size = {haloSize, haloSize};
+            drawList.Image(UiDrawLayer::Hud, kSwordIntentWidgetNode, haloDest,
+                           m_iconResourceId, haloColor);
+        }
         // Icon texture is 64x64 (ui_sword_icon.png); keep aspect ratio.
         const float iconSize = 64.0f * finalScale;
         UiRect dest;

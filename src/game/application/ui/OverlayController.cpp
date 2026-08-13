@@ -1,6 +1,7 @@
 #include "game/application/ui/OverlayController.hpp"
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/GameUiIntent.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
 #include "game/application/ui/UISystem.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiResourceIds.hpp"
@@ -278,31 +279,50 @@ void OverlayController::ReconcileRuntime() {
 }
 
 // --- R6 interaction phase (host Update, before HandleEscape) ---
+// R10 (收尾): the gameplay registry is gone from this phase. Display
+// validation/refresh reads only the frame snapshot (the builder resolves the
+// context menu / quantity popup targets into snapshot.displayedItems every
+// frame via GameUiSnapshotOptions.contextMenuItem) plus the session state.
+// Frame order keeps this sound: the host calls UpdateOverlays before the
+// inventory controller's Update (:456 in GameUiHost.cpp), so a menu opened by
+// a right-click on frame N is first refreshed on frame N+1, when the snapshot
+// already carries the target.
 
-void OverlayController::UpdateOverlays(entt::registry& registry,
+void OverlayController::UpdateOverlays(const GameUiSnapshot& snapshot,
                                        const UiViewport& viewport) {
   if (m_contextMenuVisible) {
-    UpdateContextMenuInteraction(registry, viewport);
+    UpdateContextMenuInteraction(snapshot, viewport);
   }
   if (m_quantityVisible) {
-    UpdateQuantityPopupInteraction(registry, viewport);
+    UpdateQuantityPopupInteraction(snapshot, viewport);
   }
 }
 
-void OverlayController::RefreshContextMenuDisplay(entt::registry& registry) {
+void OverlayController::RefreshContextMenuDisplay(
+    const GameUiSnapshot& snapshot) {
   m_contextItemValid = false;
   m_contextItemType = 0;
   m_contextItemLocked = false;
   m_contextItemQuantity = 0;
-  if (!registry.valid(m_contextMenuItem) ||
-      !registry.all_of<ItemComponent>(m_contextMenuItem)) {
+  const std::uint64_t target = ContextMenuItemDomainId();
+  if (target == kInvalidDomainId) {
     return;
   }
-  const auto& item = registry.get<ItemComponent>(m_contextMenuItem);
+  const GameUiItemView* view = nullptr;
+  for (const GameUiItemView& candidate : snapshot.displayedItems) {
+    if (candidate.domainId == target) {
+      view = &candidate;
+      break;
+    }
+  }
+  if (view == nullptr) {
+    return;
+  }
   m_contextItemValid = true;
-  m_contextItemType = static_cast<std::uint8_t>(item.type);
-  m_contextItemLocked = item.isLocked;
-  m_contextItemQuantity = std::max(0, item.quantity);
+  m_contextItemType = view->itemType;
+  m_contextItemLocked = view->isLocked;
+  m_contextItemQuantity =
+      std::max(0, static_cast<std::int32_t>(view->quantity));
 }
 
 void OverlayController::BuildContextMenuEntries() {
@@ -353,7 +373,7 @@ void OverlayController::BuildContextMenuEntries() {
 }
 
 void OverlayController::UpdateContextMenuInteraction(
-    entt::registry& registry, const UiViewport& viewport) {
+    const GameUiSnapshot& snapshot, const UiViewport& viewport) {
   const Vector2 mouse = UISystem::GetMousePositionLogic();
 
   if (m_isSkillContext) {
@@ -429,7 +449,7 @@ void OverlayController::UpdateContextMenuInteraction(
   }
 
   // Item menu: refresh display + rebuild the button model, then hit-test.
-  RefreshContextMenuDisplay(registry);
+  RefreshContextMenuDisplay(snapshot);
   if (!m_contextItemValid) {
     // Legacy DrawContextMenu self-closed when the item went invalid.
     CloseContextMenu();
@@ -481,24 +501,36 @@ void OverlayController::UpdateContextMenuInteraction(
   }
 }
 
-void OverlayController::RefreshQuantityTarget(entt::registry& registry) {
+void OverlayController::RefreshQuantityTarget(const GameUiSnapshot& snapshot) {
   m_quantityItemName[0] = '\0';
-  if (!registry.valid(m_quantityTargetItem) ||
-      !registry.all_of<ItemComponent>(m_quantityTargetItem)) {
+  const std::uint64_t target = entt::to_integral(m_quantityTargetItem);
+  if (target == kInvalidDomainId) {
+    CloseQuantityPopup();
+    return;
+  }
+  const GameUiItemView* view = nullptr;
+  for (const GameUiItemView& candidate : snapshot.displayedItems) {
+    if (candidate.domainId == target) {
+      view = &candidate;
+      break;
+    }
+  }
+  if (view == nullptr) {
     // Legacy DrawQuantityPopup self-closed when the target went invalid.
     CloseQuantityPopup();
     return;
   }
-  const auto& item = registry.get<ItemComponent>(m_quantityTargetItem);
-  m_quantityMax = std::max(1, std::min(m_quantityMax, item.quantity));
+  m_quantityMax =
+      std::max(1, std::min(m_quantityMax,
+                           static_cast<std::int32_t>(view->quantity)));
   m_quantityVal = std::clamp(m_quantityVal, 1, m_quantityMax);
   // Cache the item name for the paint (registry-free paint path).
-  utils::FormatToBuffer(m_quantityItemName, "{}", item.name);
+  utils::FormatToBuffer(m_quantityItemName, "{}", view->name);
 }
 
 void OverlayController::UpdateQuantityPopupInteraction(
-    entt::registry& registry, const UiViewport& viewport) {
-  RefreshQuantityTarget(registry);
+    const GameUiSnapshot& snapshot, const UiViewport& viewport) {
+  RefreshQuantityTarget(snapshot);
   if (!m_quantityVisible) {
     return;
   }

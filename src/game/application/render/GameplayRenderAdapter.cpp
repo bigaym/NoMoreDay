@@ -39,6 +39,10 @@
 #include <algorithm>
 #include <cmath>
 
+// R10 (B-R0-1): Tracy instrumentation, active only when TRACY_PROFILING=ON
+// (no-op macros otherwise).
+#include <tracy/Tracy.hpp>
+
 namespace NoMoreDay {
 
 namespace {
@@ -596,6 +600,7 @@ void GameplayRenderAdapter::ExecuteVFXPass(render::GameplayRenderFrame &frame) {
 }
 
 void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &frame) {
+  ZoneScopedN("GameplayRenderAdapter::ExecuteUIWorldPass");
   // R3 (remediation, design §3.5): the UIWorldPass opens a fresh frame token
   // FIRST, before any branch or quality setting can early-return — so every
   // path (CPU loot, GPU loot, text on/off) clears the previous pass's proxies

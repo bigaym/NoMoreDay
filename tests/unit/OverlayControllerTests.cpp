@@ -1,6 +1,7 @@
 #include "doctest.h"
 
 #include "game/application/ui/GameUiHost.hpp"
+#include "game/application/ui/GameUiSnapshot.hpp"
 #include "game/application/ui/OverlayController.hpp"
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiRuntime.hpp"
@@ -218,9 +219,13 @@ TEST_CASE("[Unit] OverlayController (UI) - UpdateOverlays/Paint execute "
 
   ui::UiViewport viewport = ui::UiViewport::Fit({800.0f, 600.0f});
   ui::UiDrawList drawList;
+  // R10: the interaction phase is snapshot-driven; build the frame snapshot
+  // with the item resolved into displayedItems (exactly what the real builder
+  // produces for GameUiSnapshotOptions.contextMenuItem).
+  ui::GameUiSnapshot snapshot;
 
-  // Empty registry: every overlay early-outs.
-  controller.UpdateOverlays(registry, viewport);
+  // Empty snapshot: every overlay early-outs.
+  controller.UpdateOverlays(snapshot, viewport);
   drawList.Clear();
   controller.Paint(drawList, viewport);
   drawList.Finalize();
@@ -231,7 +236,14 @@ TEST_CASE("[Unit] OverlayController (UI) - UpdateOverlays/Paint execute "
   controller.OpenContextMenu(item, true, 0, NoMoreDay::EquipmentSlot::None);
   controller.OpenQuantityPopup(item, 0); // 0: Drop
   controller.ShowMessageBox("hello");
-  controller.UpdateOverlays(registry, viewport);
+  ui::GameUiItemView itemView;
+  itemView.domainId = entt::to_integral(item);
+  itemView.itemType = static_cast<std::uint8_t>(ItemType::Consumable);
+  itemView.quantity = 5;
+  itemView.isLocked = false;
+  itemView.name = "Test Potion";
+  snapshot.displayedItems.push_back(itemView);
+  controller.UpdateOverlays(snapshot, viewport);
   drawList.Clear();
   controller.Paint(drawList, viewport);
   drawList.Finalize();
@@ -248,7 +260,7 @@ TEST_CASE("[Unit] OverlayController (UI) - UpdateOverlays/Paint execute "
   // Invalid target: the popup closes itself instead of crashing.
   controller.CloseQuantityPopup();
   controller.OpenQuantityPopup(entt::null, 0);
-  controller.UpdateOverlays(registry, viewport);
+  controller.UpdateOverlays(snapshot, viewport);
   CHECK_FALSE(controller.IsQuantityPopupVisible());
 }
 
@@ -282,10 +294,11 @@ TEST_CASE("[Unit] OverlayController - GameUiHost routes the overlays through "
   CHECK(source.find("m_overlay.UpdateMessageBox()") != std::string::npos);
   // R6: the overlays paint through the draw list (PrepareRender) and their
   // interaction runs in Update (UpdateOverlays); the legacy registry-based
-  // draw pass is gone.
+  // draw pass is gone. R10: the interaction phase is registry-free — it is
+  // driven by the frame snapshot only.
   CHECK(source.find("m_overlay.Paint(m_drawList, m_viewport)") !=
         std::string::npos);
-  CHECK(source.find("m_overlay.UpdateOverlays(registry, m_viewport)") !=
+  CHECK(source.find("m_overlay.UpdateOverlays(m_snapshot, m_viewport)") !=
         std::string::npos);
 }
 

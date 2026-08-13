@@ -19,6 +19,12 @@ option(COMBAT_DEFENSE_DEBUG "Enable detailed defense-chain debug logs" OFF)
 option(COMBAT_TELEMETRY_ENABLED "Enable combat telemetry instrumentation" ON)
 option(NMD_ENABLE_COMPILER_CACHE "Enable compiler cache launcher auto-detection" ON)
 option(ENABLE_LTO "Enable interprocedural optimization (LTO) for first-party Release builds" OFF)
+# R10 (收尾, B-R0-1): Tracy client integration. Default OFF = zero behavior /
+# zero artifact impact (the vendored target compiles to nothing). When ON, the
+# vendored client (third_party/tracy, v0.13.1) is built with TRACY_ENABLE +
+# TRACY_ENABLE_ALLOCATORS and linked into the UI/render layers; capture with
+# the tools under %NMD_TRACY% (tracy-capture / tracy-profiler / tracy-csvexport).
+option(TRACY_PROFILING "Enable Tracy profiling instrumentation" OFF)
 set(NMD_COMPILER_CACHE_TOOL "AUTO" CACHE STRING "Compiler cache tool: AUTO/SCCACHE/CCACHE/CLCACHE")
 set_property(CACHE NMD_COMPILER_CACHE_TOOL PROPERTY STRINGS AUTO SCCACHE CCACHE CLCACHE)
 set(NMD_CCACHE_DEFAULT_PATH "" CACHE FILEPATH "Fallback path to ccache executable when PATH lookup fails")
@@ -159,6 +165,12 @@ add_subdirectory(third_party/xtl)
 add_subdirectory(third_party/xsimd)
 
 # 6. nlohmann/json
+
+# 7. Tracy (R10): vendored client. With TRACY_PROFILING=OFF the target is an
+#    include-only INTERFACE library (zero compile/link cost); with the option
+#    ON the single-TU client is compiled into a static library carrying
+#    TRACY_ENABLE / TRACY_ENABLE_ALLOCATORS.
+add_subdirectory(third_party/tracy)
 
 # --- Tag Generation ---
 find_package(Python3 REQUIRED COMPONENTS Interpreter)

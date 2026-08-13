@@ -152,8 +152,12 @@ public:
   // controllers in place of the legacy static calls (frame-order coupling
   // with the KEY_E interaction and KEY_K toggle, so they route in-place).
   // CraftingOpenMergePanel / CraftingSetTargetItem are the cross-layer
-  // entry points wired through SharedContext callbacks (InventorySystem
-  // Legendary Core use; UIRenderer context-menu craft).
+  // crafting entry points. CraftingOpenMergePanel is wired through the
+  // SharedContext callback (InventorySystem Legendary Core use);
+  // CraftingSetTargetItem is the host channel for the overlay context-menu
+  // Craft action (OverlayController::ActivateContextMenuButton; the old
+  // SharedContext craftingSetTargetItem callback was removed in R10 as it had
+  // no callers). Both delegate to the hosted UICraftingController.
   void CraftingOpenMergePanel();
   void CraftingSetTargetItem(entt::entity item);
   // U7 group 5: astrolabe close entry point for the skill-tree sibling

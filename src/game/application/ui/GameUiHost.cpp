@@ -22,6 +22,10 @@
 #include <utility>
 #include <vector>
 
+// R10 (B-R0-1): Tracy instrumentation, active only when TRACY_PROFILING=ON
+// (no-op macros otherwise).
+#include <tracy/Tracy.hpp>
+
 namespace NoMoreDay::ui {
 
 namespace {
@@ -189,6 +193,7 @@ void GameUiHost::Update(entt::registry &registry,
 void GameUiHost::Update(entt::registry &registry,
                         const LevelManager &levelManager,
                         const GameUiSnapshot &snapshot) {
+  ZoneScopedN("GameUiHost::Update");
   // R3 (remediation, design §3.6): per-frame reset of the Escape consumption
   // flag. Runs before the initialization guard so every Update call starts a
   // fresh frame for the Escape ownership contract; HandleEscape below sets it
@@ -260,8 +265,11 @@ void GameUiHost::Update(entt::registry &registry,
   // the frame snapshot + logical mouse and enqueue intents (executed by the
   // handler on the next gameplay Update); the character confirm state and the
   // quantity popup state they produce are exactly what HandleEscape reads.
+  // R10 (收尾): UpdateOverlays is registry-free — the overlay validates its
+  // targets against the frame snapshot's displayed-items cache (the builder
+  // includes the context-menu target every frame via SnapshotOptions).
   m_character.UpdateInput(m_snapshot);
-  m_overlay.UpdateOverlays(registry, m_viewport);
+  m_overlay.UpdateOverlays(m_snapshot, m_viewport);
 
   // U8 inventory takeover: the KEY_I toggle moved out of GameplayState
   // (PushState<InventoryState> is gone) into the host update, at the original
@@ -609,6 +617,7 @@ UiInputCapture GameUiHost::InputCapture() const {
 }
 
 void GameUiHost::PrepareRender() {
+  ZoneScopedN("GameUiHost::PrepareRender");
   // R4 (remediation, design §3.1/§3.4): paint phase only. The draw list is
   // cleared, the migrated surfaces paint their commands (host-owned buffers,
   // reserved at Initialize time; overflow is telemetry, never hot-path

@@ -46,8 +46,11 @@ struct SharedContext {
   // they route through these callbacks instead of the legacy static
   // UICrafting. Game fills them with lambdas capturing the host-owned
   // UICraftingController.
+  // R10 (收尾): craftingSetTargetItem is gone — it had no caller (the overlay
+  // Craft action routes through the host channel GameUiHost::
+  // CraftingSetTargetItem since R6, and InventorySystem's Legendary Core path
+  // only opens the merge panel). Only the merge-panel callback remains live.
   std::function<void()> openCraftingMergePanel;
-  std::function<void(entt::entity)> craftingSetTargetItem;
   // R8: the legacy closeAstrolabe callback is gone — the skill-tree controller
   // routes the astrolabe close through the host channel (GameUiHost::
   // CloseAstrolabe) since U8, so no SharedContext coupling is left.

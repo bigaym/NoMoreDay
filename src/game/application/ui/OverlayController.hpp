@@ -14,6 +14,9 @@
 namespace NoMoreDay::ui {
 
 class GameUiHost;
+// R10: frame-scoped, read-only panel view model (design §3.2). The overlay
+// interaction phase consumes it instead of the gameplay registry.
+struct GameUiSnapshot;
 
 // Instance controller for the three global overlays (U7 group 6): the context
 // menu, the quantity popup and the message box. These used to live as static
@@ -23,7 +26,7 @@ class GameUiHost;
 //
 // R6 (remediation): all three surfaces are now painted through the draw list
 // (Paint) and no gameplay mutator runs in a paint path. Interactions happen in
-// the host Update phase (UpdateOverlays): registry reads refresh the display
+// the host Update phase (UpdateOverlays): snapshot reads refresh the display
 // caches, and every gameplay action is enqueued as a GameUiIntent executed by
 // the GameUiCommandHandler in the next gameplay Update phase. The only
 // remaining direct gameplay write is the hotbar skill assignment from the
@@ -118,13 +121,20 @@ public:
   void ReconcileRuntime();
 
   // R6 (remediation, design §3.1): interaction phase of the overlay surfaces,
-  // called by the host Update right before HandleEscape. Registry reads only:
-  // validates the context menu item / quantity target and refreshes the
-  // display caches (item type/lock/quantity, popup name/max). All gameplay
-  // actions are enqueued as intents (executed by the command handler in the
-  // next Update phase); the only exception is the hotbar skill assignment
-  // (no intent kind exists yet; kept as an Update-phase write).
-  void UpdateOverlays(entt::registry& registry, const UiViewport& viewport);
+  // called by the host Update right before HandleEscape. R10 (收尾): the
+  // gameplay registry parameter is gone — the phase is driven entirely by the
+  // frame snapshot + session state. It resolves the context menu item /
+  // quantity target against snapshot.displayedItems (the builder includes the
+  // menu target every frame via GameUiSnapshotOptions.contextMenuItem) and
+  // refreshes the display caches (item type/lock/quantity, popup name/max); a
+  // target missing from the snapshot (entity destroyed or out of range)
+  // self-closes the surface, preserving the legacy registry-validity
+  // behaviour. All gameplay actions are enqueued as intents (executed by the
+  // command handler in the next Update phase); the only exception is the
+  // hotbar skill assignment (no intent kind exists yet; kept as an Update-phase
+  // write).
+  void UpdateOverlays(const GameUiSnapshot& snapshot,
+                      const UiViewport& viewport);
 
   // R6 (remediation, design §3.4): paint step of the draw-list pipeline.
   // Appends the context menu, the quantity popup and the message box commands
@@ -155,12 +165,12 @@ private:
     UiRect rect{};
   };
 
-  void RefreshContextMenuDisplay(entt::registry& registry);
+  void RefreshContextMenuDisplay(const GameUiSnapshot& snapshot);
   void BuildContextMenuEntries();
-  void RefreshQuantityTarget(entt::registry& registry);
-  void UpdateContextMenuInteraction(entt::registry& registry,
+  void RefreshQuantityTarget(const GameUiSnapshot& snapshot);
+  void UpdateContextMenuInteraction(const GameUiSnapshot& snapshot,
                                     const UiViewport& viewport);
-  void UpdateQuantityPopupInteraction(entt::registry& registry,
+  void UpdateQuantityPopupInteraction(const GameUiSnapshot& snapshot,
                                       const UiViewport& viewport);
   void PaintContextMenu(UiDrawList& drawList, const UiViewport& viewport) const;
   void PaintQuantityPopup(UiDrawList& drawList, const UiViewport& viewport) const;

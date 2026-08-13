@@ -5,6 +5,10 @@
 #include <limits>
 #include <utility>
 
+// R10 (B-R0-1): Tracy instrumentation, active only when TRACY_PROFILING=ON
+// (no-op macros otherwise).
+#include <tracy/Tracy.hpp>
+
 namespace NoMoreDay::ui {
 
 namespace {
@@ -59,6 +63,7 @@ std::size_t UiDrawList::CommandCount() const noexcept {
 bool UiDrawList::IsEmpty() const noexcept { return m_commands.empty(); }
 
 void UiDrawList::AppendCommand(UiDrawCommand command) {
+  ZoneScopedN("UiDrawList::AppendCommand");
   command.appendSequence = m_appendSequence++;
   m_finalized = false;
   // Hard capacity: overflow is recorded as telemetry and the command is

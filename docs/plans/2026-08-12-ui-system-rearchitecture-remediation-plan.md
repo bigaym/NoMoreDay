@@ -383,3 +383,14 @@ Tracy capture 使用 `docs/workflows/performance.md` 的受支持命令，artifa
 - [ ] R0-R9 生产代码、测试、性能采样和跟进审查。
 
 本轮按用户要求只修改文档，不实施本计划中的生产代码或测试代码。
+
+## 7. R10 收尾（2026-08-13，承接 R9 遗留 6 项）
+
+- [x] **1. Tracy 集成（B-R0-1）**：定案接入——CMake option `TRACY_PROFILING` 默认 OFF；vendoring `third_party/tracy`（v0.13.1 单 TU client，OFF=INTERFACE 零行为差异）；热路径 4 处 ZoneScopedN（UiDrawList::AppendCommand / GameUiHost::Update / GameUiHost::PrepareRender / GameplayRenderAdapter::ExecuteUIWorldPass）；tech-stack.md 补条目。开启态编译+链接成功且 tracy-capture 无头实测捕获 2 frames/19 zones。证据：remediation-evidence.md §R10.1。
+- [x] **2. 实机视觉矩阵（B-R0-2）**：自动化能力核查（全仓无截图 API/headless 渲染路径）→ 自动化部分同 R9 全部 PASS；headed 人工验证清单 7 项（步骤+预期+验收标准）固化进 remediation-evidence.md §R10.2，本轮如实 NOT_RUN+原因+owner=人工验证。
+- [x] **3. OverlayController::UpdateOverlays registry 收口**：签名去 registry 改 `UpdateOverlays(const GameUiSnapshot&, const UiViewport&)`，两 Refresh 改 snapshot.displayedItems 按 domainId 驱动（找不到→自关，等价 legacy 语义）；宿主调用/测试/guard 全部同步；新 guard UiR10RemediationGuardTests 3 用例。
+- [x] **4. craftingSetTargetItem**：裁决=删除 SharedContext 公开字段+Game.cpp lambda（全仓零调用者）；保留 GameUiHost::CraftingSetTargetItem / UICraftingController::SetTargetItem（生产 context-menu 活路径+测试 seam），注释修正。
+- [x] **5. crafting fuse/salvage 粒子爆发**：裁决=恢复（选项 a）——handler 成功路径经既有世界粒子通道 EmitBatch；新 UiCraftBurst.hpp 纯 builder + GameUiCommandHandler 三处发射；UiCraftBurstTests 2 用例/442 assertions。
+- [x] **6. SwordIntentWidget shine shader 降级**：裁决=部分恢复——gold pulse tint 以 draw-list 受控 alpha 序列恢复（halo Image，sin(time*3) 同 legacy 频率）；shine band 因需每像素渐变、与纯原语 draw-list 架构冲突，论证后定案不恢复并记录取舍；测试补位。
+
+完成定义勾选：R0-R9 全部 `[x]`（见 evidence §R0-R9 汇总表）；screen panel 全走 snapshot/intent/runtime/draw-list（R10 新增 guard 锁定 Overlay 阶段 registry-free）；review Blocker/High 回归测试在列；build/check/CTest 结果如实记录（P0-1 外部阻塞沿用 novalidate 证据）；手测矩阵以 headed 清单固化。验证数字与证据见 remediation-evidence.md §R10（Verification 小节）。

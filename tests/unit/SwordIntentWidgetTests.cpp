@@ -61,6 +61,42 @@ TEST_CASE("[Unit] SwordIntentWidget instances are independent") {
   CHECK(b.CurrentStacks() == 2);
 }
 
+TEST_CASE("[Unit] SwordIntentWidget emits a glow halo at max stacks (R10)") {
+  // R10 (收尾): the raylib ui_shine shader glow was dropped in R5; the paint
+  // path now approximates it with a low-alpha gold halo behind every active
+  // icon, gated by the same m_glowIntensity ramp as legacy. At max stacks the
+  // glow ramp saturates to 1.0, so every active icon must produce a halo
+  // Image command in addition to its normal icon Image command.
+  NoMoreDay::systems::ui::SwordIntentWidget widget;
+  widget.SetIconResourceId(NoMoreDay::ui::kSwordIntentIconResourceId);
+  // dt = 1.0s drives the dt*3 lerp to saturation in one update.
+  widget.Update(4, 4, NoMoreDay::BladeResourceKind::SwordIntent, "Sword Intent",
+                "", 0.5f, 1.0f);
+
+  NoMoreDay::ui::UiDrawList drawList;
+  const NoMoreDay::ui::UiViewport viewport =
+      NoMoreDay::ui::UiViewport::Fit({2560, 1440});
+  widget.Paint(drawList, viewport);
+
+  // 4 halos + 4 icons + 1 label text (SwordIntent kind emits no threshold).
+  REQUIRE(drawList.CommandCount() == 9);
+  int haloCount = 0;
+  int iconCount = 0;
+  for (const auto& cmd : drawList.Commands()) {
+    if (cmd.kind == NoMoreDay::ui::UiDrawKind::Image) {
+      // Halo = low-alpha enlarged image (alpha <= ~77); icons stay full
+      // alpha. Sizes alone would be ambiguous for the pulsing last icon.
+      if (cmd.color.a < 200u) {
+        ++haloCount;
+      } else {
+        ++iconCount;
+      }
+    }
+  }
+  CHECK(haloCount == 4);
+  CHECK(iconCount == 4);
+}
+
 TEST_CASE("[Unit] SwordIntentWidget header holds no static mutable state") {
   const std::string path = "src/game/application/ui/SwordIntentWidget.hpp";
   std::ifstream in(path);

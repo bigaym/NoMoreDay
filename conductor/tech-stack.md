@@ -13,10 +13,12 @@
 - **SIMD:** **xsimd** - Cross-platform SIMD wrappers for optimizing physics and spatial calculations.
 - **Memory Allocation:** **mimalloc** - Performance-oriented allocator to reduce fragmentation and improve multi-threaded efficiency.
 - **Logging:** **spdlog** - Fast, header-only C++ logging library.
+- **Profiling:** **Tracy (v0.13.1)** - Opt-in frame profiler. Header-only client vendored at `third_party/tracy` (single-TU static lib built only when `TRACY_PROFILING=ON`, default OFF; default builds see no-op macros, zero behavior/artifact impact). Instrumented hot paths: `UiDrawList::AppendCommand`, `GameUiHost::Update`, `GameUiHost::PrepareRender`, `GameplayRenderAdapter::ExecuteUIWorldPass`. See remediation evidence §R10 (B-R0-1).
 - **Serialization:** **nlohmann/json** - Industry-standard JSON parsing for configurations and save data.
 
 ## Tooling & Automation
 - **Build System:** CMake (3.20+)
+- **Profiling Tools:** Tracy capture/analysis tools (`tracy-capture`, `tracy-profiler`, `tracy-csvexport`) at `%NMD_TRACY%` (F:\devtools\tracy); consume traces from `TRACY_PROFILING=ON` builds.
 - **Asset Pipeline:** Python 3.10+ scripts for AI-driven image generation (ComfyUI/SDXL), automated C++ header generation for asset registries, and dynamic Tag Registry generation from JSON definitions.
 - **Versioning:** Git
 
