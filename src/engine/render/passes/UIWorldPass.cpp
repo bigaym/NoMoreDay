@@ -23,4 +23,8 @@ void UIWorldPass::Execute(graph::RenderContext &context) {
 
 const char *UIWorldPass::GetName() const { return "UIWorldPass"; }
 
+graph::RenderPassType UIWorldPass::Type() const {
+  return graph::RenderPassType::UIWorld;
+}
+
 } // namespace NoMoreDay::render::passes

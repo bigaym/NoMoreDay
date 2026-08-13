@@ -8,7 +8,9 @@
 #include <bitset>
 #include <cstdint>
 #include <entt/entt.hpp>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -144,6 +146,67 @@ inline void from_json(const nlohmann::json &j, TalentPrerequisite &p) {
 }
 
 /**
+ * @brief Category of a talent tooltip quantitative line.
+ *
+ * Drives display priority at render time without parsing display text
+ * (display labels are data). Serialized as the optional "display_category"
+ * key; old data without the key falls back to Default.
+ */
+enum class DisplayLineCategory : uint8_t {
+  Label,
+  Damage,
+  Duration,
+  Frequency,
+  Speed,
+  Range,
+  Cost,
+  Cooldown,
+  Default
+};
+
+inline constexpr std::array<std::string_view,
+                            static_cast<std::size_t>(
+                                DisplayLineCategory::Default) +
+                                1>
+    kDisplayLineCategoryNames = {
+        "label",     // Label
+        "damage",    // Damage
+        "duration",  // Duration
+        "frequency", // Frequency
+        "speed",     // Speed
+        "range",     // Range
+        "cost",      // Cost
+        "cooldown",  // Cooldown
+        "default",   // Default
+};
+
+inline void to_json(nlohmann::json &j, const DisplayLineCategory &c) {
+  const auto idx = static_cast<std::size_t>(c);
+  j = idx < kDisplayLineCategoryNames.size()
+          ? nlohmann::json(std::string(kDisplayLineCategoryNames[idx]))
+          : nlohmann::json("default");
+}
+
+inline void from_json(const nlohmann::json &j, DisplayLineCategory &c) {
+  if (j.is_string()) {
+    const std::string raw = j.get<std::string>();
+    for (std::size_t i = 0; i < kDisplayLineCategoryNames.size(); ++i) {
+      if (kDisplayLineCategoryNames[i] == raw) {
+        c = static_cast<DisplayLineCategory>(i);
+        return;
+      }
+    }
+    c = DisplayLineCategory::Default;
+    return;
+  }
+  if (j.is_number_integer()) {
+    c = static_cast<DisplayLineCategory>(j.get<uint8_t>());
+    return;
+  }
+  c = DisplayLineCategory::Default;
+}
+
+/**
  * @brief Metadata for a single quantitative line in a talent tooltip.
  */
 struct TalentDisplayLine {
@@ -152,6 +215,7 @@ struct TalentDisplayLine {
   float per_point = 0.0f;
   bool is_percent = false;
   std::string suffix;
+  DisplayLineCategory displayCategory = DisplayLineCategory::Default;
 };
 
 inline void to_json(nlohmann::json &j, const TalentDisplayLine &l) {
@@ -159,7 +223,8 @@ inline void to_json(nlohmann::json &j, const TalentDisplayLine &l) {
                      {"base_value", l.base_value},
                      {"per_point", l.per_point},
                      {"is_percent", l.is_percent},
-                     {"suffix", l.suffix}};
+                     {"suffix", l.suffix},
+                     {"display_category", l.displayCategory}};
 }
 
 inline void from_json(const nlohmann::json &j, TalentDisplayLine &l) {
@@ -170,6 +235,46 @@ inline void from_json(const nlohmann::json &j, TalentDisplayLine &l) {
   if (j.contains("suffix")) {
     j.at("suffix").get_to(l.suffix);
   }
+  if (j.contains("display_category")) {
+    j.at("display_category").get_to(l.displayCategory);
+  }
+}
+
+/**
+ * @brief Behavior injection identifiers for C++ logic hooks.
+ *
+ * TalentNode::behavior_id remains a std::string for JSON (de)serialization
+ * compatibility; convert at the application boundary via
+ * SkillBehaviorIdFromString/SkillBehaviorIdToString.
+ */
+enum class SkillBehaviorId : uint8_t {
+  None = 0, // empty string == no behavior
+  ShadowCaster,
+  Count,
+};
+
+inline constexpr std::array<std::string_view,
+                            static_cast<std::size_t>(SkillBehaviorId::Count)>
+    kSkillBehaviorIdNames = {
+        "",              // None
+        "shadow_caster", // ShadowCaster
+};
+
+[[nodiscard]] constexpr std::string_view SkillBehaviorIdToString(
+    SkillBehaviorId id) noexcept {
+  const auto idx = static_cast<std::size_t>(id);
+  return idx < kSkillBehaviorIdNames.size() ? kSkillBehaviorIdNames[idx]
+                                            : std::string_view{};
+}
+
+[[nodiscard]] constexpr std::optional<SkillBehaviorId>
+SkillBehaviorIdFromString(std::string_view name) noexcept {
+  for (std::size_t i = 0; i < kSkillBehaviorIdNames.size(); ++i) {
+    if (kSkillBehaviorIdNames[i] == name) {
+      return static_cast<SkillBehaviorId>(i);
+    }
+  }
+  return std::nullopt;
 }
 
 /**

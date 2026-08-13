@@ -4,14 +4,61 @@
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace NoMoreDay::render::validation {
 
 class FixtureRenderDriver;
+
+// T8: typed fixture identifiers. Logical dispatch (scene recipe selection)
+// switches on this enum instead of comparing fixture name strings; the string
+// form (FixtureConfig::name) is retained for report titles, the scene input
+// hash and logs only.
+enum class GpuFixtureType : uint8_t {
+  None = 0,
+  CaveColorBleed,
+  DynamicCombatEmissive,
+  OutdoorLightPressure,
+  Count
+};
+
+// NOTE: kGpuFixtureTypeNames must stay character-for-character identical to
+// the original fixture name literals so that the scene input hash, report
+// titles and JSON artifacts keep their exact historical values.
+inline constexpr std::array<std::string_view,
+                            static_cast<std::size_t>(GpuFixtureType::Count)>
+    kGpuFixtureTypeNames = {
+        "",                        // None
+        "cave_color_bleed",        // CaveColorBleed
+        "dynamic_combat_emissive", // DynamicCombatEmissive
+        "outdoor_light_pressure",  // OutdoorLightPressure
+};
+
+[[nodiscard]] constexpr std::string_view GpuFixtureTypeToString(
+    GpuFixtureType type) noexcept {
+  const auto idx = static_cast<std::size_t>(type);
+  return idx < kGpuFixtureTypeNames.size() ? kGpuFixtureTypeNames[idx]
+                                           : std::string_view{};
+}
+
+// Suffix-named per the codebase TagFromString/BuffIdFromString convention:
+// MapComponent.hpp defines a global-scope FromString(std::string_view), so an
+// unsuffixed overload here would be ambiguous at `using namespace` call sites.
+[[nodiscard]] constexpr std::optional<GpuFixtureType> GpuFixtureTypeFromString(
+    std::string_view name) noexcept {
+  for (std::size_t i = 0; i < kGpuFixtureTypeNames.size(); ++i) {
+    if (kGpuFixtureTypeNames[i] == name) {
+      return static_cast<GpuFixtureType>(i);
+    }
+  }
+  return std::nullopt;
+}
 
 enum class GateStatus {
   Go,
@@ -51,6 +98,9 @@ struct HardwareCapabilityReport {
 
 struct FixtureConfig {
   std::string name;
+  // T8: typed identifier driving recipe dispatch; name is kept for report
+  // titles / scene input hash / logs only.
+  GpuFixtureType type{GpuFixtureType::None};
   std::string description;
   uint32_t sceneSeed{0};
   float cameraX{0.0f};
@@ -376,11 +426,12 @@ public:
   // S7b: performs one paired GI delta capture for the given fixture on the
   // driver's real gameplay scene (GI runtime override ON vs OFF legs, each with
   // its own temporal warmup and independent sampling window). `qualityTier`
-  // selects the tier the capture runs under (default "High"; matrix cells pass
+  // selects the tier the capture runs under (default High; matrix cells pass
   // their own tier so the paired evidence is per-cell).
   [[nodiscard]] static PairedGiDeltaResult RunPairedGiDeltaCapture(
       FixtureRenderDriver &driver, const FixtureConfig &fixture,
-      const std::string &qualityTier = "High");
+      NoMoreDay::render::core::QualityTier qualityTier =
+          NoMoreDay::render::core::QualityTier::High);
 
   // W6 (M0-C) occupancy evidence (M0-A R3). Pure-CPU classifier over the raw
   // occupancy mask texels (GL_RED/GL_FLOAT readback of the R8 history):

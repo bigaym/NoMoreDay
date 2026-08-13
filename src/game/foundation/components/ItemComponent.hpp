@@ -3,10 +3,14 @@
 #include "game/foundation/components/ItemStats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/item/LootTable.hpp"
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace NoMoreDay {
@@ -22,6 +26,14 @@ enum class ItemType {
   Bag
 };
 
+// 为枚举提供简单的序列化支持 (转为底层整数)
+inline void to_json(nlohmann::json &j, const ItemType &e) {
+  j = static_cast<uint8_t>(e);
+}
+inline void from_json(const nlohmann::json &j, ItemType &e) {
+  e = static_cast<ItemType>(j.get<uint8_t>());
+}
+
 enum class WeaponSubtype : uint8_t {
   None = 0,
   Sword,
@@ -30,16 +42,12 @@ enum class WeaponSubtype : uint8_t {
   Staff,
   Dagger,
   Bow,
-  Wand
+  Wand,
+  Greatsword // 追加在末尾以保持既有序列化值稳定（旧存档兼容）
 };
 
-// 为枚举提供简单的序列化支持 (转为底层整数)
-inline void to_json(nlohmann::json &j, const ItemType &e) {
-  j = static_cast<uint8_t>(e);
-}
-inline void from_json(const nlohmann::json &j, ItemType &e) {
-  e = static_cast<ItemType>(j.get<uint8_t>());
-}
+// 催化剂种类 (用于锻造消耗品身份判断，取代名称字符串比较)
+enum class CatalystKind : uint8_t { None = 0, LegendaryCore };
 
 // 装备槽位枚举
 enum class EquipmentSlot {
@@ -88,6 +96,51 @@ inline void from_json(const nlohmann::json &j, Rarity &e) {
   e = static_cast<Rarity>(j.get<uint8_t>());
 }
 
+// --- 稀有度字符串解析/格式化的单一来源 (大小写不敏感) ---
+// 取代 LootFilter 与 MaterialRegistry 各自维护的 Rarity 字符串表。
+// 解析接受任意大小写 ("Common"/"COMMON"/"common")；格式化为首字母大写
+// 形式 ("Common")，与既有 materials.json 数据格式一致。
+inline Rarity RarityFromString(std::string_view str) {
+  static const std::unordered_map<std::string, Rarity> kStringToRarity = {
+      {"COMMON", Rarity::Common},     {"MAGIC", Rarity::Magic},
+      {"RARE", Rarity::Rare},         {"UNCOMMON", Rarity::Uncommon},
+      {"SET", Rarity::Set},           {"EPIC", Rarity::Epic},
+      {"LEGENDARY", Rarity::Legendary},
+      {"MYTHIC", Rarity::Mythic},     {"ANCIENT", Rarity::Ancient}};
+
+  std::string s(str);
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+  auto it = kStringToRarity.find(s);
+  if (it != kStringToRarity.end())
+    return it->second;
+  return Rarity::Common;
+}
+
+inline std::string RarityToString(Rarity rarity) {
+  switch (rarity) {
+  case Rarity::Common:
+    return "Common";
+  case Rarity::Magic:
+    return "Magic";
+  case Rarity::Rare:
+    return "Rare";
+  case Rarity::Uncommon:
+    return "Uncommon";
+  case Rarity::Set:
+    return "Set";
+  case Rarity::Epic:
+    return "Epic";
+  case Rarity::Legendary:
+    return "Legendary";
+  case Rarity::Mythic:
+    return "Mythic";
+  case Rarity::Ancient:
+    return "Ancient";
+  }
+  return "Common";
+}
+
 // 套装奖励定义
 struct SetBonus {
   int requiredCount;                     // 激活此奖励所需的套装件数
@@ -98,6 +151,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SetBonus, requiredCount, bonuses)
 // 标记实体为物品的组件
 struct ItemComponent {
   uint32_t id = 0;                          // 物品的数据库/配置ID
+  uint32_t baseId = 0;                      // 基底定义ID (BaseItemDef, 用于按ID查基础属性)
   std::string name;                         // 物品名称
   ItemType type = ItemType::Material;       // 物品类型
   EquipmentSlot slot = EquipmentSlot::None; // 装备槽位 (如果可装备)
@@ -113,6 +167,7 @@ struct ItemComponent {
   int bagCapacity = 0;                               // 背包扩容量 (仅背包)
   bool isTwoHanded = false;                          // 是否为双手武器
   WeaponSubtype weaponSubtype = WeaponSubtype::None; // 武器子类型 (仅武器)
+  CatalystKind catalystKind = CatalystKind::None; // 催化剂种类 (仅消耗品, 默认非催化剂)
 
   // --- 套装属性 ---
   std::string setName;      // 套装名称 (例如 "Immortal King")
@@ -153,6 +208,7 @@ struct ItemComponent {
 // 避免在 JSON 中存储哈希值，反序列化时自动计算
 inline void to_json(nlohmann::json &j, const ItemComponent &i) {
   j = nlohmann::json{{"id", i.id},
+                     {"baseId", i.baseId},
                      {"name", i.name},
                      {"type", i.type},
                      {"slot", i.slot},
@@ -166,6 +222,7 @@ inline void to_json(nlohmann::json &j, const ItemComponent &i) {
                      {"bagCapacity", i.bagCapacity},
                      {"isTwoHanded", i.isTwoHanded},
                      {"weaponSubtype", static_cast<uint8_t>(i.weaponSubtype)},
+                     {"catalystKind", static_cast<uint8_t>(i.catalystKind)},
                      {"setName", i.setName},
                      {"setBonuses", i.setBonuses},
                      {"forgingPotential", i.forgingPotential},
@@ -184,6 +241,11 @@ inline void to_json(nlohmann::json &j, const ItemComponent &i) {
 
 inline void from_json(const nlohmann::json &j, ItemComponent &i) {
   j.at("id").get_to(i.id);
+  if (j.contains("baseId")) {
+    j.at("baseId").get_to(i.baseId);
+  } else {
+    i.baseId = 0; // 旧存档无 baseId 字段
+  }
   j.at("name").get_to(i.name);
   j.at("type").get_to(i.type);
   j.at("slot").get_to(i.slot);
@@ -203,6 +265,12 @@ inline void from_json(const nlohmann::json &j, ItemComponent &i) {
   if (j.contains("weaponSubtype")) {
     i.weaponSubtype =
         static_cast<WeaponSubtype>(j.at("weaponSubtype").get<uint8_t>());
+  }
+  if (j.contains("catalystKind")) {
+    i.catalystKind =
+        static_cast<CatalystKind>(j.at("catalystKind").get<uint8_t>());
+  } else {
+    i.catalystKind = CatalystKind::None; // 旧存档无催化剂字段
   }
   j.at("setName").get_to(i.setName);
   j.at("setBonuses").get_to(i.setBonuses);
@@ -224,6 +292,18 @@ inline void from_json(const nlohmann::json &j, ItemComponent &i) {
   if (!i.setName.empty()) {
     i.setNameHash = NoMoreDay::utils::Hash(i.setName);
   }
+}
+
+/**
+ * @brief 判定物品是否为传奇核心催化剂。
+ * 新生成数据以 catalystKind 标记；旧存档仅含名称时按名称回退兼容。
+ */
+inline bool IsLegendaryCoreCatalyst(const ItemComponent& item) {
+  if (item.catalystKind == CatalystKind::LegendaryCore) {
+    return true;
+  }
+  return item.catalystKind == CatalystKind::None &&
+         (item.name == "Legendary Core" || item.name == "传奇核心");
 }
 
 /**

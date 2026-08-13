@@ -15,6 +15,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "VolumetricLightPass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::Volumetric;
+  }
 
   bool Initialize();
   void Shutdown();

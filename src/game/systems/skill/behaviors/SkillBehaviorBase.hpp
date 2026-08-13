@@ -63,18 +63,24 @@ struct SkillBehaviorBase {
         return conv;
     }
 
+    // Node trigger modifier parameter keys (replaces string-view comparisons).
+    enum class ModifierParam : uint8_t {
+      Effectiveness,
+      RangeMultiplier,
+    };
+
     [[nodiscard]] static float getModifier(uint32_t node_id,
-                                           std::string_view key,
+                                           ModifierParam key,
                                            float default_val) {
       const auto *node_contract =
           SkillRegistry::Get().GetNodeContract(Derived::kSkillId, node_id);
       if (!node_contract) {
         return default_val;
       }
-      if (key == "effectiveness") {
+      switch (key) {
+      case ModifierParam::Effectiveness:
         return node_contract->trigger.effectiveness;
-      }
-      if (key == "range_mult") {
+      case ModifierParam::RangeMultiplier:
         return node_contract->trigger.range_mult;
       }
       return default_val;

@@ -27,4 +27,8 @@ void GPUTextPass::Execute(graph::RenderContext &context) {
 
 const char *GPUTextPass::GetName() const { return "GPUTextPass"; }
 
+graph::RenderPassType GPUTextPass::Type() const {
+  return graph::RenderPassType::GPUText;
+}
+
 } // namespace NoMoreDay::render::passes

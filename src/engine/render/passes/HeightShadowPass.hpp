@@ -16,6 +16,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "HeightShadowPass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::HeightShadow;
+  }
 
   bool Initialize();
   void Shutdown();

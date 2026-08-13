@@ -43,7 +43,7 @@ TEST_CASE("[Functional] AssassinAI - Backstab Direction and Safety") {
     auto &effects = registry.get<ActiveEffectsComponent>(assassin);
     bool found = false;
     for (const auto &buff : effects.effects) {
-      if (buff.id == "assassin_backstab_boost") {
+      if (buff.id == BuffIdToString(BuffId::AssassinBackstabBoost)) {
         found = true;
         CHECK(buff.modifiers[0].value == doctest::Approx(2.5f));
       }

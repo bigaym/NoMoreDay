@@ -33,22 +33,20 @@ Color ParseColor(const json &item, const char *key, Color fallback) {
 }
 
 BiomeStyle ParseBiomeStyle(const json &item) {
+  static const std::unordered_map<std::string, BiomeStyle> kStyleMap = {
+      {"town", BiomeStyle::Town},
+      {"open", BiomeStyle::Open},
+      {"maze", BiomeStyle::Maze},
+      {"special", BiomeStyle::Special},
+  };
+
   const std::string style = ToLower(item.value("style", std::string("open")));
-  if (style == "town") {
-    return BiomeStyle::Town;
-  }
-  if (style == "open") {
+  const auto iter = kStyleMap.find(style);
+  if (iter == kStyleMap.end()) {
+    LOG_WARN("Unknown biome style '{}', fallback to Open", style);
     return BiomeStyle::Open;
   }
-  if (style == "maze") {
-    return BiomeStyle::Maze;
-  }
-  if (style == "special") {
-    return BiomeStyle::Special;
-  }
-
-  LOG_WARN("Unknown biome style '{}', fallback to Open", style);
-  return BiomeStyle::Open;
+  return iter->second;
 }
 
 uint32_t ParseBiomeFeatures(const json &item) {

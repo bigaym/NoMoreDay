@@ -562,7 +562,7 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
 
         auto* effects = registry.try_get<ActiveEffectsComponent>(player);
         REQUIRE(effects != nullptr);
-        CHECK(effects->Get("flowing_thrust_swift") != nullptr);
+        CHECK(effects->Get(BuffId::SwordStep) != nullptr);
         CHECK(effects->Get("seven_star_returning_step") != nullptr);
         CHECK(registry.get<CombatStats>(player).barrier > 0.0f);
         CHECK(registry.get<CombatStats>(player).health > 60.0f);

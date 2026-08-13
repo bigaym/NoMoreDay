@@ -23,6 +23,10 @@ public:
     static void Shutdown();
     static const BuffVisualData& GetVisualData(BuffType type);
 
+    // True when the visual data is the registry's fallback "Unknown" entry
+    // (i.e. the buff type has no registered visual data).
+    [[nodiscard]] static bool IsUnknownVisual(const BuffVisualData& data);
+
 private:
     static std::unordered_map<BuffType, BuffVisualData> registry;
     static BuffVisualData default_data;

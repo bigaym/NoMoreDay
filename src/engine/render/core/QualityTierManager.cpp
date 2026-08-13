@@ -265,21 +265,8 @@ bool WriteV3ConfigToFile(const std::string &settingsPath,
 }
 
 bool ParseTierString(std::string value, QualityTier &outTier) {
-  value = ToLower(std::move(value));
-  if (value == "low") {
-    outTier = QualityTier::Low;
-    return true;
-  }
-  if (value == "medium") {
-    outTier = QualityTier::Medium;
-    return true;
-  }
-  if (value == "high") {
-    outTier = QualityTier::High;
-    return true;
-  }
-  if (value == "ultra") {
-    outTier = QualityTier::Ultra;
+  if (const auto parsed = FromStringQualityTier(value)) {
+    outTier = *parsed;
     return true;
   }
   return false;

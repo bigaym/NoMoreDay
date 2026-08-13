@@ -18,6 +18,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "ShadowResolvePass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::ShadowResolve;
+  }
 
   void SetBuildPass(const ShadowBuildPass *buildPass) { m_buildPass = buildPass; }
   bool Initialize();

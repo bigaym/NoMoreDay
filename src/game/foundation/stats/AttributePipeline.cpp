@@ -611,7 +611,7 @@ void AttributePipeline::Calculate(entt::registry &registry,
                    bonus_max_sword_intent += eff.numeric_value * static_cast<float>(points);
                }
             } else if (eff.type == AstrolabeEffectType::SpecialBehavior) {
-               if (eff.ratio > 0.0f && eff.value.starts_with("IntToCritMult")) {
+               if (eff.behavior_id == AstrolabeBehaviorId::IntToCritMult && eff.ratio > 0.0f) {
                    float intel = calcs[static_cast<size_t>(StatType::Intelligence)].Result();
                    ApplyStatModifier(calcs, StatType::CritDamage, ModifierMode::Flat, intel * eff.ratio * static_cast<float>(points));
                }

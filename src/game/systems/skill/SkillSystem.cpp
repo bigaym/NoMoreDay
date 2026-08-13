@@ -383,18 +383,6 @@ void PopulateActiveNodesFromSpecialized(const SpecializedSkill *specialized,
   }
 }
 
-bool HasSwordStepBuff(const ActiveEffectsComponent *effects) {
-  if (!effects) {
-    return false;
-  }
-  for (const auto &effect : effects->effects) {
-    if (effect.id == "flowing_thrust_swift" && effect.remaining > 0.0f) {
-      return true;
-    }
-  }
-  return false;
-}
-
 void LogGuardBlocked(const char *code, uint32_t skill_id, uint32_t node_id,
                      entt::entity caster, const char *reason) {
   LOG_WARN("[{}] skill={} node={} caster={} reason={}", code, skill_id, node_id,
@@ -559,9 +547,9 @@ void SkillSystem::InitHooks() {
         auto it = tree->nodes.find(node_id);
         if (it != tree->nodes.end()) {
           const auto &node = it->second;
-          if (!node.behavior_id.empty()) {
-            BehaviorInjectionRegistry::Apply(node.behavior_id, registry,
-                                             exec.owner);
+          if (const auto behavior = SkillBehaviorIdFromString(node.behavior_id);
+              behavior.has_value() && *behavior != SkillBehaviorId::None) {
+            BehaviorInjectionRegistry::Apply(*behavior, registry, exec.owner);
           }
         }
       }
@@ -692,19 +680,16 @@ void SkillSystem::InitHooks() {
         // Unified Sword Step linkage: on-hit mana return and crit extension.
         if (HasTag(evt.tags, Tag::Hit) && registry.any_of<PhaseTag>(caster)) {
           auto *effects = registry.try_get<ActiveEffectsComponent>(caster);
-          if (HasSwordStepBuff(effects)) {
+          BuffEffect *swift =
+              effects ? effects->Get(BuffId::SwordStep) : nullptr;
+          if (swift != nullptr && swift->remaining > 0.0f) {
             if (auto *stats = registry.try_get<CombatStats>(caster)) {
               stats->mana = std::min(stats->max_mana, stats->mana + 1.0f);
               registry.get_or_emplace<StatsDirty>(caster);
             }
-            if (evt.isCrit && effects) {
-              for (auto &effect : effects->effects) {
-                if (effect.id == "flowing_thrust_swift") {
-                  effect.remaining =
-                      std::min(effect.duration + 0.5f, effect.remaining + 0.2f);
-                  break;
-                }
-              }
+            if (evt.isCrit) {
+              swift->remaining =
+                  std::min(swift->duration + 0.5f, swift->remaining + 0.2f);
             }
           }
         }
@@ -1049,7 +1034,8 @@ void SkillSystem::Update(entt::registry &registry,
   auto effects_view = registry.view<ActiveEffectsComponent>();
   for (auto entity : effects_view) {
     const auto &effects = effects_view.get<ActiveEffectsComponent>(entity);
-    if (!HasSwordStepBuff(&effects)) {
+    const auto *swift = effects.Get(BuffId::SwordStep);
+    if (swift == nullptr || swift->remaining <= 0.0f) {
       continue;
     }
     s_currSwordStepEntities.insert(entity);
@@ -1079,7 +1065,8 @@ void SkillSystem::Update(entt::registry &registry,
   auto phase_view = registry.view<PhaseTag>();
   for (auto entity : phase_view) {
     const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
-    if (!HasSwordStepBuff(effects)) {
+    const auto *swift = effects ? effects->Get(BuffId::SwordStep) : nullptr;
+    if (swift == nullptr || swift->remaining <= 0.0f) {
       s_phase_to_remove.push_back(entity);
     }
   }
@@ -1111,7 +1098,7 @@ void SkillSystem::Update(entt::registry &registry,
           auto &effects =
               registry.get_or_emplace<ActiveEffectsComponent>(entity);
           BuffEffect bladeDR;
-          bladeDR.id = "ling_jian_hu_ti";
+          bladeDR.id = std::string(BuffIdToString(BuffId::LingJianHuTi));
           bladeDR.name = "Ling Jian Hu Ti";
           bladeDR.type = BuffType::Shield;
           bladeDR.duration = 0.2f; // Short duration, refreshed every update
@@ -1628,15 +1615,8 @@ void SkillSystem::Update(entt::registry &registry,
     auto &ward = ward_view.get<BladeWardComponent>(entity);
 
     const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
-    const BuffEffect *wardBuff = nullptr;
-    if (effects != nullptr) {
-      for (const auto &effect : effects->effects) {
-        if (effect.id == "blade_ward") {
-          wardBuff = &effect;
-          break;
-        }
-      }
-    }
+    const BuffEffect *wardBuff =
+        effects != nullptr ? effects->Get(BuffId::BladeWard) : nullptr;
 
     if (wardBuff != nullptr) {
       ward.duration = std::max(0.01f, wardBuff->duration);

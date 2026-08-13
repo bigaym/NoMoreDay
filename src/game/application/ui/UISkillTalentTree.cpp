@@ -466,13 +466,21 @@ std::vector<std::pair<std::string, Color>> BuildNodeQuantitativeLines(
             text = TextFormat("%s%.1f %s%s", sign.c_str(), val, dline.label.c_str(), dline.suffix.c_str());
         }
         
-        // Priority mapping for explicit lines (heuristic based on label)
+        // Priority mapping for explicit lines. Driven by the data category
+        // (display labels are data, never parsed at render time).
         int priority = 5;
-        if (dline.label.find("伤害") != std::string::npos) priority = 0;
-        else if (dline.label.find("持续") != std::string::npos) priority = 1;
-        else if (dline.label.find("频率") != std::string::npos || dline.label.find("速度") != std::string::npos) priority = 2;
-        else if (dline.label.find("范围") != std::string::npos) priority = 3;
-        else if (dline.label.find("消耗") != std::string::npos || dline.label.find("冷却") != std::string::npos) priority = 4;
+        switch (dline.displayCategory) {
+          case DisplayLineCategory::Damage: priority = 0; break;
+          case DisplayLineCategory::Duration: priority = 1; break;
+          case DisplayLineCategory::Frequency:
+          case DisplayLineCategory::Speed: priority = 2; break;
+          case DisplayLineCategory::Range: priority = 3; break;
+          case DisplayLineCategory::Cost:
+          case DisplayLineCategory::Cooldown: priority = 4; break;
+          case DisplayLineCategory::Label:
+          case DisplayLineCategory::Default:
+          default: break; // Priority 5
+        }
 
         rawLines.push_back({text, GOLD, priority});
     }

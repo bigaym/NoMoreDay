@@ -206,13 +206,15 @@ TEST_CASE("[Unit] RenderProfiler four-state - mapping failure Unavailable") {
   CHECK(unknown.gpuState == QueryState::Unavailable);
   CHECK(unknown.gpuMeanMs == 0.0f);
 
-  // A real derived ID for a pass the profiler does not track (gate-side absent
-  // pass) also maps to Unavailable instead of aliasing a tracked pass.
+  // Every render pass is tracked now (pass identity is an enum). A derived
+  // stable ID for a real pass therefore resolves to its own cached stats and
+  // must NOT alias the Scene data injected above.
   const uint32_t gateOnlyId = NoMoreDay::render::graph::StablePassId(
       NoMoreDay::render::graph::CanonicalizePassName("ShadowResolvePass"));
   const auto gateOnly = profiler.GetPassResult(gateOnlyId);
-  CHECK(gateOnly.gpuState == QueryState::Unavailable);
   CHECK(gateOnly.gpuMeanMs == 0.0f);
+  CHECK(gateOnly.gpuState ==
+        profiler.GetStats(RenderPassId::ShadowResolve).gpuState);
 
   // Tracked ID resolves to the backfilled stats (Valid).
   const auto tracked = profiler.GetPassResult(S1bFourStateSceneId());

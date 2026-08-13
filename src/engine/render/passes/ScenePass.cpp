@@ -36,4 +36,8 @@ void ScenePass::Execute(graph::RenderContext &context) {
 
 const char *ScenePass::GetName() const { return "ScenePass"; }
 
+graph::RenderPassType ScenePass::Type() const {
+  return graph::RenderPassType::Scene;
+}
+
 } // namespace NoMoreDay::render::passes

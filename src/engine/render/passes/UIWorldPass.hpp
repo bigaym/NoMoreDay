@@ -14,6 +14,7 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override;
+  graph::RenderPassType Type() const override;
 
 private:
   ExecuteCallback m_callback;

@@ -12,6 +12,30 @@ constexpr size_t ToIndex(RenderPassId passId) {
   return static_cast<size_t>(passId);
 }
 
+constexpr std::array<float, static_cast<size_t>(graph::RenderPassType::Count)>
+    kPassBudgetMs = {
+        1.20f, // Scene
+        0.80f, // Lighting
+        0.90f, // HeightShadow
+        0.10f, // OccluderExtract
+        0.40f, // JFA
+        1.20f, // RadianceCascades
+        0.05f, // GIComposite
+        0.30f, // FluidSimulation
+        0.80f, // Volumetric
+        1.00f, // VFX
+        0.15f, // GPUText
+        0.20f, // GPULoot
+        0.60f, // UIWorld
+        0.50f, // PostProcess
+        0.30f, // Distortion
+        0.25f, // Composite
+        0.15f, // LightCulling (V3 contract kBudgetLightCulling_Normal)
+        0.10f, // ShadowPrepare (lightweight compute, aligned with OccluderExtract)
+        0.40f, // ShadowBuild (V3 contract kBudgetShadow_Normal)
+        0.30f, // ShadowResolve (screen-space resolve, aligned with Distortion)
+    };
+
 float ComputeMean(const float *values, size_t count) {
   if (count == 0) {
     return 0.0f;
@@ -57,7 +81,7 @@ RenderProfiler::RenderProfiler() {
   for (size_t i = 0; i < static_cast<size_t>(RenderPassId::Count); ++i) {
     const auto passId = static_cast<RenderPassId>(i);
     const uint32_t stableId = graph::StablePassId(
-        graph::CanonicalizePassName(FullPassName(passId)));
+        graph::CanonicalizePassName(graph::kRenderPassNames[ToIndex(passId)].full));
     m_stablePassIdByIndex[i] = stableId;
     auto [it, inserted] = idToPass.emplace(stableId, passId);
     if (!inserted) {
@@ -119,26 +143,6 @@ void RenderProfiler::EndPass(RenderPassId passId) {
   if (state.sampleCount < kWindowSize) {
     ++state.sampleCount;
   }
-}
-
-void RenderProfiler::BeginCpuPass(const char *passName) {
-  if (passName == nullptr) {
-    return;
-  }
-  const auto passId = FromPassName(passName);
-  if (!passId.has_value()) {
-    return;
-  }
-  m_activeCpuPass = *passId;
-  BeginPass(*passId);
-}
-
-void RenderProfiler::EndCpuPass() {
-  if (!m_activeCpuPass.has_value()) {
-    return;
-  }
-  EndPass(*m_activeCpuPass);
-  m_activeCpuPass = std::nullopt;
 }
 
 PassTimingStats RenderProfiler::GetStats(RenderPassId passId) const {
@@ -249,175 +253,25 @@ bool RenderProfiler::IsGpuTimingAvailable() const {
 }
 
 const char *RenderProfiler::ToString(RenderPassId passId) {
-  switch (passId) {
-  case RenderPassId::Scene:
-    return "Scene";
-  case RenderPassId::Lighting:
-    return "Lighting";
-  case RenderPassId::HeightShadow:
-    return "HeightShadow";
-  case RenderPassId::OccluderExtract:
-    return "OccluderExtract";
-  case RenderPassId::JFA:
-    return "JFA";
-  case RenderPassId::RadianceCascades:
-    return "RadianceCascades";
-  case RenderPassId::GIComposite:
-    return "GIComposite";
-  case RenderPassId::FluidSimulation:
-    return "FluidSimulation";
-  case RenderPassId::Volumetric:
-    return "Volumetric";
-  case RenderPassId::VFX:
-    return "VFX";
-  case RenderPassId::GPUText:
-    return "GPUText";
-  case RenderPassId::GPULoot:
-    return "GPULoot";
-  case RenderPassId::UIWorld:
-    return "UIWorld";
-  case RenderPassId::PostProcess:
-    return "PostProcess";
-  case RenderPassId::Distortion:
-    return "Distortion";
-  case RenderPassId::Composite:
-    return "Composite";
-  case RenderPassId::Count:
-    break;
+  const size_t index = ToIndex(passId);
+  if (index < graph::kRenderPassNames.size()) {
+    return graph::kRenderPassNames[index].display.data();
   }
   return "Unknown";
 }
 
-const char *RenderProfiler::FullPassName(RenderPassId passId) {
-  switch (passId) {
-  case RenderPassId::Scene:
-    return "ScenePass";
-  case RenderPassId::Lighting:
-    return "LightingPass";
-  case RenderPassId::HeightShadow:
-    return "HeightShadowPass";
-  case RenderPassId::OccluderExtract:
-    return "OccluderExtractPass";
-  case RenderPassId::JFA:
-    return "JFAPass";
-  case RenderPassId::RadianceCascades:
-    return "RadianceCascadesPass";
-  case RenderPassId::GIComposite:
-    return "GICompositePass";
-  case RenderPassId::FluidSimulation:
-    return "FluidSimulationPass";
-  case RenderPassId::Volumetric:
-    return "VolumetricLightPass";
-  case RenderPassId::VFX:
-    return "VFXPass";
-  case RenderPassId::GPUText:
-    return "GPUTextPass";
-  case RenderPassId::GPULoot:
-    return "GPULootPass";
-  case RenderPassId::UIWorld:
-    return "UIWorldPass";
-  case RenderPassId::PostProcess:
-    return "PostProcessPass";
-  case RenderPassId::Distortion:
-    return "DistortionPass";
-  case RenderPassId::Composite:
-    return "CompositePass";
-  case RenderPassId::Count:
-    break;
-  }
-  return "UnknownPass";
-}
-
 std::optional<RenderPassId> RenderProfiler::FromPassName(std::string_view passName) {
-  if (passName == "ScenePass") {
-    return RenderPassId::Scene;
-  }
-  if (passName == "LightingPass") {
-    return RenderPassId::Lighting;
-  }
-  if (passName == "HeightShadowPass") {
-    return RenderPassId::HeightShadow;
-  }
-  if (passName == "OccluderExtractPass") {
-    return RenderPassId::OccluderExtract;
-  }
-  if (passName == "JFAPass") {
-    return RenderPassId::JFA;
-  }
-  if (passName == "RadianceCascadesPass") {
-    return RenderPassId::RadianceCascades;
-  }
-  if (passName == "GICompositePass") {
-    return RenderPassId::GIComposite;
-  }
-  if (passName == "FluidSimulationPass") {
-    return RenderPassId::FluidSimulation;
-  }
-  if (passName == "VolumetricLightPass") {
-    return RenderPassId::Volumetric;
-  }
-  if (passName == "VFXPass") {
-    return RenderPassId::VFX;
-  }
-  if (passName == "GPUTextPass") {
-    return RenderPassId::GPUText;
-  }
-  if (passName == "GPULootPass") {
-    return RenderPassId::GPULoot;
-  }
-  if (passName == "UIWorldPass") {
-    return RenderPassId::UIWorld;
-  }
-  if (passName == "PostProcessPass") {
-    return RenderPassId::PostProcess;
-  }
-  if (passName == "DistortionPass") {
-    return RenderPassId::Distortion;
-  }
-  if (passName == "CompositePass") {
-    return RenderPassId::Composite;
+  for (size_t i = 0; i < graph::kRenderPassNames.size(); ++i) {
+    if (graph::kRenderPassNames[i].full == passName) {
+      return static_cast<RenderPassId>(i);
+    }
   }
   return std::nullopt;
 }
 
 float RenderProfiler::GetBudgetMs(RenderPassId passId) {
-  switch (passId) {
-  case RenderPassId::Scene:
-    return 1.20f;
-  case RenderPassId::Lighting:
-    return 0.80f;
-  case RenderPassId::HeightShadow:
-    return 0.90f;
-  case RenderPassId::OccluderExtract:
-    return 0.10f;
-  case RenderPassId::JFA:
-    return 0.40f;
-  case RenderPassId::RadianceCascades:
-    return 1.20f;
-  case RenderPassId::GIComposite:
-    return 0.05f;
-  case RenderPassId::FluidSimulation:
-    return 0.30f;
-  case RenderPassId::Volumetric:
-    return 0.80f;
-  case RenderPassId::VFX:
-    return 1.00f;
-  case RenderPassId::GPUText:
-    return 0.15f;
-  case RenderPassId::GPULoot:
-    return 0.20f;
-  case RenderPassId::UIWorld:
-    return 0.60f;
-  case RenderPassId::PostProcess:
-    return 0.50f;
-  case RenderPassId::Distortion:
-    return 0.30f;
-  case RenderPassId::Composite:
-    return 0.25f;
-  case RenderPassId::Count:
-    break;
-  }
-  return 0.0f;
+  const size_t index = ToIndex(passId);
+  return index < kPassBudgetMs.size() ? kPassBudgetMs[index] : 0.0f;
 }
 
 } // namespace NoMoreDay::render::debug

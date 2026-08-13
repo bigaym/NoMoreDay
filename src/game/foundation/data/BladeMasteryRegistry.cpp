@@ -8,8 +8,6 @@
 
 namespace NoMoreDay::data {
 
-namespace {
-
 BladeMasteryId ParseMasteryId(const std::string &value) {
   if (value == "sword_saint") {
     return BladeMasteryId::SwordSaint;
@@ -23,12 +21,7 @@ BladeMasteryId ParseMasteryId(const std::string &value) {
   return BladeMasteryId::None;
 }
 
-ProfessionID ParseProfessionId(const std::string &value) {
-  if (value == "blade_ascendant") {
-    return ProfessionID::BladeAscendant;
-  }
-  return ProfessionID::BladeAscendant;
-}
+namespace {
 
 BladeResourceKind ParseResourceKind(const std::string &value) {
   if (value == "sword_intent") {
@@ -49,7 +42,12 @@ BladeResourceKind ParseResourceKind(const std::string &value) {
 BladeMasteryProfile ParseProfile(const nlohmann::json &entry) {
   BladeMasteryProfile profile;
   profile.id = ParseMasteryId(entry.value("id", ""));
-  profile.profession = ParseProfessionId(entry.value("profession", "blade_ascendant"));
+  // Blade masteries are Blade Ascendant-exclusive: the asset JSON only emits
+  // "blade_ascendant", and the previous parser mapped every input (including
+  // unknown strings) to BladeAscendant. Keep the constant assignment so the
+  // behavior is identical. Extend with a table-driven parser here if other
+  // professions ever get masteries.
+  profile.profession = ProfessionID::BladeAscendant;
   profile.name = entry.value("name", "");
   profile.description = entry.value("description", "");
   profile.resource_kind = ParseResourceKind(entry.value("resource_kind", ""));

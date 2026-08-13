@@ -72,7 +72,10 @@ public:
   }
 
 private:
-  bool BuildSceneOnly(const std::string &fixtureName, uint32_t seed);
+  // T8: recipe dispatch is type-driven (no name-string branching). The scene
+  // input hash still feeds GpuFixtureTypeToString(type) so historical hash
+  // values stay byte-identical to the original name literals.
+  bool BuildSceneOnly(GpuFixtureType fixtureType, uint32_t seed);
   void ReleaseCompositeTarget();
 
   // Deterministic FNV-1a 64 hash accumulator (mirrors GameplayRuntimeHarness);

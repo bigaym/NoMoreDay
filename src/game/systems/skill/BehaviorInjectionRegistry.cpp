@@ -1,53 +1,64 @@
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include <spdlog/spdlog.h>
 
-#include "game/foundation/components/SkillDefs.hpp"
-
 namespace NoMoreDay {
 
-namespace BehaviorID {
-constexpr const char *ShadowCaster = "shadow_caster";
-}
-
-std::unordered_map<std::string, BehaviorInjectionRegistry::BehaviorInjector>
+std::array<BehaviorInjectionRegistry::BehaviorInjector,
+           static_cast<std::size_t>(SkillBehaviorId::Count)>
     BehaviorInjectionRegistry::injectors;
 
-void BehaviorInjectionRegistry::Register(const std::string &id,
-                                         BehaviorInjector injector) {
-  if (injectors.contains(id)) {
-    LOG_WARN("BehaviorInjectionRegistry: Overwriting injector for ID '{}'",
-                 id);
+void BehaviorInjectionRegistry::Register(Id id, BehaviorInjector injector) {
+  if (id == SkillBehaviorId::None) {
+    LOG_WARN("BehaviorInjectionRegistry: refusing to register None behavior");
+    return;
   }
-  injectors[id] = std::move(injector);
+  const std::size_t idx = static_cast<std::size_t>(id);
+  if (idx >= injectors.size()) {
+    LOG_WARN("BehaviorInjectionRegistry: behavior id {} out of range", idx);
+    return;
+  }
+  if (injectors[idx]) {
+    LOG_WARN("BehaviorInjectionRegistry: Overwriting injector for ID '{}'",
+             SkillBehaviorIdToString(id));
+  }
+  injectors[idx] = std::move(injector);
 }
 
-void BehaviorInjectionRegistry::Apply(const std::string &id,
-                                      entt::registry &registry,
+void BehaviorInjectionRegistry::Apply(Id id, entt::registry &registry,
                                       entt::entity entity) {
-  if (id.empty())
+  if (id == SkillBehaviorId::None) {
     return;
+  }
 
-  auto it = injectors.find(id);
-  if (it != injectors.end()) {
-    it->second(registry, entity);
+  const std::size_t idx = static_cast<std::size_t>(id);
+  if (idx < injectors.size() && injectors[idx]) {
+    injectors[idx](registry, entity);
     LOG_DEBUG(
-        "BehaviorInjectionRegistry: Applied behavior '{}' to entity {}", id,
-        static_cast<uint32_t>(entity));
+        "BehaviorInjectionRegistry: Applied behavior '{}' to entity {}",
+        SkillBehaviorIdToString(id), static_cast<uint32_t>(entity));
   } else {
-    LOG_WARN("BehaviorInjectionRegistry: Unknown behavior ID '{}'", id);
+    LOG_WARN("BehaviorInjectionRegistry: Unknown behavior ID '{}'",
+             SkillBehaviorIdToString(id));
   }
 }
 
 void BehaviorInjectionRegistry::Init() {
-  if (!injectors.empty())
+  if (injectors[static_cast<std::size_t>(SkillBehaviorId::ShadowCaster)]) {
     return; // Already initialized
+  }
 
-  Register(BehaviorID::ShadowCaster, [](entt::registry &r, entt::entity e) {
-    r.get_or_emplace<ShadowKillArrayReady>(e);
-  });
+  Register(SkillBehaviorId::ShadowCaster,
+           [](entt::registry &r, entt::entity e) {
+             r.get_or_emplace<ShadowKillArrayReady>(e);
+           });
 
-  LOG_INFO("BehaviorInjectionRegistry: Initialized with {} behaviors",
-               injectors.size());
+  std::size_t count = 0;
+  for (const auto &injector : injectors) {
+    if (injector) {
+      ++count;
+    }
+  }
+  LOG_INFO("BehaviorInjectionRegistry: Initialized with {} behaviors", count);
 }
 
 } // namespace NoMoreDay

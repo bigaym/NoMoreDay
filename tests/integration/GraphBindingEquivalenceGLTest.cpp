@@ -324,6 +324,12 @@ public:
 
   const char *GetName() const override { return "BindingEquivalencePass"; }
 
+  // Test-local pass: the name never matches a canonical table name, so
+  // contract-stage resolution stays exempt (legacy string behavior).
+  NoMoreDay::render::graph::RenderPassType Type() const override {
+    return NoMoreDay::render::graph::RenderPassType::Scene;
+  }
+
 private:
   bool m_declareBindings;
   Mode m_mode;
@@ -1023,6 +1029,12 @@ public:
   void Execute(NoMoreDay::render::graph::RenderContext &) override {}
 
   const char *GetName() const override { return "ClusterConsumerPass"; }
+
+  // Test-local mirror of the cluster consumer side: the name never matches a
+  // canonical table name, so contract-stage resolution stays exempt.
+  NoMoreDay::render::graph::RenderPassType Type() const override {
+    return NoMoreDay::render::graph::RenderPassType::LightCulling;
+  }
 };
 
 // Test-local mirror of the production LightCullingPass Execute surface, with a
@@ -1281,6 +1293,13 @@ public:
   }
 
   const char *GetName() const override { return "LightCullingSurfacePass"; }
+
+  // Test-local mirror of the production LightCullingPass surface: the name
+  // never matches a canonical table name, so contract-stage resolution stays
+  // exempt (legacy string behavior).
+  NoMoreDay::render::graph::RenderPassType Type() const override {
+    return NoMoreDay::render::graph::RenderPassType::LightCulling;
+  }
 
 private:
   bool Initialize(::ResourceManager &resources) {

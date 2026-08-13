@@ -1543,7 +1543,7 @@ static std::string GetStatModifierDescription(const StatModifier &mod) {
 void UIRenderer::DrawBuffTooltip(const Font &font, const BuffEffect &effect,
                                  float alpha) {
   const auto &visual = BuffRegistry::GetVisualData(effect.type);
-  if (visual.name == "Unknown")
+  if (BuffRegistry::IsUnknownVisual(visual))
     return;
 
   std::vector<TooltipLine> lines;

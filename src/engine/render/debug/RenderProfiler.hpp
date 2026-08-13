@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
+#include "engine/render/graph/RenderPass.hpp"
 
 #include <array>
 #include <chrono>
@@ -11,25 +12,9 @@
 
 namespace NoMoreDay::render::debug {
 
-enum class RenderPassId : uint8_t {
-  Scene = 0,
-  Lighting = 1,
-  HeightShadow = 2,
-  OccluderExtract = 3,
-  JFA = 4,
-  RadianceCascades = 5,
-  GIComposite = 6,
-  FluidSimulation = 7,
-  Volumetric = 8,
-  VFX = 9,
-  GPUText = 10,
-  GPULoot = 11,
-  UIWorld = 12,
-  PostProcess = 13,
-  Distortion = 14,
-  Composite = 15,
-  Count
-};
+// RenderPassId is unified with graph::RenderPassType; the enum is defined once
+// in RenderPass.hpp and every profiler slot keys off it.
+using RenderPassId = graph::RenderPassType;
 
 struct PassTimingSample {
   float cpuMs = 0.0f;
@@ -61,8 +46,6 @@ public:
   void EndFrame();
   void BeginPass(RenderPassId passId);
   void EndPass(RenderPassId passId);
-  void BeginCpuPass(const char *passName);
-  void EndCpuPass();
 
   [[nodiscard]] PassTimingStats GetStats(RenderPassId passId) const;
   [[nodiscard]] const std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)> &
@@ -110,15 +93,12 @@ private:
     uint64_t lastAcceptedFrameIndex = 0;
   };
 
-  static const char *FullPassName(RenderPassId passId);
-
   std::array<PassState, static_cast<size_t>(RenderPassId::Count)> m_passStates = {};
   std::array<GpuTrack, static_cast<size_t>(RenderPassId::Count)> m_gpuTracks = {};
   std::array<uint32_t, static_cast<size_t>(RenderPassId::Count)> m_stablePassIdByIndex = {};
   // Reverse lookup for GetPassResult(stablePassId); built once in the ctor.
   std::map<uint32_t, RenderPassId> m_passByStableId;
   std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)> m_cachedStats = {};
-  std::optional<RenderPassId> m_activeCpuPass = std::nullopt;
   bool m_frameActive = false;
 };
 

@@ -2,6 +2,8 @@
 
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/lighting/ClusteredLightingState.hpp"
+#include "engine/render/lighting/LightManager.hpp"
 #include "GameplayRuntimeHarness.hpp"
 
 #include "raylib.h"
@@ -579,6 +581,13 @@ TEST_CASE("[GPU-Diagnostic] GPU Hardware Validation Gate - RunGate Offscreen Mat
   // this one can interleave into the still-buffered tail of the JSON and
   // corrupt the payload the runner extracts.
   std::cout << "GPU_HARDWARE_GATE_REPORT_END\n" << std::flush;
+
+  // The production frame the gate drove initialized the clustered-lighting and
+  // light-manager singletons; release their GPU registry records here so later
+  // cases observe a clean baseline (mirrors the ClusteredLighting integration
+  // test teardown convention).
+  NoMoreDay::render::lighting::ClusteredLightingState::Get().Shutdown();
+  NoMoreDay::render::lighting::LightManager::Get().Shutdown();
 }
 
 TEST_CASE("[Integration] GPU Hardware Validation Gate - GL diagnostics JSON schema") {

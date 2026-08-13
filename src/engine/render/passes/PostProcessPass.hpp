@@ -16,6 +16,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "PostProcessPass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::PostProcess;
+  }
 
   bool Initialize();
   void Shutdown();

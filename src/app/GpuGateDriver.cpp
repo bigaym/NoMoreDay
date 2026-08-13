@@ -45,7 +45,7 @@ GpuGateDriver::~GpuGateDriver() { ReleaseCompositeTarget(); }
 
 bool GpuGateDriver::PrepareFixture(const FixtureConfig &fixture) {
   ReleaseCompositeTarget();
-  if (!BuildSceneOnly(fixture.name, fixture.sceneSeed)) {
+  if (!BuildSceneOnly(fixture.type, fixture.sceneSeed)) {
     return false;
   }
   m_composite = NoMoreDay::render::resources::FramebufferManager::Create(
@@ -87,7 +87,7 @@ NoMoreDay::render::GameplayRenderHooks *GpuGateDriver::RenderHooks() {
   return (m_context != nullptr) ? m_context->gameplayRenderHooks : nullptr;
 }
 
-bool GpuGateDriver::BuildSceneOnly(const std::string &fixtureName,
+bool GpuGateDriver::BuildSceneOnly(GpuFixtureType fixtureType,
                                    uint32_t seed) {
   // The gate owns the real registry for its lifetime; a deterministic fixture
   // scene replaces any bootstrap/MainMenu entities. Real GPU-system observers
@@ -96,18 +96,26 @@ bool GpuGateDriver::BuildSceneOnly(const std::string &fixtureName,
   m_registry->clear();
   m_hasher = GpuGateFnv1a64();
   m_hasher.FeedStr("GpuGateDriver/");
-  m_hasher.FeedStr(fixtureName);
+  // T8: the scene input hash feeds the canonical fixture name (identical
+  // literal via ToString) so historical gate hashes stay byte-stable.
+  m_hasher.FeedStr(std::string(GpuFixtureTypeToString(fixtureType)));
   m_hasher.FeedU32(seed);
   m_sceneInputHash = 0;
 
-  if (fixtureName == "cave_color_bleed") {
-    BuildCaveScene(seed);
-  } else if (fixtureName == "dynamic_combat_emissive") {
-    BuildCombatScene(seed);
-  } else if (fixtureName == "outdoor_light_pressure") {
-    BuildOutdoorScene(seed);
-  } else {
-    return false;
+  switch (fixtureType) {
+    case GpuFixtureType::CaveColorBleed:
+      BuildCaveScene(seed);
+      break;
+    case GpuFixtureType::DynamicCombatEmissive:
+      BuildCombatScene(seed);
+      break;
+    case GpuFixtureType::OutdoorLightPressure:
+      BuildOutdoorScene(seed);
+      break;
+    case GpuFixtureType::None:
+    case GpuFixtureType::Count:
+    default:
+      return false;
   }
   m_sceneInputHash = m_hasher.hash;
   return true;

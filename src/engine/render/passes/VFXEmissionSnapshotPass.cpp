@@ -55,4 +55,8 @@ const char *VFXEmissionSnapshotPass::GetName() const {
   return "VFXEmissionSnapshotPass";
 }
 
+graph::RenderPassType VFXEmissionSnapshotPass::Type() const {
+  return graph::RenderPassType::VFX;
+}
+
 } // namespace NoMoreDay::render::passes

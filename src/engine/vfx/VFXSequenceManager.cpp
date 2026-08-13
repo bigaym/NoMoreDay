@@ -25,18 +25,8 @@ std::string ToLower(std::string value) {
 render::core::QualityTier
 ParseQualityTierString(const std::string &tierName,
                        render::core::QualityTier fallback) {
-  const std::string lower = ToLower(tierName);
-  if (lower == "low") {
-    return render::core::QualityTier::Low;
-  }
-  if (lower == "medium") {
-    return render::core::QualityTier::Medium;
-  }
-  if (lower == "high") {
-    return render::core::QualityTier::High;
-  }
-  if (lower == "ultra") {
-    return render::core::QualityTier::Ultra;
+  if (const auto parsed = render::core::FromStringQualityTier(tierName)) {
+    return *parsed;
   }
   return fallback;
 }
@@ -62,22 +52,14 @@ bool ParseTierPolicy(const json &eventNode, const fs::path &filePath,
     return false;
   }
 
-  const std::string value = ToLower(eventNode["tierPolicy"].get<std::string>());
-  if (value == "strict") {
-    outPolicy = TierPolicy::Strict;
-    return true;
-  }
-  if (value == "degrade") {
-    outPolicy = TierPolicy::Degrade;
-    return true;
-  }
-  if (value == "skip") {
-    outPolicy = TierPolicy::Skip;
+  const std::string value = eventNode["tierPolicy"].get<std::string>();
+  if (const auto parsed = FromStringTierPolicy(value)) {
+    outPolicy = *parsed;
     return true;
   }
 
-  LOG_ERROR("VFXSequenceManager: unsupported tierPolicy '{}' in {}", value,
-            filePath.string());
+  LOG_ERROR("VFXSequenceManager: unsupported tierPolicy '{}' in {}",
+            ToLower(value), filePath.string());
   return false;
 }
 
@@ -100,45 +82,8 @@ AnchorType ParseAnchorType(const json &eventNode) {
 }
 
 bool ParseEventType(const std::string &typeName, EventType &outType) {
-  const std::string type = ToLower(typeName);
-  if (type == "particle") {
-    outType = EventType::Particle;
-    return true;
-  }
-  if (type == "trail") {
-    outType = EventType::Trail;
-    return true;
-  }
-  if (type == "light") {
-    outType = EventType::Light;
-    return true;
-  }
-  if (type == "shake") {
-    outType = EventType::Shake;
-    return true;
-  }
-  if (type == "distortion") {
-    outType = EventType::Distortion;
-    return true;
-  }
-  if (type == "sound") {
-    outType = EventType::Sound;
-    return true;
-  }
-  if (type == "materialswap" || type == "material_swap") {
-    outType = EventType::MaterialSwap;
-    return true;
-  }
-  if (type == "shadowpulse" || type == "shadow_pulse") {
-    outType = EventType::ShadowPulse;
-    return true;
-  }
-  if (type == "lightprofileblend" || type == "light_profile_blend") {
-    outType = EventType::LightProfileBlend;
-    return true;
-  }
-  if (type == "materialphaseshift" || type == "material_phase_shift") {
-    outType = EventType::MaterialPhaseShift;
+  if (const auto parsed = FromStringEventType(typeName)) {
+    outType = *parsed;
     return true;
   }
   return false;

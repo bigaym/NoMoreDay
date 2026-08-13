@@ -156,7 +156,8 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
 
             auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
             BuffEffect guard;
-            guard.id = "blade_boomerang_guard_qi";
+            guard.id =
+                std::string(BuffIdToString(BuffId::BladeBoomerangGuardQi));
             guard.name = "Guard Qi";
             guard.type = BuffType::Shield;
             guard.duration = 2.0f;
@@ -252,7 +253,8 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             auto &effects =
                 registry.get_or_emplace<ActiveEffectsComponent>(target);
             BuffEffect bleed;
-            bleed.id = "blade_boomerang_bleed";
+            bleed.id =
+                std::string(BuffIdToString(BuffId::BladeBoomerangBleed));
             bleed.name = "Bleed";
             bleed.type = BuffType::Bleed;
             bleed.duration = 3.0f;
@@ -277,12 +279,10 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
                 registry.try_get<ActiveEffectsComponent>(target);
             bool hasBleed = false;
             if (targetEffects) {
-              for (const auto &effect : targetEffects->effects) {
-                if (effect.id == "blade_boomerang_bleed" &&
-                    effect.remaining > 0.0f) {
-                  hasBleed = true;
-                  break;
-                }
+              const auto *bleedEffect =
+                  targetEffects->Get(BuffId::BladeBoomerangBleed);
+              if (bleedEffect != nullptr && bleedEffect->remaining > 0.0f) {
+                hasBleed = true;
               }
             }
             if (hasBleed) {

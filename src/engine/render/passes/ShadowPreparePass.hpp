@@ -35,6 +35,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "ShadowPreparePass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::ShadowPrepare;
+  }
 
   [[nodiscard]] uint32_t GetFrameIndex() const noexcept { return m_frameIndex; }
   [[nodiscard]] uint32_t GetAtlasOverflowCount() const noexcept {

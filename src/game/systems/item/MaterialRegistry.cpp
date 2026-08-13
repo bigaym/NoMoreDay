@@ -40,26 +40,9 @@ void MaterialRegistry::LoadMaterials(const std::string& path) {
         def.description = item.value("description", "");
         def.category = item.value("category", "Misc");
         def.categoryEnum = static_cast<MaterialCategory>(item.value("category_id", 0));
-        
-        static const std::unordered_map<std::string, Rarity> kStringToRarity = {
-            {"Common", Rarity::Common},
-            {"Magic", Rarity::Magic},
-            {"Rare", Rarity::Rare},
-            {"Uncommon", Rarity::Uncommon},
-            {"Epic", Rarity::Epic},
-            {"Legendary", Rarity::Legendary},
-            {"Mythic", Rarity::Mythic},
-            {"Ancient", Rarity::Ancient},
-            {"Set", Rarity::Set}
-        };
 
-        std::string rarityStr = item.value("rarity", "Common");
-        auto it = kStringToRarity.find(rarityStr);
-        if (it != kStringToRarity.end()) {
-            def.rarity = it->second;
-        } else {
-            def.rarity = Rarity::Common;
-        }
+        // 稀有度解析统一走 ItemComponent.hpp 的 RarityFromString (大小写不敏感单源)
+        def.rarity = RarityFromString(item.value("rarity", "Common"));
 
         def.icon = item.value("icon", "");
         def.maxStack = item.value("max_stack", 9999);

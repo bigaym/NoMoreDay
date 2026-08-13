@@ -210,7 +210,7 @@ void ApplyResistShred(entt::registry &registry, const entt::entity target,
 
   auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(target);
   BuffEffect debuff;
-  debuff.id = "blood_sea_miasma";
+  debuff.id = std::string(BuffIdToString(BuffId::BloodSeaMiasma));
   debuff.name = "Blood Sea Miasma";
   debuff.type = BuffType::DefenseDown;
   debuff.duration = 1.0f + field.miasma_duration_bonus;

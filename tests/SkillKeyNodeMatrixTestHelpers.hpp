@@ -18,6 +18,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -350,7 +351,7 @@ inline void DispatchSkillHit(entt::registry &registry, entt::entity caster,
 }
 
 inline bool HasEffectById(const entt::registry &registry, entt::entity entity,
-                          const char *effect_id) {
+                          std::string_view effect_id) {
   const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
   if (!effects) {
     return false;

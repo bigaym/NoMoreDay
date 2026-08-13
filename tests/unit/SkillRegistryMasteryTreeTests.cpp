@@ -48,6 +48,7 @@ TEST_CASE("[Unit] Skill Registry - Blood Sea specialization preview data matches
   CHECK(openingNode.display_lines[0].label == "范围");
   CHECK(openingNode.display_lines[0].per_point == doctest::Approx(8.0f));
   CHECK_FALSE(openingNode.display_lines[0].is_percent);
+  CHECK(openingNode.display_lines[0].displayCategory == DisplayLineCategory::Range);
   CHECK(openingNode.desc_key.find("8/16/24/32") != std::string::npos);
 
   const TalentNode &lingeringNode = tree->nodes.at(1219);
@@ -56,6 +57,7 @@ TEST_CASE("[Unit] Skill Registry - Blood Sea specialization preview data matches
   CHECK(lingeringNode.display_lines[0].label == "持续时间");
   CHECK(lingeringNode.display_lines[0].per_point == doctest::Approx(0.6f));
   CHECK_FALSE(lingeringNode.display_lines[0].is_percent);
+  CHECK(lingeringNode.display_lines[0].displayCategory == DisplayLineCategory::Duration);
   CHECK(lingeringNode.desc_key.find("0.6/1.2/1.8") != std::string::npos);
 }
 

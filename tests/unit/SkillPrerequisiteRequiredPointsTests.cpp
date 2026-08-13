@@ -131,8 +131,8 @@ TEST_CASE("[Unit] TalentNode JSON - display_lines parse quantitative tooltip met
       {"desc_key", "display_node_desc"},
       {"max_points", 3},
       {"display_lines", nlohmann::json::array({
-          {{"label", "持续时间"}, {"per_point", 10.0f}, {"is_percent", true}},
-          {{"label", "脉冲频率"}, {"per_point", 8.0f}, {"is_percent", true}}
+          {{"label", "持续时间"}, {"per_point", 10.0f}, {"is_percent", true}, {"display_category", "duration"}},
+          {{"label", "脉冲频率"}, {"per_point", 8.0f}, {"is_percent", true}, {"display_category", "frequency"}}
       })}
   };
 
@@ -141,6 +141,8 @@ TEST_CASE("[Unit] TalentNode JSON - display_lines parse quantitative tooltip met
   CHECK(node.display_lines[0].label == "持续时间");
   CHECK(node.display_lines[0].per_point == doctest::Approx(10.0f));
   CHECK(node.display_lines[0].is_percent);
+  CHECK(node.display_lines[0].displayCategory == DisplayLineCategory::Duration);
+  CHECK(node.display_lines[1].displayCategory == DisplayLineCategory::Frequency);
 }
 
 } // namespace NoMoreDay

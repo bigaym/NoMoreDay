@@ -51,6 +51,19 @@ public:
 
   const char *GetName() const override { return m_name.c_str(); }
 
+  // Name-driven simulation: a test pass reusing a canonical table name must
+  // present the matching type so the name/type identity contract holds;
+  // non-table names keep the generic Scene type.
+  NoMoreDay::render::graph::RenderPassType Type() const override {
+    using NoMoreDay::render::graph::kRenderPassNames;
+    for (size_t i = 0; i < kRenderPassNames.size(); ++i) {
+      if (m_name == kRenderPassNames[i].full) {
+        return static_cast<NoMoreDay::render::graph::RenderPassType>(i);
+      }
+    }
+    return NoMoreDay::render::graph::RenderPassType::Scene;
+  }
+
 private:
   std::string m_name;
   SetupCallback m_setupCallback;

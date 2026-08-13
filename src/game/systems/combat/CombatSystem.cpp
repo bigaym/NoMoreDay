@@ -272,13 +272,15 @@ void CombatSystem::update(entt::registry &registry,
                 if (wasDodged) {
                   if (registry.all_of<Position>(target)) {
                     NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-                        registry, {tPos.x, tPos.y}, "闪避", WHITE);
+                        registry, {tPos.x, tPos.y},
+                        NoMoreDay::render::StatusPopupKind::Dodge, WHITE);
                   }
                   return;
                 }
                 if (wasBlocked && registry.all_of<Position>(target)) {
                   NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-                      registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
+                      registry, {tPos.x, tPos.y},
+                      NoMoreDay::render::StatusPopupKind::Block, SKYBLUE);
                 }
                 LOG_TRACE("Combat(Pipeline): BasePhys={:.1f}, FinalDmg={:.1f}, Target={}",
                           damageReq.base_pool.Get(NoMoreDay::Tag::Physical),
@@ -455,7 +457,8 @@ void CombatSystem::update(entt::registry &registry,
           if (wasDodged) {
             if (registry.all_of<Position>(ai.target)) {
               NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-                  registry, {tPos.x, tPos.y}, "闪避", WHITE);
+                  registry, {tPos.x, tPos.y},
+                  NoMoreDay::render::StatusPopupKind::Dodge, WHITE);
             }
             continue;
           }
@@ -463,7 +466,8 @@ void CombatSystem::update(entt::registry &registry,
           if (wasBlocked) {
             if (registry.all_of<Position>(ai.target)) {
               NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-                  registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
+                  registry, {tPos.x, tPos.y},
+                  NoMoreDay::render::StatusPopupKind::Block, SKYBLUE);
             }
           }
 
@@ -632,11 +636,14 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
                  "Restored {:.1f} HP",
                  (uint32_t)target, heal);
 
-        // Visual Effect for Immortality
+        // Visual Effect for Immortality.
+        // Legacy text was never atlas-renderable (fell back to "?" glyph);
+        // Immune is the nearest status kind and preserves the popup feedback.
         if (registry.all_of<Position>(target)) {
           const auto &tPos = registry.get<Position>(target);
           NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-              registry, {tPos.x, tPos.y}, "不灭剑魂", GOLD);
+              registry, {tPos.x, tPos.y},
+              NoMoreDay::render::StatusPopupKind::Immune, GOLD);
           auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
           auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash(
               {tPos.x, tPos.y}, 20, 15.0f, 200.0f);
@@ -685,8 +692,10 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
             registry.ctx().get<NoMoreDay::SharedContext *>();
         if (ctx && ctx->sceneManager) {
           ctx->sceneManager->ClearOriginInfo();
+          // Default entrance: the legacy "player_death_return" string was never
+          // branched on in SceneManager, so it maps to the Start entrance.
           ctx->sceneManager->RequestTransition(NoMoreDay::BiomeID::Town, 1,
-                                               "player_death_return");
+                                               EntranceId::Start);
         }
       }
 

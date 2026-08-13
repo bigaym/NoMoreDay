@@ -80,7 +80,7 @@ void PopupRenderer::Emit(Vector2 position, int amount, bool isCrit,
   m_nextSlot = (m_nextSlot + 1) % MAX_POPUPS;
 }
 
-void PopupRenderer::EmitStatus(Vector2 position, const char *text,
+void PopupRenderer::EmitStatus(Vector2 position, StatusPopupKind kind,
                                Color color) {
   if (!m_initialized)
     return;
@@ -95,33 +95,38 @@ void PopupRenderer::EmitStatus(Vector2 position, const char *text,
   p.color = color;
   p.active = true;
 
-  // Map Chinese status text to Row 1 (indices 16+)
-  std::string s = text;
+  // Map status kind to glyph atlas Row 1 (indices 16+)
   p.glyphCount = 0;
-
-  if (s == "暴击") {
-    p.glyphs[0] = 16;
-    p.glyphs[1] = 17;
-    p.glyphCount = 2;
-  } else if (s == "闪避") {
-    p.glyphs[0] = 18;
-    p.glyphs[1] = 19;
-    p.glyphCount = 2;
-  } else if (s == "格挡") {
-    p.glyphs[0] = 20;
-    p.glyphs[1] = 21;
-    p.glyphCount = 2;
-  } else if (s == "免疫") {
-    p.glyphs[0] = 22;
-    p.glyphs[1] = 23;
-    p.glyphCount = 2;
-  } else if (s == "吸收") {
-    p.glyphs[0] = 24;
-    p.glyphs[1] = 25;
-    p.glyphCount = 2;
-  } else {
-    p.glyphs[0] = 15; // Question mark
-    p.glyphCount = 1;
+  switch (kind) {
+    case StatusPopupKind::Crit:
+      p.glyphs[0] = 16;
+      p.glyphs[1] = 17;
+      p.glyphCount = 2;
+      break;
+    case StatusPopupKind::Dodge:
+      p.glyphs[0] = 18;
+      p.glyphs[1] = 19;
+      p.glyphCount = 2;
+      break;
+    case StatusPopupKind::Block:
+      p.glyphs[0] = 20;
+      p.glyphs[1] = 21;
+      p.glyphCount = 2;
+      break;
+    case StatusPopupKind::Immune:
+      p.glyphs[0] = 22;
+      p.glyphs[1] = 23;
+      p.glyphCount = 2;
+      break;
+    case StatusPopupKind::Absorb:
+      p.glyphs[0] = 24;
+      p.glyphs[1] = 25;
+      p.glyphCount = 2;
+      break;
+    default:
+      p.glyphs[0] = 15; // Question mark (unmapped kind)
+      p.glyphCount = 1;
+      break;
   }
 
   m_nextSlot = (m_nextSlot + 1) % MAX_POPUPS;

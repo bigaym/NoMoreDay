@@ -8,6 +8,11 @@
 
 namespace NoMoreDay::data {
 
+// Shared string -> enum parser for blade mastery ids.
+// Single implementation lives in BladeMasteryRegistry.cpp and is reused by
+// SkillRegistry.cpp so the mapping has exactly one source of truth.
+BladeMasteryId ParseMasteryId(const std::string &value);
+
 class BladeMasteryRegistry {
 public:
   static BladeMasteryRegistry &Get();

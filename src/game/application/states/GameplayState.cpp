@@ -1272,7 +1272,7 @@ bool GameplayState::HandleRiftDialogs(entt::registry& registry) {
           LOG_INFO("Resuming active rift: biome={}, depth={}", static_cast<int>(state.biome),
                    state.currentDepth);
           if (m_context->sceneManager) {
-            m_context->sceneManager->RequestTransition(state.biome, state.currentDepth, "rift_resume");
+            m_context->sceneManager->RequestTransition(state.biome, state.currentDepth, EntranceId::RiftResume);
           }
         } else {
           LOG_WARN("Resume clicked but no in-progress rift found. Falling back to new run.");
@@ -1330,7 +1330,7 @@ bool GameplayState::HandleRiftDialogs(entt::registry& registry) {
       m_showRiftCompletedDialog = false;
       if (m_context->sceneManager) {
         m_context->sceneManager->ClearOriginInfo();
-        m_context->sceneManager->RequestTransition(BiomeID::Town, 1, "rift_complete_return");
+        m_context->sceneManager->RequestTransition(BiomeID::Town, 1, EntranceId::RiftCompleteReturn);
       }
       LOG_INFO("Rift cycle completed and player chose return to town.");
     }

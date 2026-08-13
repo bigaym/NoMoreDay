@@ -43,4 +43,8 @@ void VFXPass::Execute(graph::RenderContext &context) {
 
 const char *VFXPass::GetName() const { return "VFXPass"; }
 
+graph::RenderPassType VFXPass::Type() const {
+  return graph::RenderPassType::VFX;
+}
+
 } // namespace NoMoreDay::render::passes

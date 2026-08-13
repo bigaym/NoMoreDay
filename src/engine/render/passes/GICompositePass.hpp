@@ -22,6 +22,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "GICompositePass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::GIComposite;
+  }
 
   bool Initialize(ResourceManager &resources);
   void Shutdown();

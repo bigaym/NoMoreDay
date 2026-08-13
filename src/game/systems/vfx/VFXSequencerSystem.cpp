@@ -88,46 +88,6 @@ float g_shadowSoftnessBase = 1.0f;
 
 float Clamp01(float value) { return std::clamp(value, 0.0f, 1.0f); }
 
-const char *ToString(const TierPolicy policy) {
-  switch (policy) {
-  case TierPolicy::Strict:
-    return "strict";
-  case TierPolicy::Degrade:
-    return "degrade";
-  case TierPolicy::Skip:
-    return "skip";
-  }
-  return "unknown";
-}
-
-const char *ToString(const EventType type) {
-  switch (type) {
-  case EventType::Particle:
-    return "Particle";
-  case EventType::Trail:
-    return "Trail";
-  case EventType::Light:
-    return "Light";
-  case EventType::Shake:
-    return "Shake";
-  case EventType::Distortion:
-    return "Distortion";
-  case EventType::Sound:
-    return "Sound";
-  case EventType::MaterialSwap:
-    return "MaterialSwap";
-  case EventType::ShadowPulse:
-    return "ShadowPulse";
-  case EventType::LightProfileBlend:
-    return "LightProfileBlend";
-  case EventType::MaterialPhaseShift:
-    return "MaterialPhaseShift";
-  case EventType::Count:
-    break;
-  }
-  return "Unknown";
-}
-
 float DecayScale(float targetScale, float progress) {
   return 1.0f + (targetScale - 1.0f) * (1.0f - Clamp01(progress));
 }

@@ -21,6 +21,7 @@
 #include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include "engine/render/debug/ShaderReloadGovernance.hpp"
 
+#include <algorithm>
 #include <functional>
 #include <limits>
 #include <map>
@@ -52,6 +53,19 @@ public:
   void Execute(RenderContext &) override {}
 
   const char *GetName() const override { return m_name.c_str(); }
+
+  // Name-driven simulation: a test pass reusing a canonical table name must
+  // present the matching type so the name/type identity contract holds;
+  // non-table names keep the generic Scene type.
+  NoMoreDay::render::graph::RenderPassType Type() const override {
+    using NoMoreDay::render::graph::kRenderPassNames;
+    for (size_t i = 0; i < kRenderPassNames.size(); ++i) {
+      if (m_name == kRenderPassNames[i].full) {
+        return static_cast<NoMoreDay::render::graph::RenderPassType>(i);
+      }
+    }
+    return NoMoreDay::render::graph::RenderPassType::Scene;
+  }
 
 private:
   std::string m_name;
@@ -1823,6 +1837,49 @@ TEST_CASE("[Unit] RenderGraph - Phase D OnResize fans out exactly once per node"
   graph.OnResize(1280, 720);
   CHECK_EQ(sceneResizes, 2);
   CHECK_EQ(compositeResizes, 2);
+}
+
+TEST_CASE("[Unit] RenderGraph - stable pass ids are frozen for the canonical name table") {
+  using namespace NoMoreDay::render::graph;
+
+  // Expected FNV-1a values (salt "NMD-STABLEPASS-V1" + lowercase canonical
+  // name, truncated to uint32). Frozen so an accidental table rename or hash
+  // change fails loudly instead of silently re-keying profiler/gate data.
+  constexpr std::array<uint32_t, 20> kExpectedStableIds = {
+      0x1FF39E00u, // ScenePass
+      0xD6250DDAu, // LightingPass
+      0x876148CDu, // HeightShadowPass
+      0x4F859E20u, // OccluderExtractPass
+      0x787C6EBFu, // JFAPass
+      0x59E8A348u, // RadianceCascadesPass
+      0x3C972F67u, // GICompositePass
+      0x7C95D98Fu, // FluidSimulationPass
+      0x37203200u, // VolumetricLightPass
+      0xB6B3BAE0u, // VFXPass
+      0xBDDCFD09u, // GPUTextPass
+      0xD8604E24u, // GPULootPass
+      0x56CD8176u, // UIWorldPass
+      0x2DED7E3Fu, // PostProcessPass
+      0xE2817481u, // DistortionPass
+      0x8295B0D3u, // CompositePass
+      0xF8B11E72u, // LightCullingPass
+      0x2F7C6673u, // ShadowPreparePass
+      0xCEE42870u, // ShadowBuildPass
+      0x5F9C03D4u, // ShadowResolvePass
+  };
+
+  CHECK_EQ(kRenderPassNames.size(), kExpectedStableIds.size());
+  for (size_t i = 0; i < kRenderPassNames.size(); ++i) {
+    const uint32_t stableId =
+        StablePassId(CanonicalizePassName(kRenderPassNames[i].full));
+    INFO("pass name: ", kRenderPassNames[i].full);
+    CHECK_EQ(stableId, kExpectedStableIds[i]);
+  }
+
+  // All 20 identities must be distinct.
+  std::array<uint32_t, 20> seen = kExpectedStableIds;
+  std::sort(seen.begin(), seen.end());
+  CHECK_EQ(std::adjacent_find(seen.begin(), seen.end()), seen.end());
 }
 
 

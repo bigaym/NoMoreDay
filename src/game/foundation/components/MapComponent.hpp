@@ -2,7 +2,9 @@
 
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
+#include <array>
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 
@@ -66,6 +68,42 @@ enum class PortalType : uint8_t {
   DimensionalGate // 维度传送门 (在城镇中选择难度并开启)
 };
 
+// 场景入口标识（传送门/过渡的出生点身份）。
+// 序列化以字符串形式保存以兼容旧存档（见下方 to_json/from_json）。
+enum class EntranceId : uint8_t {
+  Start,               // 默认出生点
+  RiftResume,          // 裂缝续战：恢复到上次离开城镇时的位置
+  RiftCompleteReturn,  // 裂缝完成后返回城镇
+  Count
+};
+
+[[nodiscard]] constexpr std::string_view ToString(EntranceId id) noexcept {
+  constexpr std::array<std::string_view, static_cast<size_t>(EntranceId::Count)>
+      kEntranceIdNames = {"start", "rift_resume", "rift_complete_return"};
+  const auto idx = static_cast<size_t>(id);
+  return idx < kEntranceIdNames.size() ? kEntranceIdNames[idx] : "start";
+}
+
+[[nodiscard]] constexpr EntranceId FromString(std::string_view s) noexcept {
+  if (s == "start")
+    return EntranceId::Start;
+  if (s == "rift_resume")
+    return EntranceId::RiftResume;
+  if (s == "rift_complete_return")
+    return EntranceId::RiftCompleteReturn;
+  // Unknown historical values behave like the default entrance.
+  return EntranceId::Start;
+}
+
+// JSON boundary: keep the string form used by old saves.
+inline void to_json(nlohmann::json &j, const EntranceId &id) {
+  j = ToString(id);
+}
+
+inline void from_json(const nlohmann::json &j, EntranceId &id) {
+  id = FromString(j.get<std::string>());
+}
+
 // 待处理的维度传送门 UI 请求
 struct PendingDimensionalGateTag {};
 
@@ -74,7 +112,7 @@ struct PortalComponent {
   PortalType type = PortalType::Dungeon;
   NoMoreDay::BiomeID targetBiome = NoMoreDay::BiomeID::None;
   int targetLevel = 1;
-  std::string targetEntranceId = "start";
+  EntranceId targetEntranceId = EntranceId::Start;
   bool isOneWay = false;
   bool isActive = true;
 

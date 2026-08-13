@@ -77,6 +77,12 @@ public:
 
   const char *GetName() const override { return m_name.c_str(); }
 
+  // Benchmark-local pass: the name never matches a canonical table name, so
+  // contract-stage resolution stays exempt (legacy string behavior).
+  NoMoreDay::render::graph::RenderPassType Type() const override {
+    return NoMoreDay::render::graph::RenderPassType::Scene;
+  }
+
 private:
   std::string m_name;
   SetupFn m_setupFn;

@@ -7,6 +7,7 @@
 #include "game/systems/world/LevelManager.hpp"
 #include "game/foundation/data/MosaicData.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
+#include "game/foundation/components/MapComponent.hpp"
 
 namespace NoMoreDay {
 
@@ -16,8 +17,8 @@ public:
     ~SceneManager();  // 确保异步任务在销毁前完成
     
     // Request a transition to a new biome/level
-    void RequestTransition(BiomeID biome, int level = 1, const std::string& entranceId = "start");
-    void RequestTransition(const std::string& biome, int level = 1, const std::string& entranceId = "start");
+    void RequestTransition(BiomeID biome, int level = 1, EntranceId entranceId = EntranceId::Start);
+    void RequestTransition(const std::string& biome, int level = 1, EntranceId entranceId = EntranceId::Start);
     
     // Request a transition to a mosaic level
     void RequestMosaicTransition(const NoMoreDay::MosaicGrid& grid, const NoMoreDay::ResonanceResult& resonance);
@@ -63,7 +64,7 @@ private:
     std::string m_targetBiomeKey;
     BiomeID m_targetBiome = BiomeID::None;
     int m_targetLevel = 1;
-    std::string m_targetEntranceId;
+    EntranceId m_targetEntranceId = EntranceId::Start;
     
     // Current scene info
     std::string m_currentBiomeKey = "cave";

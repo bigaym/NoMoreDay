@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <fstream>
 #include <limits>
+#include <type_traits>
 
 namespace NoMoreDay::systems {
 namespace {
@@ -15,6 +16,26 @@ namespace {
 std::atomic<uint64_t> g_ailmentInstanceCounter{1};
 
 constexpr std::string_view kPrefix = "ailment:";
+
+// BuffEffect stores the managed-ailment identity as a uint8_t (see Buff.hpp)
+// so that game/foundation/components does not depend on game/contracts.
+// Pin the AilmentType layout here: any change to the enum's underlying type
+// or to the None value breaks the storage contract and must be re-examined.
+static_assert(sizeof(AilmentType) == sizeof(uint8_t),
+              "AilmentType must stay uint8_t-backed to match BuffEffect::ailment_type");
+static_assert(static_cast<uint8_t>(AilmentType::None) == 0,
+              "AilmentType::None must remain 0 to match BuffEffect::ailment_type default");
+
+AilmentType AilmentTypeFromStorage(uint8_t value) {
+  if (value >= static_cast<uint8_t>(AilmentType::Count)) {
+    return AilmentType::None;
+  }
+  return static_cast<AilmentType>(value);
+}
+
+uint8_t AilmentTypeToStorage(AilmentType value) {
+  return static_cast<uint8_t>(value);
+}
 
 std::string_view AilmentTypeToString(AilmentType value) {
   switch (value) {
@@ -158,7 +179,12 @@ BuffEffect BuildAilmentEffect(const AilmentContract &contract,
                               const AilmentApplyRequest &request,
                               float duration, float magnitude, uint64_t instance) {
   BuffEffect effect;
+  // The runtime id string is kept for save-file and log compatibility, but the
+  // structured fields below are the authoritative identity on the hot path.
   effect.id = AilmentAdapter::BuildRuntimeId(request.ailment, instance);
+  effect.managed_ailment = true;
+  effect.ailment_type = AilmentTypeToStorage(request.ailment);
+  effect.ailment_power = std::max(0.0f, magnitude);
   effect.name = std::string(AilmentTypeToString(request.ailment));
   effect.description = "Managed ailment";
   effect.type = contract.legacy_buff_type;
@@ -352,6 +378,17 @@ void AilmentRegistry::LoadBuiltins() {
 
 std::optional<AilmentType> AilmentAdapter::TryMapLegacyBuff(
     const BuffEffect &effect) {
+  // Fast path: structured identity written by AilmentEngine. No string work.
+  if (effect.managed_ailment) {
+    const AilmentType stored = AilmentTypeFromStorage(effect.ailment_type);
+    if (stored != AilmentType::None) {
+      return stored;
+    }
+  }
+
+  // Fallback: save files written before the structured-identity change carry
+  // the identity inside the "ailment:" id string only. Keep parsing it so old
+  // saves keep ticking exactly as before.
   AilmentType parsedFromId = AilmentType::None;
   if (IsManagedAilmentId(effect.id, &parsedFromId) &&
       parsedFromId != AilmentType::None) {
@@ -498,6 +535,10 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
       slot.tick_damage += magnitude;
       SetRefresh(slot, RefreshPolicy::Refresh, duration);
       slot.source = request.source;
+      // Keep the structured identity in sync with the in-place refresh.
+      slot.managed_ailment = true;
+      slot.ailment_type = AilmentTypeToStorage(request.ailment);
+      slot.ailment_power = slot.tick_damage;
       return true;
     }
 
@@ -530,11 +571,18 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
   effect.type = contract->legacy_buff_type;
   effect.is_debuff = true;
   effect.source = request.source;
+  // Promote to the structured identity: the id string (or legacy BuffType
+  // mapping) already identified this slot as request.ailment, so recording
+  // the same type in the fields is behavior-preserving and upgrades old saves
+  // to the fast path on their next refresh.
+  effect.managed_ailment = true;
+  effect.ailment_type = AilmentTypeToStorage(request.ailment);
 
   const int mergedStacks =
       std::min(effect.max_stacks, effect.stacks + static_cast<int>(incomingStacks));
   effect.stacks = std::max(1, mergedStacks);
   ApplyOverwrite(effect, contract->overwrite_policy, magnitude);
+  effect.ailment_power = effect.tick_damage;
   SetRefresh(effect, contract->refresh_policy, duration);
 
   if (matchingIndices.size() > 1) {
@@ -572,7 +620,11 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         continue;
       }
 
-      const bool managedAilment = AilmentAdapter::IsManagedAilmentId(effect.id);
+      // Structured field is the hot-path check; the string parse remains as a
+      // fallback so save files written before the structured-identity change
+      // (id string only, managed_ailment=false) keep the same tick behavior.
+      const bool managedAilment =
+          effect.managed_ailment || AilmentAdapter::IsManagedAilmentId(effect.id);
       const float tickInterval = managedAilment
                                      ? std::max(0.01f, contract->tick_interval)
                                      : std::max(0.01f, effect.tick_interval);

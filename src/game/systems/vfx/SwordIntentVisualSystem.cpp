@@ -33,18 +33,6 @@ struct RuntimeVisualState {
 
 std::unordered_map<entt::entity, RuntimeVisualState> g_runtimeState;
 
-bool HasSwordStepBuff(const ActiveEffectsComponent *effects) {
-  if (!effects) {
-    return false;
-  }
-  for (const auto &effect : effects->effects) {
-    if (effect.id == "flowing_thrust_swift" && effect.remaining > 0.0f) {
-      return true;
-    }
-  }
-  return false;
-}
-
 uint32_t PackColorRGBA8(const Color &c) {
   return static_cast<uint32_t>(c.r) | (static_cast<uint32_t>(c.g) << 8u) |
          (static_cast<uint32_t>(c.b) << 16u) |
@@ -314,7 +302,8 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
     state.prevIntentStacks = intent.stacks;
 
     const ActiveEffectsComponent *effects = registry.try_get<ActiveEffectsComponent>(entity);
-    const bool swordStepActive = HasSwordStepBuff(effects);
+    const auto *swift = effects ? effects->Get(BuffId::SwordStep) : nullptr;
+    const bool swordStepActive = swift != nullptr && swift->remaining > 0.0f;
     if (swordStepActive && !state.swordStepActive) {
       const int enterCount =
           (tier <= static_cast<uint8_t>(render::core::QualityTier::Low)) ? 3 : 6;

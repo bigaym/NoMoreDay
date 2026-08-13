@@ -245,63 +245,46 @@ enum class PassContractStage : int {
   Composite = 17,
 };
 
-std::optional<PassContractStage> ResolvePassContractStage(std::string_view passName) {
-  if (passName == "ScenePass") {
-    return PassContractStage::Scene;
+// Contract stage of each enum-typed pass. The Shadow-pipeline passes share the
+// Shadow stage (the singular-stage check exempts it).
+constexpr std::array<PassContractStage,
+                     static_cast<size_t>(RenderPassType::Count)>
+    kPassContractStages = {
+        PassContractStage::Scene,        // Scene
+        PassContractStage::Lighting,     // Lighting
+        PassContractStage::HeightShadow, // HeightShadow
+        PassContractStage::OccluderExtract,    // OccluderExtract
+        PassContractStage::JFA,          // JFA
+        PassContractStage::RadianceCascades,   // RadianceCascades
+        PassContractStage::GIComposite,  // GIComposite
+        PassContractStage::FluidSimulation,    // FluidSimulation
+        PassContractStage::Volumetric,   // Volumetric
+        PassContractStage::VFX,          // VFX
+        PassContractStage::GPUText,      // GPUText
+        PassContractStage::GPULoot,      // GPULoot
+        PassContractStage::UIWorld,      // UIWorld
+        PassContractStage::PostProcess,  // PostProcess
+        PassContractStage::Distortion,   // Distortion
+        PassContractStage::Composite,    // Composite
+        PassContractStage::LightCulling, // LightCulling
+        PassContractStage::Shadow,       // ShadowPrepare
+        PassContractStage::Shadow,       // ShadowBuild
+        PassContractStage::Shadow,       // ShadowResolve
+    };
+
+std::optional<PassContractStage> ResolvePassContractStage(
+    RenderPassType passType, std::string_view passName) {
+  const size_t index = static_cast<size_t>(passType);
+  if (index >= kPassContractStages.size()) {
+    return std::nullopt;
   }
-  if (passName == "LightCullingPass") {
-    return PassContractStage::LightCulling;
+  // A pass whose runtime name is not the canonical table name of its type
+  // (e.g. the VFX emission snapshot helper, which shares the VFX type) is
+  // exempt from the stage contract, matching the legacy string lookup.
+  if (passName != kRenderPassNames[index].full) {
+    return std::nullopt;
   }
-  if (passName == "ShadowPreparePass" || passName == "ShadowBuildPass" ||
-      passName == "ShadowResolvePass") {
-    return PassContractStage::Shadow;
-  }
-  if (passName == "LightingPass") {
-    return PassContractStage::Lighting;
-  }
-  if (passName == "HeightShadowPass") {
-    return PassContractStage::HeightShadow;
-  }
-  if (passName == "OccluderExtractPass") {
-    return PassContractStage::OccluderExtract;
-  }
-  if (passName == "JFAPass") {
-    return PassContractStage::JFA;
-  }
-  if (passName == "RadianceCascadesPass") {
-    return PassContractStage::RadianceCascades;
-  }
-  if (passName == "GICompositePass") {
-    return PassContractStage::GIComposite;
-  }
-  if (passName == "FluidSimulationPass") {
-    return PassContractStage::FluidSimulation;
-  }
-  if (passName == "VolumetricLightPass") {
-    return PassContractStage::Volumetric;
-  }
-  if (passName == "VFXPass") {
-    return PassContractStage::VFX;
-  }
-  if (passName == "GPUTextPass") {
-    return PassContractStage::GPUText;
-  }
-  if (passName == "GPULootPass") {
-    return PassContractStage::GPULoot;
-  }
-  if (passName == "UIWorldPass") {
-    return PassContractStage::UIWorld;
-  }
-  if (passName == "PostProcessPass") {
-    return PassContractStage::PostProcess;
-  }
-  if (passName == "DistortionPass") {
-    return PassContractStage::Distortion;
-  }
-  if (passName == "CompositePass") {
-    return PassContractStage::Composite;
-  }
-  return std::nullopt;
+  return kPassContractStages[index];
 }
 
 // B12 graph-driven binding: kind-compatibility helpers between a binding kind
@@ -521,6 +504,8 @@ void RenderGraph::Build() {
     node.passName = (node.pass != nullptr && node.pass->GetName() != nullptr)
                         ? node.pass->GetName()
                         : "UnnamedPass";
+    node.passType = (node.pass != nullptr) ? node.pass->Type()
+                                           : RenderPassType::Count;
     node.passIndex = index;
   }
 
@@ -614,7 +599,7 @@ void RenderGraph::Execute(RenderContext &context) {
     debug::GPUTimerQueryRing::Get().BeginPass(stablePassId);
 
     if (context.renderProfiler != nullptr) {
-      context.renderProfiler->BeginCpuPass(node.pass->GetName());
+      context.renderProfiler->BeginPass(node.pass->Type());
     }
 
     context.activeGraph = this;
@@ -634,7 +619,7 @@ void RenderGraph::Execute(RenderContext &context) {
     NoMoreDay::render::core::ApplyRlglFlushTemplate();
 
     if (context.renderProfiler != nullptr) {
-      context.renderProfiler->EndCpuPass();
+      context.renderProfiler->EndPass(node.pass->Type());
     }
     debug::GPUTimerQueryRing::Get().EndPass(stablePassId);
   }
@@ -703,6 +688,38 @@ bool RenderGraph::ValidatePassIdentityContract() {
       canonicalToPassIndex.emplace(node.canonicalPassName, node.passIndex);
     }
 
+    // Name/type agreement: the kRenderPassNames table is the single source of
+    // truth. A pass whose RenderPassType maps to a table entry must carry
+    // that entry's canonical name (otherwise its stable id would silently
+    // diverge from the profiler/gate identity derived from the table). Passes
+    // whose names match no table entry at all (e.g. VFXEmissionSnapshotPass)
+    // stay exempt, preserving legacy non-canonical behavior.
+    if (node.pass != nullptr) {
+      const RenderPassType passType = node.pass->Type();
+      if (static_cast<size_t>(passType) < kRenderPassNames.size()) {
+        const std::string tableCanonical = CanonicalizePassName(
+            kRenderPassNames[static_cast<size_t>(passType)].full);
+        if (tableCanonical != node.canonicalPassName) {
+          bool nameMatchesOtherEntry = false;
+          for (size_t i = 0; i < kRenderPassNames.size(); ++i) {
+            if (CanonicalizePassName(kRenderPassNames[i].full) ==
+                node.canonicalPassName) {
+              nameMatchesOtherEntry = true;
+              break;
+            }
+          }
+          if (nameMatchesOtherEntry) {
+            AddValidationDiagnostic(
+                ValidationDiagnostic::Severity::Error, node.passIndex,
+                node.passName, "(identity)",
+                "pass name canonicalizes to a different pass's table name "
+                "than its RenderPassType");
+            failed = true;
+          }
+        }
+      }
+    }
+
     node.stablePassId = StablePassId(node.canonicalPassName);
 
     if (node.stablePassId == kInvalidStablePassId) {
@@ -759,7 +776,7 @@ void RenderGraph::ValidateBuildContracts() {
   bool seenComposite = false;
   std::unordered_set<int> seenSingularStages;
   for (const Node &node : m_nodes) {
-    const auto stage = ResolvePassContractStage(node.passName);
+    const auto stage = ResolvePassContractStage(node.passType, node.passName);
     if (!stage.has_value()) {
       continue;
     }

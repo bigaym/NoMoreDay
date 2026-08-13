@@ -40,7 +40,7 @@ inline void from_json(const nlohmann::json &j, RuneDefinition &r) {
 struct RunewordDefinition {
   uint32_t id;
   std::string name;
-  std::vector<std::string> runes; // e.g. ["Tal", "Eth"]
+  std::vector<uint32_t> runeIds; // 符文ID序列 (按 s_runes 的 id, 取代名字字符串)
   std::vector<ItemType> allowedTypes;
   std::vector<WeaponSubtype> allowedSubtypes; // e.g. [Sword, Axe]
   AffixStats stats;
@@ -52,7 +52,6 @@ public:
 
   // Returns the RuneDefinition if found, otherwise nullptr
   static const RuneDefinition *getRune(uint32_t id);
-  static const RuneDefinition *getRuneByName(const std::string &name);
 
   // Checks if the item forms a runeword. Returns the Runeword ID or 0.
   static uint32_t

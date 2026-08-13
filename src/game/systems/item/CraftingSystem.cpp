@@ -359,8 +359,8 @@ CraftingResult CraftingSystem::fuseLegendary(entt::registry &registry,
   }
 
   // Catalyst: Legendary Core
-  // We check name or ID. Name check for now.
-  if (catalyst->name != "Legendary Core" && catalyst->name != "传奇核心") {
+  // 按 catalystKind 身份判断, 旧存档仅有名称时回退兼容
+  if (!IsLegendaryCoreCatalyst(*catalyst)) {
     LOG_WARN("Fusion: Invalid catalyst '{}'. Expected 'Legendary Core'.",
              catalyst->name);
     // Allow bypass if testing? No, strict.

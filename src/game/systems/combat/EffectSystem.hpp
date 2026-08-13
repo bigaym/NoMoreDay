@@ -1,6 +1,7 @@
 #pragma once
 #include "game/foundation/data/TagRegistry.hpp"
 #include "raylib.h"
+#include "engine/render/PopupRenderer.hpp"
 #include <entt/entt.hpp>
 #include <string>
 
@@ -17,8 +18,9 @@ public:
                   bool isCrit,
                   NoMoreDay::Tag damageType = NoMoreDay::Tag::Physical);
 
-  // 发射状态/文本飘字
+  // 发射状态飘字
   static void EmitStatusPopup(entt::registry &registry, Vector2 position,
-                              const std::string &text, Color color);
+                              NoMoreDay::render::StatusPopupKind kind,
+                              Color color);
 };
 } // namespace NoMoreDay::systems

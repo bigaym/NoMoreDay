@@ -1,11 +1,45 @@
 #pragma once
 
+#include <cstdint>
+#include <string_view>
 #include <vector>
 #include <raylib.h>
 #include "engine/render/GPUData.hpp"
 #include "engine/render/PersistentBuffer.hpp"
 
 namespace NoMoreDay::render {
+
+/**
+ * @brief Status popup kinds rendered by the popup glyph protocol.
+ *
+ * Glyph atlas Row 1 pairs (2 glyphs per kind, 2 CJK chars each):
+ *   Crit 16/17, Dodge 18/19, Block 20/21, Immune 22/23, Absorb 24/25.
+ * Kinds without an active caller (Crit/Immune/Absorb) are kept so the
+ * protocol stays complete and future call sites remain type-safe.
+ */
+enum class StatusPopupKind : uint8_t { Crit, Dodge, Block, Immune, Absorb };
+
+/**
+ * @brief Single source of truth for the display text of each status kind.
+ *
+ * These are user-facing display strings (localized through data); the
+ * Chinese names are preserved verbatim and never used as comparison keys.
+ */
+[[nodiscard]] constexpr std::string_view DisplayName(StatusPopupKind kind) {
+  switch (kind) {
+    case StatusPopupKind::Crit:
+      return "暴击";
+    case StatusPopupKind::Dodge:
+      return "闪避";
+    case StatusPopupKind::Block:
+      return "格挡";
+    case StatusPopupKind::Immune:
+      return "免疫";
+    case StatusPopupKind::Absorb:
+      return "吸收";
+  }
+  return "?";
+}
 
 /**
  * @brief GPU-instanced renderer for damage popups and combat text.
@@ -34,9 +68,12 @@ public:
     void Emit(Vector2 position, int amount, bool isCrit, Color color = WHITE);
 
     /**
-     * @brief Emit custom status text (limited to pre-rendered glyphs).
+     * @brief Emit a status popup (limited to pre-rendered glyph pairs).
+     * @param position World position.
+     * @param kind Status kind; selects the glyph pair (see StatusPopupKind).
+     * @param color Base color.
      */
-    void EmitStatus(Vector2 position, const char* text, Color color = WHITE);
+    void EmitStatus(Vector2 position, StatusPopupKind kind, Color color = WHITE);
 
     void Update(float dt);
     void Render(const Matrix& viewProj);

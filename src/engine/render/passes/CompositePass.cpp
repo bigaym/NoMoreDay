@@ -39,4 +39,8 @@ void CompositePass::Execute(graph::RenderContext &context) {
 
 const char *CompositePass::GetName() const { return "CompositePass"; }
 
+graph::RenderPassType CompositePass::Type() const {
+  return graph::RenderPassType::Composite;
+}
+
 } // namespace NoMoreDay::render::passes

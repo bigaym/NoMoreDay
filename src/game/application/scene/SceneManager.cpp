@@ -29,7 +29,7 @@ SceneManager::~SceneManager() {
 }
 
 void SceneManager::RequestTransition(BiomeID biome, int level,
-                                     const std::string &entranceId) {
+                                     EntranceId entranceId) {
   if (m_isTransitioning)
     return;
 
@@ -47,7 +47,7 @@ void SceneManager::RequestTransition(BiomeID biome, int level,
 }
 
 void SceneManager::RequestTransition(const std::string &biome, int level,
-                                     const std::string &entranceId) {
+                                     EntranceId entranceId) {
   if (m_isTransitioning)
     return;
 
@@ -345,7 +345,7 @@ void SceneManager::ApplyLoadedLevel() {
   }
 
   // Rift resume spawn override: restore to the last town-exit position when possible.
-  if (m_targetEntranceId == "rift_resume" &&
+  if (m_targetEntranceId == EntranceId::RiftResume &&
       m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
     auto& state = m_registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
     if (NoMoreDay::HasInProgressRift(state)) {
@@ -411,7 +411,7 @@ void SceneManager::ApplyLoadedLevel() {
 
   // Spawn return portal if coming from a dungeon to town
   if (m_targetBiome == NoMoreDay::BiomeID::Town &&
-      m_targetEntranceId != "rift_complete_return" &&
+      m_targetEntranceId != EntranceId::RiftCompleteReturn &&
       m_originBiome != NoMoreDay::BiomeID::None &&
       m_originBiome != NoMoreDay::BiomeID::Town) {
     auto returnPortal = m_registry.create();

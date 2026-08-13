@@ -30,7 +30,6 @@ inline constexpr const char *kQiyaoBuffId = "seven_star_qiyao";
 inline constexpr const char *kReturningStepBuffId = "seven_star_returning_step";
 inline constexpr const char *kReturningStepDefenseBuffId =
     "seven_star_returning_step_defense";
-inline constexpr const char *kSwordStepBuffId = "flowing_thrust_swift";
 
 inline int GetAllocatedPoints(const entt::registry &registry, entt::entity owner,
                               uint32_t skillId, uint32_t nodeId) {
@@ -154,7 +153,7 @@ inline void GrantSwordStep(entt::registry &registry, entt::entity owner,
                            float duration = 2.0f, float moveSpeedPct = 30.0f) {
   auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
   BuffEffect swift;
-  swift.id = kSwordStepBuffId;
+  swift.id = std::string(BuffIdToString(BuffId::SwordStep));
   swift.name = "Sword Step";
   swift.type = BuffType::SpeedUp;
   swift.duration = duration;

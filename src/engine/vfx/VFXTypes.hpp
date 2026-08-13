@@ -2,8 +2,13 @@
 
 #include "engine/render/core/RenderConstants.hpp"
 
+#include <array>
+#include <cctype>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -35,6 +40,120 @@ enum class TierPolicy : uint8_t {
   Degrade,
   Skip,
 };
+
+// ---------------------------------------------------------------------------
+// Enum <-> string vocabulary (single source of truth).
+// These are the only places the VFX enums are converted to/from strings. All
+// consumers (VFXSequenceManager JSON parsing, VFXSequencerSystem logging) go
+// through these functions so spellings stay consistent.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief ASCII case-insensitive comparison that also ignores '_' in the input
+ * side, so all historically used spellings match: lowercase aliases
+ * ("material_swap"), PascalCase ("MaterialSwap"), and mixed case.
+ */
+[[nodiscard]] inline bool EqualsVfxToken(std::string_view lhs,
+                                         std::string_view rhs) {
+  size_t lhsIndex = 0;
+  size_t rhsIndex = 0;
+  while (lhsIndex < lhs.size() || rhsIndex < rhs.size()) {
+    while (lhsIndex < lhs.size() && lhs[lhsIndex] == '_') {
+      ++lhsIndex;
+    }
+    while (rhsIndex < rhs.size() && rhs[rhsIndex] == '_') {
+      ++rhsIndex;
+    }
+    if (lhsIndex >= lhs.size() || rhsIndex >= rhs.size()) {
+      return lhsIndex >= lhs.size() && rhsIndex >= rhs.size();
+    }
+    if (std::tolower(static_cast<unsigned char>(lhs[lhsIndex])) !=
+        std::tolower(static_cast<unsigned char>(rhs[rhsIndex]))) {
+      return false;
+    }
+    ++lhsIndex;
+    ++rhsIndex;
+  }
+  return true;
+}
+
+[[nodiscard]] constexpr std::string_view ToString(TierPolicy policy) {
+  switch (policy) {
+  case TierPolicy::Strict:
+    return "strict";
+  case TierPolicy::Degrade:
+    return "degrade";
+  case TierPolicy::Skip:
+    return "skip";
+  }
+  return "unknown";
+}
+
+[[nodiscard]] inline std::optional<TierPolicy>
+FromStringTierPolicy(std::string_view input) {
+  static constexpr std::pair<std::string_view, TierPolicy> kTierPolicyNames[] =
+      {
+          {"strict", TierPolicy::Strict},
+          {"degrade", TierPolicy::Degrade},
+          {"skip", TierPolicy::Skip},
+      };
+  for (const auto &[name, policy] : kTierPolicyNames) {
+    if (EqualsVfxToken(input, name)) {
+      return policy;
+    }
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] constexpr std::string_view ToString(EventType type) {
+  switch (type) {
+  case EventType::Particle:
+    return "Particle";
+  case EventType::Trail:
+    return "Trail";
+  case EventType::Light:
+    return "Light";
+  case EventType::Shake:
+    return "Shake";
+  case EventType::Distortion:
+    return "Distortion";
+  case EventType::Sound:
+    return "Sound";
+  case EventType::MaterialSwap:
+    return "MaterialSwap";
+  case EventType::ShadowPulse:
+    return "ShadowPulse";
+  case EventType::LightProfileBlend:
+    return "LightProfileBlend";
+  case EventType::MaterialPhaseShift:
+    return "MaterialPhaseShift";
+  case EventType::Count:
+    break;
+  }
+  return "Unknown";
+}
+
+[[nodiscard]] inline std::optional<EventType>
+FromStringEventType(std::string_view input) {
+  static constexpr std::pair<std::string_view, EventType> kEventTypeNames[] = {
+      {"particle", EventType::Particle},
+      {"trail", EventType::Trail},
+      {"light", EventType::Light},
+      {"shake", EventType::Shake},
+      {"distortion", EventType::Distortion},
+      {"sound", EventType::Sound},
+      {"materialswap", EventType::MaterialSwap},
+      {"shadowpulse", EventType::ShadowPulse},
+      {"lightprofileblend", EventType::LightProfileBlend},
+      {"materialphaseshift", EventType::MaterialPhaseShift},
+  };
+  for (const auto &[name, type] : kEventTypeNames) {
+    if (EqualsVfxToken(input, name)) {
+      return type;
+    }
+  }
+  return std::nullopt;
+}
 
 struct ParticleEventParams {
   int materialId = 0;

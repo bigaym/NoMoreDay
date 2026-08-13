@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cctype>
 #include <cstdint>
+#include <optional>
+#include <string_view>
 
 namespace NoMoreDay::render::core {
 
@@ -172,6 +175,40 @@ inline const char *ToString(QualityTier tier) {
   default:
     return "Unknown";
   }
+}
+
+/**
+ * @brief Single source of truth for parsing a QualityTier from a string.
+ *
+ * Case-insensitive. Accepts "low"/"medium"/"high"/"ultra". This is the only
+ * place QualityTier names are decoded from text; all consumers call here so
+ * spellings stay consistent.
+ */
+[[nodiscard]] inline std::optional<QualityTier>
+FromStringQualityTier(std::string_view input) {
+  // Longest tier name is "medium" (6 chars); reject anything longer up front.
+  if (input.size() > 8u) {
+    return std::nullopt;
+  }
+  char lower[8];
+  for (size_t i = 0; i < input.size(); ++i) {
+    lower[i] =
+        static_cast<char>(std::tolower(static_cast<unsigned char>(input[i])));
+  }
+  const std::string_view normalized(lower, input.size());
+  if (normalized == "low") {
+    return QualityTier::Low;
+  }
+  if (normalized == "medium") {
+    return QualityTier::Medium;
+  }
+  if (normalized == "high") {
+    return QualityTier::High;
+  }
+  if (normalized == "ultra") {
+    return QualityTier::Ultra;
+  }
+  return std::nullopt;
 }
 
 } // namespace NoMoreDay::render::core

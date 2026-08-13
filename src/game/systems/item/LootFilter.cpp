@@ -10,25 +10,7 @@ LootFilterProfile LootFilter::s_currentProfile;
 
 // --- Helper Functions for Enum <-> String ---
 
-static Rarity stringToRarity(const std::string& str) {
-    static const std::unordered_map<std::string, Rarity> kStringToRarity = {
-        {"COMMON", Rarity::Common},
-        {"MAGIC", Rarity::Magic},
-        {"RARE", Rarity::Rare},
-        {"UNCOMMON", Rarity::Uncommon},
-        {"SET", Rarity::Set},
-        {"EPIC", Rarity::Epic},
-        {"LEGENDARY", Rarity::Legendary},
-        {"MYTHIC", Rarity::Mythic},
-        {"ANCIENT", Rarity::Ancient}
-    };
-
-    std::string s = str;
-    std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-    auto it = kStringToRarity.find(s);
-    if (it != kStringToRarity.end()) return it->second;
-    return Rarity::Common;
-}
+// Rarity 字符串解析统一走 ItemComponent.hpp 的 RarityFromString (大小写不敏感单源)
 
 static ItemType stringToItemType(const std::string& str) {
     static const std::unordered_map<std::string, ItemType> kStringToItemType = {
@@ -48,6 +30,20 @@ static ItemType stringToItemType(const std::string& str) {
     return ItemType::Material; 
 }
 
+// ItemType -> 大写字符串 (JSON 写出用, 与 stringToItemType 读端对称)
+static std::string itemTypeToString(ItemType type) {
+    switch (type) {
+    case ItemType::Weapon: return "WEAPON";
+    case ItemType::Armor: return "ARMOR";
+    case ItemType::Shield: return "SHIELD";
+    case ItemType::Consumable: return "CONSUMABLE";
+    case ItemType::Material: return "MATERIAL";
+    case ItemType::Quest: return "QUEST";
+    case ItemType::Bag: return "BAG";
+    }
+    return "MATERIAL";
+}
+
 static FilterActionType stringToActionType(const std::string& str) {
     static const std::unordered_map<std::string, FilterActionType> kStringToFilterAction = {
         {"SHOW", FilterActionType::SHOW},
@@ -64,12 +60,25 @@ static FilterActionType stringToActionType(const std::string& str) {
 
 // --- JSON Serialization ---
 
+// 读端兼容两种格式: 字符串 ("Common"/"COMMON") 或整数 (旧写端曾写 int)
 static void parseCondition(const nlohmann::json& j, FilterCondition& c) {
-    if (j.contains("min_rarity")) c.minRarity = stringToRarity(j.at("min_rarity").get<std::string>());
-    if (j.contains("max_rarity")) c.maxRarity = stringToRarity(j.at("max_rarity").get<std::string>());
+    if (j.contains("min_rarity")) {
+        const auto& v = j.at("min_rarity");
+        if (v.is_string()) c.minRarity = RarityFromString(v.get<std::string>());
+        else if (v.is_number_integer()) c.minRarity = static_cast<Rarity>(v.get<int>());
+    }
+    if (j.contains("max_rarity")) {
+        const auto& v = j.at("max_rarity");
+        if (v.is_string()) c.maxRarity = RarityFromString(v.get<std::string>());
+        else if (v.is_number_integer()) c.maxRarity = static_cast<Rarity>(v.get<int>());
+    }
     if (j.contains("min_level")) c.minLevel = j.at("min_level").get<int>();
     if (j.contains("max_level")) c.maxLevel = j.at("max_level").get<int>();
-    if (j.contains("item_type")) c.itemType = stringToItemType(j.at("item_type").get<std::string>());
+    if (j.contains("item_type")) {
+        const auto& v = j.at("item_type");
+        if (v.is_string()) c.itemType = stringToItemType(v.get<std::string>());
+        else if (v.is_number_integer()) c.itemType = static_cast<ItemType>(v.get<int>());
+    }
     if (j.contains("has_affixes")) c.hasAffixes = j.at("has_affixes").get<std::vector<std::string>>();
     if (j.contains("base_name")) c.baseName = j.at("base_name").get<std::string>();
 }
@@ -96,10 +105,11 @@ static void parseRule(const nlohmann::json& j, FilterRule& r) {
     if (j.contains("enabled")) r.enabled = j.at("enabled").get<bool>();
     if (j.contains("conditions")) parseCondition(j.at("conditions"), r.condition);
     
-    // Parse Action Type
+    // Parse Action Type (读端兼容 string 与旧 int 两种格式)
     if (j.contains("action")) {
-        std::string actStr = j.at("action").get<std::string>();
-        r.action.type = stringToActionType(actStr);
+        const auto& v = j.at("action");
+        if (v.is_string()) r.action.type = stringToActionType(v.get<std::string>());
+        else if (v.is_number_integer()) r.action.type = static_cast<FilterActionType>(v.get<int>());
     }
     
     // Parse Action Details from rule root (merging)
@@ -222,12 +232,13 @@ void LootFilter::to_json(nlohmann::json& j, const LootFilterProfile& p) {
         rj["enabled"] = rule.enabled;
         
         // Conditions
+        // 写端统一为字符串 (Rarity 用 RarityToString, ItemType 用大写), 读端大小写不敏感
         nlohmann::json cj;
         if (rule.condition.minRarity.has_value()) {
-            cj["min_rarity"] = static_cast<int>(rule.condition.minRarity.value());
+            cj["min_rarity"] = RarityToString(rule.condition.minRarity.value());
         }
         if (rule.condition.maxRarity.has_value()) {
-            cj["max_rarity"] = static_cast<int>(rule.condition.maxRarity.value());
+            cj["max_rarity"] = RarityToString(rule.condition.maxRarity.value());
         }
         if (rule.condition.minLevel.has_value()) {
             cj["min_level"] = rule.condition.minLevel.value();
@@ -236,7 +247,7 @@ void LootFilter::to_json(nlohmann::json& j, const LootFilterProfile& p) {
             cj["max_level"] = rule.condition.maxLevel.value();
         }
         if (rule.condition.itemType.has_value()) {
-            cj["item_type"] = static_cast<int>(rule.condition.itemType.value());
+            cj["item_type"] = itemTypeToString(rule.condition.itemType.value());
         }
         if (!rule.condition.hasAffixes.empty()) {
             cj["has_affixes"] = rule.condition.hasAffixes;
@@ -246,8 +257,12 @@ void LootFilter::to_json(nlohmann::json& j, const LootFilterProfile& p) {
         }
         rj["conditions"] = cj;
         
-        // Action
-        rj["action"] = static_cast<int>(rule.action.type);
+        // Action (写端统一为字符串, 与读端 stringToActionType 对称)
+        switch (rule.action.type) {
+        case FilterActionType::SHOW: rj["action"] = "SHOW"; break;
+        case FilterActionType::HIDE: rj["action"] = "HIDE"; break;
+        case FilterActionType::EMPHASIZE: rj["action"] = "EMPHASIZE"; break;
+        }
         if (rule.action.colorOverride.has_value()) {
             const auto& c = rule.action.colorOverride.value();
             rj["color"] = { c.r, c.g, c.b, c.a };

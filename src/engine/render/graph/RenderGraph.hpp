@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/graph/RenderPass.hpp"
+#include <array>
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
@@ -65,190 +66,97 @@ enum class RenderOwnerTag : uint8_t {
   LightCulling,
 };
 
+struct RenderResourceNameEntry {
+  RenderResourceTag tag;
+  const char *name;
+};
+
+inline constexpr std::array<RenderResourceNameEntry,
+                            static_cast<size_t>(RenderResourceTag::LightBoundsSSBO) + 1>
+    kRenderResourceNames = {{
+        {RenderResourceTag::Custom, ""},
+        {RenderResourceTag::SceneHdrColor, "SceneColor"},
+        {RenderResourceTag::SceneDepth, "SceneDepth"},
+        {RenderResourceTag::PostProcessLdrColor, "PostProcessColor"},
+        {RenderResourceTag::DistortionLdrColor, "DistortionColor"},
+        {RenderResourceTag::FinalOutputColor, "BackBuffer"},
+        {RenderResourceTag::OccluderMask, "OccluderMask"},
+        {RenderResourceTag::DistanceField, "DistanceField"},
+        {RenderResourceTag::EmissiveBuffer, "EmissiveBuffer"},
+        {RenderResourceTag::ParticleEmissive, "ParticleEmissive"},
+        {RenderResourceTag::RadianceMap, "RadianceMap"},
+        {RenderResourceTag::GIHistoryColor, "GIHistoryColor"},
+        {RenderResourceTag::LightBufferSSBO, "LightBufferSSBO"},
+        {RenderResourceTag::TileLightIndexSSBO, "TileLightIndexSSBO"},
+        {RenderResourceTag::VFXParticleSSBO, "VFXParticleSSBO"},
+        {RenderResourceTag::FluidParticleSSBO, "FluidParticleSSBO"},
+        {RenderResourceTag::GPUTextBufferSSBO, "GPUTextBufferSSBO"},
+        {RenderResourceTag::GPULootBufferSSBO, "GPULootBufferSSBO"},
+        {RenderResourceTag::ShadowAtlas, "ShadowAtlas"},
+        {RenderResourceTag::ShadowDistanceField, "ShadowDistanceField"},
+        {RenderResourceTag::ShadowMask, "ShadowMask"},
+        {RenderResourceTag::ShadowOccluderSSBO, "ShadowOccluderSSBO"},
+        {RenderResourceTag::ClusterHeaderSSBO, "ClusterHeaderSSBO"},
+        {RenderResourceTag::ClusterLightIndexSSBO, "ClusterLightIndexSSBO"},
+        {RenderResourceTag::ClusterPackedLightSSBO, "ClusterPackedLightSSBO"},
+        {RenderResourceTag::ClusterCounterSSBO, "ClusterCounterSSBO"},
+        {RenderResourceTag::LightBoundsSSBO, "LightBoundsSSBO"},
+    }};
+
+static_assert(
+    [] {
+      for (size_t i = 0; i < kRenderResourceNames.size(); ++i) {
+        if (static_cast<size_t>(kRenderResourceNames[i].tag) != i) {
+          return false;
+        }
+      }
+      return true;
+    }(),
+    "kRenderResourceNames must be ordered by RenderResourceTag value");
+
 constexpr const char *ToResourceName(RenderResourceTag resourceTag) {
-  switch (resourceTag) {
-  case RenderResourceTag::SceneHdrColor:
-    return "SceneColor";
-  case RenderResourceTag::SceneDepth:
-    return "SceneDepth";
-  case RenderResourceTag::PostProcessLdrColor:
-    return "PostProcessColor";
-  case RenderResourceTag::DistortionLdrColor:
-    return "DistortionColor";
-  case RenderResourceTag::FinalOutputColor:
-    return "BackBuffer";
-  case RenderResourceTag::OccluderMask:
-    return "OccluderMask";
-  case RenderResourceTag::DistanceField:
-    return "DistanceField";
-  case RenderResourceTag::EmissiveBuffer:
-    return "EmissiveBuffer";
-  case RenderResourceTag::ParticleEmissive:
-    return "ParticleEmissive";
-  case RenderResourceTag::RadianceMap:
-    return "RadianceMap";
-  case RenderResourceTag::GIHistoryColor:
-    return "GIHistoryColor";
-  case RenderResourceTag::LightBufferSSBO:
-    return "LightBufferSSBO";
-  case RenderResourceTag::TileLightIndexSSBO:
-    return "TileLightIndexSSBO";
-  case RenderResourceTag::VFXParticleSSBO:
-    return "VFXParticleSSBO";
-  case RenderResourceTag::FluidParticleSSBO:
-    return "FluidParticleSSBO";
-  case RenderResourceTag::GPUTextBufferSSBO:
-    return "GPUTextBufferSSBO";
-  case RenderResourceTag::GPULootBufferSSBO:
-    return "GPULootBufferSSBO";
-  case RenderResourceTag::ShadowAtlas:
-    return "ShadowAtlas";
-  case RenderResourceTag::ShadowDistanceField:
-    return "ShadowDistanceField";
-  case RenderResourceTag::ShadowMask:
-    return "ShadowMask";
-  case RenderResourceTag::ShadowOccluderSSBO:
-    return "ShadowOccluderSSBO";
-  case RenderResourceTag::ClusterHeaderSSBO:
-    return "ClusterHeaderSSBO";
-  case RenderResourceTag::ClusterLightIndexSSBO:
-    return "ClusterLightIndexSSBO";
-  case RenderResourceTag::ClusterPackedLightSSBO:
-    return "ClusterPackedLightSSBO";
-  case RenderResourceTag::ClusterCounterSSBO:
-    return "ClusterCounterSSBO";
-  case RenderResourceTag::LightBoundsSSBO:
-    return "LightBoundsSSBO";
-  case RenderResourceTag::Custom:
-  default:
-    return "";
-  }
+  const size_t index = static_cast<size_t>(resourceTag);
+  return index < kRenderResourceNames.size() ? kRenderResourceNames[index].name
+                                              : "";
 }
 
 constexpr RenderResourceTag ToResourceTag(std::string_view resourceName) {
-  if (resourceName == "SceneColor") {
-    return RenderResourceTag::SceneHdrColor;
-  }
-  if (resourceName == "SceneDepth") {
-    return RenderResourceTag::SceneDepth;
-  }
-  if (resourceName == "PostProcessColor") {
-    return RenderResourceTag::PostProcessLdrColor;
-  }
-  if (resourceName == "DistortionColor") {
-    return RenderResourceTag::DistortionLdrColor;
-  }
-  if (resourceName == "BackBuffer") {
-    return RenderResourceTag::FinalOutputColor;
-  }
-  if (resourceName == "OccluderMask") {
-    return RenderResourceTag::OccluderMask;
-  }
-  if (resourceName == "DistanceField") {
-    return RenderResourceTag::DistanceField;
-  }
-  if (resourceName == "EmissiveBuffer") {
-    return RenderResourceTag::EmissiveBuffer;
-  }
-  if (resourceName == "ParticleEmissive") {
-    return RenderResourceTag::ParticleEmissive;
-  }
-  if (resourceName == "RadianceMap") {
-    return RenderResourceTag::RadianceMap;
-  }
-  if (resourceName == "GIHistoryColor") {
-    return RenderResourceTag::GIHistoryColor;
-  }
-  if (resourceName == "LightBufferSSBO") {
-    return RenderResourceTag::LightBufferSSBO;
-  }
-  if (resourceName == "TileLightIndexSSBO") {
-    return RenderResourceTag::TileLightIndexSSBO;
-  }
-  if (resourceName == "VFXParticleSSBO") {
-    return RenderResourceTag::VFXParticleSSBO;
-  }
-  if (resourceName == "FluidParticleSSBO") {
-    return RenderResourceTag::FluidParticleSSBO;
-  }
-  if (resourceName == "GPUTextBufferSSBO") {
-    return RenderResourceTag::GPUTextBufferSSBO;
-  }
-  if (resourceName == "GPULootBufferSSBO") {
-    return RenderResourceTag::GPULootBufferSSBO;
-  }
-  if (resourceName == "ShadowAtlas") {
-    return RenderResourceTag::ShadowAtlas;
-  }
-  if (resourceName == "ShadowDistanceField") {
-    return RenderResourceTag::ShadowDistanceField;
-  }
-  if (resourceName == "ShadowMask") {
-    return RenderResourceTag::ShadowMask;
-  }
-  if (resourceName == "ShadowOccluderSSBO") {
-    return RenderResourceTag::ShadowOccluderSSBO;
-  }
-  if (resourceName == "ClusterHeaderSSBO") {
-    return RenderResourceTag::ClusterHeaderSSBO;
-  }
-  if (resourceName == "ClusterLightIndexSSBO") {
-    return RenderResourceTag::ClusterLightIndexSSBO;
-  }
-  if (resourceName == "ClusterPackedLightSSBO") {
-    return RenderResourceTag::ClusterPackedLightSSBO;
-  }
-  if (resourceName == "ClusterCounterSSBO") {
-    return RenderResourceTag::ClusterCounterSSBO;
-  }
-  if (resourceName == "LightBoundsSSBO") {
-    return RenderResourceTag::LightBoundsSSBO;
+  for (const RenderResourceNameEntry &entry : kRenderResourceNames) {
+    if (resourceName == entry.name) {
+      return entry.tag;
+    }
   }
   return RenderResourceTag::Custom;
 }
 
+inline constexpr std::array<const char *,
+                            static_cast<size_t>(RenderOwnerTag::LightCulling) + 1>
+    kRenderOwnerNames = {
+        "Unknown",       // Unknown
+        "Scene",         // Scene
+        "Lighting",      // Lighting
+        "HeightShadow",  // HeightShadow
+        "OccluderExtract", // OccluderExtract
+        "JFA",           // JFA
+        "RadianceCascades", // RadianceCascades
+        "GIComposite",   // GIComposite
+        "FluidSimulation", // FluidSimulation
+        "Volumetric",    // Volumetric
+        "VFX",           // VFX
+        "GPUText",       // GPUText
+        "GPULoot",       // GPULoot
+        "UIWorld",       // UIWorld
+        "PostProcess",   // PostProcess
+        "Distortion",    // Distortion
+        "Composite",     // Composite
+        "Shadow",        // Shadow
+        "LightCulling",  // LightCulling
+    };
+
 constexpr const char *ToOwnerName(RenderOwnerTag ownerTag) {
-  switch (ownerTag) {
-  case RenderOwnerTag::Scene:
-    return "Scene";
-  case RenderOwnerTag::Lighting:
-    return "Lighting";
-  case RenderOwnerTag::HeightShadow:
-    return "HeightShadow";
-  case RenderOwnerTag::OccluderExtract:
-    return "OccluderExtract";
-  case RenderOwnerTag::JFA:
-    return "JFA";
-  case RenderOwnerTag::RadianceCascades:
-    return "RadianceCascades";
-  case RenderOwnerTag::GIComposite:
-    return "GIComposite";
-  case RenderOwnerTag::FluidSimulation:
-    return "FluidSimulation";
-  case RenderOwnerTag::Volumetric:
-    return "Volumetric";
-  case RenderOwnerTag::VFX:
-    return "VFX";
-  case RenderOwnerTag::GPUText:
-    return "GPUText";
-  case RenderOwnerTag::GPULoot:
-    return "GPULoot";
-  case RenderOwnerTag::UIWorld:
-    return "UIWorld";
-  case RenderOwnerTag::PostProcess:
-    return "PostProcess";
-  case RenderOwnerTag::Distortion:
-    return "Distortion";
-  case RenderOwnerTag::Composite:
-    return "Composite";
-  case RenderOwnerTag::Shadow:
-    return "Shadow";
-  case RenderOwnerTag::LightCulling:
-    return "LightCulling";
-  case RenderOwnerTag::Unknown:
-  default:
-    return "Unknown";
-  }
+  const size_t index = static_cast<size_t>(ownerTag);
+  return index < kRenderOwnerNames.size() ? kRenderOwnerNames[index]
+                                          : "Unknown";
 }
 
 struct ResourceAccess {
@@ -722,6 +630,7 @@ public:
 private:
   struct Node {
     std::shared_ptr<RenderPass> pass;
+    RenderPassType passType = RenderPassType::Count;
     std::string passName;
     std::string canonicalPassName;
     size_t passIndex = 0;

@@ -162,19 +162,33 @@ private:
   GlDebugCollector m_collector;
 };
 
-std::vector<std::pair<std::string, double>> GetPassBudgets() {
-  return {{"ScenePass", 1.0},
-          {"LightingPass", 0.8},
-          {"HeightShadowPass", 0.5},
-          {"OccluderExtractPass", 0.3},
-          {"JFAPass", 0.8},
-          {"RadianceCascadesPass", 1.5},
-          {"GICompositePass", 0.5},
-          {"VFXPass", 0.8},
-          {"PostProcessPass", 0.6},
-          {"UIWorldPass", 0.4},
-          {"CompositePass", 0.5}};
-}
+// Pass GPU time budgets in ms, indexed by enum-typed pass. The original 11
+// gate pass budgets are preserved verbatim; the remaining passes reuse the
+// profiler defaults (no gate fixture exercises them standalone yet).
+constexpr std::array<double,
+                     static_cast<size_t>(NoMoreDay::render::graph::RenderPassType::Count)>
+    kPassBudgets = {
+        1.0,  // Scene
+        0.8,  // Lighting
+        0.5,  // HeightShadow
+        0.3,  // OccluderExtract
+        0.8,  // JFA
+        1.5,  // RadianceCascades
+        0.5,  // GIComposite
+        0.30, // FluidSimulation
+        0.80, // Volumetric
+        0.8,  // VFX
+        0.15, // GPUText
+        0.20, // GPULoot
+        0.4,  // UIWorld
+        0.6,  // PostProcess
+        0.30, // Distortion
+        0.5,  // Composite
+        0.15, // LightCulling
+        0.10, // ShadowPrepare
+        0.40, // ShadowBuild
+        0.30, // ShadowResolve
+    };
 
 // S4 (M0-C R5.2): one per-frame sample feeding the pressure-loop sliding
 // window (bytes/objects over the last kBaselineWindowSeconds).
@@ -218,25 +232,26 @@ bool IsHardwareRenderer(std::string_view renderer) {
 // so the paired legs carry two different pass traces when GI is flipped.
 std::string BuildGiPassTrace(bool giEnabled) {
   std::string trace;
-  auto append = [&trace](const char *name) {
+  const auto appendType = [&trace](NoMoreDay::render::graph::RenderPassType passType) {
+    const size_t index = static_cast<size_t>(passType);
     if (!trace.empty()) {
       trace += ",";
     }
-    trace += name;
+    trace += NoMoreDay::render::graph::kRenderPassNames[index].full;
   };
-  append("ScenePass");
-  append("LightingPass");
-  append("HeightShadowPass");
-  append("OccluderExtractPass");
+  appendType(NoMoreDay::render::graph::RenderPassType::Scene);
+  appendType(NoMoreDay::render::graph::RenderPassType::Lighting);
+  appendType(NoMoreDay::render::graph::RenderPassType::HeightShadow);
+  appendType(NoMoreDay::render::graph::RenderPassType::OccluderExtract);
   if (giEnabled) {
-    append("JFAPass");
-    append("RadianceCascadesPass");
-    append("GICompositePass");
+    appendType(NoMoreDay::render::graph::RenderPassType::JFA);
+    appendType(NoMoreDay::render::graph::RenderPassType::RadianceCascades);
+    appendType(NoMoreDay::render::graph::RenderPassType::GIComposite);
   }
-  append("VFXPass");
-  append("UIWorldPass");
-  append("PostProcessPass");
-  append("CompositePass");
+  appendType(NoMoreDay::render::graph::RenderPassType::VFX);
+  appendType(NoMoreDay::render::graph::RenderPassType::UIWorld);
+  appendType(NoMoreDay::render::graph::RenderPassType::PostProcess);
+  appendType(NoMoreDay::render::graph::RenderPassType::Composite);
   return trace;
 }
 
@@ -918,6 +933,7 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
   {
     FixtureConfig cfg;
     cfg.name = "cave_color_bleed";
+    cfg.type = GpuFixtureType::CaveColorBleed;
     cfg.description =
         "Cave environment with intense emissive lighting and GI color bleed";
     cfg.sceneSeed = 0xCA000001;
@@ -939,6 +955,7 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
   {
     FixtureConfig cfg;
     cfg.name = "dynamic_combat_emissive";
+    cfg.type = GpuFixtureType::DynamicCombatEmissive;
     cfg.description =
         "Dynamic combat scene with moving occluders and emissive VFX particles";
     cfg.sceneSeed = 0xC0CB0002;
@@ -960,6 +977,7 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
   {
     FixtureConfig cfg;
     cfg.name = "outdoor_light_pressure";
+    cfg.type = GpuFixtureType::OutdoorLightPressure;
     cfg.description =
         "Outdoor high-pressure environment with maximum light count and wide view";
     cfg.sceneSeed = 0x00000003;
@@ -982,14 +1000,14 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
 
 PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
     FixtureRenderDriver &driver, const FixtureConfig &fixture,
-    const std::string &qualityTier) {
+    NoMoreDay::render::core::QualityTier qualityTier) {
   PairedGiDeltaResult result;
   result.fixtureName = fixture.name;
   result.sceneSeed = fixture.sceneSeed;
   result.width = fixture.width;
   result.height = fixture.height;
   result.colorSpace = "sRGB";
-  result.qualityTier = qualityTier;
+  result.qualityTier = NoMoreDay::render::core::ToString(qualityTier);
   result.roiX = fixture.roiX;
   result.roiY = fixture.roiY;
   result.roiWidth = fixture.roiWidth;
@@ -1014,11 +1032,7 @@ PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
   auto &tierMgr = NoMoreDay::render::core::QualityTierManager::Get();
   // W6 (M0-C): the paired capture runs under the caller's tier (matrix cells
   // pass their own tier so the paired evidence is per-cell).
-  if (qualityTier == "Ultra") {
-    tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::Ultra);
-  } else {
-    tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::High);
-  }
+  tierMgr.ForceTier(qualityTier);
 
   entt::registry &registry = driver.Registry();
   const NoMoreDay::render::RenderFrameInput renderInput = driver.RenderInput();
@@ -1417,7 +1431,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       }
 
       // Blocker 3 / R4 Fix: Pass Timing Statistics & AND Condition Check (>= 120 samples AND P95 <= Budget)
-      const auto passBudgets = GetPassBudgets();
+      const auto &passBudgets = kPassBudgets;
 
       // Sample Frames: Collect real GPU timer query ring statistics per frame.
       // S0: RenderGraph keys the ring by stable pass id; derive ids from names.
@@ -1441,7 +1455,8 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         debug::GPUTimerQueryRing::Get().PollReadyQueries();
         for (size_t i = 0; i < passBudgets.size(); ++i) {
           const uint32_t stableId = NoMoreDay::render::graph::StablePassId(
-              NoMoreDay::render::graph::CanonicalizePassName(passBudgets[i].first));
+              NoMoreDay::render::graph::CanonicalizePassName(
+                  NoMoreDay::render::graph::kRenderPassNames[i].full));
           if (debug::GPUTimerQueryRing::Get().IsGpuTimeValid(stableId)) {
             passTimingSamples[i].push_back(
                 debug::GPUTimerQueryRing::Get().GetValidGpuTimeMs(stableId));
@@ -1508,8 +1523,11 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       // override ON vs OFF legs on the real fixture scene at this cell's tier).
       // The paired evidence is part of this cell's verdict, not evidence-only.
       {
-        const PairedGiDeltaResult paired =
-            RunPairedGiDeltaCapture(*driver, fixture, tierName);
+        const PairedGiDeltaResult paired = RunPairedGiDeltaCapture(
+            *driver, fixture,
+            tierName == "Ultra"
+                ? NoMoreDay::render::core::QualityTier::Ultra
+                : NoMoreDay::render::core::QualityTier::High);
         execResult.giPairedDelta = paired.pairedDelta;
         execResult.giPairedPassed = paired.passed;
         report.pairedGiDeltas.push_back(paired);
@@ -1565,8 +1583,8 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
 
       for (size_t passId = 0; passId < passBudgets.size(); ++passId) {
         PassTimingReport tReport;
-        tReport.passName = passBudgets[passId].first;
-        tReport.budgetMs = passBudgets[passId].second;
+        tReport.passName = NoMoreDay::render::graph::kRenderPassNames[passId].full;
+        tReport.budgetMs = passBudgets[passId];
 
         const auto &samples = passTimingSamples[passId];
         tReport.validSampleCount = static_cast<uint32_t>(samples.size());
@@ -1667,7 +1685,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   const uint64_t kPendingOverageFrames =
       3 * static_cast<uint64_t>(debug::GPUTimerQueryRing::kRingDepth); // 3 x 3 = 9
 
-  const auto stressPassBudgets = GetPassBudgets();
+  const auto &stressPassBudgets = kPassBudgets;
   std::deque<StressWindowSample> slidingWindow;
   size_t baselineMeanBytes = 0;
   size_t baselineMeanCount = 0;
@@ -1720,10 +1738,11 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       auto &ring = debug::GPUTimerQueryRing::Get();
       ring.PollReadyQueries();
       const uint64_t currentRingFrame = ring.DebugGetFrameIndex();
-      for (const auto &[passName, budgetMs] : stressPassBudgets) {
-        (void)budgetMs;
+      for (size_t i = 0; i < stressPassBudgets.size(); ++i) {
+        (void)stressPassBudgets[i];
         const uint32_t stableId = NoMoreDay::render::graph::StablePassId(
-            NoMoreDay::render::graph::CanonicalizePassName(passName));
+            NoMoreDay::render::graph::CanonicalizePassName(
+                NoMoreDay::render::graph::kRenderPassNames[i].full));
         const auto result = ring.GetPassResult(stableId);
         if (result.state == debug::QueryState::Valid) {
           stressValidPassIds.insert(stableId);

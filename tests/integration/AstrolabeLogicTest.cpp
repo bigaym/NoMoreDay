@@ -56,7 +56,8 @@ TEST_SUITE("AstrolabeLogic") {
         nodeSpecial.effects.push_back({
             .type = AstrolabeEffectType::SpecialBehavior,
             .value = "IntToCritMult:0.5",
-            .ratio = 0.5f // Pre-parsed
+            .ratio = 0.5f, // Pre-parsed
+            .behavior_id = AstrolabeBehaviorId::IntToCritMult // Pre-parsed behavior id
         });
         mockGraph.nodes[9996] = nodeSpecial;
 

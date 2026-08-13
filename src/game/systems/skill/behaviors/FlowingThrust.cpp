@@ -346,7 +346,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             auto &effects =
                 registry.get_or_emplace<ActiveEffectsComponent>(owner);
             BuffEffect swift;
-            swift.id = "flowing_thrust_swift";
+            swift.id = std::string(BuffIdToString(BuffId::SwordStep));
             swift.name = "Feng Xing";
             swift.type = BuffType::SpeedUp;
             swift.duration = 2.0f;
@@ -415,7 +415,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     if (hasElementBody && elementalConv.IsActive()) {
       auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
       BuffEffect body;
-      body.id = "flowing_thrust_element_body";
+      body.id = std::string(BuffIdToString(BuffId::FlowingThrustElementBody));
       body.name = "Element Body";
       body.type = BuffType::Shield;
       body.duration = 1.5f;

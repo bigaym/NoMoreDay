@@ -18,6 +18,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "DistortionPass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::Distortion;
+  }
 
   bool Initialize();
   void Shutdown();

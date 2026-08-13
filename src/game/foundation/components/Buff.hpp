@@ -1,10 +1,12 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/BuffIds.hpp"
 
 namespace NoMoreDay {
 
@@ -66,7 +68,17 @@ struct BuffEffect {
     Tag tick_damage_tag = Tag::Poison;
     
     bool is_debuff = false;     // True if it's a debuff (Red border), false for buff (Green/Gold)
-    
+
+    // Managed-ailment structured identity (written by AilmentEngine).
+    // AilmentType is defined in game/contracts/CombatEvents.hpp; to avoid a
+    // foundation -> contracts include edge (the contracts layer already
+    // depends on foundation), the enum is stored as its underlying uint8_t
+    // value here and converted at the AilmentEngine boundary, where the
+    // layouts are pinned with static_asserts (see AilmentEngine.cpp).
+    bool managed_ailment = false; // True when this effect is created by AilmentEngine
+    uint8_t ailment_type = 0;     // Underlying value of AilmentType (AilmentType::None == 0)
+    float ailment_power = 0.0f;   // Stored per-tick power snapshot (mirrors tick_damage)
+
     std::vector<StatModifier> modifiers; // Modifiers applied by this buff
     
     // Optional: Source entity ID for attribution
@@ -79,7 +91,10 @@ inline void to_json(nlohmann::json& j, const BuffEffect& b) {
         {"id", b.id}, {"name", b.name}, {"description", b.description},
         {"type", b.type}, {"duration", b.duration}, {"remaining", b.remaining},
         {"stacks", b.stacks}, {"max_stacks", b.max_stacks}, {"is_debuff", b.is_debuff},
-        {"modifiers", b.modifiers}
+        {"modifiers", b.modifiers},
+        {"managed_ailment", b.managed_ailment},
+        {"ailment_type", b.ailment_type},
+        {"ailment_power", b.ailment_power}
     };
     // source entity is not serialized here as it's runtime transient usually, 
     // or requires UUID mapping which complexifies simple struct serialization.
@@ -97,6 +112,12 @@ inline void from_json(const nlohmann::json& j, BuffEffect& b) {
     j.at("max_stacks").get_to(b.max_stacks);
     j.at("is_debuff").get_to(b.is_debuff);
     if (j.contains("modifiers")) j.at("modifiers").get_to(b.modifiers);
+    // Managed-ailment fields are optional so that saves written before the
+    // structured-identity change load with defaults (managed_ailment=false),
+    // which routes them through the legacy "ailment:" id parse fallback.
+    if (j.contains("managed_ailment")) j.at("managed_ailment").get_to(b.managed_ailment);
+    if (j.contains("ailment_type")) b.ailment_type = j.at("ailment_type").get<uint8_t>();
+    if (j.contains("ailment_power")) j.at("ailment_power").get_to(b.ailment_power);
     b.source = entt::null;
 }
 
@@ -131,6 +152,11 @@ struct ActiveEffectsComponent {
     void Remove(const std::string& id) {
         std::erase_if(effects, [&](const auto& effect) { return effect.id == id; });
     }
+
+    // Helper to remove a buff by enum id
+    void Remove(BuffId id) {
+        Remove(std::string(BuffIdToString(id)));
+    }
     
     // Helper to get a buff
     BuffEffect* Get(const std::string& id) {
@@ -140,6 +166,34 @@ struct ActiveEffectsComponent {
             }
         }
         return nullptr;
+    }
+
+    // Helper to get a buff by enum id
+    BuffEffect* Get(BuffId id) {
+        return Get(std::string(BuffIdToString(id)));
+    }
+
+    // Const variant: read-only lookup by enum id
+    const BuffEffect* Get(BuffId id) const {
+        const std::string key(BuffIdToString(id));
+        for (const auto& effect : effects) {
+            if (effect.id == key) {
+                return &effect;
+            }
+        }
+        return nullptr;
+    }
+
+    // Helper: whether an effect with the given enum id exists.
+    // NOTE: remaining-duration checks (if any) are the caller's responsibility.
+    [[nodiscard]] bool Has(BuffId id) const {
+        const std::string key(BuffIdToString(id));
+        for (const auto& effect : effects) {
+            if (effect.id == key) {
+                return true;
+            }
+        }
+        return false;
     }
     
     void Update(float dt) {

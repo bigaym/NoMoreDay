@@ -1,11 +1,16 @@
 #include "game/foundation/data/BuffRegistry.hpp"
 #include "engine/resource/BuffAssetRegistry.hpp"
+#include <string_view>
 
 // TODO: 后续需要更详细的对应
 namespace NoMoreDay {
 
+// Display name of the fallback "unknown buff" entry. Used both as the
+// default visual's name and as the sentinel for "no registered visual data".
+constexpr std::string_view kUnknownBuffName = "Unknown";
+
 std::unordered_map<BuffType, BuffVisualData> BuffRegistry::registry;
-BuffVisualData BuffRegistry::default_data = { "?", GRAY, "Unknown", "Unknown effect", false, nullptr };
+BuffVisualData BuffRegistry::default_data = { "?", GRAY, std::string(kUnknownBuffName), "Unknown effect", false, nullptr };
 
 void BuffRegistry::Initialize() {
     // Buffs (Green/Gold)
@@ -43,6 +48,10 @@ const BuffVisualData& BuffRegistry::GetVisualData(BuffType type) {
         return it->second;
     }
     return default_data;
+}
+
+bool BuffRegistry::IsUnknownVisual(const BuffVisualData& data) {
+    return data.name == kUnknownBuffName;
 }
 
 } // namespace NoMoreDay

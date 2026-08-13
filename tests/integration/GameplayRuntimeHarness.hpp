@@ -111,22 +111,30 @@ public:
 
   // Builds only the scene (no GPU work); used by unit tests that have no GL
   // context. Also used internally by PrepareFixture.
-  bool BuildSceneOnly(const std::string &fixtureName, uint32_t seed) {
+  bool BuildSceneOnly(GpuFixtureType fixtureType, uint32_t seed) {
     m_registry->clear();
     m_hasher = Fnv1a64();
     m_hasher.FeedStr("GameplayRuntimeHarness/");
-    m_hasher.FeedStr(fixtureName);
+    // T8: scene input hash feeds the canonical fixture name so historical
+    // harness hashes stay byte-stable.
+    m_hasher.FeedStr(std::string(GpuFixtureTypeToString(fixtureType)));
     m_hasher.FeedU32(seed);
     m_sceneInputHash = 0;
 
-    if (fixtureName == "cave_color_bleed") {
-      BuildCaveScene(seed);
-    } else if (fixtureName == "dynamic_combat_emissive") {
-      BuildCombatScene(seed);
-    } else if (fixtureName == "outdoor_light_pressure") {
-      BuildOutdoorScene(seed);
-    } else {
-      return false;
+    switch (fixtureType) {
+      case GpuFixtureType::CaveColorBleed:
+        BuildCaveScene(seed);
+        break;
+      case GpuFixtureType::DynamicCombatEmissive:
+        BuildCombatScene(seed);
+        break;
+      case GpuFixtureType::OutdoorLightPressure:
+        BuildOutdoorScene(seed);
+        break;
+      case GpuFixtureType::None:
+      case GpuFixtureType::Count:
+      default:
+        return false;
     }
     m_sceneInputHash = m_hasher.hash;
     return true;
@@ -136,7 +144,7 @@ public:
   bool PrepareFixture(const FixtureConfig &fixture) override {
     m_currentFixture = fixture;
     ReleaseCompositeTarget();
-    if (!BuildSceneOnly(fixture.name, fixture.sceneSeed)) {
+    if (!BuildSceneOnly(fixture.type, fixture.sceneSeed)) {
       return false;
     }
     m_composite = NoMoreDay::render::resources::FramebufferManager::Create(

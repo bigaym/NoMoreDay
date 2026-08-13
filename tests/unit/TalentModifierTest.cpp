@@ -69,7 +69,8 @@ TEST_SUITE("TalentModifierTest") {
     BehaviorInjectionRegistry::Init();
 
     // Act
-    BehaviorInjectionRegistry::Apply("shadow_caster", registry, player);
+    BehaviorInjectionRegistry::Apply(SkillBehaviorId::ShadowCaster, registry,
+                                     player);
 
     // Assert
     CHECK(registry.all_of<ShadowKillArrayReady>(player));

@@ -1756,7 +1756,8 @@
             {
               "label": "范围",
               "per_point": 8.0,
-              "is_percent": false
+              "is_percent": false,
+              "display_category": "range"
             }
           ],
           "x": 0.3409999907016754,
@@ -2170,7 +2171,8 @@
             {
               "label": "持续时间",
               "per_point": 0.6,
-              "is_percent": false
+              "is_percent": false,
+              "display_category": "duration"
             }
           ],
           "x": 2.997999906539917,

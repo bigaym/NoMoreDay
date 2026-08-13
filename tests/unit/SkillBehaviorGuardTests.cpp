@@ -362,7 +362,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - SwordStep phase lifecycle follows buff") 
   SUBCASE("PhaseTag retained when SwordStep buff is active") {
     auto &effects = registry.emplace<ActiveEffectsComponent>(player);
     BuffEffect swift;
-    swift.id = "flowing_thrust_swift";
+    swift.id = std::string(BuffIdToString(BuffId::SwordStep));
     swift.name = "Feng Xing";
     swift.duration = 1.0f;
     swift.remaining = 0.8f;
@@ -877,9 +877,14 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade void branch extends miasma pr
 
     const auto &field = registry.get<BloodSeaFieldComponent>(fieldEntity);
     const auto &effects = registry.get<ActiveEffectsComponent>(target);
+    const auto *miasma = effects.Get(BuffId::BloodSeaMiasma);
+    REQUIRE(miasma != nullptr);
+    REQUIRE(miasma->remaining > 0.0f);
     const auto it = std::find_if(effects.effects.begin(), effects.effects.end(),
                                  [](const BuffEffect &effect) {
-                                   return effect.id == "blood_sea_miasma" &&
+                                   return effect.id ==
+                                              std::string(BuffIdToString(
+                                                  BuffId::BloodSeaMiasma)) &&
                                           effect.remaining > 0.0f;
                                  });
     REQUIRE(it != effects.effects.end());
@@ -961,7 +966,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observabl
 
     auto &effects = registry.emplace<ActiveEffectsComponent>(player);
     BuffEffect swift;
-    swift.id = "flowing_thrust_swift";
+    swift.id = std::string(BuffIdToString(BuffId::SwordStep));
     swift.name = "Feng Xing";
     swift.duration = 1.0f;
     swift.remaining = 1.0f;
@@ -977,7 +982,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observabl
     cast(registry, player, exec);
 
     CHECK(test::skill_keynode_matrix::HasEffectById(
-        registry, player, "seven_star_sword_step_mirage"));
+        registry, player, BuffIdToString(BuffId::SevenStarSwordStepMirage)));
   }
 
   SUBCASE("Skill 11 trigger node spends tiers into immediate echo strikes") {
@@ -1403,10 +1408,10 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deeper mastery update branches apply debu
 
     CHECK(registry.get<HealthComponent>(target).current < targetHealthBeforeTick);
     REQUIRE(test::skill_keynode_matrix::HasEffectById(
-        registry, target, "heavenly_sword_field_resist"));
+        registry, target, BuffIdToString(BuffId::HeavenlySwordFieldResist)));
 
     auto &effects = registry.get<ActiveEffectsComponent>(target);
-    const auto *debuff = effects.Get("heavenly_sword_field_resist");
+    const auto *debuff = effects.Get(BuffId::HeavenlySwordFieldResist);
     REQUIRE(debuff != nullptr);
     REQUIRE_FALSE(debuff->modifiers.empty());
     CHECK(debuff->modifiers.front().type == StatType::ResistFire);
@@ -1608,7 +1613,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
                       false, 41224001u));
 
     REQUIRE(test::skill_keynode_matrix::HasEffectById(
-        registry, target, "blood_sea_miasma"));
+        registry, target, BuffIdToString(BuffId::BloodSeaMiasma)));
     REQUIRE(registry.all_of<ActiveEffectsComponent>(player));
     auto &playerEffects = registry.get<ActiveEffectsComponent>(player);
     auto *bloodSeaBuff = playerEffects.Get("blood_sea_active");
@@ -1616,7 +1621,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
     const float initialBloodSeaDuration = bloodSeaBuff->duration;
 
     auto &effects = registry.get<ActiveEffectsComponent>(target);
-    auto *debuff = effects.Get("blood_sea_miasma");
+    auto *debuff = effects.Get(BuffId::BloodSeaMiasma);
     REQUIRE(debuff != nullptr);
     REQUIRE(debuff->modifiers.size() >= 2);
     CHECK(debuff->modifiers[0].type == StatType::ResistPhysical);
@@ -1643,7 +1648,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
                       player, target, 1,
                       Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
                       false, 41224002u));
-    debuff = effects.Get("blood_sea_miasma");
+    debuff = effects.Get(BuffId::BloodSeaMiasma);
     REQUIRE(debuff != nullptr);
     CHECK(debuff->remaining == doctest::Approx(1.0f));
     CHECK(debuff->modifiers[0].value == doctest::Approx(-4.0f));
@@ -1697,7 +1702,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       SkillSystem::Update(registry, grid, 0.01f);
 
       auto &effects = registry.get<ActiveEffectsComponent>(target);
-      auto *debuff = effects.Get("heavenly_sword_field_resist");
+      auto *debuff = effects.Get(BuffId::HeavenlySwordFieldResist);
       REQUIRE(debuff != nullptr);
       REQUIRE_FALSE(debuff->modifiers.empty());
 
@@ -1770,7 +1775,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       SkillSystem::Update(registry, grid, 0.01f);
 
       auto &effects = registry.get<ActiveEffectsComponent>(target);
-      auto *debuff = effects.Get("blood_sea_miasma");
+      auto *debuff = effects.Get(BuffId::BloodSeaMiasma);
       REQUIRE(debuff != nullptr);
       debuff->remaining = 0.05f;
 
@@ -1778,7 +1783,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       grid.rebuild(registry.view<Position>(), registry);
       SkillSystem::Update(registry, grid, 0.22f);
 
-      debuff = effects.Get("blood_sea_miasma");
+      debuff = effects.Get(BuffId::BloodSeaMiasma);
       REQUIRE(debuff != nullptr);
 
       BranchOutcome outcome;
@@ -1853,7 +1858,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       SkillSystem::Update(registry, grid, 0.01f);
 
       auto &effects = registry.get<ActiveEffectsComponent>(target);
-      auto *debuff = effects.Get("heavenly_sword_field_resist");
+      auto *debuff = effects.Get(BuffId::HeavenlySwordFieldResist);
       REQUIRE(debuff != nullptr);
       REQUIRE_FALSE(debuff->modifiers.empty());
 
@@ -1940,7 +1945,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       SkillSystem::Update(registry, grid, 0.01f);
 
       auto &effects = registry.get<ActiveEffectsComponent>(target);
-      auto *debuff = effects.Get("blood_sea_miasma");
+      auto *debuff = effects.Get(BuffId::BloodSeaMiasma);
       REQUIRE(debuff != nullptr);
       debuff->remaining = 0.05f;
 
@@ -1948,7 +1953,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       grid.rebuild(registry.view<Position>(), registry);
       SkillSystem::Update(registry, grid, 0.22f);
 
-      debuff = effects.Get("blood_sea_miasma");
+      debuff = effects.Get(BuffId::BloodSeaMiasma);
       REQUIRE(debuff != nullptr);
 
       VoidMiasmaOutcome outcome;

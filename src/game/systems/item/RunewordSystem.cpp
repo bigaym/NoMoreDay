@@ -83,11 +83,36 @@ void RunewordSystem::loadRunewords(const std::string &path) {
     nlohmann::json j;
     file >> j;
     auto list = j.at("runewords");
+
+    // 构建 符文名 -> 符文ID 映射 (loadRunes 必须先于 loadRunewords 调用)
+    std::unordered_map<std::string, uint32_t> nameToId;
+    for (const auto &[id, rune] : s_runes) {
+      nameToId[rune.name] = rune.id;
+    }
+
     for (const auto &rwJson : list) {
       RunewordDefinition rw;
       rw.id = rwJson.at("id").get<uint32_t>();
       rw.name = rwJson.at("name").get<std::string>();
-      rw.runes = rwJson.at("runes").get<std::vector<std::string>>();
+
+      // 符文名序列 -> 符文ID序列 (解析一次, 运行时按ID比较)
+      std::vector<std::string> runeNames =
+          rwJson.at("runes").get<std::vector<std::string>>();
+      bool hasUnknownRune = false;
+      for (const auto &runeName : runeNames) {
+        auto it = nameToId.find(runeName);
+        if (it == nameToId.end()) {
+          LOG_ERROR("RunewordSystem: Unknown rune '{}' in runeword '{}'; "
+                    "rejecting the definition",
+                    runeName, rw.name);
+          hasUnknownRune = true;
+          break;
+        }
+        rw.runeIds.push_back(it->second);
+      }
+      if (hasUnknownRune) {
+        continue;
+      }
 
       std::vector<std::string> types =
           rwJson.at("allowed_types").get<std::vector<std::string>>();
@@ -121,14 +146,6 @@ const RuneDefinition *RunewordSystem::getRune(uint32_t id) {
   return nullptr;
 }
 
-const RuneDefinition *RunewordSystem::getRuneByName(const std::string &name) {
-  for (const auto &[id, rune] : s_runes) {
-    if (rune.name == name)
-      return &rune;
-  }
-  return nullptr;
-}
-
 bool RunewordSystem::isRune(uint32_t itemId) {
   return s_runes.find(itemId) != s_runes.end();
 }
@@ -141,8 +158,8 @@ RunewordSystem::checkForRuneword(const ItemComponent &item,
   if (socketedRunes.empty())
     return 0;
 
-  // Convert entity list to Rune Names
-  std::vector<std::string> socketedNames;
+  // Convert entity list to Rune IDs
+  std::vector<uint32_t> socketedRuneIds;
   for (auto runeEntity : socketedRunes) {
     if (!registry.valid(runeEntity))
       return 0;
@@ -151,15 +168,15 @@ RunewordSystem::checkForRuneword(const ItemComponent &item,
     const auto *runeDef = getRune(runeItem.id);
     if (!runeDef)
       return 0; // Not a rune
-    socketedNames.push_back(runeDef->name);
+    socketedRuneIds.push_back(runeDef->id);
   }
 
   // Check against all runewords
   for (const auto &[id, word] : s_runewords) {
     // Check rune sequence
-    if (word.runes.size() != socketedNames.size())
+    if (word.runeIds.size() != socketedRuneIds.size())
       continue;
-    if (word.runes != socketedNames)
+    if (word.runeIds != socketedRuneIds)
       continue;
 
     // Check Allowed Type

@@ -143,7 +143,8 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
   auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
   if (pf.synergy_shadow_hide) {
     BuffEffect shadowHide;
-    shadowHide.id = "phantom_flash_shadow_hide";
+    shadowHide.id =
+        std::string(BuffIdToString(BuffId::PhantomFlashShadowHide));
     shadowHide.name = "Shadow Hide";
     shadowHide.type = BuffType::SpeedUp;
     shadowHide.duration = pf.counter_window;

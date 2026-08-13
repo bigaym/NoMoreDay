@@ -181,14 +181,63 @@ struct AffixTier {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AffixTier, tier, minLevel, minValue,
                                    maxValue)
 
+// 物品槽位标签位掩码 (用于词缀 allowedTags 过滤, 取代字符串比较)
+enum class ItemSlotTag : uint8_t {
+  Weapon = 1 << 0,  // 0x01
+  Armor = 1 << 1,   // 0x02
+  Gloves = 1 << 2,  // 0x04
+  Boots = 1 << 3,   // 0x08
+  Jewelry = 1 << 4, // 0x10
+  Misc = 1 << 5,    // 0x20
+  Count = 6
+};
+
+// 将 allowedTags 字符串列表转换为位掩码 (JSON 数据兼容: 旧格式为字符串数组)
+inline uint8_t ParseAllowedTags(const std::vector<std::string> &tags) {
+  uint8_t mask = 0;
+  for (const auto &t : tags) {
+    if (t == "weapon")
+      mask |= static_cast<uint8_t>(ItemSlotTag::Weapon);
+    else if (t == "armor")
+      mask |= static_cast<uint8_t>(ItemSlotTag::Armor);
+    else if (t == "gloves")
+      mask |= static_cast<uint8_t>(ItemSlotTag::Gloves);
+    else if (t == "boots")
+      mask |= static_cast<uint8_t>(ItemSlotTag::Boots);
+    else if (t == "jewelry")
+      mask |= static_cast<uint8_t>(ItemSlotTag::Jewelry);
+    else if (t == "misc")
+      mask |= static_cast<uint8_t>(ItemSlotTag::Misc);
+  }
+  return mask;
+}
+
+// 将位掩码转换为字符串列表 (JSON 写出兼容: 保持旧字符串数组格式)
+inline std::vector<std::string> AllowedTagsToStrings(uint8_t mask) {
+  std::vector<std::string> tags;
+  if (mask & static_cast<uint8_t>(ItemSlotTag::Weapon))
+    tags.push_back("weapon");
+  if (mask & static_cast<uint8_t>(ItemSlotTag::Armor))
+    tags.push_back("armor");
+  if (mask & static_cast<uint8_t>(ItemSlotTag::Gloves))
+    tags.push_back("gloves");
+  if (mask & static_cast<uint8_t>(ItemSlotTag::Boots))
+    tags.push_back("boots");
+  if (mask & static_cast<uint8_t>(ItemSlotTag::Jewelry))
+    tags.push_back("jewelry");
+  if (mask & static_cast<uint8_t>(ItemSlotTag::Misc))
+    tags.push_back("misc");
+  return tags;
+}
+
 struct AffixDefinition {
   std::string id;
   AffixType type;
   std::string nameTemplate; // e.g. "of the Bear" or "Strong"
   bool isPrefix;
   std::vector<AffixTier> tiers;
-  std::vector<std::string>
-      allowedTags; // Slot filtering: "weapon", "armor", etc.
+  uint8_t
+      allowedTags; // Slot filtering bitmask: Weapon|Armor|Gloves|Boots|Jewelry|Misc
   std::vector<std::string>
       requiredSkillTags; // Skill tag conditions (parsed to Tag bitmask)
   std::vector<uint32_t>
@@ -205,7 +254,7 @@ inline void to_json(nlohmann::json &j, const AffixDefinition &d) {
                      {"nameTemplate", d.nameTemplate},
                      {"isPrefix", d.isPrefix},
                      {"tiers", d.tiers},
-                     {"allowedTags", d.allowedTags}};
+                     {"allowedTags", AllowedTagsToStrings(d.allowedTags)}};
   if (!d.requiredSkillTags.empty()) {
     j["requiredSkillTags"] = d.requiredSkillTags;
   }
@@ -220,7 +269,16 @@ inline void from_json(const nlohmann::json &j, AffixDefinition &d) {
   j.at("nameTemplate").get_to(d.nameTemplate);
   j.at("isPrefix").get_to(d.isPrefix);
   j.at("tiers").get_to(d.tiers);
-  j.at("allowedTags").get_to(d.allowedTags);
+  if (j.contains("allowedTags")) {
+    const auto &v = j.at("allowedTags");
+    if (v.is_array()) {
+      // 旧格式: 字符串数组
+      d.allowedTags = ParseAllowedTags(v.get<std::vector<std::string>>());
+    } else if (v.is_number_integer()) {
+      // 新格式: 位掩码整数
+      d.allowedTags = v.get<uint8_t>();
+    }
+  }
   if (j.contains("requiredSkillTags")) {
     j.at("requiredSkillTags").get_to(d.requiredSkillTags);
   }

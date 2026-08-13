@@ -26,7 +26,7 @@ TEST_CASE("[Unit] S6 GameplayRuntimeHarness - cave recipe builds real components
   using namespace NoMoreDay::render::validation;
 
   GameplayRuntimeHarness harness;
-  REQUIRE(harness.BuildSceneOnly("cave_color_bleed", 0xCA000001));
+  REQUIRE(harness.BuildSceneOnly(GpuFixtureType::CaveColorBleed, 0xCA000001));
 
   auto &registry = harness.RegistryForTesting();
   CHECK(registry.storage<::Position>().size() > 0);
@@ -42,7 +42,8 @@ TEST_CASE("[Unit] S6 GameplayRuntimeHarness - combat recipe builds player/enemy/
   using namespace NoMoreDay::render::validation;
 
   GameplayRuntimeHarness harness;
-  REQUIRE(harness.BuildSceneOnly("dynamic_combat_emissive", 0xC0CB0002));
+  REQUIRE(harness.BuildSceneOnly(GpuFixtureType::DynamicCombatEmissive,
+                                 0xC0CB0002));
 
   auto &registry = harness.RegistryForTesting();
   CHECK(registry.storage<::PlayerTag>().size() == 1);
@@ -56,7 +57,8 @@ TEST_CASE("[Unit] S6 GameplayRuntimeHarness - outdoor recipe builds light pressu
   using namespace NoMoreDay::render::validation;
 
   GameplayRuntimeHarness harness;
-  REQUIRE(harness.BuildSceneOnly("outdoor_light_pressure", 0x00000003));
+  REQUIRE(harness.BuildSceneOnly(GpuFixtureType::OutdoorLightPressure,
+                                 0x00000003));
 
   auto &registry = harness.RegistryForTesting();
   CHECK(registry.storage<NoMoreDay::LightComponent>().size() >= 200);
@@ -69,13 +71,13 @@ TEST_CASE("[Unit] S6 GameplayRuntimeHarness - input hash is deterministic") {
 
   GameplayRuntimeHarness a;
   GameplayRuntimeHarness b;
-  REQUIRE(a.BuildSceneOnly("cave_color_bleed", 0xCA000001));
-  REQUIRE(b.BuildSceneOnly("cave_color_bleed", 0xCA000001));
+  REQUIRE(a.BuildSceneOnly(GpuFixtureType::CaveColorBleed, 0xCA000001));
+  REQUIRE(b.BuildSceneOnly(GpuFixtureType::CaveColorBleed, 0xCA000001));
   CHECK(a.InputHashForTesting() == b.InputHashForTesting());
   CHECK(a.InputHashForTesting() != 0);
 
   GameplayRuntimeHarness c;
-  REQUIRE(c.BuildSceneOnly("cave_color_bleed", 0xCA000002));
+  REQUIRE(c.BuildSceneOnly(GpuFixtureType::CaveColorBleed, 0xCA000002));
   CHECK(c.InputHashForTesting() != a.InputHashForTesting());
 }
 
@@ -83,5 +85,5 @@ TEST_CASE("[Unit] S6 GameplayRuntimeHarness - unknown recipe is rejected") {
   using namespace NoMoreDay::render::validation;
 
   GameplayRuntimeHarness harness;
-  CHECK_FALSE(harness.BuildSceneOnly("not_a_recipe", 0x1234));
+  CHECK_FALSE(harness.BuildSceneOnly(GpuFixtureType::None, 0x1234));
 }

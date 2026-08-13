@@ -66,7 +66,7 @@ TEST_CASE("[Unit] EnemyAIBehaviors - ApplyBuffToNearbyAllies excludes source and
 
   const auto &nearEffects = registry.get<ActiveEffectsComponent>(allyNear);
   REQUIRE(nearEffects.effects.size() == 1);
-  CHECK(nearEffects.effects.front().id == "support_shield");
+  CHECK(nearEffects.effects.front().id == BuffIdToString(BuffId::SupportShield));
   CHECK(nearEffects.effects.front().type == BuffType::Shield);
   REQUIRE(nearEffects.effects.front().modifiers.size() == 1);
   CHECK(nearEffects.effects.front().modifiers.front().type == StatType::Armor);

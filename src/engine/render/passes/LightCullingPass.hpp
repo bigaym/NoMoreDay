@@ -17,6 +17,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "LightCullingPass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::LightCulling;
+  }
 
   [[nodiscard]] bool IsClusterDataReadyForCurrentFrame() const noexcept {
     return m_clusterDataReadyForCurrentFrame;

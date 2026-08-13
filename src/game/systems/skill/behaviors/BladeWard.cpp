@@ -76,7 +76,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     }
 
     BuffEffect ward_buff;
-    ward_buff.id = "blade_ward";
+    ward_buff.id = std::string(BuffIdToString(BuffId::BladeWard));
     ward_buff.name = "Blade Ward";
     ward_buff.type = BuffType::Shield;
     ward_buff.duration = 10.0f;

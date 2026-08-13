@@ -221,7 +221,7 @@ void PortalSystem::AdvanceRiftLayer(entt::registry &registry, entt::entity playe
     // 5. Normal Progression - New Seed for New Level
     state.seed = (uint32_t)GetTime() + state.currentDepth;
     LOG_INFO("Transitioning to Depth {}", state.currentDepth);
-    m_sceneManager.RequestTransition(state.biome, state.currentDepth, "");
+    m_sceneManager.RequestTransition(state.biome, state.currentDepth, EntranceId::Start);
 }
 
 void PortalSystem::UpdateTownPortalCasting(entt::registry &registry, float dt) {

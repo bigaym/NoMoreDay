@@ -20,6 +20,10 @@
 
 namespace NoMoreDay {
 
+// Fallback fragment display name; doubles as the sentinel for "no item
+// attached to the fragment entity".
+constexpr const char *kUnknownFragmentName = "Unknown Fragment";
+
 void MosaicEditorState::OnEnter() {
   LOG_INFO("MosaicEditorState: Entered");
   RefreshFragmentInventory();
@@ -388,9 +392,9 @@ void MosaicEditorState::RenderTooltip() {
   DrawRectangleRoundedLinesEx(Rectangle{x, y, w, h}, 0.1f, 4, 1.5f, LIGHTGRAY);
 
   Font font = UISystem::GetFont();
-  std::string name = item ? item->name : "Unknown Fragment";
+  std::string name = item ? item->name : kUnknownFragmentName;
   // Attempt dynamic name if missing
-  if (name.empty() || name == "Unknown Fragment") {
+  if (name.empty() || name == kUnknownFragmentName) {
        name = std::string(FragmentElementzh[static_cast<size_t>(frag->element)]) + 
               std::string(FragmentTypezh[static_cast<size_t>(frag->type)]);
   }

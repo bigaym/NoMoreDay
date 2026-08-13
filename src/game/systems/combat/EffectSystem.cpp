@@ -148,8 +148,9 @@ void EffectSystem::EmitDamagePopup(entt::registry &registry, Vector2 position,
 }
 
 void EffectSystem::EmitStatusPopup(entt::registry &registry, Vector2 position,
-                                   const std::string &text, Color color) {
-  DamagePopupManager::Get().Emit(position, 0.0f, false, color, true, text);
+                                   NoMoreDay::render::StatusPopupKind kind,
+                                   Color color) {
+  DamagePopupManager::Get().Emit(position, 0.0f, false, color, kind);
 }
 
 } // namespace NoMoreDay::systems

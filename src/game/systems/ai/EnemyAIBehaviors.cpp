@@ -129,7 +129,7 @@ void ApplyBuffToNearbyAllies(entt::registry &registry, entt::entity source,
       // 创建 Shield Buff
       using namespace NoMoreDay::Constants::AI::Support;
       BuffEffect shieldBuff;
-      shieldBuff.id = "support_shield";
+      shieldBuff.id = std::string(BuffIdToString(BuffId::SupportShield));
       shieldBuff.name = "Support Shield";
       shieldBuff.description = "Damage reduction from support ally";
       shieldBuff.type = BuffType::Shield;
@@ -312,7 +312,8 @@ bool ExecuteBackstab(entt::registry &registry, entt::entity assassin,
   if (auto *effects = registry.try_get<ActiveEffectsComponent>(assassin)) {
     using namespace NoMoreDay::Constants::AI::Assassin;
     BuffEffect backstabBuff;
-    backstabBuff.id = "assassin_backstab_boost";
+    backstabBuff.id =
+        std::string(BuffIdToString(BuffId::AssassinBackstabBoost));
     backstabBuff.name = "Backstab Focus";
     backstabBuff.duration = BUFF_DURATION;
     backstabBuff.remaining = BUFF_DURATION;

@@ -3,6 +3,7 @@
 #include <string>
 #include <atomic>
 #include <cmath>
+#include <optional>
 #include "raylib.h"
 
 // Include OUTSIDE of namespace to avoid nesting issues
@@ -22,7 +23,8 @@ public:
 
     void Init() {}
 
-    void Emit(Vector2 pos, float amount, bool isCrit, Color color, bool isStatus = false, const std::string& statusText = "") {
+    void Emit(Vector2 pos, float amount, bool isCrit, Color color,
+              std::optional<NoMoreDay::render::StatusPopupKind> statusKind = std::nullopt) {
         const auto &qualityManager = render::core::QualityTierManager::Get();
         const bool useGpuText =
             qualityManager.IsInitialized() && qualityManager.GetConfig().gpuTextEnabled &&
@@ -32,8 +34,8 @@ public:
             qualityManager.GetConfig().gpuTextAdvancedAnimation;
 
         if (!useGpuText) {
-            if (isStatus) {
-                render::PopupRenderer::Get().EmitStatus(pos, statusText.c_str(), color);
+            if (statusKind.has_value()) {
+                render::PopupRenderer::Get().EmitStatus(pos, *statusKind, color);
             } else {
                 render::PopupRenderer::Get().Emit(pos, (int)amount, isCrit, color);
             }
@@ -45,7 +47,7 @@ public:
         components::GPUTextCommand cmd;
         cmd.worldPosX = pos.x;
         cmd.worldPosY = pos.y;
-        if (isStatus) {
+        if (statusKind.has_value()) {
             cmd.stringId = render::GPUTextSystem::StringIdStatusGeneric;
         } else if (isCrit) {
             cmd.stringId = render::GPUTextSystem::StringIdCrit;
@@ -53,7 +55,7 @@ public:
             cmd.stringId = static_cast<uint32_t>(std::abs(static_cast<int>(amount)) % 10);
         }
 
-        const uint32_t style = useAdvancedAnim ? (isCrit ? 4u : (isStatus ? 2u : 0u)) : 0u;
+        const uint32_t style = useAdvancedAnim ? (isCrit ? 4u : (statusKind.has_value() ? 2u : 0u)) : 0u;
         const uint32_t packedColor =
             static_cast<uint32_t>(color.r) |
             (static_cast<uint32_t>(color.g) << 8u) |

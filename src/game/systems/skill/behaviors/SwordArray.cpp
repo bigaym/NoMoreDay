@@ -197,7 +197,7 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
           auto &effects =
               registry.get_or_emplace<ActiveEffectsComponent>(target_ent);
           BuffEffect slow;
-          slow.id = "array_slow";
+          slow.id = std::string(BuffIdToString(BuffId::SwordArraySlow));
           slow.name = "Sword Array Slow";
           slow.type = BuffType::SpeedDown;
           slow.duration = 1.0f;
@@ -218,7 +218,8 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
           auto &effects =
               registry.get_or_emplace<ActiveEffectsComponent>(target_ent);
           BuffEffect shred;
-          shred.id = "array_armor_shred";
+          shred.id =
+              std::string(BuffIdToString(BuffId::SwordArrayArmorShred));
           shred.name = "Armor Shred";
           shred.type = BuffType::DefenseDown;
           shred.duration = 1.0f;

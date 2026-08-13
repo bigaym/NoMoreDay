@@ -57,6 +57,16 @@ enum class AstrolabeEffectType : uint8_t {
     SpecialBehavior = 3
 };
 
+// Behavior identifiers for AstrolabeEffectType::SpecialBehavior effects.
+// Parsed at the JSON boundary from the value-string prefix (e.g.
+// "IntToCritMult:0.3") so runtime logic can branch on the enum instead of
+// string comparison.
+enum class AstrolabeBehaviorId : uint8_t {
+    None = 0,
+    IntToCritMult,
+    Count
+};
+
 enum class TraitID : uint16_t {
     None = 0,
     SwordHeart = 100,
@@ -72,6 +82,7 @@ struct AstrolabeNodeEffect {
     std::string value; // e.g., "SwordHeart"
     float numeric_value = 0.0f; // Pre-parsed numeric value (e.g. for ModifyIntent)
     float ratio = 0.0f; // Pre-parsed ratio (e.g. for conversions like IntToCritMult:0.3)
+    AstrolabeBehaviorId behavior_id = AstrolabeBehaviorId::None; // Pre-parsed behavior id for SpecialBehavior
 };
 
 struct StarNode {
@@ -214,8 +225,37 @@ inline void from_json(const nlohmann::json& j, TalentNodeType& t) {
 inline void to_json(nlohmann::json& j, const AstrolabeEffectType& t) { j = static_cast<uint8_t>(t); }
 inline void from_json(const nlohmann::json& j, AstrolabeEffectType& t) { t = static_cast<AstrolabeEffectType>(j.get<uint8_t>()); }
 
+inline void to_json(nlohmann::json& j, const AstrolabeBehaviorId& t) { j = static_cast<uint8_t>(t); }
+inline void from_json(const nlohmann::json& j, AstrolabeBehaviorId& t) { t = static_cast<AstrolabeBehaviorId>(j.get<uint8_t>()); }
+
 inline void to_json(nlohmann::json& j, const TraitID& t) { j = static_cast<uint16_t>(t); }
 inline void from_json(const nlohmann::json& j, TraitID& t) { t = static_cast<TraitID>(j.get<uint16_t>()); }
+
+// Shared pre-parse for AstrolabeNodeEffect: computes numeric_value, ratio and
+// behavior_id from the raw value string. Called from every parse path so
+// manual effect loops never bypass the fast fields.
+inline void PreparseAstrolabeEffect(AstrolabeNodeEffect& e) {
+    e.numeric_value = 0.0f;
+    e.ratio = 0.0f;
+
+    if (e.type == AstrolabeEffectType::ModifyIntent) {
+        if (e.trait_id == TraitID::MaxSwordIntent) {
+            try {
+                e.numeric_value = std::stof(e.value);
+            } catch(...) {}
+        }
+    } else if (e.type == AstrolabeEffectType::SpecialBehavior) {
+        if (e.value.starts_with("IntToCritMult")) {
+            e.behavior_id = AstrolabeBehaviorId::IntToCritMult;
+            size_t colon = e.value.find(':');
+            if (colon != std::string::npos) {
+                try {
+                    e.ratio = std::stof(e.value.substr(colon + 1));
+                } catch(...) {}
+            }
+        }
+    }
+}
 
 inline void to_json(nlohmann::json& j, const AstrolabeNodeEffect& e) {
     j["type"] = e.type;
@@ -226,27 +266,10 @@ inline void from_json(const nlohmann::json& j, AstrolabeNodeEffect& e) {
     j.at("type").get_to(e.type);
     if (j.contains("trait_id")) j.at("trait_id").get_to(e.trait_id);
     j.at("value").get_to(e.value);
-
-    // Pre-parsing optimization
-    e.numeric_value = 0.0f;
-    e.ratio = 0.0f;
-    
-    if (e.type == AstrolabeEffectType::ModifyIntent) {
-        if (e.trait_id == TraitID::MaxSwordIntent) {
-            try {
-                e.numeric_value = std::stof(e.value);
-            } catch(...) {}
-        }
-    } else if (e.type == AstrolabeEffectType::SpecialBehavior) {
-        if (e.value.starts_with("IntToCritMult")) {
-            size_t colon = e.value.find(':');
-            if (colon != std::string::npos) {
-                try {
-                    e.ratio = std::stof(e.value.substr(colon + 1));
-                } catch(...) {}
-            }
-        }
-    }
+    // Optional explicit behavior_id (new format); falls back to value-string
+    // prefix parsing below for legacy saves.
+    if (j.contains("behavior_id")) j.at("behavior_id").get_to(e.behavior_id);
+    PreparseAstrolabeEffect(e);
 }
 
 inline void to_json(nlohmann::json& j, const AstrolabeTalentNode& n) {
@@ -285,6 +308,8 @@ inline void from_json(const nlohmann::json& j, AstrolabeTalentNode& n) {
             eff_json.at("type").get_to(eff.type);
             if (eff_json.contains("trait_id")) eff_json.at("trait_id").get_to(eff.trait_id);
             if (eff_json.contains("value")) eff_json.at("value").get_to(eff.value);
+            if (eff_json.contains("behavior_id")) eff_json.at("behavior_id").get_to(eff.behavior_id);
+            PreparseAstrolabeEffect(eff);
             n.effects.push_back(std::move(eff));
         }
     }
@@ -362,6 +387,8 @@ inline void from_json(const nlohmann::json& j, StarNode& n) {
             eff_json.at("type").get_to(eff.type);
             if (eff_json.contains("trait_id")) eff_json.at("trait_id").get_to(eff.trait_id);
             if (eff_json.contains("value")) eff_json.at("value").get_to(eff.value);
+            if (eff_json.contains("behavior_id")) eff_json.at("behavior_id").get_to(eff.behavior_id);
+            PreparseAstrolabeEffect(eff);
             n.effects.push_back(std::move(eff));
         }
     }

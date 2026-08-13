@@ -34,7 +34,6 @@ static entt::id_type pickRandomAsset(const std::array<T, N> &assets) {
 
 static entt::id_type
 getRandomTextureForType(ItemType type, EquipmentSlot slot,
-                        const std::string &name,
                         WeaponSubtype subtype = WeaponSubtype::None) {
   using namespace assets::equipment;
 
@@ -71,11 +70,10 @@ getRandomTextureForType(ItemType type, EquipmentSlot slot,
       return pickRandomAsset(staff::All);
     case WeaponSubtype::Wand:
       return pickRandomAsset(wand::All);
+    case WeaponSubtype::Greatsword:
+      return pickRandomAsset(greatsword::All);
     case WeaponSubtype::None:
     default:
-      if (name.find("大剑") != std::string::npos ||
-          name.find("Great") != std::string::npos)
-        return pickRandomAsset(greatsword::All);
       return pickRandomAsset(sword::All);
     }
   } else if (type == ItemType::Shield) {
@@ -89,6 +87,34 @@ getRandomTextureForType(ItemType type, EquipmentSlot slot,
   }
 
   return 0;
+}
+
+// 槽位 -> 词缀标签位掩码 (单一来源, 取代两处重复的字符串 switch)
+static uint8_t slotTagsFor(EquipmentSlot slot) {
+  switch (slot) {
+  case EquipmentSlot::MainHand:
+    return static_cast<uint8_t>(ItemSlotTag::Weapon);
+  case EquipmentSlot::OffHand:
+    return static_cast<uint8_t>(ItemSlotTag::Weapon) |
+           static_cast<uint8_t>(ItemSlotTag::Armor);
+  case EquipmentSlot::Head:
+  case EquipmentSlot::Shoulder:
+  case EquipmentSlot::Chest:
+  case EquipmentSlot::Legs:
+    return static_cast<uint8_t>(ItemSlotTag::Armor);
+  case EquipmentSlot::Hands:
+    return static_cast<uint8_t>(ItemSlotTag::Armor) |
+           static_cast<uint8_t>(ItemSlotTag::Gloves);
+  case EquipmentSlot::Feet:
+    return static_cast<uint8_t>(ItemSlotTag::Armor) |
+           static_cast<uint8_t>(ItemSlotTag::Boots);
+  case EquipmentSlot::Neck:
+  case EquipmentSlot::Ring1:
+  case EquipmentSlot::Ring2:
+    return static_cast<uint8_t>(ItemSlotTag::Jewelry);
+  default:
+    return static_cast<uint8_t>(ItemSlotTag::Misc);
+  }
 }
 
 static bool TryAttachWorldSprite(entt::registry &registry, entt::entity entity,
@@ -210,6 +236,9 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
   dto.type = item.type;
   dto.textureId = item.textureId;
   dto.quantity = item.quantity;
+  dto.baseId = item.baseId;
+  dto.weaponSubtype = item.weaponSubtype;
+  dto.catalystKind = item.catalystKind;
 
   dto.stats.rarity = item.rarity;
   dto.stats.level = item.itemLevel; // [NEW] Save item level
@@ -257,135 +286,137 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
 // 基础物品定义 (内部数据库)
 // -----------------------------------------------------------------------------
 struct BaseItemDef {
+  uint32_t baseId = 0; // 全局唯一基底ID (按ID查找, 取代按名字子串匹配)
   std::string name;
   int minLevel;
   float baseStatMin;
   float baseStatMax;
   AffixType implicitType;
+  WeaponSubtype subtype = WeaponSubtype::None; // 武器基底对应的子类型
 };
 
-// --- 武器基底定义 ---
+// --- 武器基底定义 (baseId: 1001-1066 分段) ---
 
 static const std::vector<BaseItemDef> WEAPON_SWORD_BASES = {
-    {"锈蚀铁剑", 1, 5.0f, 8.0f, AffixType::PercentPhysicalDamage},
-    {"精铁长剑", 10, 12.0f, 18.0f, AffixType::PercentPhysicalDamage},
-    {"骑士阔剑", 25, 25.0f, 35.0f, AffixType::CritChance},
-    {"秘银长剑", 45, 45.0f, 60.0f, AffixType::AttackSpeed},
-    {"符文剑", 60, 70.0f, 90.0f, AffixType::PercentFireDamage},
-    {"龙牙剑", 75, 100.0f, 130.0f, AffixType::CritDamage}};
+    {.baseId = 1001, .name = "锈蚀铁剑", .minLevel = 1, .baseStatMin = 5.0f, .baseStatMax = 8.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Sword},
+    {.baseId = 1002, .name = "精铁长剑", .minLevel = 10, .baseStatMin = 12.0f, .baseStatMax = 18.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Sword},
+    {.baseId = 1003, .name = "骑士阔剑", .minLevel = 25, .baseStatMin = 25.0f, .baseStatMax = 35.0f, .implicitType = AffixType::CritChance, .subtype = WeaponSubtype::Sword},
+    {.baseId = 1004, .name = "秘银长剑", .minLevel = 45, .baseStatMin = 45.0f, .baseStatMax = 60.0f, .implicitType = AffixType::AttackSpeed, .subtype = WeaponSubtype::Sword},
+    {.baseId = 1005, .name = "符文剑", .minLevel = 60, .baseStatMin = 70.0f, .baseStatMax = 90.0f, .implicitType = AffixType::PercentFireDamage, .subtype = WeaponSubtype::Sword},
+    {.baseId = 1006, .name = "龙牙剑", .minLevel = 75, .baseStatMin = 100.0f, .baseStatMax = 130.0f, .implicitType = AffixType::CritDamage, .subtype = WeaponSubtype::Sword}};
 
 static const std::vector<BaseItemDef> WEAPON_AXE_BASES = {
-    {"伐木斧", 1, 6.0f, 10.0f, AffixType::FlatPhysicalDamage},
-    {"铁手斧", 10, 14.0f, 20.0f, AffixType::FlatPhysicalDamage},
-    {"战斗斧", 25, 28.0f, 38.0f, AffixType::CritDamage},
-    {"狂战士斧", 45, 50.0f, 65.0f, AffixType::PercentPhysicalDamage},
-    {"斩首斧", 60, 75.0f, 95.0f, AffixType::LifeSteal},
-    {"毁灭者", 75, 110.0f, 140.0f, AffixType::CritDamage}};
+    {.baseId = 1011, .name = "伐木斧", .minLevel = 1, .baseStatMin = 6.0f, .baseStatMax = 10.0f, .implicitType = AffixType::FlatPhysicalDamage, .subtype = WeaponSubtype::Axe},
+    {.baseId = 1012, .name = "铁手斧", .minLevel = 10, .baseStatMin = 14.0f, .baseStatMax = 20.0f, .implicitType = AffixType::FlatPhysicalDamage, .subtype = WeaponSubtype::Axe},
+    {.baseId = 1013, .name = "战斗斧", .minLevel = 25, .baseStatMin = 28.0f, .baseStatMax = 38.0f, .implicitType = AffixType::CritDamage, .subtype = WeaponSubtype::Axe},
+    {.baseId = 1014, .name = "狂战士斧", .minLevel = 45, .baseStatMin = 50.0f, .baseStatMax = 65.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Axe},
+    {.baseId = 1015, .name = "斩首斧", .minLevel = 60, .baseStatMin = 75.0f, .baseStatMax = 95.0f, .implicitType = AffixType::LifeSteal, .subtype = WeaponSubtype::Axe},
+    {.baseId = 1016, .name = "毁灭者", .minLevel = 75, .baseStatMin = 110.0f, .baseStatMax = 140.0f, .implicitType = AffixType::CritDamage, .subtype = WeaponSubtype::Axe}};
 
 static const std::vector<BaseItemDef> WEAPON_DAGGER_BASES = {
-    {"磨损匕首", 1, 3.0f, 6.0f, AffixType::CritChance},
-    {"猎人短刀", 10, 8.0f, 14.0f, AffixType::CritChance},
-    {"刺客匕首", 25, 18.0f, 26.0f, AffixType::CritDamage},
-    {"锯齿刃", 45, 35.0f, 48.0f, AffixType::FlatPoisonDamage},
-    {"幽冥匕首", 60, 55.0f, 75.0f, AffixType::PercentPoisonDamage},
-    {"龙骨匕首", 75, 80.0f, 100.0f, AffixType::CritChance}};
+    {.baseId = 1021, .name = "磨损匕首", .minLevel = 1, .baseStatMin = 3.0f, .baseStatMax = 6.0f, .implicitType = AffixType::CritChance, .subtype = WeaponSubtype::Dagger},
+    {.baseId = 1022, .name = "猎人短刀", .minLevel = 10, .baseStatMin = 8.0f, .baseStatMax = 14.0f, .implicitType = AffixType::CritChance, .subtype = WeaponSubtype::Dagger},
+    {.baseId = 1023, .name = "刺客匕首", .minLevel = 25, .baseStatMin = 18.0f, .baseStatMax = 26.0f, .implicitType = AffixType::CritDamage, .subtype = WeaponSubtype::Dagger},
+    {.baseId = 1024, .name = "锯齿刃", .minLevel = 45, .baseStatMin = 35.0f, .baseStatMax = 48.0f, .implicitType = AffixType::FlatPoisonDamage, .subtype = WeaponSubtype::Dagger},
+    {.baseId = 1025, .name = "幽冥匕首", .minLevel = 60, .baseStatMin = 55.0f, .baseStatMax = 75.0f, .implicitType = AffixType::PercentPoisonDamage, .subtype = WeaponSubtype::Dagger},
+    {.baseId = 1026, .name = "龙骨匕首", .minLevel = 75, .baseStatMin = 80.0f, .baseStatMax = 100.0f, .implicitType = AffixType::CritChance, .subtype = WeaponSubtype::Dagger}};
 
 static const std::vector<BaseItemDef> WEAPON_HAMMER_BASES = {
-    {"木锤", 1, 7.0f, 11.0f, AffixType::FlatPhysicalDamage},
-    {"铁战锤", 10, 16.0f, 24.0f, AffixType::PercentPhysicalDamage},
-    {"碎骨锤", 25, 32.0f, 45.0f, AffixType::PercentPhysicalDamage},
-    {"重型战锤", 45, 55.0f, 75.0f, AffixType::FlatLightningDamage},
-    {"雷神之锤", 60, 85.0f, 110.0f, AffixType::PercentLightningDamage},
-    {"泰坦之锤", 75, 120.0f, 160.0f, AffixType::PercentPhysicalDamage}};
+    {.baseId = 1031, .name = "木锤", .minLevel = 1, .baseStatMin = 7.0f, .baseStatMax = 11.0f, .implicitType = AffixType::FlatPhysicalDamage, .subtype = WeaponSubtype::Mace},
+    {.baseId = 1032, .name = "铁战锤", .minLevel = 10, .baseStatMin = 16.0f, .baseStatMax = 24.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Mace},
+    {.baseId = 1033, .name = "碎骨锤", .minLevel = 25, .baseStatMin = 32.0f, .baseStatMax = 45.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Mace},
+    {.baseId = 1034, .name = "重型战锤", .minLevel = 45, .baseStatMin = 55.0f, .baseStatMax = 75.0f, .implicitType = AffixType::FlatLightningDamage, .subtype = WeaponSubtype::Mace},
+    {.baseId = 1035, .name = "雷神之锤", .minLevel = 60, .baseStatMin = 85.0f, .baseStatMax = 110.0f, .implicitType = AffixType::PercentLightningDamage, .subtype = WeaponSubtype::Mace},
+    {.baseId = 1036, .name = "泰坦之锤", .minLevel = 75, .baseStatMin = 120.0f, .baseStatMax = 160.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Mace}};
 
 static const std::vector<BaseItemDef> WEAPON_GREATSWORD_BASES = {
-    {"训练大剑", 1, 8.0f, 12.0f, AffixType::PercentPhysicalDamage},
-    {"铁大剑", 10, 18.0f, 26.0f, AffixType::PercentPhysicalDamage},
-    {"巨剑", 25, 35.0f, 50.0f, AffixType::FlatPhysicalDamage},
-    {"斩马刀", 45, 60.0f, 80.0f, AffixType::CritDamage},
-    {"处刑者", 60, 90.0f, 120.0f, AffixType::LifeOnHit},
-    {"诸神黄昏", 75, 130.0f, 170.0f, AffixType::PercentPhysicalDamage}};
+    {.baseId = 1041, .name = "训练大剑", .minLevel = 1, .baseStatMin = 8.0f, .baseStatMax = 12.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Greatsword},
+    {.baseId = 1042, .name = "铁大剑", .minLevel = 10, .baseStatMin = 18.0f, .baseStatMax = 26.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Greatsword},
+    {.baseId = 1043, .name = "巨剑", .minLevel = 25, .baseStatMin = 35.0f, .baseStatMax = 50.0f, .implicitType = AffixType::FlatPhysicalDamage, .subtype = WeaponSubtype::Greatsword},
+    {.baseId = 1044, .name = "斩马刀", .minLevel = 45, .baseStatMin = 60.0f, .baseStatMax = 80.0f, .implicitType = AffixType::CritDamage, .subtype = WeaponSubtype::Greatsword},
+    {.baseId = 1045, .name = "处刑者", .minLevel = 60, .baseStatMin = 90.0f, .baseStatMax = 120.0f, .implicitType = AffixType::LifeOnHit, .subtype = WeaponSubtype::Greatsword},
+    {.baseId = 1046, .name = "诸神黄昏", .minLevel = 75, .baseStatMin = 130.0f, .baseStatMax = 170.0f, .implicitType = AffixType::PercentPhysicalDamage, .subtype = WeaponSubtype::Greatsword}};
 
 static const std::vector<BaseItemDef> WEAPON_STAFF_BASES = {
-    {"枯木法杖", 1, 4.0f, 8.0f, AffixType::FlatMana},
-    {"橡木法杖", 10, 10.0f, 16.0f, AffixType::PercentFireDamage},
-    {"宝石法杖", 25, 22.0f, 32.0f, AffixType::PercentColdDamage},
-    {"元素法杖", 45, 40.0f, 55.0f, AffixType::ResistAll},
-    {"贤者法杖", 60, 65.0f, 85.0f, AffixType::PercentLightningDamage},
-    {"世界树枝", 75, 95.0f, 125.0f, AffixType::Intelligence}};
+    {.baseId = 1051, .name = "枯木法杖", .minLevel = 1, .baseStatMin = 4.0f, .baseStatMax = 8.0f, .implicitType = AffixType::FlatMana, .subtype = WeaponSubtype::Staff},
+    {.baseId = 1052, .name = "橡木法杖", .minLevel = 10, .baseStatMin = 10.0f, .baseStatMax = 16.0f, .implicitType = AffixType::PercentFireDamage, .subtype = WeaponSubtype::Staff},
+    {.baseId = 1053, .name = "宝石法杖", .minLevel = 25, .baseStatMin = 22.0f, .baseStatMax = 32.0f, .implicitType = AffixType::PercentColdDamage, .subtype = WeaponSubtype::Staff},
+    {.baseId = 1054, .name = "元素法杖", .minLevel = 45, .baseStatMin = 40.0f, .baseStatMax = 55.0f, .implicitType = AffixType::ResistAll, .subtype = WeaponSubtype::Staff},
+    {.baseId = 1055, .name = "贤者法杖", .minLevel = 60, .baseStatMin = 65.0f, .baseStatMax = 85.0f, .implicitType = AffixType::PercentLightningDamage, .subtype = WeaponSubtype::Staff},
+    {.baseId = 1056, .name = "世界树枝", .minLevel = 75, .baseStatMin = 95.0f, .baseStatMax = 125.0f, .implicitType = AffixType::Intelligence, .subtype = WeaponSubtype::Staff}};
 
 static const std::vector<BaseItemDef> WEAPON_WAND_BASES = {
-    {"学徒魔杖", 1, 3.0f, 7.0f, AffixType::FlatMana},
-    {"骨魔杖", 10, 9.0f, 15.0f, AffixType::FlatShadowDamage},
-    {"水晶魔杖", 25, 20.0f, 30.0f, AffixType::PercentShadowDamage},
-    {"秘法魔杖", 45, 38.0f, 52.0f, AffixType::CastSpeed},
-    {"虚空魔杖", 60, 60.0f, 80.0f, AffixType::PercentShadowDamage},
-    {"星辰魔杖", 75, 90.0f, 115.0f, AffixType::Intelligence}};
+    {.baseId = 1061, .name = "学徒魔杖", .minLevel = 1, .baseStatMin = 3.0f, .baseStatMax = 7.0f, .implicitType = AffixType::FlatMana, .subtype = WeaponSubtype::Wand},
+    {.baseId = 1062, .name = "骨魔杖", .minLevel = 10, .baseStatMin = 9.0f, .baseStatMax = 15.0f, .implicitType = AffixType::FlatShadowDamage, .subtype = WeaponSubtype::Wand},
+    {.baseId = 1063, .name = "水晶魔杖", .minLevel = 25, .baseStatMin = 20.0f, .baseStatMax = 30.0f, .implicitType = AffixType::PercentShadowDamage, .subtype = WeaponSubtype::Wand},
+    {.baseId = 1064, .name = "秘法魔杖", .minLevel = 45, .baseStatMin = 38.0f, .baseStatMax = 52.0f, .implicitType = AffixType::CastSpeed, .subtype = WeaponSubtype::Wand},
+    {.baseId = 1065, .name = "虚空魔杖", .minLevel = 60, .baseStatMin = 60.0f, .baseStatMax = 80.0f, .implicitType = AffixType::PercentShadowDamage, .subtype = WeaponSubtype::Wand},
+    {.baseId = 1066, .name = "星辰魔杖", .minLevel = 75, .baseStatMin = 90.0f, .baseStatMax = 115.0f, .implicitType = AffixType::Intelligence, .subtype = WeaponSubtype::Wand}};
 
-// --- 防具基底定义 ---
+// --- 防具基底定义 (baseId: 2001-2065) ---
 
 static const std::vector<BaseItemDef> ARMOR_HEAD_BASES = {
-    {"皮帽", 1, 2.0f, 4.0f, AffixType::FlatMana},
-    {"铁盔", 10, 6.0f, 10.0f, AffixType::FlatHealth},
-    {"骑士头盔", 25, 15.0f, 22.0f, AffixType::FlatArmor},
-    {"统帅头盔", 45, 30.0f, 40.0f, AffixType::PercentArmor},
-    {"龙盔", 60, 50.0f, 70.0f, AffixType::Vitality}};
+    {.baseId = 2001, .name = "皮帽", .minLevel = 1, .baseStatMin = 2.0f, .baseStatMax = 4.0f, .implicitType = AffixType::FlatMana},
+    {.baseId = 2002, .name = "铁盔", .minLevel = 10, .baseStatMin = 6.0f, .baseStatMax = 10.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 2003, .name = "骑士头盔", .minLevel = 25, .baseStatMin = 15.0f, .baseStatMax = 22.0f, .implicitType = AffixType::FlatArmor},
+    {.baseId = 2004, .name = "统帅头盔", .minLevel = 45, .baseStatMin = 30.0f, .baseStatMax = 40.0f, .implicitType = AffixType::PercentArmor},
+    {.baseId = 2005, .name = "龙盔", .minLevel = 60, .baseStatMin = 50.0f, .baseStatMax = 70.0f, .implicitType = AffixType::Vitality}};
 
 static const std::vector<BaseItemDef> ARMOR_CHEST_BASES = {
-    {"破旧法袍", 1, 3.0f, 6.0f, AffixType::FlatMana},
-    {"硬皮上衣", 10, 10.0f, 15.0f, AffixType::FlatHealth},
-    {"锁子甲", 25, 25.0f, 35.0f, AffixType::ResistAll},
-    {"板甲", 45, 50.0f, 65.0f, AffixType::PercentArmor},
-    {"龙鳞甲", 70, 80.0f, 100.0f, AffixType::FlatHealth}};
+    {.baseId = 2011, .name = "破旧法袍", .minLevel = 1, .baseStatMin = 3.0f, .baseStatMax = 6.0f, .implicitType = AffixType::FlatMana},
+    {.baseId = 2012, .name = "硬皮上衣", .minLevel = 10, .baseStatMin = 10.0f, .baseStatMax = 15.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 2013, .name = "锁子甲", .minLevel = 25, .baseStatMin = 25.0f, .baseStatMax = 35.0f, .implicitType = AffixType::ResistAll},
+    {.baseId = 2014, .name = "板甲", .minLevel = 45, .baseStatMin = 50.0f, .baseStatMax = 65.0f, .implicitType = AffixType::PercentArmor},
+    {.baseId = 2015, .name = "龙鳞甲", .minLevel = 70, .baseStatMin = 80.0f, .baseStatMax = 100.0f, .implicitType = AffixType::FlatHealth}};
 
 static const std::vector<BaseItemDef> ARMOR_SHOULDER_BASES = {
-    {"皮护肩", 1, 2.0f, 4.0f, AffixType::FlatHealth},
-    {"铁护肩", 10, 5.0f, 9.0f, AffixType::Strength},
-    {"钢护肩", 25, 12.0f, 18.0f, AffixType::FlatArmor},
-    {"刺客护肩", 45, 25.0f, 35.0f, AffixType::Dexterity},
-    {"泰坦护肩", 60, 45.0f, 60.0f, AffixType::PercentArmor}};
+    {.baseId = 2021, .name = "皮护肩", .minLevel = 1, .baseStatMin = 2.0f, .baseStatMax = 4.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 2022, .name = "铁护肩", .minLevel = 10, .baseStatMin = 5.0f, .baseStatMax = 9.0f, .implicitType = AffixType::Strength},
+    {.baseId = 2023, .name = "钢护肩", .minLevel = 25, .baseStatMin = 12.0f, .baseStatMax = 18.0f, .implicitType = AffixType::FlatArmor},
+    {.baseId = 2024, .name = "刺客护肩", .minLevel = 45, .baseStatMin = 25.0f, .baseStatMax = 35.0f, .implicitType = AffixType::Dexterity},
+    {.baseId = 2025, .name = "泰坦护肩", .minLevel = 60, .baseStatMin = 45.0f, .baseStatMax = 60.0f, .implicitType = AffixType::PercentArmor}};
 
 static const std::vector<BaseItemDef> ARMOR_HANDS_BASES = {
-    {"皮手套", 1, 1.0f, 3.0f, AffixType::AttackSpeed},
-    {"铁手套", 10, 4.0f, 7.0f, AffixType::FlatArmor},
-    {"钢手套", 25, 10.0f, 15.0f, AffixType::CritChance},
-    {"符文手套", 45, 20.0f, 30.0f, AffixType::CastSpeed},
-    {"龙爪手套", 60, 35.0f, 50.0f, AffixType::CritDamage}};
+    {.baseId = 2031, .name = "皮手套", .minLevel = 1, .baseStatMin = 1.0f, .baseStatMax = 3.0f, .implicitType = AffixType::AttackSpeed},
+    {.baseId = 2032, .name = "铁手套", .minLevel = 10, .baseStatMin = 4.0f, .baseStatMax = 7.0f, .implicitType = AffixType::FlatArmor},
+    {.baseId = 2033, .name = "钢手套", .minLevel = 25, .baseStatMin = 10.0f, .baseStatMax = 15.0f, .implicitType = AffixType::CritChance},
+    {.baseId = 2034, .name = "符文手套", .minLevel = 45, .baseStatMin = 20.0f, .baseStatMax = 30.0f, .implicitType = AffixType::CastSpeed},
+    {.baseId = 2035, .name = "龙爪手套", .minLevel = 60, .baseStatMin = 35.0f, .baseStatMax = 50.0f, .implicitType = AffixType::CritDamage}};
 
 static const std::vector<BaseItemDef> ARMOR_LEGS_BASES = {
-    {"布裤", 1, 2.0f, 4.0f, AffixType::MoveSpeed},
-    {"皮护腿", 10, 6.0f, 10.0f, AffixType::FlatHealth},
-    {"锁甲护腿", 25, 15.0f, 22.0f, AffixType::FlatArmor},
-    {"板甲护腿", 45, 30.0f, 42.0f, AffixType::PercentArmor},
-    {"龙鳞护腿", 60, 55.0f, 75.0f, AffixType::Vitality}};
+    {.baseId = 2041, .name = "布裤", .minLevel = 1, .baseStatMin = 2.0f, .baseStatMax = 4.0f, .implicitType = AffixType::MoveSpeed},
+    {.baseId = 2042, .name = "皮护腿", .minLevel = 10, .baseStatMin = 6.0f, .baseStatMax = 10.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 2043, .name = "锁甲护腿", .minLevel = 25, .baseStatMin = 15.0f, .baseStatMax = 22.0f, .implicitType = AffixType::FlatArmor},
+    {.baseId = 2044, .name = "板甲护腿", .minLevel = 45, .baseStatMin = 30.0f, .baseStatMax = 42.0f, .implicitType = AffixType::PercentArmor},
+    {.baseId = 2045, .name = "龙鳞护腿", .minLevel = 60, .baseStatMin = 55.0f, .baseStatMax = 75.0f, .implicitType = AffixType::Vitality}};
 
 static const std::vector<BaseItemDef> ARMOR_FEET_BASES = {
-    {"破旧靴子", 1, 1.0f, 3.0f, AffixType::MoveSpeed},
-    {"皮靴", 10, 4.0f, 8.0f, AffixType::MoveSpeed},
-    {"铁靴", 25, 10.0f, 16.0f, AffixType::FlatArmor},
-    {"战靴", 45, 22.0f, 32.0f, AffixType::Strength},
-    {"飞翼靴", 60, 40.0f, 55.0f, AffixType::MoveSpeed}};
+    {.baseId = 2051, .name = "破旧靴子", .minLevel = 1, .baseStatMin = 1.0f, .baseStatMax = 3.0f, .implicitType = AffixType::MoveSpeed},
+    {.baseId = 2052, .name = "皮靴", .minLevel = 10, .baseStatMin = 4.0f, .baseStatMax = 8.0f, .implicitType = AffixType::MoveSpeed},
+    {.baseId = 2053, .name = "铁靴", .minLevel = 25, .baseStatMin = 10.0f, .baseStatMax = 16.0f, .implicitType = AffixType::FlatArmor},
+    {.baseId = 2054, .name = "战靴", .minLevel = 45, .baseStatMin = 22.0f, .baseStatMax = 32.0f, .implicitType = AffixType::Strength},
+    {.baseId = 2055, .name = "飞翼靴", .minLevel = 60, .baseStatMin = 40.0f, .baseStatMax = 55.0f, .implicitType = AffixType::MoveSpeed}};
 
 static const std::vector<BaseItemDef> ARMOR_OFFHAND_BASES = {
-    {"圆盾", 1, 5.0f, 10.0f, AffixType::FlatArmor},
-    {"鸢盾", 10, 15.0f, 25.0f, AffixType::FlatHealth},
-    {"塔盾", 25, 35.0f, 50.0f, AffixType::ResistAll},
-    {"圣盾", 45, 60.0f, 80.0f, AffixType::PercentArmor},
-    {"埃癸斯", 60, 90.0f, 120.0f, AffixType::DamageReduction}};
+    {.baseId = 2061, .name = "圆盾", .minLevel = 1, .baseStatMin = 5.0f, .baseStatMax = 10.0f, .implicitType = AffixType::FlatArmor},
+    {.baseId = 2062, .name = "鸢盾", .minLevel = 10, .baseStatMin = 15.0f, .baseStatMax = 25.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 2063, .name = "塔盾", .minLevel = 25, .baseStatMin = 35.0f, .baseStatMax = 50.0f, .implicitType = AffixType::ResistAll},
+    {.baseId = 2064, .name = "圣盾", .minLevel = 45, .baseStatMin = 60.0f, .baseStatMax = 80.0f, .implicitType = AffixType::PercentArmor},
+    {.baseId = 2065, .name = "埃癸斯", .minLevel = 60, .baseStatMin = 90.0f, .baseStatMax = 120.0f, .implicitType = AffixType::DamageReduction}};
 
 static const std::vector<BaseItemDef> JEWELRY_NECK_BASES = {
-    {"铜项链", 1, 0.0f, 0.0f, AffixType::FlatHealth},
-    {"银项链", 15, 0.0f, 0.0f, AffixType::ResistCold},
-    {"金项链", 30, 0.0f, 0.0f, AffixType::ResistFire},
-    {"红宝石项链", 50, 0.0f, 0.0f, AffixType::FlatFireDamage},
-    {"龙骨项链", 70, 0.0f, 0.0f, AffixType::CritDamage}};
+    {.baseId = 3001, .name = "铜项链", .minLevel = 1, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 3002, .name = "银项链", .minLevel = 15, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::ResistCold},
+    {.baseId = 3003, .name = "金项链", .minLevel = 30, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::ResistFire},
+    {.baseId = 3004, .name = "红宝石项链", .minLevel = 50, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::FlatFireDamage},
+    {.baseId = 3005, .name = "龙骨项链", .minLevel = 70, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::CritDamage}};
 
 static const std::vector<BaseItemDef> JEWELRY_RING_BASES = {
-    {"铁戒指", 1, 0.0f, 0.0f, AffixType::FlatHealth},
-    {"银戒指", 15, 0.0f, 0.0f, AffixType::ResistLightning},
-    {"金戒指", 30, 0.0f, 0.0f, AffixType::ResistAll},
-    {"蓝宝石戒指", 50, 0.0f, 0.0f, AffixType::FlatMana},
-    {"钻石戒指", 70, 0.0f, 0.0f, AffixType::CritChance}};
+    {.baseId = 3011, .name = "铁戒指", .minLevel = 1, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::FlatHealth},
+    {.baseId = 3012, .name = "银戒指", .minLevel = 15, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::ResistLightning},
+    {.baseId = 3013, .name = "金戒指", .minLevel = 30, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::ResistAll},
+    {.baseId = 3014, .name = "蓝宝石戒指", .minLevel = 50, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::FlatMana},
+    {.baseId = 3015, .name = "钻石戒指", .minLevel = 70, .baseStatMin = 0.0f, .baseStatMax = 0.0f, .implicitType = AffixType::CritChance}};
 
 static const BaseItemDef &selectBaseItem(const std::vector<BaseItemDef> &db,
                                          int level) {
@@ -543,12 +574,61 @@ std::pair<float, float> ItemFactory::getAffixRange(AffixType type, int tier) {
   return {0.0f, 0.0f};
 }
 
-// 辅助函数：在所有基底列表中查找匹配名称的基底
+// 辅助函数：在所有基底列表中按 ID 查找基底 (主路径)
+static const BaseItemDef *findBaseById(uint32_t baseId) {
+  auto check =
+      [&](const std::vector<BaseItemDef> &list) -> const BaseItemDef * {
+    for (const auto &base : list) {
+      if (base.baseId == baseId)
+        return &base;
+    }
+    return nullptr;
+  };
+
+  if (auto *p = check(WEAPON_SWORD_BASES))
+    return p;
+  if (auto *p = check(WEAPON_AXE_BASES))
+    return p;
+  if (auto *p = check(WEAPON_DAGGER_BASES))
+    return p;
+  if (auto *p = check(WEAPON_HAMMER_BASES))
+    return p;
+  if (auto *p = check(WEAPON_GREATSWORD_BASES))
+    return p;
+  if (auto *p = check(WEAPON_STAFF_BASES))
+    return p;
+  if (auto *p = check(WEAPON_WAND_BASES))
+    return p;
+
+  if (auto *p = check(ARMOR_HEAD_BASES))
+    return p;
+  if (auto *p = check(ARMOR_CHEST_BASES))
+    return p;
+  if (auto *p = check(ARMOR_SHOULDER_BASES))
+    return p;
+  if (auto *p = check(ARMOR_HANDS_BASES))
+    return p;
+  if (auto *p = check(ARMOR_LEGS_BASES))
+    return p;
+  if (auto *p = check(ARMOR_FEET_BASES))
+    return p;
+  if (auto *p = check(ARMOR_OFFHAND_BASES))
+    return p;
+
+  if (auto *p = check(JEWELRY_NECK_BASES))
+    return p;
+  if (auto *p = check(JEWELRY_RING_BASES))
+    return p;
+
+  return nullptr;
+}
+
+// 兼容旧存档的按名字精确匹配回退 (仅当 baseId 缺失时使用)
 static const BaseItemDef *findBaseByName(const std::string &name) {
   auto check =
       [&](const std::vector<BaseItemDef> &list) -> const BaseItemDef * {
     for (const auto &base : list) {
-      if (name.find(base.name) != std::string::npos)
+      if (base.name == name)
         return &base;
     }
     return nullptr;
@@ -594,7 +674,12 @@ static const BaseItemDef *findBaseByName(const std::string &name) {
 
 std::pair<float, float>
 ItemFactory::getBaseStatRange(const ItemComponent &item) {
-  const BaseItemDef *base = findBaseByName(item.name);
+  // 主路径: 按 baseId 查找 (新创建/新存档物品均携带 baseId)
+  const BaseItemDef *base = findBaseById(item.baseId);
+  // 兼容旧存档: baseId 缺失时按名字精确匹配回退
+  if (base == nullptr && item.baseId == 0) {
+    base = findBaseByName(item.name);
+  }
   if (base) {
     return {base->baseStatMin, base->baseStatMax};
   }
@@ -606,36 +691,8 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
   // 1. 获取所有候选词缀定义
   std::vector<const AffixDefinition *> candidates;
   if (!s_affixDefinitions.empty()) {
-    // 确定槽位标签
-    std::vector<std::string> slotTags;
-    switch (slot) {
-    case EquipmentSlot::MainHand:
-      slotTags = {"weapon"};
-      break;
-    case EquipmentSlot::OffHand:
-      slotTags = {"weapon", "armor"};
-      break;
-    case EquipmentSlot::Head:
-    case EquipmentSlot::Shoulder:
-    case EquipmentSlot::Chest:
-    case EquipmentSlot::Legs:
-      slotTags = {"armor"};
-      break;
-    case EquipmentSlot::Hands:
-      slotTags = {"armor", "gloves"};
-      break;
-    case EquipmentSlot::Feet:
-      slotTags = {"armor", "boots"};
-      break;
-    case EquipmentSlot::Neck:
-    case EquipmentSlot::Ring1:
-    case EquipmentSlot::Ring2:
-      slotTags = {"jewelry"};
-      break;
-    default:
-      slotTags = {"misc"};
-      break;
-    }
+    // 确定槽位标签位掩码 (单一来源)
+    uint8_t slotMask = slotTagsFor(slot);
 
     for (const auto &def : s_affixDefinitions) {
       if (def.isPrefix != isPrefix)
@@ -643,18 +700,8 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
       if (!IsRandomRollableAffix(def.type))
         continue; // 排除传奇/独特词缀
 
-      bool tagMatch = false;
-      for (const auto &sTag : slotTags) {
-        for (const auto &aTag : def.allowedTags) {
-          if (sTag == aTag) {
-            tagMatch = true;
-            break;
-          }
-        }
-        if (tagMatch)
-          break;
-      }
-      if (!tagMatch)
+      // 位掩码匹配: 词缀允许的标签与槽位标签有交集即可
+      if ((def.allowedTags & slotMask) == 0)
         continue;
 
       if (def.tiers.empty() || def.tiers[0].minLevel > level)
@@ -755,36 +802,8 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
     // 1. 获取所有符合条件的候选词缀定义
     std::vector<const AffixDefinition *> candidates;
 
-    // 确定槽位标签
-    std::vector<std::string> slotTags;
-    switch (item.slot) {
-    case EquipmentSlot::MainHand:
-      slotTags = {"weapon"};
-      break;
-    case EquipmentSlot::OffHand:
-      slotTags = {"weapon", "armor"};
-      break;
-    case EquipmentSlot::Head:
-    case EquipmentSlot::Shoulder:
-    case EquipmentSlot::Chest:
-    case EquipmentSlot::Legs:
-      slotTags = {"armor"};
-      break;
-    case EquipmentSlot::Hands:
-      slotTags = {"armor", "gloves"};
-      break;
-    case EquipmentSlot::Feet:
-      slotTags = {"armor", "boots"};
-      break;
-    case EquipmentSlot::Neck:
-    case EquipmentSlot::Ring1:
-    case EquipmentSlot::Ring2:
-      slotTags = {"jewelry"};
-      break;
-    default:
-      slotTags = {"misc"};
-      break;
-    }
+    // 确定槽位标签位掩码 (单一来源)
+    uint8_t slotMask = slotTagsFor(item.slot);
 
     // 从数据库筛选
     for (const auto &def : s_affixDefinitions) {
@@ -793,18 +812,8 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
       if (!IsRandomRollableAffix(def.type))
         continue; // 排除传奇/独特词缀
 
-      bool tagMatch = false;
-      for (const auto &sTag : slotTags) {
-        for (const auto &aTag : def.allowedTags) {
-          if (sTag == aTag) {
-            tagMatch = true;
-            break;
-          }
-        }
-        if (tagMatch)
-          break;
-      }
-      if (!tagMatch)
+      // 位掩码匹配: 词缀允许的标签与槽位标签有交集即可
+      if ((def.allowedTags & slotMask) == 0)
         continue;
       if (def.tiers.empty() || def.tiers[0].minLevel > level)
         continue;
@@ -934,6 +943,9 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
   item.type = dto.type;
   item.textureId = dto.textureId;
   item.quantity = dto.quantity;
+  item.baseId = dto.baseId;
+  item.weaponSubtype = dto.weaponSubtype;
+  item.catalystKind = dto.catalystKind;
 
   // Restore stats from snapshot
   item.rarity = dto.stats.rarity;
@@ -1031,7 +1043,7 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
     break;
   case 4:
     baseList = &WEAPON_GREATSWORD_BASES;
-    item.weaponSubtype = WeaponSubtype::Sword; // Or Greatsword
+    item.weaponSubtype = WeaponSubtype::Greatsword;
     item.isTwoHanded = true;
     break;
   case 5:
@@ -1047,6 +1059,7 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
 
   const auto &base = selectBaseItem(*baseList, level);
   item.name = base.name;
+  item.baseId = base.baseId;
   LOG_DEBUG("Selected base weapon: {}", base.name);
 
   float baseVal = std::uniform_real_distribution<>(base.baseStatMin,
@@ -1110,8 +1123,8 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   }
 
   // Assign random texture
-  item.textureId = getRandomTextureForType(item.type, item.slot, item.name,
-                                           item.weaponSubtype);
+  item.textureId =
+      getRandomTextureForType(item.type, item.slot, item.weaponSubtype);
 
   rollAffixes(item, level);
 
@@ -1229,6 +1242,7 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
 
   const auto &base = selectBaseItem(*baseList, level);
   item.name = base.name;
+  item.baseId = base.baseId;
   LOG_DEBUG("Selected base armor: {}", base.name);
 
   float baseVal = std::uniform_real_distribution<>(base.baseStatMin,
@@ -1273,8 +1287,8 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
   }
 
   // Assign random texture
-  item.textureId = getRandomTextureForType(item.type, item.slot, item.name,
-                                           item.weaponSubtype);
+  item.textureId =
+      getRandomTextureForType(item.type, item.slot, item.weaponSubtype);
 
   rollAffixes(item, level);
   registry.emplace<ItemComponent>(entity, item);
@@ -1352,8 +1366,10 @@ entt::entity ItemFactory::createMaterial(entt::registry &registry,
     item.slot = EquipmentSlot::None;
     
     // Fix: Force Legendary Core (Catalyst) to be Consumable so it can have "Use" action (Open UI)
+    // 催化剂身份用 catalystKind 标记 (取代名称字符串比较)
     if (materialId == 10001) {
         item.type = ItemType::Consumable;
+        item.catalystKind = CatalystKind::LegendaryCore;
     }
 
     registry.emplace<ItemComponent>(entity, item);

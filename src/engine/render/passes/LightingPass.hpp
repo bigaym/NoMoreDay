@@ -19,6 +19,9 @@ public:
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "LightingPass"; }
+  graph::RenderPassType Type() const override {
+    return graph::RenderPassType::Lighting;
+  }
 
   bool Initialize();
   void Shutdown();

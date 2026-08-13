@@ -105,7 +105,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
       {
         const bool has_phase = registry.any_of<PhaseTag>(caster);
         const bool has_swift = sknm::HasEffectById(
-            registry, caster, "flowing_thrust_swift");
+            registry, caster, BuffIdToString(BuffId::SwordStep));
         const bool has_signal = has_phase || has_swift;
         CHECK(has_signal);
       }
@@ -316,7 +316,8 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
     sknm::ConfigureSpecialization(registry, caster, 8, {{871, 1}});
     CHECK(SkillSystem::TryCast(registry, caster, 0, {120.0f, 0.0f}));
     test::skill_keynode_matrix::integration::RunTicks(registry, grid, 8, 0.08f);
-    CHECK(sknm::HasEffectById(registry, caster, "blade_boomerang_guard_qi"));
+    CHECK(sknm::HasEffectById(registry, caster,
+                              BuffIdToString(BuffId::BladeBoomerangGuardQi)));
     ++scenario_count;
   }
 

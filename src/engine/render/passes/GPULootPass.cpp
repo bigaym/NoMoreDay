@@ -25,4 +25,8 @@ void GPULootPass::Execute(graph::RenderContext &context) {
 
 const char *GPULootPass::GetName() const { return "GPULootPass"; }
 
+graph::RenderPassType GPULootPass::Type() const {
+  return graph::RenderPassType::GPULoot;
+}
+
 } // namespace NoMoreDay::render::passes
