@@ -106,16 +106,35 @@ TEST_CASE("[Unit] UI draw list text commands copy into the arena") {
   REQUIRE(commands.size() == 2);
   CHECK(std::string(list.TextAt(commands[1])) == "temporary text");
 
-  // The arena bytes are valid until the next Clear().
+  // The arena bytes are valid until the next Clear(). Each payload occupies
+  // size + 1 bytes (NUL terminator is part of the cursor advance).
   CHECK(list.TextBytesUsed() ==
-        std::string("potions").size() + std::string("temporary text").size());
+        std::string("potions").size() + 1 +
+            std::string("temporary text").size() + 1);
   CHECK(list.TextOverflow() == 0);
+}
+
+TEST_CASE("[Unit] UI draw list NUL-terminates every arena payload") {
+  // Regression: the cursor must advance past the NUL terminator, otherwise
+  // the next Text() memcpy overwrites it and every command but the last
+  // renders its own payload concatenated with all following payloads.
+  UiDrawList list;
+  list.Text(UiDrawLayer::Hud, 1, "fps", {0.0f, 0.0f}, 20.0f, {});
+  list.Text(UiDrawLayer::Hud, 2, "hp", {0.0f, 0.0f}, 20.0f, {});
+  list.Text(UiDrawLayer::Hud, 3, "zone", {0.0f, 0.0f}, 20.0f, {});
+
+  const auto &commands = list.Commands();
+  REQUIRE(commands.size() == 3);
+  CHECK(std::string(list.TextAt(commands[0])) == "fps");
+  CHECK(std::string(list.TextAt(commands[1])) == "hp");
+  CHECK(std::string(list.TextAt(commands[2])) == "zone");
+  CHECK(list.TextBytesUsed() == 3 * 3 + 3);
 }
 
 TEST_CASE("[Unit] UI draw list text arena is reused across Clear") {
   UiDrawList list;
   list.Text(UiDrawLayer::Hud, 1, "abcd", {0.0f, 0.0f}, 20.0f, {});
-  CHECK(list.TextBytesUsed() == 4);
+  CHECK(list.TextBytesUsed() == 5);
   CHECK(std::string(list.TextAt(list.Commands()[0])) == "abcd");
 
   // Clear() resets the cursor; the next frame's text reuses the same arena
@@ -126,7 +145,7 @@ TEST_CASE("[Unit] UI draw list text arena is reused across Clear") {
   CHECK(list.TextCapacity() == capacity);
 
   list.Text(UiDrawLayer::Hud, 2, "ef", {0.0f, 0.0f}, 20.0f, {});
-  CHECK(list.TextBytesUsed() == 2);
+  CHECK(list.TextBytesUsed() == 3);
   CHECK(std::string(list.TextAt(list.Commands()[0])) == "ef");
 }
 
@@ -385,7 +404,7 @@ TEST_CASE("[Unit] UI draw list text overflow records telemetry and drops") {
 
   // A payload that fits is still stored.
   list.Text(UiDrawLayer::Hud, 2, "abc", {0.0f, 0.0f}, 20.0f, {});
-  CHECK(list.TextBytesUsed() == 3);
+  CHECK(list.TextBytesUsed() == 4);
   CHECK(std::string(list.TextAt(list.Commands()[1])) == "abc");
 }
 

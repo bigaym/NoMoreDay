@@ -139,7 +139,12 @@ void UiDrawList::Text(UiDrawLayer layer, UiId nodeId, std::string_view text,
       m_textArena[m_textCursor + text.size()] = '\0';
       command.textOffset = static_cast<std::uint32_t>(m_textCursor);
       command.textLength = static_cast<std::uint16_t>(text.size());
-      m_textCursor += text.size();
+      // Advance past the payload AND its NUL terminator: the arena is a
+      // recycled buffer, so every C-string read (backend DrawTextEx, tests)
+      // must see the terminator immediately after its own payload. Without
+      // the +1 the next Text() memcpy would overwrite this NUL, making every
+      // command but the last read into the following payloads.
+      m_textCursor += text.size() + 1;
     } else {
       // Overflow: recorded as telemetry, no reallocation. The command is kept
       // with an empty text payload so the paint path stays intact.
