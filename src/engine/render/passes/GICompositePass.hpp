@@ -82,6 +82,7 @@ private:
   int m_cameraDeltaUvLoc = -1;
   int m_zoomRatioLoc = -1;
   int m_occupancyEnabledLoc = -1;
+  int m_radianceTexLoc = -1;
 
   resources::FramebufferHandle m_outputScene = {};
   resources::FramebufferHandle m_historyA = {};

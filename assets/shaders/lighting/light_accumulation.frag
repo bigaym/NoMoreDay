@@ -62,13 +62,17 @@ const int kRenderLayerMin = -32;
 const int kRenderLayerSpan = 64;
 
 float calcAttenuation(float dist, float radius) {
+    if (radius <= 0.0) {
+        return 0.0;
+    }
     float normalizedDist = dist / radius;
     if (normalizedDist >= 1.0) {
         return 0.0;
     }
     float d2 = normalizedDist * normalizedDist;
-    float atten = 1.0 - d2;
-    return atten * atten;
+    float atten = (1.0 - d2) * (1.0 - d2);
+    float smoothFade = smoothstep(1.0, 0.7, normalizedDist);
+    return atten * smoothFade;
 }
 
 float calcSpotFactor(vec2 lightDir, vec2 toPixelDir, float spotCosHalfAngle) {
@@ -128,6 +132,9 @@ void accumulatePackedLight(vec2 worldPos, float shadowFactor,
 
     float atten = 1.0 - normalizedDistSq;
     atten *= atten;
+    float normalizedDist = sqrt(normalizedDistSq);
+    float smoothFade = smoothstep(1.0, 0.7, normalizedDist);
+    atten *= smoothFade;
     vec3 lightColorTimesIntensity =
         vec3(light.colorTimesIntensityR, light.colorTimesIntensityG,
              light.colorTimesIntensityB);

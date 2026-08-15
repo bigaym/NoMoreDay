@@ -275,15 +275,19 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     return;
   }
 
+  const float zoom = std::max(context.camera->zoom, kSafeMinZoom);
+  const float tileSizeWorld = static_cast<float>(config.clusterTileSize) / zoom;
+  const float safetyPad = tileSizeWorld * 0.5f;
+
   std::vector<components::GPULightBounds> bounds;
   bounds.reserve(static_cast<size_t>(lightCount));
   for (uint32_t i = 0; i < lightCount; ++i) {
     const auto &record = records[static_cast<size_t>(i)];
     const components::GPULight &light = record.gpuLight;
-    const float minX = light.posX - light.radius;
-    const float minY = light.posY - light.radius;
-    const float maxX = light.posX + light.radius;
-    const float maxY = light.posY + light.radius;
+    const float minX = light.posX - light.radius - safetyPad;
+    const float minY = light.posY - light.radius - safetyPad;
+    const float maxX = light.posX + light.radius + safetyPad;
+    const float maxY = light.posY + light.radius + safetyPad;
     const int32_t minLayer = lighting::ClusteredLightingState::MapWorldYToRenderLayer(
         minY, lighting::ClusteredLightingState::kDefaultLayerBandWorldUnits);
     const int32_t maxLayer = lighting::ClusteredLightingState::MapWorldYToRenderLayer(
@@ -316,8 +320,6 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_clusterGridZLoc, &clusterZ, RL_SHADER_UNIFORM_INT, 1);
   }
 
-  const float zoom = std::max(context.camera->zoom, kSafeMinZoom);
-  const float tileSizeWorld = static_cast<float>(config.clusterTileSize) / zoom;
   const float cameraOffset[2] = {
       context.camera->target.x - (context.camera->offset.x / zoom),
       context.camera->target.y - (context.camera->offset.y / zoom),

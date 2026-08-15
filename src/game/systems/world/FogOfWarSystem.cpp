@@ -80,6 +80,7 @@ void FogOfWarSystem::initialize(ResourceManager &resources, int width,
   Image fogImage = GenImageColor(width, height, BLACK);
   m_fogTexture = LoadTextureFromImage(fogImage);
   UnloadImage(fogImage);
+  SetTextureFilter(m_fogTexture, TEXTURE_FILTER_BILINEAR);
 
   // 设置纹理为可被 Compute Shader 写入
   // 注意: Raylib 的纹理默认就是 GL_TEXTURE_2D, 我们需要用 rlgl 绑定为 image

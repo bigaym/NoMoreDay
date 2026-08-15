@@ -123,9 +123,12 @@ void main() {
 
             vec2 toLight = lightPos - worldPos;
             float distToLight = length(toLight);
-            if (distToLight > radius * 2.0 || intensity <= 0.0) {
+            if (distToLight >= radius || intensity <= 0.0) {
                 continue;
             }
+
+            float normalizedDist = distToLight / radius;
+            float boundaryFade = smoothstep(1.0, 0.6, normalizedDist);
 
             vec2 stepDir = toLight / float(sampleCount);
             vec2 samplePos = worldPos;
@@ -151,7 +154,7 @@ void main() {
                 samplePos += stepDir;
             }
 
-            scatterSum += lightScatter / float(sampleCount);
+            scatterSum += (lightScatter / float(sampleCount)) * boundaryFade;
         }
     }
 

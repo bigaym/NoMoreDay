@@ -23,5 +23,7 @@ void main() {
     vec3 combined = (hdr + bloom * uBloomIntensity) * uExposure;
     vec3 ldr = ACESFilmic(combined);
     ldr = pow(ldr, vec3(1.0 / 2.2));
+    float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    ldr += (noise - 0.5) * (1.0 / 255.0);
     FragColor = vec4(ldr, 1.0);
 }

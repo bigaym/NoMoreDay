@@ -56,8 +56,10 @@ public:
   using SetupFn =
       std::function<void(NoMoreDay::render::graph::RenderGraphBuilder &)>;
 
-  explicit BenchmarkPass(std::string name, SetupFn setupFn, int workloadIterations)
-      : m_name(std::move(name)), m_setupFn(std::move(setupFn)),
+  explicit BenchmarkPass(std::string name,
+                         NoMoreDay::render::graph::RenderPassType type,
+                         SetupFn setupFn, int workloadIterations)
+      : m_name(std::move(name)), m_type(type), m_setupFn(std::move(setupFn)),
         m_workloadIterations(workloadIterations) {}
 
   void Setup(NoMoreDay::render::graph::RenderGraphBuilder &builder) override {
@@ -77,14 +79,13 @@ public:
 
   const char *GetName() const override { return m_name.c_str(); }
 
-  // Benchmark-local pass: the name never matches a canonical table name, so
-  // contract-stage resolution stays exempt (legacy string behavior).
   NoMoreDay::render::graph::RenderPassType Type() const override {
-    return NoMoreDay::render::graph::RenderPassType::Scene;
+    return m_type;
   }
 
 private:
   std::string m_name;
+  NoMoreDay::render::graph::RenderPassType m_type;
   SetupFn m_setupFn;
   int m_workloadIterations = 0;
 };
@@ -101,51 +102,51 @@ PerfStats RunGraphFrameBenchmark(bool validationEnabled, int frames,
   for (int i = 0; i < frames; ++i) {
     RenderGraph graph;
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "ScenePass", [](RenderGraphBuilder &builder) {
+        "ScenePass", RenderPassType::Scene, [](RenderGraphBuilder &builder) {
           builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene);
           builder.Write(RenderResourceTag::SceneDepth, RenderOwnerTag::Scene);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "LightingPass", [](RenderGraphBuilder &builder) {
+        "LightingPass", RenderPassType::Lighting, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::SceneHdrColor,
                        RenderOwnerTag::Lighting);
           builder.Write(RenderResourceTag::SceneHdrColor,
                         RenderOwnerTag::Lighting);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "VolumetricPass", [](RenderGraphBuilder &builder) {
+        "VolumetricPass", RenderPassType::Volumetric, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::SceneHdrColor,
                        RenderOwnerTag::Volumetric);
           builder.Write(RenderResourceTag::SceneHdrColor,
                         RenderOwnerTag::Volumetric);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "VFXPass", [](RenderGraphBuilder &builder) {
+        "VFXPass", RenderPassType::VFX, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::SceneHdrColor, RenderOwnerTag::VFX);
           builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::VFX);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "UIWorldPass", [](RenderGraphBuilder &builder) {
+        "UIWorldPass", RenderPassType::UIWorld, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::SceneHdrColor, RenderOwnerTag::UIWorld);
           builder.Write(RenderResourceTag::SceneHdrColor,
                         RenderOwnerTag::UIWorld);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "PostProcessPass", [](RenderGraphBuilder &builder) {
+        "PostProcessPass", RenderPassType::PostProcess, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::SceneHdrColor,
                        RenderOwnerTag::PostProcess);
           builder.Write(RenderResourceTag::PostProcessLdrColor,
                         RenderOwnerTag::PostProcess);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "DistortionPass", [](RenderGraphBuilder &builder) {
+        "DistortionPass", RenderPassType::Distortion, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::PostProcessLdrColor,
                        RenderOwnerTag::Distortion);
           builder.Write(RenderResourceTag::DistortionLdrColor,
                         RenderOwnerTag::Distortion);
         }, kPassWorkloadIterations));
     graph.AddPass(std::make_shared<BenchmarkPass>(
-        "CompositePass", [](RenderGraphBuilder &builder) {
+        "CompositePass", RenderPassType::Composite, [](RenderGraphBuilder &builder) {
           builder.Read(RenderResourceTag::DistortionLdrColor,
                        RenderOwnerTag::Distortion);
           builder.Write(RenderResourceTag::FinalOutputColor,

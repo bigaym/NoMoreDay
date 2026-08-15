@@ -132,8 +132,8 @@ bool sphereAABBIntersect(in LightData light, vec2 clusterMin, vec2 clusterMax) {
     vec2 lightPos = vec2(light.posX, light.posY);
     vec2 closest = clamp(lightPos, clusterMin, clusterMax);
     vec2 delta = lightPos - closest;
-    float radius = max(light.radius, 0.0);
-    return dot(delta, delta) <= (radius * radius);
+    float safeRadius = max(light.radius + uTileSizeWorld * 0.5, 0.0);
+    return dot(delta, delta) <= (safeRadius * safeRadius);
 }
 
 bool coneAABBIntersect(in LightData light, vec2 clusterMin, vec2 clusterMax) {

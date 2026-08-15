@@ -70,5 +70,9 @@ void main() {
         color = mix(scene, graded, clamp(uGradingIntensity, 0.0, 1.0));
     }
 
+    // High frequency interleaved gradient noise dither to eliminate 8-bit banding
+    float noise = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+    color += (noise - 0.5) * (1.0 / 255.0);
+
     FragColor = vec4(color, 1.0);
 }

@@ -28,6 +28,10 @@ constexpr uint32_t kGLFramebuffer = 0x8D40;
 constexpr uint32_t kGLReadOnly = 0x88B8;
 constexpr uint32_t kGLWriteOnly = 0x88B9;
 constexpr uint32_t kGLRgba16f = 0x881A;
+constexpr uint32_t kGLTexture0 = 0x84C0;
+constexpr uint32_t kGLTexture1 = 0x84C1;
+constexpr uint32_t kGLTexture2D = 0x0DE1;
+constexpr int kRadianceTexUnit = 1;
 constexpr uint32_t kGLColorBufferBit = 0x00004000;
 constexpr uint32_t kGLComputeGroupSize = 8u;
 constexpr uint64_t kFnvOffset = 1469598103934665603ull;
@@ -88,6 +92,7 @@ bool GICompositePass::Initialize(ResourceManager &resources) {
   m_zoomRatioLoc = rlGetLocationUniform(m_compositeShader.id, "uZoomRatio");
   m_occupancyEnabledLoc =
       rlGetLocationUniform(m_compositeShader.id, "uOccupancyEnabled");
+  m_radianceTexLoc = rlGetLocationUniform(m_compositeShader.id, "uRadianceTex");
 
   m_initialized = true;
   return true;
@@ -108,6 +113,7 @@ void GICompositePass::Shutdown() {
   m_cameraDeltaUvLoc = -1;
   m_zoomRatioLoc = -1;
   m_occupancyEnabledLoc = -1;
+  m_radianceTexLoc = -1;
   m_cachedWidth = 0;
   m_cachedHeight = 0;
   m_initialized = false;
@@ -323,8 +329,13 @@ void GICompositePass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_zoomRatioLoc, &zoomRatio, RL_SHADER_UNIFORM_FLOAT, 1);
   }
 
+  if (m_radianceTexLoc >= 0) {
+    rlSetUniform(m_radianceTexLoc, &kRadianceTexUnit, RL_SHADER_UNIFORM_INT, 1);
+  }
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture1);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, context.giRadianceTexture);
+
   constexpr uint32_t kSceneInBinding = 0u;
-  constexpr uint32_t kRadianceInBinding = 1u;
   constexpr uint32_t kHistoryInBinding = 2u;
   constexpr uint32_t kSceneOutBinding = 3u;
   constexpr uint32_t kHistoryOutBinding = 4u;
@@ -334,9 +345,6 @@ void GICompositePass::Execute(graph::RenderContext &context) {
   NoMoreDay::utils::GPUUtils::BindImageTexture(kSceneInBinding,
                                                context.hdrSceneBuffer.colorTexture, 0,
                                                false, 0, kGLReadOnly, kGLRgba16f);
-  NoMoreDay::utils::GPUUtils::BindImageTexture(kRadianceInBinding,
-                                               context.giRadianceTexture, 0, false, 0,
-                                               kGLReadOnly, kGLRgba16f);
   NoMoreDay::utils::GPUUtils::BindImageTexture(kHistoryInBinding,
                                                historyRead.colorTexture, 0, false, 0,
                                                kGLReadOnly, kGLRgba16f);
@@ -387,6 +395,9 @@ void GICompositePass::Execute(graph::RenderContext &context) {
         DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
   }
   rlDisableShader();
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture1);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, 0);
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
 
   // Same-pass sync before the blit reads the composite output: emitted at this
   // exact execution point from the Setup AddPhaseBarrier(Compute, Fragment, ...)

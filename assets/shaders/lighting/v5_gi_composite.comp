@@ -3,7 +3,6 @@
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 
 layout(rgba16f, binding = 0) uniform readonly image2D uSceneIn;
-layout(rgba16f, binding = 1) uniform readonly image2D uRadianceIn;
 layout(rgba16f, binding = 2) uniform readonly image2D uHistoryIn;
 layout(rgba16f, binding = 3) uniform writeonly image2D uSceneOut;
 layout(rgba16f, binding = 4) uniform writeonly image2D uHistoryOut;
@@ -15,6 +14,8 @@ layout(r8, binding = 5) uniform readonly image2D uOccupancyCurrIn;
 layout(r8, binding = 6) uniform readonly image2D uOccupancyPrevIn;
 layout(r8, binding = 7) uniform writeonly image2D uOccupancyOut;
 
+uniform sampler2D uRadianceTex;
+
 uniform ivec2 uSceneResolution;
 uniform ivec2 uRadianceResolution;
 uniform float uTemporalWeight;
@@ -24,12 +25,6 @@ uniform vec2 uCameraDeltaUv;
 uniform float uZoomRatio;
 uniform int uOccupancyEnabled;
 
-ivec2 resolveRadiancePixel(ivec2 scenePixel) {
-    vec2 uv = (vec2(scenePixel) + vec2(0.5)) / vec2(uSceneResolution);
-    ivec2 pixel = ivec2(uv * vec2(uRadianceResolution));
-    return clamp(pixel, ivec2(0), uRadianceResolution - ivec2(1));
-}
-
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     if (pixel.x >= uSceneResolution.x || pixel.y >= uSceneResolution.y) {
@@ -37,10 +32,9 @@ void main() {
     }
 
     vec4 scene = imageLoad(uSceneIn, pixel);
-    ivec2 radiancePixel = resolveRadiancePixel(pixel);
-    vec3 currentGi = imageLoad(uRadianceIn, radiancePixel).rgb * max(uGiIntensity, 0.0);
-
     vec2 currentUv = (vec2(pixel) + vec2(0.5)) / vec2(uSceneResolution);
+    vec3 currentGi = texture(uRadianceTex, currentUv).rgb * max(uGiIntensity, 0.0);
+
     // 2D Camera Reprojection: Reproject current UV to previous frame UV
     vec2 prevUv = (currentUv - vec2(0.5)) * max(uZoomRatio, 0.001) + vec2(0.5) - uCameraDeltaUv;
     ivec2 prevPixel = ivec2(prevUv * vec2(uSceneResolution));
@@ -77,4 +71,3 @@ void main() {
     imageStore(uHistoryOut, pixel, vec4(blendedGi, 1.0));
     imageStore(uSceneOut, pixel, vec4(finalColor, scene.a));
 }
-
