@@ -15,6 +15,7 @@
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/LootTextBatcher.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/resource/MSDFAtlasRegistry.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
@@ -718,7 +719,7 @@ void GameplayRenderAdapter::CollectVisibleItemProxies(
             }
 
             ++collectedCount;
-            int fSize = static_cast<int>(18.0f * scale * m_fontScale);
+            int fSize = static_cast<int>(std::round(18.0f * scale * m_fontScale));
             if (fSize < 12) {
               fSize = 12;
             }
@@ -732,10 +733,10 @@ void GameplayRenderAdapter::CollectVisibleItemProxies(
             if (labelCache != nullptr && labelCache->isValid) {
               tSize = labelCache->cachedSize;
             } else {
-              tSize = {80.0f, static_cast<float>(fSize)};
+              tSize = {100.0f, static_cast<float>(fSize)};
             }
-            const Rectangle bg = {pos.x - tSize.x / 2 - 4,
-                                  pos.y - 30.0f * scale - 2, tSize.x + 8,
+            const Rectangle bg = {pos.x - tSize.x / 2 - 5,
+                                  pos.y - 30.0f * scale - 2, tSize.x + 10,
                                   tSize.y + 4};
             const float dx = pos.x - playerRef.x;
             const float dy = pos.y - playerRef.y;
@@ -750,7 +751,7 @@ void GameplayRenderAdapter::CollectVisibleItemProxies(
           } else if (const auto *gold = frame.registry.try_get<GoldComponent>(
                          entity)) {
             ++collectedCount;
-            int fSize = static_cast<int>(16.0f * m_fontScale);
+            int fSize = static_cast<int>(std::round(16.0f * m_fontScale));
             if (fSize < 10) {
               fSize = 10;
             }
@@ -762,10 +763,10 @@ void GameplayRenderAdapter::CollectVisibleItemProxies(
             if (labelCache != nullptr && labelCache->isValid) {
               tSize = labelCache->cachedSize;
             } else {
-              tSize = {60.0f, static_cast<float>(fSize)};
+              tSize = {70.0f, static_cast<float>(fSize)};
             }
-            const Rectangle bg = {pos.x - tSize.x / 2 - 4, pos.y - 25.0f - 2,
-                                  tSize.x + 8, tSize.y + 4};
+            const Rectangle bg = {pos.x - tSize.x / 2 - 5, pos.y - 25.0f - 2,
+                                  tSize.x + 10, tSize.y + 4};
             const float dx = pos.x - playerRef.x;
             const float dy = pos.y - playerRef.y;
             s_candidates.push_back({entity, pos, tSize, GOLD, 1.0f, "", true,
@@ -783,6 +784,29 @@ void GameplayRenderAdapter::CollectVisibleItemProxies(
 
 void GameplayRenderAdapter::BuildCpuLootLabels(
     render::GameplayRenderFrame &frame) {
+  // B5: per-frame MSDF glyph out-fields. The Engine applies a single
+  // uScreenPxRange uniform to the whole glyph batch, so the representative
+  // pixel range is derived from the largest font size used this frame (item
+  // labels — 18px tier scaled by emphasis — always exceed gold labels, 16px
+  // tier). Known visual deviation: smaller/gold labels render with a slightly
+  // different edge thickness, accepted for manual verification.
+  // B5/H-01: MSDF glyph templates only when the MSDF atlas registry is
+  // available (GPU-text bootstrap registered atlas + metrics) AND the
+  // Engine broadcasts its MSDF glyph resources as ready
+  // (glyphMsdfEngineReady: glyph_msdf.frag loaded + GPUTextSystem
+  // initialized). Otherwise the bitmap path runs, byte-for-byte the
+  // pre-B5 behaviour. This flag represents the final per-frame MSDF
+  // mode decision and doubles as the cache-template source discriminator.
+  // Hoisted before the font-size quantization so the MSDF path can skip it:
+  // the MSDF atlas scales to any font size crisply, while the bitmap path
+  // must stay on integer texel multiples to avoid resampling blur.
+  const bool msdfAvailable =
+      ::NoMoreDay::render::MSDFAtlasRegistry::Get().IsAvailable() &&
+      frame.glyphMsdfEngineReady;
+
+  bool glyphMsdfUsedThisFrame = false;
+  int maxGlyphFSize = 0;
+
   const bool enableLootBeams =
       render::core::QualityTierManager::Get()
           .GetConfig()
@@ -848,11 +872,25 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
       // moved here from the collection (the proxy producer is read-only).
       auto &labelCache =
           frame.registry.get_or_emplace<LabelCacheComponent>(cand.entity);
-      int fSize = cand.isGold ? static_cast<int>(16.0f * m_fontScale)
-                              : static_cast<int>(18.0f * cand.scale *
-                                                 m_fontScale);
+      int fSize = cand.isGold
+                      ? static_cast<int>(std::round(16.0f * m_fontScale))
+                      : static_cast<int>(
+                            std::round(18.0f * cand.scale * m_fontScale));
       if (fSize < 10) {
         fSize = 10;
+      }
+      // Phase A: quantize scaleFactor = fSize / baseSize to an integer
+      // multiple (>= 1) so glyph quads scale by whole atlas texels; a
+      // fractional scale would resample the 24px bitmap atlas bilinearly and
+      // blur the label. The MSDF path skips quantization: the distance field
+      // scales to any font size crisply.
+      if (!msdfAvailable && IsFontValid(frame.font) &&
+          frame.font.baseSize > 0) {
+        const int integerScale =
+            std::max(1, static_cast<int>(std::round(
+                            static_cast<float>(fSize) /
+                            static_cast<float>(frame.font.baseSize))));
+        fSize = frame.font.baseSize * integerScale;
       }
       if (!labelCache.isValid || labelCache.lastFontSize != fSize ||
           (!cand.isGold &&
@@ -888,21 +926,23 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
       const Vector2 tSize = labelCache.cachedSize;
       const Rectangle bg =
           cand.isGold
-              ? Rectangle{cand.pos.x - tSize.x / 2 - 4,
-                          cand.pos.y - 25.0f - 2, tSize.x + 8, tSize.y + 4}
-              : Rectangle{cand.pos.x - tSize.x / 2 - 4,
-                          cand.pos.y - 30.0f * cand.scale - 2, tSize.x + 8,
+              ? Rectangle{cand.pos.x - tSize.x / 2 - 5,
+                          cand.pos.y - 25.0f - 2, tSize.x + 10, tSize.y + 4}
+              : Rectangle{cand.pos.x - tSize.x / 2 - 5,
+                          cand.pos.y - 30.0f * cand.scale - 2, tSize.x + 10,
                           tSize.y + 4};
       cand.currentRect = bg;
 
-      // OPTIMIZATION: Cap overlap resolution search distance to keep performance stable.
+      // Greedy vertical stacking: each label checks every previously placed
+      // label and pushes itself upward until clear (mainstream ARPG
+      // non-overlapping label layout). The push budget caps pathological
+      // cases; with the budget exhausted the label stays at its last
+      // candidate slot (all higher slots are occupied).
       bool overlap = true;
       int safety = 0;
-      while (overlap && safety < 4) {
+      while (overlap && safety < 64) {
         overlap = false;
-        // Only check against recent candidates to avoid O(N^2) runaway
-        const size_t startIdx = (i > 16) ? (i - 16) : 0;
-        for (size_t j = startIdx; j < i; ++j) {
+        for (size_t j = 0; j < i; ++j) {
           if (CheckCollisionRecs(cand.currentRect, s_candidates[j].currentRect)) {
             cand.currentRect.y =
                 s_candidates[j].currentRect.y - cand.currentRect.height - 2;
@@ -913,6 +953,23 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
         ++safety;
       }
 
+      // Snap currentRect origin to camera screen pixels to avoid subpixel bilinear blurring
+      const float zoom = frame.camera.zoom;
+      if (zoom > 1e-4f) {
+        const float screenX =
+            (cand.currentRect.x - frame.camera.target.x) * zoom +
+            frame.camera.offset.x;
+        const float screenY =
+            (cand.currentRect.y - frame.camera.target.y) * zoom +
+            frame.camera.offset.y;
+        const float snappedScreenX = std::round(screenX);
+        const float snappedScreenY = std::round(screenY);
+        cand.currentRect.x =
+            frame.camera.target.x + (snappedScreenX - frame.camera.offset.x) / zoom;
+        cand.currentRect.y =
+            frame.camera.target.y + (snappedScreenY - frame.camera.offset.y) / zoom;
+      }
+
       // U8 (plan §11): hover read moves from UiShared::HoveredItem() to the
       // frame-scoped WorldUiFrame. Unbound frame => no hover highlight.
       const bool hovered =
@@ -921,11 +978,11 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
       components::GPULabelInstance inst;
       inst.position = {cand.currentRect.x, cand.currentRect.y};
       inst.size = {cand.currentRect.width, cand.currentRect.height};
-      inst.bgColor = ColorNormalize(Fade(BLACK, 0.7f));
+      inst.bgColor = ColorNormalize(Color{14, 14, 18, 255});
       inst.borderColor =
-          ColorNormalize(hovered ? WHITE : ColorAlpha(cand.color, 0.5f));
+          ColorNormalize(hovered ? WHITE : ColorAlpha(cand.color, 0.95f));
       inst.borderWidth = hovered ? 2.0f : 1.0f;
-      inst.cornerRadius = 4.0f;
+      inst.cornerRadius = 3.0f;
       if (frame.labelBuffer != nullptr) {
         frame.labelBuffer->push_back(inst);
       }
@@ -937,36 +994,89 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
           fSize = 10;
         }
         // Cached-template path: rebuild glyph layout templates only when the
-        // cached size is stale (font size or text changed), then translate the
-        // origin-relative cached instances to the final rect each frame.
+        // cached size is stale (font size, text, or template source changed),
+        // then translate the origin-relative cached instances to the final
+        // rect each frame. The template source (bitmap vs MSDF) participates
+        // in the invalidation: UVs and size math differ between the two
+        // atlases and must never be reused across a mode switch.
         auto *labelCachePtr =
             frame.registry.try_get<LabelCacheComponent>(cand.entity);
         if (labelCachePtr != nullptr &&
-            labelCachePtr->glyphTemplates.size() == 0) {
+            (labelCachePtr->glyphTemplates.size() == 0 ||
+             labelCachePtr->lastUsedMsdf != msdfAvailable)) {
           labelCachePtr->glyphTemplates.clear();
           labelCachePtr->cachedGlyphs.clear();
-          ::NoMoreDay::render::LootTextBatcher::BuildTemplates(
-              frame.font, cand.text, static_cast<float>(fSize),
-              labelCachePtr->glyphTemplates);
+          if (msdfAvailable) {
+            ::NoMoreDay::render::LootTextBatcher::BuildTemplatesMsdf(
+                cand.text, static_cast<float>(fSize),
+                labelCachePtr->glyphTemplates);
+          } else {
+            ::NoMoreDay::render::LootTextBatcher::BuildTemplates(
+                frame.font, cand.text, static_cast<float>(fSize),
+                labelCachePtr->glyphTemplates);
+          }
           ::NoMoreDay::render::LootTextBatcher::BatchString(
               frame.font, cand.text, {0.0f, 0.0f},
               static_cast<float>(fSize), RAYWHITE, labelCachePtr->cachedGlyphs);
           labelCachePtr->lastFontSize = fSize;
+          labelCachePtr->lastUsedMsdf = msdfAvailable;
         }
         if (labelCachePtr != nullptr &&
             labelCachePtr->glyphTemplates.size() > 0) {
           ::NoMoreDay::render::LootTextBatcher::WriteInstances(
               labelCachePtr->glyphTemplates, labelCachePtr->cachedGlyphs,
-              {cand.currentRect.x + 4, cand.currentRect.y + 2},
-              ColorToInt(cand.color), *frame.glyphBuffer);
+              {cand.currentRect.x + 5, cand.currentRect.y + 2},
+              ColorToInt(cand.color), frame.camera.zoom, *frame.glyphBuffer);
+          // B5: record that this frame actually emitted glyphs from MSDF
+          // templates (WriteInstances returns early unless the cached layout
+          // matches the templates), and track the largest font size seen.
+          if (msdfAvailable &&
+              labelCachePtr->cachedGlyphs.size() ==
+                  labelCachePtr->glyphTemplates.size()) {
+            glyphMsdfUsedThisFrame = true;
+            maxGlyphFSize = std::max(maxGlyphFSize, fSize);
+          }
+        } else if (msdfAvailable) {
+          // H-02: MSDF mode is decided this frame but this label produced no
+          // MSDF templates (every codepoint missed the atlas — e.g. GBK
+          // extension characters) or has no cache entry. Emitting bitmap UVs
+          // here would be sampled by the MSDF shader from the MSDF atlas
+          // (wrong texels), so skip this label's glyph instances instead; the
+          // background label still draws. One-time log keeps the skipped
+          // label visible.
+          if (!cand.text.empty()) {
+            static bool s_loggedMsdfEmptyTemplates = false;
+            if (!s_loggedMsdfEmptyTemplates) {
+              LOG_WARN("GameplayRenderAdapter: label has no MSDF glyph coverage "
+                       "in MSDF mode; label glyphs skipped.");
+              s_loggedMsdfEmptyTemplates = true;
+            }
+          }
         } else {
+          // Bitmap path: bitmap UVs sampled by the bitmap glyph shader.
           ::NoMoreDay::render::LootTextBatcher::BatchString(
               frame.font, cand.text,
-              {cand.currentRect.x + 4, cand.currentRect.y + 2},
+              {cand.currentRect.x + 5, cand.currentRect.y + 2},
               static_cast<float>(fSize), cand.color, *frame.glyphBuffer);
         }
       }
     }
+  }
+
+  // B5: publish the MSDF glyph decision to the Engine glyph draw. When the
+  // MSDF atlas is unavailable the mode stays disabled and the bitmap path
+  // runs exactly as before B5. The pixel range scales the font's em size to
+  // screen pixels at the current zoom: pxRange = distanceRange *
+  // (maxFontSizePx * zoom / emSize).
+  frame.glyphMsdfEnabled = glyphMsdfUsedThisFrame;
+  if (glyphMsdfUsedThisFrame) {
+    const auto &msdfRegistry = ::NoMoreDay::render::MSDFAtlasRegistry::Get();
+    frame.glyphMsdfPxRange =
+        msdfRegistry.GetDistanceRange() *
+        (static_cast<float>(maxGlyphFSize) * frame.camera.zoom /
+         msdfRegistry.GetEmSize());
+  } else {
+    frame.glyphMsdfPxRange = 1.0f;
   }
 }
 

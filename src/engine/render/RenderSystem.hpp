@@ -126,6 +126,16 @@ private:
     static int s_glyphMvpLoc;
     static int s_glyphTexLoc;
     static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_glyphInstanceBuffer;
+
+    // B4: MSDF glyph variant (glyph.vert + glyph_msdf.frag). Distinct program,
+    // so mvp/uFontAtlas/uniform locations are queried against its own id. When
+    // the shader fails to load (id == 0), the glyph draw falls back to the
+    // bitmap path; the adapter additionally skips emitting MSDF instances when
+    // the MSDF atlas registry is unavailable.
+    static Shader s_glyphMsdfShader;
+    static int s_glyphMsdfMvpLoc;
+    static int s_glyphMsdfTexLoc;
+    static int s_glyphMsdfPxRangeLoc;
     
 public:
     // Phase 4: Loot Label Spatial Optimization

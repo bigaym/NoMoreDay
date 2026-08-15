@@ -88,6 +88,10 @@ int RenderSystem::s_glyphMvpLoc = -1;
 int RenderSystem::s_glyphTexLoc = -1;
 std::unique_ptr<NoMoreDay::core::ComputeBuffer>
     RenderSystem::s_glyphInstanceBuffer = nullptr;
+Shader RenderSystem::s_glyphMsdfShader = {0};
+int RenderSystem::s_glyphMsdfMvpLoc = -1;
+int RenderSystem::s_glyphMsdfTexLoc = -1;
+int RenderSystem::s_glyphMsdfPxRangeLoc = -1;
 
 // Screen Shake Implementation
 void RenderSystem::AddScreenShake(float intensity) {
@@ -143,6 +147,16 @@ struct RenderFrameData {
   int labelMvpLoc = -1;
   int glyphMvpLoc = -1;
   int glyphTexLoc = -1;
+  // B4/H-01: MSDF glyph variant resources + adapter-decision out-fields. The
+  // Engine broadcasts its MSDF resource readiness via glyphMsdfEngineReady so
+  // the adapter never enables MSDF templates without Engine support.
+  Shader *glyphMsdfShader = nullptr;
+  int glyphMsdfMvpLoc = -1;
+  int glyphMsdfTexLoc = -1;
+  int glyphMsdfPxRangeLoc = -1;
+  bool glyphMsdfEngineReady = false;
+  bool glyphMsdfEnabled = false;
+  float glyphMsdfPxRange = 1.0f;
   NoMoreDay::core::ComputeBuffer *labelInstanceBuffer = nullptr;
   NoMoreDay::core::ComputeBuffer *glyphInstanceBuffer = nullptr;
   bool gpuTextEnabled = false;
@@ -164,6 +178,7 @@ struct RenderFrameData {
         &s_occluderBuffer, &s_lightCandidateBuffer, &s_heightFieldBuffer,
         &s_lootInstanceBuffer, &s_emissiveStampBuffer,
         gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font,
+        glyphMsdfEngineReady, glyphMsdfEnabled, glyphMsdfPxRange,
         occluderStaticCount, occluderDynamicCount, occluderStaticSignature,
         occluderDynamicSignature, ecsLights, worldWidth, worldHeight,
         tileWorldSize};
@@ -620,6 +635,11 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
     NoMoreDay::render::GameplayRenderFrame hooksFrame = frame.ToHooksFrame();
     gameplayHooks->onUIWorld(hooksFrame);
     frame.font = hooksFrame.font;
+    // B4: MSDF glyph out-fields flow back the same way as frame.font — the
+    // adapter decides the glyph mode inside BuildCpuLootLabels and the Engine
+    // glyph draw below reads the Engine-side copy.
+    frame.glyphMsdfEnabled = hooksFrame.glyphMsdfEnabled;
+    frame.glyphMsdfPxRange = hooksFrame.glyphMsdfPxRange;
   }
   if (frame.gpuLootEnabled) {
     return;
@@ -691,23 +711,74 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
     frame.glyphInstanceBuffer->BindBase(static_cast<uint32_t>(
         NoMoreDay::RenderConstants::Binding::SSBO_GLYPH_INSTANCE));
 
-    BeginShaderMode(*frame.glyphShader);
-    const Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
-    SetShaderValueMatrix(*frame.glyphShader, frame.glyphMvpLoc, mvp);
+    // B4/H-01: MSDF glyph branch — the adapter's MSDF templates carry MSDF
+    // atlas UVs, so the draw must bind glyph_msdf.frag + the GPUTextSystem-
+    // owned atlas when the mode is active. glyphMsdfEngineReady mirrors the
+    // Engine resource state (s_glyphMsdfShader loaded AND GPUTextSystem
+    // initialized); the adapter gates the MSDF path on it, so this branch is
+    // the only shader/atlas pair that can be active with MSDF UVs. The shader
+    // pointer/id checks below are defensive redundancy.
+    const bool msdfReady =
+        frame.glyphMsdfEnabled && frame.glyphMsdfEngineReady &&
+        frame.glyphMsdfShader != nullptr && frame.glyphMsdfShader->id != 0;
 
-    rlActiveTextureSlot(3);
-    rlEnableTexture(frame.font.texture.id);
-    if (frame.glyphTexLoc != -1) {
-      int texUnit = 3;
-      rlSetUniform(frame.glyphTexLoc, &texUnit, RL_SHADER_UNIFORM_INT, 1);
+    bool drawGlyphs = true;
+    if (msdfReady) {
+      // MSDF path: median-decoded distance field from the GPUTextSystem atlas
+      // (still texture unit 3 / slot 3, unchanged), with the per-frame
+      // screen-space pixel range the adapter derived from the label font size.
+      BeginShaderMode(*frame.glyphMsdfShader);
+      const Matrix mvp =
+          MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+      SetShaderValueMatrix(*frame.glyphMsdfShader, frame.glyphMsdfMvpLoc, mvp);
+
+      rlActiveTextureSlot(3);
+      rlEnableTexture(
+          NoMoreDay::render::GPUTextSystem::Get().GetAtlasTexture().id);
+      if (frame.glyphMsdfTexLoc != -1) {
+        int texUnit = 3;
+        rlSetUniform(frame.glyphMsdfTexLoc, &texUnit, RL_SHADER_UNIFORM_INT, 1);
+      }
+      if (frame.glyphMsdfPxRangeLoc != -1) {
+        rlSetUniform(frame.glyphMsdfPxRangeLoc, &frame.glyphMsdfPxRange,
+                     RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+    } else if (frame.glyphMsdfEnabled) {
+      // H-01 defensive guard: the adapter only enables the MSDF path when the
+      // Engine broadcasts glyphMsdfEngineReady, so this branch is theoretically
+      // unreachable. Kept as a safety net — sampling the bitmap atlas with
+      // MSDF UVs would render wrong texels, so skip the glyph draw instead of
+      // emitting garbage. One-time log keeps the defensive path visible.
+      drawGlyphs = false;
+      static bool s_loggedMsdfSkip = false;
+      if (!s_loggedMsdfSkip) {
+        LOG_WARN("RenderSystem: MSDF glyph mode without Engine MSDF resources "
+                 "(defensive, unreachable); glyph draw skipped.");
+        s_loggedMsdfSkip = true;
+      }
+    } else {
+      // Legacy bitmap path: frame.font atlas + glyph.frag.
+      BeginShaderMode(*frame.glyphShader);
+      const Matrix mvp =
+          MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+      SetShaderValueMatrix(*frame.glyphShader, frame.glyphMvpLoc, mvp);
+
+      rlActiveTextureSlot(3);
+      rlEnableTexture(frame.font.texture.id);
+      if (frame.glyphTexLoc != -1) {
+        int texUnit = 3;
+        rlSetUniform(frame.glyphTexLoc, &texUnit, RL_SHADER_UNIFORM_INT, 1);
+      }
     }
 
-    rlEnableVertexArray(quadMesh.vaoId);
-    rlDrawVertexArrayInstanced(0, 6,
-                               static_cast<int>(frame.glyphBuffer->size()));
-    rlDisableVertexArray();
-    EndShaderMode();
-    rlActiveTextureSlot(0);
+    if (drawGlyphs) {
+      rlEnableVertexArray(quadMesh.vaoId);
+      rlDrawVertexArrayInstanced(0, 6,
+                                 static_cast<int>(frame.glyphBuffer->size()));
+      rlDisableVertexArray();
+      EndShaderMode();
+      rlActiveTextureSlot(0);
+    }
   }
 
   rlDrawRenderBatchActive();
@@ -968,6 +1039,23 @@ void RenderSystem::Initialize() {
     s_glyphTexLoc = GetShaderLocation(s_glyphShader, "uFontAtlas");
   }
 
+  // B4: MSDF glyph variant. Shares glyph.vert; the fragment shader decodes the
+  // MSDF median with a screen-space pixel range uniform. Locations are queried
+  // against this program's own id (GL does not guarantee cross-program
+  // location equality). On load failure the shader id stays 0 and the glyph
+  // draw falls back to the bitmap path.
+  s_glyphMsdfShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
+      "assets/shaders/ui/glyph.vert", "assets/shaders/ui/glyph_msdf.frag");
+  if (s_glyphMsdfShader.id != 0) {
+    s_glyphMsdfMvpLoc = GetShaderLocation(s_glyphMsdfShader, "mvp");
+    s_glyphMsdfTexLoc = GetShaderLocation(s_glyphMsdfShader, "uFontAtlas");
+    s_glyphMsdfPxRangeLoc =
+        rlGetLocationUniform(s_glyphMsdfShader.id, "uScreenPxRange");
+  } else {
+    LOG_WARN("RenderSystem: glyph_msdf.frag failed to load; MSDF glyph "
+             "rendering disabled (bitmap path).");
+  }
+
   s_glyphInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
   s_glyphInstanceBuffer->Create(
       NoMoreDay::RenderConstants::GPU::MAX_GLYPHS *
@@ -997,6 +1085,13 @@ void RenderSystem::Shutdown() {
     s_glyphShader.id = 0;
   }
   s_glyphInstanceBuffer = nullptr;
+  if (s_glyphMsdfShader.id != 0) {
+    UnloadShader(s_glyphMsdfShader);
+    s_glyphMsdfShader.id = 0;
+    s_glyphMsdfMvpLoc = -1;
+    s_glyphMsdfTexLoc = -1;
+    s_glyphMsdfPxRangeLoc = -1;
+  }
   NoMoreDay::render::GPULootSystem::Get().Shutdown();
 
   NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
@@ -1081,6 +1176,16 @@ void RenderSystem::render(entt::registry &registry,
   frame.labelMvpLoc = s_labelMvpLoc;
   frame.glyphMvpLoc = s_glyphMvpLoc;
   frame.glyphTexLoc = s_glyphTexLoc;
+  // B4/H-01: MSDF glyph variant resources wired alongside the bitmap glyph
+  // shader; the Engine broadcasts its MSDF resource readiness (shader loaded
+  // AND GPUTextSystem initialized) so the adapter can gate the MSDF path on it.
+  frame.glyphMsdfShader = &s_glyphMsdfShader;
+  frame.glyphMsdfMvpLoc = s_glyphMsdfMvpLoc;
+  frame.glyphMsdfTexLoc = s_glyphMsdfTexLoc;
+  frame.glyphMsdfPxRangeLoc = s_glyphMsdfPxRangeLoc;
+  frame.glyphMsdfEngineReady =
+      (s_glyphMsdfShader.id != 0 &&
+       NoMoreDay::render::GPUTextSystem::Get().IsInitialized());
   frame.labelInstanceBuffer = s_labelInstanceBuffer.get();
   frame.glyphInstanceBuffer = s_glyphInstanceBuffer.get();
   if (gameplayHooks != nullptr) {

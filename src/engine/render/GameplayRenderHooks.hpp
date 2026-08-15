@@ -68,6 +68,21 @@ struct GameplayRenderFrame {
   // Out-field: glyph atlas font the Engine binds for the glyph instanced draw.
   Font font = {};
 
+  // In-field: Engine->adapter MSDF glyph resource readiness. The Engine fills
+  // this before handing the frame to the adapter (glyph_msdf.frag loaded AND
+  // GPUTextSystem initialized); the adapter must only enable the MSDF glyph
+  // path when both the MSDF atlas registry and this flag hold, otherwise it
+  // stays on the bitmap path so glyphs never silently disappear.
+  bool glyphMsdfEngineReady = false;
+
+  // Out-fields: MSDF glyph mode. When the adapter built glyph templates from
+  // the MSDF atlas metrics (BuildTemplatesMsdf) and emitted glyph instances,
+  // it sets glyphMsdfEnabled plus the per-frame screen-space pixel range so
+  // the Engine glyph draw can bind the GPUTextSystem-owned MSDF atlas texture
+  // with glyph_msdf.frag.
+  bool glyphMsdfEnabled = false;
+  float glyphMsdfPxRange = 1.0f;
+
   // Out-fields: occluder projection stats filled by the adapter (shared FNV
   // signature contract consumed by OccluderExtractPass).
   uint32_t occluderStaticCount = 0u;

@@ -12,6 +12,7 @@
 #include "engine/render/RenderSystem.hpp" // ADDED
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
 #include "engine/render/resource/MSDFAtlasLoader.hpp"
+#include "engine/render/resource/MSDFAtlasRegistry.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/foundation/components/AstrolabeUIComponent.hpp"
 #include "game/foundation/components/WorldState.hpp"
@@ -129,6 +130,12 @@ void InitializeGPUTextBootstrap(ResourceManager &resourceManager) {
   AppendAsciiString(codepointToMetric, "STATUS", 2u, glyphIndices, meta);
 
   textSystem.UploadStringTable(glyphIndices, meta);
+
+  // Publish CPU-side glyph metrics for runtime lookups (loot label system).
+  // Register() copies the metrics vector, so atlasData can be unloaded below.
+  MSDFAtlasRegistry::Get().Register(atlasData.texture, atlasData.glyphs,
+                                    atlasData.distanceRange,
+                                    MSDFAtlasRegistry::kV4AtlasEmSize);
   textSystem.SetAtlasTexture(atlasData.texture, true);
   atlasData.texture = {};
   MSDFAtlasLoader::Unload(atlasData);

@@ -30,6 +30,7 @@ add_library(NoMoreDayEngineRenderCore STATIC
     ${CMAKE_SOURCE_DIR}/src/engine/render/particle/ForceFieldManager.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/particle/ParticleTextureManager.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resource/MSDFAtlasLoader.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/resource/MSDFAtlasRegistry.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resource/TextureArrayManager.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resources/FramebufferManager.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resources/FullscreenQuad.cpp

@@ -1,8 +1,22 @@
 #include "engine/render/LootTextBatcher.hpp"
 #include "engine/render/GlyphCache.hpp"
+#include "engine/render/resource/MSDFAtlasRegistry.hpp"
 #include "raymath.h"
+#include <cmath>
 
 namespace NoMoreDay::render {
+
+namespace {
+
+// Snaps a world-space value to the camera pixel grid: one world unit spans
+// `zoom` pixels, so the snapped value is a multiple of 1/zoom. Keeps glyph
+// quads on whole screen pixels and avoids subpixel bilinear blur.
+float SnapToPixelGrid(float value, float zoom) {
+    if (zoom <= 1e-4f) return value;
+    return std::round(value * zoom) / zoom;
+}
+
+} // namespace
 
 float LootTextBatcher::BatchString(const Font& font, const std::string& text, 
                                  Vector2 position, float fontSize, Color color, 
@@ -126,12 +140,14 @@ void LootTextBatcher::BuildTemplates(const Font& font, const std::string& text, 
             tpl.size.x = rec.width * scaleFactor;
             tpl.size.y = rec.height * scaleFactor;
 
-            // Calculate UVs (with safety check for texture dimensions)
+            // Calculate UVs (with safety check for texture dimensions).
+            // Inset by half a texel so bilinear sampling never bleeds into
+            // neighbouring glyphs of the packed atlas.
             if (texWidth > 0 && texHeight > 0) {
-                tpl.uvMin.x = rec.x / texWidth;
-                tpl.uvMin.y = rec.y / texHeight;
-                tpl.uvMax.x = (rec.x + rec.width) / texWidth;
-                tpl.uvMax.y = (rec.y + rec.height) / texHeight;
+                tpl.uvMin.x = rec.x / texWidth + 0.5f / texWidth;
+                tpl.uvMin.y = rec.y / texHeight + 0.5f / texHeight;
+                tpl.uvMax.x = (rec.x + rec.width) / texWidth - 0.5f / texWidth;
+                tpl.uvMax.y = (rec.y + rec.height) / texHeight - 0.5f / texHeight;
             }
 
             // Full cursor step, identical to BatchString's advance math.
@@ -159,17 +175,80 @@ void LootTextBatcher::BuildTemplates(const Font& font, const std::string& text, 
     }
 }
 
+void LootTextBatcher::BuildTemplatesMsdf(const std::string& text, float fontSize,
+                                         std::vector<NoMoreDay::components::GlyphTemplate>& out) {
+    if (text.empty()) return;
+
+    const MSDFAtlasRegistry& registry = MSDFAtlasRegistry::Get();
+    if (!registry.IsAvailable()) return; // Caller falls back to the bitmap path.
+
+    const float scale = fontSize / registry.GetEmSize();
+    const float spacing = 1.0f; // Default spacing, identical to BuildTemplates
+    float currentX = 0.0f;
+
+    const char* ptr = text.c_str();
+    int byteSize = 0;
+
+    while (*ptr != '\0') {
+        int codepoint = GetCodepointNext(ptr, &byteSize);
+        const MSDFGlyphMetric* metric = registry.Find(static_cast<uint32_t>(codepoint));
+
+        if (codepoint != ' ' && metric != nullptr) {
+            NoMoreDay::components::GlyphTemplate tpl;
+
+            // Render bounds relative to the text origin (no screen coordinates).
+            // Bearing is (left, bottom) in em units; scaled to pixels here.
+            tpl.offset.x = currentX + metric->bearing[0] * scale;
+            tpl.offset.y = metric->bearing[1] * scale;
+
+            tpl.size.x = metric->size[0] * scale;
+            tpl.size.y = metric->size[1] * scale;
+
+            // MSDF atlas packs each glyph with margin, so UVs are taken as-is
+            // (no half-texel inset, unlike the bitmap path in BuildTemplates).
+            tpl.uvMin.x = metric->uvRect[0];
+            tpl.uvMin.y = metric->uvRect[1];
+            tpl.uvMax.x = metric->uvRect[2];
+            tpl.uvMax.y = metric->uvRect[3];
+
+            // Full cursor step, identical to BuildTemplates' advance math.
+            tpl.advanceX = metric->advance * scale + spacing;
+
+            out.push_back(tpl);
+        }
+
+        // Advance cursor (identical to BuildTemplates: hit -> advance,
+        // miss -> width estimate for unknown chars).
+        if (metric != nullptr) {
+            currentX += metric->advance * scale + spacing;
+        } else {
+            currentX += (fontSize * 0.5f + spacing);
+        }
+
+        ptr += byteSize;
+    }
+}
+
 void LootTextBatcher::WriteInstances(const std::vector<NoMoreDay::components::GlyphTemplate>& templates,
                                      const std::vector<NoMoreDay::components::GPUGlyphInstance>& cachedRelative,
-                                     Vector2 origin, uint32_t color,
+                                     Vector2 origin, uint32_t color, float zoom,
                                      std::vector<NoMoreDay::components::GPUGlyphInstance>& outBuffer) {
     if (templates.size() != cachedRelative.size()) return;
 
     outBuffer.reserve(outBuffer.size() + cachedRelative.size());
-    for (const NoMoreDay::components::GPUGlyphInstance& src : cachedRelative) {
+    for (size_t i = 0; i < cachedRelative.size(); ++i) {
+        const NoMoreDay::components::GPUGlyphInstance& src = cachedRelative[i];
+        const NoMoreDay::components::GlyphTemplate& tpl = templates[i];
         NoMoreDay::components::GPUGlyphInstance inst = src;
-        inst.position.x = src.position.x + origin.x;
-        inst.position.y = src.position.y + origin.y;
+        inst.position.x = SnapToPixelGrid(src.position.x + origin.x, zoom);
+        inst.position.y = SnapToPixelGrid(src.position.y + origin.y, zoom);
+        inst.size.x = SnapToPixelGrid(src.size.x, zoom);
+        inst.size.y = SnapToPixelGrid(src.size.y, zoom);
+        // UVs come from the template (half-texel inset applied at build time);
+        // the cached relative instances were produced by BatchString at (0,0)
+        // and carry the un-inset UVs.
+        inst.uvMin = tpl.uvMin;
+        inst.uvMax = tpl.uvMax;
         inst.colorPacked = color;
         outBuffer.push_back(inst);
     }

@@ -31,9 +31,11 @@ def glyph_to_record(glyph: dict, atlas_w: float, atlas_h: float) -> tuple[int, t
     ab = glyph["atlasBounds"]
 
     u0 = float(ab["left"]) / atlas_w
-    v0 = float(ab["bottom"]) / atlas_h
+    # msdf-atlas-gen atlasBounds are y-up (origin at atlas bottom); texture
+    # sampling is y-down (v=0 at image top), so the v axis must be flipped.
+    v0 = 1.0 - float(ab["top"]) / atlas_h
     u1 = float(ab["right"]) / atlas_w
-    v1 = float(ab["top"]) / atlas_h
+    v1 = 1.0 - float(ab["bottom"]) / atlas_h
 
     bearing_x = float(pb["left"])
     bearing_y = float(pb["bottom"])

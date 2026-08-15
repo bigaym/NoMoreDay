@@ -49,20 +49,39 @@ public:
                                std::vector<NoMoreDay::components::GlyphTemplate>& out);
 
     /**
+     * @brief Builds per-glyph layout templates from MSDF atlas metrics.
+     * Same contract and coordinate system as BuildTemplates (templates are
+     * origin-relative and cached), but metrics come from MSDFAtlasRegistry:
+     * scale = fontSize / emSize; offset uses the glyph bearing (left, bottom);
+     * UVs are the atlas uvRect as-is (the MSDF atlas packs glyphs with margin,
+     * so no half-texel inset). Missing codepoints and spaces are skipped while
+     * the cursor still advances (identical to BuildTemplates' fallback math).
+     * When the registry is unavailable this emits nothing and returns; the
+     * caller is responsible for falling back to the bitmap path.
+     * @param text The UTF-8 string to template.
+     * @param fontSize Target font size in pixels.
+     * @param out Destination vector for glyph templates (spaces and missing glyphs skipped).
+     */
+    static void BuildTemplatesMsdf(const std::string& text, float fontSize,
+                                   std::vector<NoMoreDay::components::GlyphTemplate>& out);
+
+    /**
      * @brief Writes cached (origin-relative) glyph instances into a buffer at an origin.
-     * Translates each cachedRelative instance by origin and applies the given
-     * packed color to every instance. Byte-equivalent to calling BatchString
-     * with the same font/text/fontSize/color at the given origin when
-     * cachedRelative was produced from the same layout.
+     * Translates each cachedRelative instance by origin, applies the given
+     * packed color to every instance, and snaps every glyph position/size to
+     * the camera pixel grid (world unit = 1/zoom) to avoid subpixel bilinear
+     * blurring. Layout math is identical to BatchString's; the snap is a pure
+     * quantization applied on top.
      * @param templates Layout templates matching cachedRelative (sanity guard; sizes must match).
      * @param cachedRelative Absolute glyph instances relative to (0,0).
      * @param origin Screen/world position to translate the instances to.
      * @param color Packed RGBA8 color applied to every instance.
+     * @param zoom Camera zoom (pixels per world unit); must be > 0, otherwise the snap degrades to a 1px grid.
      * @param outBuffer The destination vector for glyph instances.
      */
     static void WriteInstances(const std::vector<NoMoreDay::components::GlyphTemplate>& templates,
                                const std::vector<NoMoreDay::components::GPUGlyphInstance>& cachedRelative,
-                               Vector2 origin, uint32_t color,
+                               Vector2 origin, uint32_t color, float zoom,
                                std::vector<NoMoreDay::components::GPUGlyphInstance>& outBuffer);
 };
 
