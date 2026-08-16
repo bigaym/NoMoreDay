@@ -28,6 +28,7 @@ void ParticleTextureManager::Init(int maxLayers, int layerSize) {
   m_maxLayers = std::max(1, maxLayers);
   m_layerSize = std::max(1, layerSize);
   m_loadedLayers = 0;
+  m_layerLinear.assign(static_cast<size_t>(m_maxLayers), false);
 
   utils::GPUUtils::GenTextures(1, &m_textureArrayId);
   if (m_textureArrayId == 0) {
@@ -62,10 +63,11 @@ void ParticleTextureManager::Shutdown() {
   }
   m_textureArrayId = 0;
   m_loadedLayers = 0;
+  m_layerLinear.clear();
   m_initialized = false;
 }
 
-int ParticleTextureManager::LoadLayer(const std::string &path) {
+int ParticleTextureManager::LoadLayer(const std::string &path, bool isLinear) {
   if (!m_initialized || m_textureArrayId == 0) {
     LOG_WARN("ParticleTextureManager: LoadLayer called before Init.");
     return -1;
@@ -100,9 +102,22 @@ int ParticleTextureManager::LoadLayer(const std::string &path) {
   utils::GPUUtils::BindTexture(RenderConstants::GL::TEXTURE_2D_ARRAY, 0);
   UnloadImage(image);
 
+  if (static_cast<size_t>(layer) >= m_layerLinear.size()) {
+    m_layerLinear.resize(static_cast<size_t>(m_maxLayers), false);
+  }
+  m_layerLinear[static_cast<size_t>(layer)] = isLinear;
+
   ++m_loadedLayers;
   LOG_INFO("ParticleTextureManager: Loaded layer {} from {}", layer, path);
   return layer;
+}
+
+bool ParticleTextureManager::IsLayerLinear(int layer) const {
+  if (layer < 0 || layer >= m_loadedLayers ||
+      static_cast<size_t>(layer) >= m_layerLinear.size()) {
+    return false;
+  }
+  return m_layerLinear[static_cast<size_t>(layer)];
 }
 
 void ParticleTextureManager::Bind(uint32_t textureUnit) const {

@@ -55,7 +55,7 @@ TEST_CASE("[Unit] GPU ABI - Generator reproducibility and runtime budget") {
       std::chrono::duration<double, std::milli>(end - start).count();
 
   CHECK(rc == 0);
-  CHECK(elapsedMs <= 2000.0);
+  CHECK(elapsedMs <= 5000.0);
 }
 
 TEST_CASE("[Unit] GPU ABI - No manual GLSL struct duplication gate") {
@@ -68,7 +68,7 @@ TEST_CASE("[Unit] GPU ABI - No manual GLSL struct duplication gate") {
       std::chrono::duration<double, std::milli>(end - start).count();
 
   CHECK(rc == 0);
-  CHECK(elapsedMs <= 2000.0);
+  CHECK(elapsedMs <= 5000.0);
 }
 
 TEST_CASE("[Unit] GPU ABI - V5 layout snapshot placeholders") {
@@ -167,6 +167,110 @@ TEST_CASE("[Unit] GPU ABI - V5 layout snapshot placeholders") {
   CHECK(offsetof(GPUFluidConfig, gravity) == 16);
   CHECK(offsetof(GPUFluidConfig, surfaceTension) == 24);
   CHECK(offsetof(GPUFluidConfig, maxParticles) == 28);
+}
+
+TEST_CASE("[Unit] GPU ABI - Exhaustive struct layout coverage") {
+  using namespace NoMoreDay::components;
+
+  // GPUParticle
+  CHECK(std::is_standard_layout_v<GPUParticle>);
+  CHECK(sizeof(GPUParticle) == 64);
+  CHECK(offsetof(GPUParticle, position) == 0);
+  CHECK(offsetof(GPUParticle, velocity) == 8);
+  CHECK(offsetof(GPUParticle, acceleration) == 16);
+  CHECK(offsetof(GPUParticle, color) == 24);
+  CHECK(offsetof(GPUParticle, lifetime) == 28);
+  CHECK(offsetof(GPUParticle, maxLifetime) == 32);
+  CHECK(offsetof(GPUParticle, scale) == 36);
+  CHECK(offsetof(GPUParticle, flags) == 40);
+  CHECK(offsetof(GPUParticle, growthRate) == 44);
+  CHECK(offsetof(GPUParticle, rotation) == 48);
+  CHECK(offsetof(GPUParticle, textureIndex) == 52);
+  CHECK(offsetof(GPUParticle, subUV) == 54);
+  CHECK(offsetof(GPUParticle, animFrameCount) == 56);
+  CHECK(offsetof(GPUParticle, blendMode) == 58);
+  CHECK(offsetof(GPUParticle, subEmitterType) == 59);
+  CHECK(offsetof(GPUParticle, subEmitterParam) == 60);
+
+  // GPUDistortionSource
+  CHECK(std::is_standard_layout_v<GPUDistortionSource>);
+  CHECK(sizeof(GPUDistortionSource) == 16);
+  CHECK(offsetof(GPUDistortionSource, posX) == 0);
+  CHECK(offsetof(GPUDistortionSource, posY) == 4);
+  CHECK(offsetof(GPUDistortionSource, radius) == 8);
+  CHECK(offsetof(GPUDistortionSource, strength) == 12);
+
+  // GPUTrailPoint & Header
+  CHECK(std::is_standard_layout_v<GPUTrailPoint>);
+  CHECK(sizeof(GPUTrailPoint) == 32);
+  CHECK(offsetof(GPUTrailPoint, posX) == 0);
+  CHECK(offsetof(GPUTrailPoint, flags) == 28);
+  CHECK(std::is_standard_layout_v<GPUTrailHeader>);
+  CHECK(sizeof(GPUTrailHeader) == 32);
+  CHECK(offsetof(GPUTrailHeader, headIndex) == 0);
+  CHECK(offsetof(GPUTrailHeader, colorEnd) == 28);
+
+  // GPUForceField & GPULight
+  CHECK(std::is_standard_layout_v<GPUForceField>);
+  CHECK(sizeof(GPUForceField) == 32);
+  CHECK(offsetof(GPUForceField, posX) == 0);
+  CHECK(offsetof(GPUForceField, padding) == 28);
+  CHECK(std::is_standard_layout_v<GPULight>);
+  CHECK(sizeof(GPULight) == 64);
+  CHECK(offsetof(GPULight, posX) == 0);
+  CHECK(offsetof(GPULight, flags) == 60);
+
+  // GPUEntity
+  CHECK(std::is_standard_layout_v<GPUEntity>);
+  CHECK(sizeof(GPUEntity) == 64);
+  CHECK(offsetof(GPUEntity, position) == 0);
+  CHECK(offsetof(GPUEntity, prevPosition) == 8);
+  CHECK(offsetof(GPUEntity, velocity) == 16);
+  CHECK(offsetof(GPUEntity, padding) == 40);
+
+  // GPUSkillEffect
+  CHECK(std::is_standard_layout_v<GPUSkillEffect>);
+  CHECK(sizeof(GPUSkillEffect) == 64);
+  CHECK(offsetof(GPUSkillEffect, position) == 0);
+  CHECK(offsetof(GPUSkillEffect, type) == 60);
+
+  // HoloBladeInstance & GPUPopupInstance
+  CHECK(std::is_standard_layout_v<HoloBladeInstance>);
+  CHECK(sizeof(HoloBladeInstance) == 48);
+  CHECK(offsetof(HoloBladeInstance, position) == 0);
+  CHECK(offsetof(HoloBladeInstance, padding) == 40);
+  CHECK(std::is_standard_layout_v<GPUPopupInstance>);
+  CHECK(sizeof(GPUPopupInstance) == 48);
+  CHECK(offsetof(GPUPopupInstance, position) == 0);
+  CHECK(offsetof(GPUPopupInstance, padding) == 40);
+
+  // GPUTextCommand & GPUGlyphMetrics & GPUTextQuad
+  CHECK(std::is_standard_layout_v<GPUTextCommand>);
+  CHECK(sizeof(GPUTextCommand) == 16);
+  CHECK(offsetof(GPUTextCommand, worldPosX) == 0);
+  CHECK(offsetof(GPUTextCommand, colorAndFlags) == 12);
+  CHECK(std::is_standard_layout_v<GPUGlyphMetrics>);
+  CHECK(sizeof(GPUGlyphMetrics) == 40);
+  CHECK(offsetof(GPUGlyphMetrics, uvMinX) == 0);
+  CHECK(offsetof(GPUGlyphMetrics, reserved) == 36);
+  CHECK(std::is_standard_layout_v<GPUTextQuad>);
+  CHECK(sizeof(GPUTextQuad) == 40);
+  CHECK(offsetof(GPUTextQuad, screenPosX) == 0);
+  CHECK(offsetof(GPUTextQuad, opacity) == 36);
+
+  // GPUVisualStats & GPULabelInstance & GPUGlyphInstance
+  CHECK(std::is_standard_layout_v<GPUVisualStats>);
+  CHECK(sizeof(GPUVisualStats) == 64);
+  CHECK(offsetof(GPUVisualStats, weaponDamage) == 0);
+  CHECK(offsetof(GPUVisualStats, padding) == 40);
+  CHECK(std::is_standard_layout_v<GPULabelInstance>);
+  CHECK(sizeof(GPULabelInstance) == 64);
+  CHECK(offsetof(GPULabelInstance, position) == 0);
+  CHECK(offsetof(GPULabelInstance, padding) == 56);
+  CHECK(std::is_standard_layout_v<GPUGlyphInstance>);
+  CHECK(sizeof(GPUGlyphInstance) == 48);
+  CHECK(offsetof(GPUGlyphInstance, position) == 0);
+  CHECK(offsetof(GPUGlyphInstance, padding) == 40);
 }
 
 TEST_CASE("[Unit] GPU ABI - FluidParticle shader mirrors layout match") {

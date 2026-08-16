@@ -1672,6 +1672,15 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.worldHeight = frame.worldHeight;
   graphContext.tileWorldSize = frame.tileWorldSize;
 
+  // AD-3: expose the height field to the GI composite for surface-normal
+  // extraction. The producer is HeightShadowPass (GlobalHeightField), which
+  // executes earlier in this graph when heightShadowEnabled; the handle is
+  // captured pre-execution, so it resolves to a valid texture from the second
+  // frame onward (the height field is lazily initialized on its first Execute).
+  graphContext.heightFieldTexture =
+      (g_heightShadowPass != nullptr) ? g_heightShadowPass->GetHeightFieldTexture()
+                                      : 0u;
+
   // Ensure lazy-backed shadow/cluster resources exist before the
   // imported-backing snapshot below is captured. On the first offscreen-HDR
   // frame these handles are still zero (they are allocated inside pass

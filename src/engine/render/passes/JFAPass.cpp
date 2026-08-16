@@ -206,19 +206,11 @@ bool JFAPass::Initialize(ResourceManager &resources) {
   m_upsampleMaskTextureLoc =
       rlGetLocationUniform(m_upsampleShader.id, "uMaskTexture");
 
-
-  NoMoreDay::utils::GPUUtils::GenBuffers(1, &m_overflowCounterBuffer);
-  if (m_overflowCounterBuffer == 0u) {
+  m_overflowCounterBuffer.Create(sizeof(uint32_t), 3);
+  if (m_overflowCounterBuffer.GetId() == 0u) {
     Shutdown();
     return false;
   }
-  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer,
-                                         m_overflowCounterBuffer);
-  const uint32_t initialCounter = 0u;
-  NoMoreDay::utils::GPUUtils::BufferData(kGLShaderStorageBuffer,
-                                         sizeof(uint32_t), &initialCounter,
-                                         kGLDynamicDraw);
-  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer, 0u);
 
   m_initialized = true;
   return true;
@@ -235,10 +227,8 @@ void JFAPass::Shutdown() {
   resources::FramebufferManager::Destroy(m_distanceFieldWork);
   resources::FramebufferManager::Destroy(m_distanceFieldFull);
 
-  if (m_overflowCounterBuffer != 0u) {
-    NoMoreDay::utils::GPUUtils::DeleteBuffers(1, &m_overflowCounterBuffer);
-    m_overflowCounterBuffer = 0u;
-  }
+  m_overflowCounterBuffer.Destroy();
+  m_lastReadyOverflowCount = 0u;
 
   m_seedInitWorkResolutionLoc = -1;
   m_seedInitFullResolutionLoc = -1;
@@ -260,6 +250,8 @@ void JFAPass::Shutdown() {
   m_workHeight = 0;
   m_frameIndex = 0u;
   m_lastOverflowCount = 0u;
+  m_previousOccluderCount = 0u;
+  m_occluderCountSnapshot = 0u;
   m_initialized = false;
   m_halfResolutionMode = false;
   m_usedFallbackPlus2ThisFrame = false;
@@ -337,28 +329,27 @@ bool JFAPass::EnsureResources(const int fullWidth, const int fullHeight,
 }
 
 bool JFAPass::ClearOverflowCounter() {
-  if (m_overflowCounterBuffer == 0u) {
+  if (m_overflowCounterBuffer.GetId() == 0u) {
     return false;
   }
-  const uint32_t zero = 0u;
-  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer,
-                                         m_overflowCounterBuffer);
-  NoMoreDay::utils::GPUUtils::BufferSubData(kGLShaderStorageBuffer, 0,
-                                            sizeof(uint32_t), &zero);
-  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer, 0u);
+  uint32_t *ptr = static_cast<uint32_t *>(m_overflowCounterBuffer.BeginWrite());
+  if (ptr != nullptr) {
+    *ptr = 0u;
+  }
+  m_overflowCounterBuffer.Flush();
   return true;
 }
 
 uint32_t JFAPass::ReadOverflowCounter() const {
-  if (m_overflowCounterBuffer == 0u) {
+  return m_lastReadyOverflowCount;
+}
+
+uint32_t JFAPass::ReadOverflowCounterImmediateForTesting() const {
+  if (m_overflowCounterBuffer.GetId() == 0u) {
     return 0u;
   }
   uint32_t overflow = 0u;
-  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer,
-                                         m_overflowCounterBuffer);
-  NoMoreDay::utils::GPUUtils::GetBufferSubData(kGLShaderStorageBuffer, 0,
-                                               sizeof(uint32_t), &overflow);
-  NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer, 0u);
+  m_overflowCounterBuffer.Read(&overflow, sizeof(uint32_t));
   return overflow;
 }
 
@@ -457,8 +448,7 @@ bool JFAPass::RunJumpFloodStep(const graph::RenderContext &context,
     rlSetUniform(m_jumpRectMinLoc, rectMin, RL_SHADER_UNIFORM_IVEC2, 1);
   }
 
-  NoMoreDay::utils::GPUUtils::BindBufferBase(kOverflowBinding,
-                                             m_overflowCounterBuffer);
+  m_overflowCounterBuffer.BindBase(kOverflowBinding);
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kSeedInputImageBinding, inputSeedTexture, 0, false, 0,
       kGLReadOnly, kGLRg16ui);
@@ -708,6 +698,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
   }
 
   const uint32_t currentOccluderCount = m_occluderExtractPass->GetOccluderCount();
+  m_occluderCountSnapshot = currentOccluderCount;
   const bool occluderCountChanged = (!firstFrame) && (currentOccluderCount != m_previousOccluderCount);
 
   gi::DecideUpdateParams decideParams;
@@ -720,14 +711,28 @@ void JFAPass::Execute(graph::RenderContext &context) {
 
   gi::JFAUpdateDecision decision = gi::JFADistanceFieldEvaluator::DecideUpdate(decideParams);
 
-
   if (!shouldUpdate && m_distanceFieldFull.IsValid()) {
     decision.mode = gi::JFAUpdateMode::Skip;
   }
 
+  // T7.1: If occluder count is 0 (empty scene), host decides to skip JFA execution (dispatch = 0, decision.mode = Skip).
+  if (currentOccluderCount == 0u) {
+    decision.mode = gi::JFAUpdateMode::Skip;
+    decision.dirtyRect = {};
+    decision.expandedRect = {};
+  }
+
   decision = ApplyProductionUpdatePolicy(decision, m_incrementalExperimentEnabled);
 
+  // If occluder count is 0, ensure mode remains Skip even after policy check
+  if (currentOccluderCount == 0u) {
+    decision.mode = gi::JFAUpdateMode::Skip;
+  }
+
   if (decision.mode == gi::JFAUpdateMode::Skip && m_distanceFieldFull.IsValid()) {
+    m_previousViewKey = currentViewKey;
+    m_previousOccluderBounds = currentBounds;
+    m_previousOccluderCount = currentOccluderCount;
     context.giDistanceFieldTexture = m_distanceFieldFull.colorTexture;
     context.giDistanceFieldWidth = m_distanceFieldFull.width;
     context.giDistanceFieldHeight = m_distanceFieldFull.height;
@@ -775,7 +780,13 @@ void JFAPass::Execute(graph::RenderContext &context) {
       return false;
     }
     std::swap(seedInput, seedOutput);
-    m_lastOverflowCount = ReadOverflowCounter();
+
+    // Poll delayed overflow snapshot from ready fence (non-blocking, zero CPU stall)
+    uint32_t delayedOverflow = 0u;
+    if (m_overflowCounterBuffer.TryReadNonBlocking(&delayedOverflow, sizeof(uint32_t), 1)) {
+      m_lastReadyOverflowCount = delayedOverflow;
+    }
+    m_lastOverflowCount = m_lastReadyOverflowCount;
     const bool useFallbackPlus2 =
         m_forceFallbackPlus2ForTesting ||
         (m_occluderExtractPass->GetOccluderCount() > 0u && m_lastOverflowCount > 0u);
@@ -792,7 +803,6 @@ void JFAPass::Execute(graph::RenderContext &context) {
         }
         std::swap(seedInput, seedOutput);
       }
-      m_lastOverflowCount = ReadOverflowCounter();
     }
     const uint32_t distanceOutput =
         halfResolution ? m_distanceFieldWork.colorTexture : m_distanceFieldFull.colorTexture;
@@ -877,6 +887,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
   context.giDistanceFieldWidth = m_distanceFieldFull.width;
   context.giDistanceFieldHeight = m_distanceFieldFull.height;
 
+  m_overflowCounterBuffer.Lock();
   LogBarrierAuditOnce();
   MarkSuccess();
   core::ApplyRlglFlushTemplate();

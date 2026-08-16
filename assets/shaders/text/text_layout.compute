@@ -29,10 +29,10 @@ layout(std430, binding = 5) readonly buffer StringMetaBuffer {
     uvec2 stringMeta[];
 };
 
-uniform uint uCommandCount;
-uniform uint uGlyphMetricCount;
-uniform uint uMaxQuadCount;
-uniform uint uStringMetaCount;
+uniform int uCommandCount;
+uniform int uGlyphMetricCount;
+uniform int uMaxQuadCount;
+uniform int uStringMetaCount;
 uniform float uTime;
 uniform float uAnimDuration;
 
@@ -69,29 +69,25 @@ void applyAnimation(in uint style, in float t, inout vec2 pos, inout float scale
 void main() {
     const uint id = gl_GlobalInvocationID.x;
     const uint lid = gl_LocalInvocationID.x;
-    if (id >= uCommandCount || uGlyphMetricCount == 0u || uStringMetaCount == 0u) {
-        sGlyphCount[lid] = 0u;
-        sPrefix[lid] = 0u;
-        barrier();
-        return;
-    }
 
-    const GPUTextCommand cmd = commands[id];
-    if (cmd.stringId >= uStringMetaCount) {
-        sGlyphCount[lid] = 0u;
-        sPrefix[lid] = 0u;
-        barrier();
-        return;
-    }
+    uint glyphCount = 0u;
+    uint glyphStart = 0u;
+    uint style = 0u;
+    bool valid = false;
 
-    uvec2 meta = stringMeta[cmd.stringId];
-    uint glyphStart = meta.x;
-    uint glyphCount = meta.y & 0xFFFFu;
-    uint style = (cmd.colorAndFlags >> 24u) & 0xFFu;
-    if (style == 0u) {
-        style = (meta.y >> 16u) & 0xFFu;
+    if (id < uint(uCommandCount) && uGlyphMetricCount > 0 && uStringMetaCount > 0) {
+        const GPUTextCommand cmd = commands[id];
+        if (cmd.stringId < uint(uStringMetaCount)) {
+            uvec2 meta = stringMeta[cmd.stringId];
+            glyphStart = meta.x;
+            glyphCount = min(meta.y & 0xFFFFu, 64u);
+            style = (cmd.colorAndFlags >> 24u) & 0xFFu;
+            if (style == 0u) {
+                style = (meta.y >> 16u) & 0xFFu;
+            }
+            valid = true;
+        }
     }
-    glyphCount = min(glyphCount, 64u);
 
     sGlyphCount[lid] = glyphCount;
     sPrefix[lid] = glyphCount;
@@ -117,19 +113,24 @@ void main() {
     }
     barrier();
 
+    if (!valid || glyphCount == 0u) {
+        return;
+    }
+
+    const GPUTextCommand cmd = commands[id];
     float t = fract(uTime + float(id) * 0.173) * max(0.0001, uAnimDuration);
     t = clamp(t / max(0.0001, uAnimDuration), 0.0, 1.0);
 
     for (uint i = 0u; i < glyphCount; ++i) {
         uint outIndex = sGroupBase + exclusive + i;
-        if (outIndex >= uMaxQuadCount) {
+        if (outIndex >= uint(uMaxQuadCount)) {
             break;
         }
 
         uint indexPos = glyphStart + i;
         uint metricIndex = 0u;
         if (indexPos < glyphIndices.length()) {
-            metricIndex = glyphIndices[indexPos] % uGlyphMetricCount;
+            metricIndex = glyphIndices[indexPos] % uint(uGlyphMetricCount);
         }
         GPUGlyphMetrics gm = glyphMetrics[metricIndex];
 

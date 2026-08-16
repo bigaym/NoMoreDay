@@ -132,6 +132,9 @@ public:
   /// Effective GI override after the priority contract:
   /// runtime override > settings.json override > none.
   std::optional<bool> EffectiveGiEnabled() const;
+  bool IsLinearPipelineEnabled() const { return m_config.linearPipeline; }
+  bool SetLinearPipelineEnabled(
+      bool enabled, const std::string &settingsPath = "settings.json");
   bool SetV3Enabled(bool enabled,
                     const std::string &settingsPath = "settings.json");
   bool SetClusteredLightingEnabled(
@@ -176,6 +179,8 @@ private:
   TryLoadGiEnabledOverride(const std::string &settingsPath) const;
   std::optional<bool>
   TryLoadFluidEnabledOverride(const std::string &settingsPath) const;
+  std::optional<bool>
+  TryLoadLinearPipelineEnabledOverride(const std::string &settingsPath) const;
   void ApplyV3ConfigOverrides(RenderConfig &config) const;
   void ApplyGiRuntimeOverrideToConfig(RenderConfig &config) const;
   void SetGiOverrideInternal(std::optional<bool> value);
@@ -194,6 +199,7 @@ private:
   std::optional<bool> m_gpuLootEnabledOverride = std::nullopt;
   std::optional<bool> m_giEnabledOverride = std::nullopt;
   std::optional<bool> m_fluidEnabledOverride = std::nullopt;
+  std::optional<bool> m_linearPipelineEnabledOverride = std::nullopt;
   std::optional<bool> m_giRuntimeOverride = std::nullopt;
   bool m_giOverrideActive = false;
   std::thread::id m_giOverrideThread = {};

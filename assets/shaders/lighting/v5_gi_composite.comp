@@ -14,16 +14,65 @@ layout(r8, binding = 5) uniform readonly image2D uOccupancyCurrIn;
 layout(r8, binding = 6) uniform readonly image2D uOccupancyPrevIn;
 layout(r8, binding = 7) uniform writeonly image2D uOccupancyOut;
 
-uniform sampler2D uRadianceTex;
+uniform sampler2DArray uRadianceAtlas;
+uniform sampler2D uHeightFieldTex;
 
 uniform ivec2 uSceneResolution;
-uniform ivec2 uRadianceResolution;
 uniform float uTemporalWeight;
 uniform float uGiIntensity;
 uniform int uResetHistory;
 uniform vec2 uCameraDeltaUv;
 uniform float uZoomRatio;
 uniform int uOccupancyEnabled;
+uniform int uHeightFieldEnabled;
+uniform int uRaysPerProbe;
+
+#define MAX_DIRTY_RECTS 16
+uniform int uDirtyRectCount;
+uniform vec4 uDirtyRects[MAX_DIRTY_RECTS];
+
+const float kTwoPi = 6.28318530717958647692;
+
+vec2 extractSurfaceNormal(vec2 uv, out bool outHasNormal) {
+    outHasNormal = false;
+    if (uHeightFieldEnabled != 0) {
+        vec2 hfTexSize = vec2(textureSize(uHeightFieldTex, 0));
+        if (hfTexSize.x > 1.0 && hfTexSize.y > 1.0) {
+            vec2 texelSize = 1.0 / hfTexSize;
+            float hL = texture(uHeightFieldTex, uv - vec2(texelSize.x, 0.0)).r;
+            float hR = texture(uHeightFieldTex, uv + vec2(texelSize.x, 0.0)).r;
+            float hD = texture(uHeightFieldTex, uv - vec2(0.0, texelSize.y)).r;
+            float hU = texture(uHeightFieldTex, uv + vec2(0.0, texelSize.y)).r;
+            vec2 grad = vec2(hR - hL, hU - hD);
+            float gradLen = length(grad);
+            if (gradLen > 0.0001) {
+                outHasNormal = true;
+                return normalize(-grad);
+            }
+        }
+    }
+    return vec2(0.0);
+}
+
+// L0 Cosine-weighted Irradiance Gathering:
+// E(x, n) = (1 / N) * sum_{k=0}^{N-1} L_0(x, omega_k) * max(0, dot(n, omega_k))
+// Where surface normal n is extracted from HeightField gradient.
+// Prohibits extra angular averaging.
+vec3 gatherL0Irradiance(vec2 uv, vec2 n, bool hasN) {
+    int N = max(uRaysPerProbe, 1);
+    vec3 gathered = vec3(0.0);
+
+    for (int k = 0; k < N; ++k) {
+        float angle = (float(k) + 0.5) / float(N) * kTwoPi;
+        vec2 omega_k = vec2(cos(angle), sin(angle));
+        float cosWeight = hasN ? max(0.0, dot(n, omega_k)) : 1.0;
+        vec2 rad = texture(uRadianceAtlas, vec3(uv, float(k))).rg;
+        vec3 L0_k = vec3(rad.r, rad.g, (rad.r + rad.g) * 0.5);
+        gathered += L0_k * cosWeight;
+    }
+
+    return gathered / float(N);
+}
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -33,7 +82,34 @@ void main() {
 
     vec4 scene = imageLoad(uSceneIn, pixel);
     vec2 currentUv = (vec2(pixel) + vec2(0.5)) / vec2(uSceneResolution);
-    vec3 currentGi = texture(uRadianceTex, currentUv).rgb * max(uGiIntensity, 0.0);
+    vec2 invResolution = 1.0 / vec2(uSceneResolution);
+    float giIntensity = max(uGiIntensity, 0.0);
+
+    bool hasNormal = false;
+    vec2 normal = extractSurfaceNormal(currentUv, hasNormal);
+
+    // T4.2: 3x3 Neighborhood Color Variance Calculation
+    vec3 m1 = vec3(0.0);
+    vec3 m2 = vec3(0.0);
+    vec3 currentGi = vec3(0.0);
+
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            vec2 sampleUv = currentUv + vec2(float(dx), float(dy)) * invResolution;
+            vec3 c = gatherL0Irradiance(sampleUv, normal, hasNormal) * giIntensity;
+            m1 += c;
+            m2 += c * c;
+            if (dx == 0 && dy == 0) {
+                currentGi = c;
+            }
+        }
+    }
+
+    vec3 mean = m1 / 9.0;
+    vec3 sigma = sqrt(max(vec3(0.0), (m2 / 9.0) - (mean * mean)));
+    const float gamma = 1.25;
+    vec3 boxMin = max(vec3(0.0), mean - gamma * sigma);
+    vec3 boxMax = mean + gamma * sigma;
 
     // 2D Camera Reprojection: Reproject current UV to previous frame UV
     vec2 prevUv = (currentUv - vec2(0.5)) * max(uZoomRatio, 0.001) + vec2(0.5) - uCameraDeltaUv;
@@ -42,6 +118,18 @@ void main() {
     bool prevValid = (uResetHistory == 0) &&
                      prevUv.x >= 0.0 && prevUv.y >= 0.0 &&
                      prevUv.x < 1.0 && prevUv.y < 1.0;
+
+    // T4.3: Local Invalidation Rect Check
+    if (prevValid && uDirtyRectCount > 0) {
+        for (int i = 0; i < uDirtyRectCount && i < MAX_DIRTY_RECTS; ++i) {
+            vec4 rect = uDirtyRects[i];
+            if (currentUv.x >= rect.x && currentUv.y >= rect.y &&
+                currentUv.x <= rect.z && currentUv.y <= rect.w) {
+                prevValid = false;
+                break;
+            }
+        }
+    }
 
     vec3 previousGi = prevValid ? imageLoad(uHistoryIn, clamp(prevPixel, ivec2(0), uSceneResolution - ivec2(1))).rgb : currentGi;
     float temporal = prevValid ? clamp(uTemporalWeight, 0.0, 0.98) : 0.0;
@@ -65,9 +153,12 @@ void main() {
         imageStore(uOccupancyOut, pixel, vec4(currOcc, 0.0, 0.0, 1.0));
     }
 
-    vec3 blendedGi = mix(currentGi, previousGi, temporal);
+    // T4.2: Clamp reprojected history to 3x3 color box and blend
+    vec3 clampedHistory = clamp(previousGi, boxMin, boxMax);
+    vec3 blendedGi = mix(currentGi, clampedHistory, temporal);
     vec3 finalColor = scene.rgb + blendedGi;
 
+    // Blended result written to history, scene receives scene + GI.
     imageStore(uHistoryOut, pixel, vec4(blendedGi, 1.0));
     imageStore(uSceneOut, pixel, vec4(finalColor, scene.a));
 }

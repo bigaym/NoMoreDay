@@ -1,0 +1,28 @@
+#version 430
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CounterBuffer {
+  uint quadCount;
+};
+
+struct DrawArraysIndirectCommand {
+  uint count;
+  uint instanceCount;
+  uint first;
+  uint baseInstance;
+};
+
+layout(std430, binding = 1) writeonly buffer IndirectBuffer {
+  DrawArraysIndirectCommand cmd;
+};
+
+uniform int uMaxQuadCount;
+
+void main() {
+  uint clampedCount = min(quadCount, uint(max(uMaxQuadCount, 0)));
+  cmd.count = 6u;
+  cmd.instanceCount = clampedCount;
+  cmd.first = 0u;
+  cmd.baseInstance = 0u;
+}

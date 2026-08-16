@@ -58,10 +58,16 @@
 2. **Binding 治理与 ABI 断言加固**：`ShadowCS::kOccluderBinding` 迁出 Slot 15；`kGlobalSharedSSBOBindings` 补 TRAIL_HEADERS(10)/TRAIL_POINTS(11)/MATERIAL_DATA(12)/DISTORTION_DATA(13)；`GPUData.hpp` 全结构补 `offsetof` 静态断言。
 3. **Radiance Cascades 物理纠偏**（AD-3）：方向性 Probe Atlas、RTE 级联合并、双 SDF 步进、GIComposite 辐照度汇聚。
 4. **GI 时域去噪重构**（AD-4）：废除全局 `resetHistory`，改 3×3 邻域时域方差裁切 + 光源版本增量失效。
-5. **SPH 邻居搜索算法化**（AD-5）：计数排序网格哈希桶，O(N) 构建 + 27 邻桶遍历。
+5. **SPH 邻居搜索算法化**（AD-5）：计数排序网格哈希桶，O(N) 构建 + **9 邻桶遍历（自身 + 8 Moore 邻 cell，2D）**。**D2 定稿（2026-08-16，计划 §6.1 记录）**：2D 邻桶 = 9（自身 + 8 Moore 邻 cell）；grid hash cellSize == 粒子交互半径（实现中 radius==cellSize==18.0），9-cell 覆盖完整交互邻域。
 6. **屏障精细化**：粒子系统 `Barrier::All` → `GL_SHADER_STORAGE_BARRIER_BIT` / `GL_COMMAND_BARRIER_BIT` 按消费者声明下发；`ShadowBuildPass.cpp:339`、`OccluderExtractPass.cpp:174` 裸 `glBufferSubData` 改走 `PersistentBuffer` 三缓冲写路径。
 7. **JFA 空场景原子雪崩消除**：`v5_jump_flood.comp` 废除全屏像素对单一 `overflowCount` 的 `atomicAdd`；Host 端依据滞留 1 帧的遮挡体计数判定零遮挡时整帧跳过 JFA dispatch，非空场景改 workgroup 共享内存规约后每组单次原子写。
 8. **色彩空间线性化收口**：场景纹理采样线性化（sRGB 内部格式或采样侧解码），光照累加全程 Linear；`postprocess_combined.frag` 仅在最终输出执行单一 ACES Filmic + sRGB 编码，消除 sRGB 直接参与光照累加与重复 Gamma。
+
+**Phase 1 门禁结果（2026-08-16 定稿记录）**：
+- **D1 已定稿**：`directions_k = max(2, 16 >> k)`（Ultra L0=16…L5=2）；High `max(2, 4>>k)` → L0=4；Low/Medium=1。来源 `RadianceCascadesPass::ResolveRaysPerProbe`（`src/engine/render/passes/RadianceCascadesPass.cpp:740-751`）。已同步 AD-3 文字（见 §4）。
+- **D2 已定稿**：2D 邻桶 = 9（自身 + 8 Moore 邻 cell）；grid hash cellSize == 粒子交互半径（radius==cellSize==18.0），9-cell 覆盖完整交互邻域。已同步 §3.2 项 5 与 AD-5 文字。
+- **AD-4 occluder 处置（实施期记录）**：occluder mask 版本变化 → 局部 dirty-rect 失效（投影 occluder 屏幕边界 prev+curr → UV 矩形；边界为空时保守全屏失效），无全局 resetHistory（`GICompositePass.cpp:368-394`，:228 仅 history 无效/extent 变化才重置）。
+- **AD-4 emissive 处置（实施期记录）**：VFX emissive 快照烘焙进单一合并 emissive 纹理、无逐源世界坐标 → 保持文档化全屏失效兜底（显式设计决策，`GICompositePass.cpp:396-403`）。
 
 ### 3.3 Phase 2 — 架构级现代化（2-4 周，4 项）
 
@@ -97,10 +103,10 @@
 
 ### AD-3 Radiance Cascades 方向性恢复 — 固定角度扇区 Probe Atlas
 
-- **选型**: 每级联每 probe 保留 **8 个方向扇区**（L0）至 **2 个扇区**（L5），扇区数随级联深度递减 `directions_k = max(2, 16 >> k)`；probe atlas 纹理布局 `(probeGridW × probeGridH × directions_k)` 打包进 RG16F 数组纹理，`vec2(dirX, dirY)` 编码单位方向。级联合并改为论文标准：子级 probe 的射线命中上一级时，对上一级做**空间双线性 + 角度最近扇区**插值后沿 RTE 累加 $L_{k}(x,\omega)=\int_{0}^{t} e^{-\sigma s} E(s) ds + e^{-\sigma t} L_{k+1}(x+t\omega,\omega)$；射线步进取 $\min(d_{occluder}, d_{emissive})$ 双 SDF。
+- **选型**: 每级联每 probe 保留 **16 个方向扇区**（L0）至 **2 个扇区**（L5），扇区数随级联深度递减 `directions_k = max(2, 16 >> k)`（即 L0=16, L1=8, L2=4, L3=2, L4=2, L5=2）；probe atlas 纹理布局 `(probeGridW × probeGridH × directions_k)` 打包进 RG16F 数组纹理，`vec2(dirX, dirY)` 编码单位方向。**D1 定稿（2026-08-16，计划 §6.1 记录）**：以公式 `max(2, 16 >> k)` 为准，Ultra L0=16…L5=2；tier 化取值见下（High L0=4，Low/Medium=1），与 `RadianceCascadesPass::ResolveRaysPerProbe`（`src/engine/render/passes/RadianceCascadesPass.cpp:740-751`）一致。级联合并改为论文标准：子级 probe 的射线命中上一级时，对上一级做**空间双线性 + 角度最近扇区**插值后沿 RTE 累加 $L_{k}(x,\omega)=\int_{0}^{t} e^{-\sigma s} E(s) ds + e^{-\sigma t} L_{k+1}(x+t\omega,\omega)$；射线步进取 $\min(d_{occluder}, d_{emissive})$ 双 SDF。
 - **理由**: 2D RC 的方向维度是各向异性间接光（方向性溢色、镜面感）的来源；扇区数随级联递减与射线张角守恒一致（级联越深单射线张角越大，方向分辨率需求越低），atlas 内存增长受控（估算 +18MB @6 级联 half-res）。`farBlend` 标量混合被 RTE 传输项替换，物理正确且消除发灰。
 - **辐照度汇聚（Irradiance Gathering）**: `GICompositePass` 对 L0 每个 probe 的全部方向扇区执行 2D 漫反射积分：$E(x,n)=\frac{1}{N}\sum_{k} L_{0}(x,\omega_k)\,\max(0,\,n\cdot\omega_k)$（均匀环形扇区权重，N = L0 扇区数；表面法线 n 取 HeightField 梯度）。Composite 阶段禁止在此积分之外再做额外的角度平均或颜色混合。
-- **回退**: 扇区数为 tier 配置项，Low/Medium 可退回 1 扇区（等价现状各向同性）。
+- **回退**: 扇区数为 tier 配置项：High 档 `directions_k = max(2, 4 >> k)`（L0=4），Low/Medium 档恒为 1 扇区（等价现状各向同性）。取值来源 `RadianceCascadesPass::ResolveRaysPerProbe`（Ultra `max(2, 16>>k)` → L0=16…L5=2）。
 
 ### AD-4 GI 时域去噪 — 3×3 邻域方差裁切（Color AABB Clipping）
 

@@ -47,6 +47,9 @@ constexpr const char *kRenderGpuTextFlatEnabledKey = "render.gpuText.enabled";
 constexpr const char *kRenderGpuLootFlatEnabledKey = "render.gpuLoot.enabled";
 constexpr const char *kRenderGiFlatEnabledKey = "render.gi.enabled";
 constexpr const char *kRenderFluidFlatEnabledKey = "render.fluid.enabled";
+constexpr const char *kRenderColorKey = "color";
+constexpr const char *kRenderColorLinearPipelineFlatEnabledKey =
+    "render.color.linearPipeline";
 constexpr std::array<QualityTierManager::AutoDegradeStep, 6>
     kV3AutoDegradeSequence = {
         QualityTierManager::AutoDegradeStep::ReduceBloom,
@@ -441,6 +444,8 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_gpuLootEnabledOverride = TryLoadGpuLootEnabledOverride(settingsPath);
   m_giEnabledOverride = TryLoadGiEnabledOverride(settingsPath);
   m_fluidEnabledOverride = TryLoadFluidEnabledOverride(settingsPath);
+  m_linearPipelineEnabledOverride =
+      TryLoadLinearPipelineEnabledOverride(settingsPath);
   TryLoadAdaptiveQualityConfigFromSettings(settingsPath, m_adaptiveQualitySettings);
   UpdateConfigForTier(chosenTier);
   m_initialized = true;
@@ -548,6 +553,58 @@ QualityTierManager::GiEnabledOverrideGuard::~GiEnabledOverrideGuard() {
                                       : std::nullopt);
   m_manager.ReapplyConfigAfterGiOverride();
   m_owned = false;
+}
+
+bool QualityTierManager::SetLinearPipelineEnabled(
+    bool enabled, const std::string &settingsPath) {
+  const bool previous = m_config.linearPipeline;
+  const bool changed = (previous != enabled);
+  m_linearPipelineEnabledOverride = enabled;
+  m_baseConfig.linearPipeline = enabled;
+  m_config.linearPipeline = enabled;
+
+  if (changed) {
+    LOG_INFO("QualityTierManager: render.color.linearPipeline {} -> {}",
+             previous ? 1 : 0, enabled ? 1 : 0);
+  }
+
+  if (settingsPath.empty()) {
+    return changed;
+  }
+
+  nlohmann::json jsonSettings = nlohmann::json::object();
+  if (std::filesystem::exists(settingsPath)) {
+    try {
+      std::ifstream file(settingsPath);
+      if (file.is_open()) {
+        file >> jsonSettings;
+      }
+    } catch (...) {
+      LOG_WARN("QualityTierManager: failed to parse {}, linearPipeline save skipped",
+               settingsPath);
+      return false;
+    }
+
+    if (!jsonSettings.is_object()) {
+      LOG_WARN("QualityTierManager: {} has non-object root, linearPipeline save skipped",
+               settingsPath);
+      return false;
+    }
+  }
+
+  if (!jsonSettings.contains(kRenderKey) || !jsonSettings[kRenderKey].is_object()) {
+    jsonSettings[kRenderKey] = nlohmann::json::object();
+  }
+  if (!jsonSettings[kRenderKey].contains(kRenderColorKey) ||
+      !jsonSettings[kRenderKey][kRenderColorKey].is_object()) {
+    jsonSettings[kRenderKey][kRenderColorKey] = nlohmann::json::object();
+  }
+  jsonSettings[kRenderKey][kRenderColorKey]["linearPipeline"] = enabled;
+  jsonSettings[kRenderColorLinearPipelineFlatEnabledKey] = enabled;
+
+  const bool persisted =
+      WriteJsonAtomically(settingsPath, jsonSettings, "linearPipeline config");
+  return persisted;
 }
 
 bool QualityTierManager::SetV3Enabled(bool enabled,
@@ -1203,6 +1260,55 @@ QualityTierManager::TryLoadFluidEnabledOverride(
   return std::nullopt;
 }
 
+std::optional<bool>
+QualityTierManager::TryLoadLinearPipelineEnabledOverride(
+    const std::string &settingsPath) const {
+  if (!std::filesystem::exists(settingsPath)) {
+    return std::nullopt;
+  }
+
+  nlohmann::json jsonSettings;
+  try {
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+      return std::nullopt;
+    }
+    file >> jsonSettings;
+  } catch (...) {
+    return std::nullopt;
+  }
+
+  if (jsonSettings.contains(kRenderColorLinearPipelineFlatEnabledKey)) {
+    const auto &value = jsonSettings[kRenderColorLinearPipelineFlatEnabledKey];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid {} (expected bool), ignored",
+               settingsPath, kRenderColorLinearPipelineFlatEnabledKey);
+      return std::nullopt;
+    }
+    return value.get<bool>();
+  }
+
+  if (jsonSettings.contains(kRenderKey) && jsonSettings[kRenderKey].is_object()) {
+    const auto &renderNode = jsonSettings[kRenderKey];
+    if (renderNode.contains(kRenderColorKey) &&
+        renderNode[kRenderColorKey].is_object()) {
+      const auto &colorNode = renderNode[kRenderColorKey];
+      if (colorNode.contains("linearPipeline")) {
+        const auto &enabledValue = colorNode["linearPipeline"];
+        if (!enabledValue.is_boolean()) {
+          LOG_WARN("QualityTierManager: {} invalid render.color.linearPipeline "
+                   "(expected bool), ignored",
+                   settingsPath);
+          return std::nullopt;
+        }
+        return enabledValue.get<bool>();
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
 void QualityTierManager::ApplyV3ConfigOverrides(RenderConfig &config) const {
   config.shadowEnabled = m_v3Config.shadowEnabled;
   config.shadowMode = m_v3Config.shadowMode;
@@ -1738,6 +1844,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     }
   }
 #endif
+
+  m_baseConfig.linearPipeline = true;
+  if (m_linearPipelineEnabledOverride.has_value()) {
+    m_baseConfig.linearPipeline = m_linearPipelineEnabledOverride.value();
+  }
 
   ApplyV3ConfigOverrides(m_baseConfig);
   ApplyTierShadowPolicy(m_baseConfig, tier);

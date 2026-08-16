@@ -2,6 +2,7 @@
 
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include <array>
 #include <cstdint>
 #include <raylib.h>
 #include <span>
@@ -51,6 +52,59 @@ public:
       noexcept {
     return m_instanceBuffer;
   }
+  [[nodiscard]] const NoMoreDay::core::ComputeBuffer &GetIndirectBuffer() const
+      noexcept {
+    return m_indirectBuffer;
+  }
+
+  struct LootReadbackRingSlot {
+    void *fence = nullptr;
+    uint32_t counterReadbackBufferId = 0;
+    uint32_t submittedFrame = 0;
+    bool armed = false;
+  };
+  static constexpr size_t kRingDepth = 3;
+
+  struct SnapshotPollOutcome {
+    bool published = false;
+    uint32_t snapshot = 0;
+    size_t nextReadIndex = 0;
+  };
+
+  static SnapshotPollOutcome
+  TryPublishReadySnapshot(bool slotArmed, bool frameEligible,
+                          bool fenceSignaled, size_t readIndex,
+                          size_t ringDepth, uint32_t pendingSnapshot,
+                          uint32_t currentSnapshot) noexcept;
+
+  static bool CanSubmitReadbackCopy(bool slotArmed) noexcept {
+    return !slotArmed;
+  }
+
+  [[nodiscard]] size_t GetRingWriteIndex() const noexcept { return m_ringWrite; }
+  [[nodiscard]] size_t GetRingReadIndex() const noexcept { return m_ringRead; }
+  [[nodiscard]] const std::array<LootReadbackRingSlot, kRingDepth> &
+  GetReadbackRing() const noexcept {
+    return m_readbackRing;
+  }
+  [[nodiscard]] std::array<LootReadbackRingSlot, kRingDepth> &
+  GetReadbackRingMutableForTesting() noexcept {
+    return m_readbackRing;
+  }
+  void SetLastVisibleSnapshotForTesting(uint32_t snapshot) noexcept {
+    m_visibleInstanceCount = snapshot;
+    m_debugSnapshot.visible = snapshot;
+  }
+  void SetRingIndicesForTesting(size_t writeIdx, size_t readIdx) noexcept {
+    m_ringWrite = writeIdx;
+    m_ringRead = readIdx;
+  }
+  void SetReadbackEnabledForTesting(bool enabled) noexcept {
+    m_readbackEnabledForTesting = enabled;
+  }
+  [[nodiscard]] bool IsReadbackEnabledForTesting() const noexcept {
+    return m_readbackEnabledForTesting;
+  }
 
 private:
   struct DrawArraysIndirectCommand {
@@ -67,6 +121,7 @@ private:
   uint32_t m_maxInstances = 0;
   uint32_t m_syncedInstanceCount = 0;
   uint32_t m_visibleInstanceCount = 0;
+  uint32_t m_frameIndex = 0;
   DebugSnapshot m_debugSnapshot = {};
   std::vector<components::GPULootInstance> m_instances;
 
@@ -108,6 +163,11 @@ private:
   NoMoreDay::core::ComputeBuffer m_indirectBuffer;
   NoMoreDay::core::ComputeBuffer m_forceBuffer;
   NoMoreDay::core::ComputeBuffer m_gridCountBuffer;
+
+  std::array<LootReadbackRingSlot, kRingDepth> m_readbackRing{};
+  size_t m_ringWrite = 0;
+  size_t m_ringRead = 0;
+  bool m_readbackEnabledForTesting = false;
 };
 
 } // namespace NoMoreDay::render

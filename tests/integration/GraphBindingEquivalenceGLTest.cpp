@@ -60,7 +60,7 @@
 // bound surfaces in both paths).
 //
 // The binding surface mirrors the real ShadowBuildPass contract: SSBO at
-// ShadowCS::kOccluderBinding (binding point 15, GL_SHADER_STORAGE_BUFFER) and a
+// ShadowCS::kOccluderBinding (binding point 0, GL_SHADER_STORAGE_BUFFER) and a
 // GL_RG16F texture at ShadowCS::kSdfImageBinding (image unit 0, WRITE_ONLY).
 // Resources use the real RenderResourceTag/OwnerTag pairs (ShadowOccluderSSBO /
 // ShadowDistanceField owned by Shadow) so the resolved operations are identical
@@ -87,9 +87,7 @@ constexpr uint32_t kGLFloat = 0x1406;
 constexpr uint32_t kGLDynamicDraw = 0x88E8;
 constexpr uint32_t kGLAllBarrierBits = 0xFFFFFFFF;
 
-// Binding surface mirrors RenderConstants::ShadowCS (kOccluderBinding = 15,
-// kSdfImageBinding = 0) so the resolved ops match the production pass.
-constexpr uint32_t kBufferBinding = 15u;
+constexpr uint32_t kBufferBinding = 0u; // NoMoreDay::RenderConstants::ShadowCS::kOccluderBinding
 constexpr uint32_t kImageUnit = 0u;
 
 constexpr int kTexSize = 8;          // 8x8 image, 64 SSBO floats (8x8 workgroup)
@@ -133,14 +131,14 @@ std::vector<float> MakeSentinelFloats(int count) {
   return std::vector<float>(static_cast<size_t>(count), kSentinel);
 }
 
-// Compiles the equivalence compute shader (SSBO write at binding 15 + image
+// Compiles the equivalence compute shader (SSBO write at binding 0 + image
 // write at unit 0). Returns 0 when compilation failed (a real failure on a
 // compute-capable context).
 uint32_t CompileEquivalenceComputeProgram() {
   const char *source =
       "#version 430\n"
       "layout(local_size_x = 8, local_size_y = 8) in;\n"
-      "layout(std430, binding = 15) buffer EquivOutSSBO { float outData[]; };\n"
+      "layout(std430, binding = 0) buffer EquivOutSSBO { float outData[]; };\n"
       "layout(binding = 0, rg16f) uniform writeonly image2D outImage;\n"
       "uniform float uScale;\n"
       "void main() {\n"

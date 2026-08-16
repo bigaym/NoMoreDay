@@ -18,6 +18,7 @@ uniform int uMaterialQualityLevel;
 uniform int uNormalLightingEnabled;
 uniform int uSpecularEnabled;
 uniform float uShadowFactor;
+uniform int uLinearPipeline;
 
 out vec4 fragColor;
 
@@ -78,6 +79,9 @@ void main() {
     if (vTextureIndex >= 0) {
         baseColor = texture(entityTextures, vec3(vTexCoord, float(vTextureIndex)));
         if (baseColor.a < 0.1) discard;
+        if (uLinearPipeline != 0) {
+            baseColor.rgb = pow(baseColor.rgb, vec3(2.2));
+        }
     } else {
         float distSq = dot(vLocalPos, vLocalPos);
         if (distSq > 1.0) discard;

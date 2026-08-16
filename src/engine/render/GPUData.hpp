@@ -110,9 +110,26 @@ struct GPUParticle {
   GPUParticle() = default;
 };
 
-// Ensure Stride is exactly 64 bytes
+// Ensure Stride is exactly 64 bytes and layout assertions
+static_assert(std::is_standard_layout_v<GPUParticle>, "GPUParticle must be standard layout");
 static_assert(sizeof(GPUParticle) == 64,
               "GPUParticle struct must be exactly 64 bytes for SSBO alignment");
+static_assert(offsetof(GPUParticle, position) == 0, "GPUParticle::position offset mismatch");
+static_assert(offsetof(GPUParticle, velocity) == 8, "GPUParticle::velocity offset mismatch");
+static_assert(offsetof(GPUParticle, acceleration) == 16, "GPUParticle::acceleration offset mismatch");
+static_assert(offsetof(GPUParticle, color) == 24, "GPUParticle::color offset mismatch");
+static_assert(offsetof(GPUParticle, lifetime) == 28, "GPUParticle::lifetime offset mismatch");
+static_assert(offsetof(GPUParticle, maxLifetime) == 32, "GPUParticle::maxLifetime offset mismatch");
+static_assert(offsetof(GPUParticle, scale) == 36, "GPUParticle::scale offset mismatch");
+static_assert(offsetof(GPUParticle, flags) == 40, "GPUParticle::flags offset mismatch");
+static_assert(offsetof(GPUParticle, growthRate) == 44, "GPUParticle::growthRate offset mismatch");
+static_assert(offsetof(GPUParticle, rotation) == 48, "GPUParticle::rotation offset mismatch");
+static_assert(offsetof(GPUParticle, textureIndex) == 52, "GPUParticle::textureIndex offset mismatch");
+static_assert(offsetof(GPUParticle, subUV) == 54, "GPUParticle::subUV offset mismatch");
+static_assert(offsetof(GPUParticle, animFrameCount) == 56, "GPUParticle::animFrameCount offset mismatch");
+static_assert(offsetof(GPUParticle, blendMode) == 58, "GPUParticle::blendMode offset mismatch");
+static_assert(offsetof(GPUParticle, subEmitterType) == 59, "GPUParticle::subEmitterType offset mismatch");
+static_assert(offsetof(GPUParticle, subEmitterParam) == 60, "GPUParticle::subEmitterParam offset mismatch");
 
 /**
  * @brief Structure for GPU distortion sources (screen-space shockwaves).
@@ -125,8 +142,13 @@ struct GPUDistortionSource {
   float strength = 0.0f;
 };
 
+static_assert(std::is_standard_layout_v<GPUDistortionSource>, "GPUDistortionSource must be standard layout");
 static_assert(sizeof(GPUDistortionSource) == 16,
               "GPUDistortionSource must be 16 bytes for SSBO alignment");
+static_assert(offsetof(GPUDistortionSource, posX) == 0, "GPUDistortionSource::posX offset mismatch");
+static_assert(offsetof(GPUDistortionSource, posY) == 4, "GPUDistortionSource::posY offset mismatch");
+static_assert(offsetof(GPUDistortionSource, radius) == 8, "GPUDistortionSource::radius offset mismatch");
+static_assert(offsetof(GPUDistortionSource, strength) == 12, "GPUDistortionSource::strength offset mismatch");
 
 struct GPUTrailPoint {
   float posX = 0.0f;
@@ -139,8 +161,17 @@ struct GPUTrailPoint {
   uint32_t flags = 0;
 };
 
+static_assert(std::is_standard_layout_v<GPUTrailPoint>, "GPUTrailPoint must be standard layout");
 static_assert(sizeof(GPUTrailPoint) == 32,
               "GPUTrailPoint struct must be exactly 32 bytes for SSBO alignment");
+static_assert(offsetof(GPUTrailPoint, posX) == 0, "GPUTrailPoint::posX offset mismatch");
+static_assert(offsetof(GPUTrailPoint, posY) == 4, "GPUTrailPoint::posY offset mismatch");
+static_assert(offsetof(GPUTrailPoint, dirX) == 8, "GPUTrailPoint::dirX offset mismatch");
+static_assert(offsetof(GPUTrailPoint, dirY) == 12, "GPUTrailPoint::dirY offset mismatch");
+static_assert(offsetof(GPUTrailPoint, width) == 16, "GPUTrailPoint::width offset mismatch");
+static_assert(offsetof(GPUTrailPoint, lifetime) == 20, "GPUTrailPoint::lifetime offset mismatch");
+static_assert(offsetof(GPUTrailPoint, colorPacked) == 24, "GPUTrailPoint::colorPacked offset mismatch");
+static_assert(offsetof(GPUTrailPoint, flags) == 28, "GPUTrailPoint::flags offset mismatch");
 
 struct GPUTrailHeader {
   int32_t headIndex = 0;
@@ -153,8 +184,17 @@ struct GPUTrailHeader {
   uint32_t colorEnd = 0x00000000;
 };
 
+static_assert(std::is_standard_layout_v<GPUTrailHeader>, "GPUTrailHeader must be standard layout");
 static_assert(sizeof(GPUTrailHeader) == 32,
               "GPUTrailHeader struct must be exactly 32 bytes");
+static_assert(offsetof(GPUTrailHeader, headIndex) == 0, "GPUTrailHeader::headIndex offset mismatch");
+static_assert(offsetof(GPUTrailHeader, pointCount) == 4, "GPUTrailHeader::pointCount offset mismatch");
+static_assert(offsetof(GPUTrailHeader, maxPoints) == 8, "GPUTrailHeader::maxPoints offset mismatch");
+static_assert(offsetof(GPUTrailHeader, maxLifetime) == 12, "GPUTrailHeader::maxLifetime offset mismatch");
+static_assert(offsetof(GPUTrailHeader, widthStart) == 16, "GPUTrailHeader::widthStart offset mismatch");
+static_assert(offsetof(GPUTrailHeader, widthEnd) == 20, "GPUTrailHeader::widthEnd offset mismatch");
+static_assert(offsetof(GPUTrailHeader, colorStart) == 24, "GPUTrailHeader::colorStart offset mismatch");
+static_assert(offsetof(GPUTrailHeader, colorEnd) == 28, "GPUTrailHeader::colorEnd offset mismatch");
 
 enum class ForceFieldType : uint32_t {
   Radial = 0,
@@ -173,8 +213,17 @@ struct GPUForceField {
   float padding = 0.0f;
 };
 
+static_assert(std::is_standard_layout_v<GPUForceField>, "GPUForceField must be standard layout");
 static_assert(sizeof(GPUForceField) == 32,
               "GPUForceField struct must be exactly 32 bytes");
+static_assert(offsetof(GPUForceField, posX) == 0, "GPUForceField::posX offset mismatch");
+static_assert(offsetof(GPUForceField, posY) == 4, "GPUForceField::posY offset mismatch");
+static_assert(offsetof(GPUForceField, radius) == 8, "GPUForceField::radius offset mismatch");
+static_assert(offsetof(GPUForceField, strength) == 12, "GPUForceField::strength offset mismatch");
+static_assert(offsetof(GPUForceField, type) == 16, "GPUForceField::type offset mismatch");
+static_assert(offsetof(GPUForceField, falloff) == 20, "GPUForceField::falloff offset mismatch");
+static_assert(offsetof(GPUForceField, noiseFrequency) == 24, "GPUForceField::noiseFrequency offset mismatch");
+static_assert(offsetof(GPUForceField, padding) == 28, "GPUForceField::padding offset mismatch");
 
 enum class LightType : uint8_t {
   PointLight = 0,
@@ -203,8 +252,25 @@ struct GPULight {
   uint32_t flags = 0u;
 };
 
+static_assert(std::is_standard_layout_v<GPULight>, "GPULight must be standard layout");
 static_assert(sizeof(GPULight) == 64,
               "GPULight struct must be exactly 64 bytes for SSBO alignment");
+static_assert(offsetof(GPULight, posX) == 0, "GPULight::posX offset mismatch");
+static_assert(offsetof(GPULight, posY) == 4, "GPULight::posY offset mismatch");
+static_assert(offsetof(GPULight, radius) == 8, "GPULight::radius offset mismatch");
+static_assert(offsetof(GPULight, intensity) == 12, "GPULight::intensity offset mismatch");
+static_assert(offsetof(GPULight, colorR) == 16, "GPULight::colorR offset mismatch");
+static_assert(offsetof(GPULight, colorG) == 20, "GPULight::colorG offset mismatch");
+static_assert(offsetof(GPULight, colorB) == 24, "GPULight::colorB offset mismatch");
+static_assert(offsetof(GPULight, colorA) == 28, "GPULight::colorA offset mismatch");
+static_assert(offsetof(GPULight, dirX) == 32, "GPULight::dirX offset mismatch");
+static_assert(offsetof(GPULight, dirY) == 36, "GPULight::dirY offset mismatch");
+static_assert(offsetof(GPULight, spotCosHalfAngle) == 40, "GPULight::spotCosHalfAngle offset mismatch");
+static_assert(offsetof(GPULight, spotOuterCos) == 44, "GPULight::spotOuterCos offset mismatch");
+static_assert(offsetof(GPULight, lightType) == 48, "GPULight::lightType offset mismatch");
+static_assert(offsetof(GPULight, shadowMapIndex) == 52, "GPULight::shadowMapIndex offset mismatch");
+static_assert(offsetof(GPULight, priority) == 56, "GPULight::priority offset mismatch");
+static_assert(offsetof(GPULight, flags) == 60, "GPULight::flags offset mismatch");
 
 // V3 Baseline ABI placeholders (Step A)
 struct GPUShadowCaster {
@@ -223,6 +289,14 @@ static_assert(sizeof(GPUShadowCaster) == 32,
               "GPUShadowCaster struct must be exactly 32 bytes");
 static_assert(alignof(GPUShadowCaster) == alignof(float),
               "GPUShadowCaster alignment mismatch");
+static_assert(offsetof(GPUShadowCaster, posX) == 0, "GPUShadowCaster::posX offset mismatch");
+static_assert(offsetof(GPUShadowCaster, posY) == 4, "GPUShadowCaster::posY offset mismatch");
+static_assert(offsetof(GPUShadowCaster, radius) == 8, "GPUShadowCaster::radius offset mismatch");
+static_assert(offsetof(GPUShadowCaster, occluderHeight) == 12, "GPUShadowCaster::occluderHeight offset mismatch");
+static_assert(offsetof(GPUShadowCaster, shapeIndex) == 16, "GPUShadowCaster::shapeIndex offset mismatch");
+static_assert(offsetof(GPUShadowCaster, dynamicFlag) == 20, "GPUShadowCaster::dynamicFlag offset mismatch");
+static_assert(offsetof(GPUShadowCaster, reserved0) == 24, "GPUShadowCaster::reserved0 offset mismatch");
+static_assert(offsetof(GPUShadowCaster, reserved1) == 28, "GPUShadowCaster::reserved1 offset mismatch");
 
 struct GPUShadowLight {
   uint32_t lightId = 0;
@@ -238,6 +312,12 @@ static_assert(sizeof(GPUShadowLight) == 48,
               "GPUShadowLight struct must be exactly 48 bytes");
 static_assert(alignof(GPUShadowLight) == alignof(float),
               "GPUShadowLight alignment mismatch");
+static_assert(offsetof(GPUShadowLight, lightId) == 0, "GPUShadowLight::lightId offset mismatch");
+static_assert(offsetof(GPUShadowLight, shadowType) == 4, "GPUShadowLight::shadowType offset mismatch");
+static_assert(offsetof(GPUShadowLight, reserved0) == 8, "GPUShadowLight::reserved0 offset mismatch");
+static_assert(offsetof(GPUShadowLight, reserved1) == 12, "GPUShadowLight::reserved1 offset mismatch");
+static_assert(offsetof(GPUShadowLight, atlasRect) == 16, "GPUShadowLight::atlasRect offset mismatch");
+static_assert(offsetof(GPUShadowLight, penumbraParams) == 32, "GPUShadowLight::penumbraParams offset mismatch");
 
 struct GPUShadowAtlasMeta {
   uint32_t tileIndex = 0;
@@ -251,6 +331,10 @@ static_assert(sizeof(GPUShadowAtlasMeta) == 16,
               "GPUShadowAtlasMeta struct must be exactly 16 bytes");
 static_assert(alignof(GPUShadowAtlasMeta) == alignof(float),
               "GPUShadowAtlasMeta alignment mismatch");
+static_assert(offsetof(GPUShadowAtlasMeta, tileIndex) == 0, "GPUShadowAtlasMeta::tileIndex offset mismatch");
+static_assert(offsetof(GPUShadowAtlasMeta, lastUsedFrame) == 4, "GPUShadowAtlasMeta::lastUsedFrame offset mismatch");
+static_assert(offsetof(GPUShadowAtlasMeta, priorityScore) == 8, "GPUShadowAtlasMeta::priorityScore offset mismatch");
+static_assert(offsetof(GPUShadowAtlasMeta, occupancy) == 12, "GPUShadowAtlasMeta::occupancy offset mismatch");
 
 struct GPUClusterHeader {
   uint32_t offset = 0;
@@ -264,6 +348,10 @@ static_assert(sizeof(GPUClusterHeader) == 16,
               "GPUClusterHeader struct must be exactly 16 bytes");
 static_assert(alignof(GPUClusterHeader) == alignof(uint32_t),
               "GPUClusterHeader alignment mismatch");
+static_assert(offsetof(GPUClusterHeader, offset) == 0, "GPUClusterHeader::offset offset mismatch");
+static_assert(offsetof(GPUClusterHeader, pointCount) == 4, "GPUClusterHeader::pointCount offset mismatch");
+static_assert(offsetof(GPUClusterHeader, spotCount) == 8, "GPUClusterHeader::spotCount offset mismatch");
+static_assert(offsetof(GPUClusterHeader, areaCount) == 12, "GPUClusterHeader::areaCount offset mismatch");
 
 struct GPUClusterCounters {
   uint32_t writeCursor = 0;
@@ -281,6 +369,14 @@ static_assert(sizeof(GPUClusterCounters) == 32,
               "GPUClusterCounters struct must be exactly 32 bytes");
 static_assert(alignof(GPUClusterCounters) == alignof(uint32_t),
               "GPUClusterCounters alignment mismatch");
+static_assert(offsetof(GPUClusterCounters, writeCursor) == 0, "GPUClusterCounters::writeCursor offset mismatch");
+static_assert(offsetof(GPUClusterCounters, overflowPoint) == 4, "GPUClusterCounters::overflowPoint offset mismatch");
+static_assert(offsetof(GPUClusterCounters, overflowSpot) == 8, "GPUClusterCounters::overflowSpot offset mismatch");
+static_assert(offsetof(GPUClusterCounters, overflowArea) == 12, "GPUClusterCounters::overflowArea offset mismatch");
+static_assert(offsetof(GPUClusterCounters, overflowLine) == 16, "GPUClusterCounters::overflowLine offset mismatch");
+static_assert(offsetof(GPUClusterCounters, reserved0) == 20, "GPUClusterCounters::reserved0 offset mismatch");
+static_assert(offsetof(GPUClusterCounters, reserved1) == 24, "GPUClusterCounters::reserved1 offset mismatch");
+static_assert(offsetof(GPUClusterCounters, reserved2) == 28, "GPUClusterCounters::reserved2 offset mismatch");
 
 struct GPUClusterLightIndex {
   uint32_t lightIndex = 0;
@@ -291,6 +387,7 @@ static_assert(sizeof(GPUClusterLightIndex) == 4,
               "GPUClusterLightIndex struct must be exactly 4 bytes");
 static_assert(alignof(GPUClusterLightIndex) == alignof(uint32_t),
               "GPUClusterLightIndex alignment mismatch");
+static_assert(offsetof(GPUClusterLightIndex, lightIndex) == 0, "GPUClusterLightIndex::lightIndex offset mismatch");
 
 struct GPUClusterPackedLight {
   float posX = 0.0f;
@@ -316,6 +413,22 @@ static_assert(sizeof(GPUClusterPackedLight) == 64,
               "GPUClusterPackedLight struct must be exactly 64 bytes");
 static_assert(alignof(GPUClusterPackedLight) == alignof(float),
               "GPUClusterPackedLight alignment mismatch");
+static_assert(offsetof(GPUClusterPackedLight, posX) == 0, "GPUClusterPackedLight::posX offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, posY) == 4, "GPUClusterPackedLight::posY offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, radius) == 8, "GPUClusterPackedLight::radius offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, invRadiusSq) == 12, "GPUClusterPackedLight::invRadiusSq offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, colorTimesIntensityR) == 16, "GPUClusterPackedLight::colorTimesIntensityR offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, colorTimesIntensityG) == 20, "GPUClusterPackedLight::colorTimesIntensityG offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, colorTimesIntensityB) == 24, "GPUClusterPackedLight::colorTimesIntensityB offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, spotCosHalfAngle) == 28, "GPUClusterPackedLight::spotCosHalfAngle offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, spotOuterCos) == 32, "GPUClusterPackedLight::spotOuterCos offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, dirX) == 36, "GPUClusterPackedLight::dirX offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, dirY) == 40, "GPUClusterPackedLight::dirY offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, lightType) == 44, "GPUClusterPackedLight::lightType offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, shadowMapIndex) == 48, "GPUClusterPackedLight::shadowMapIndex offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, flags) == 52, "GPUClusterPackedLight::flags offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, reserved0) == 56, "GPUClusterPackedLight::reserved0 offset mismatch");
+static_assert(offsetof(GPUClusterPackedLight, reserved1) == 60, "GPUClusterPackedLight::reserved1 offset mismatch");
 
 struct GPULightBounds {
   Vector2 minXY = {0.0f, 0.0f};
@@ -331,6 +444,12 @@ static_assert(sizeof(GPULightBounds) == 32,
               "GPULightBounds struct must be exactly 32 bytes");
 static_assert(alignof(GPULightBounds) == alignof(float),
               "GPULightBounds alignment mismatch");
+static_assert(offsetof(GPULightBounds, minXY) == 0, "GPULightBounds::minXY offset mismatch");
+static_assert(offsetof(GPULightBounds, maxXY) == 8, "GPULightBounds::maxXY offset mismatch");
+static_assert(offsetof(GPULightBounds, minLayer) == 16, "GPULightBounds::minLayer offset mismatch");
+static_assert(offsetof(GPULightBounds, maxLayer) == 20, "GPULightBounds::maxLayer offset mismatch");
+static_assert(offsetof(GPULightBounds, lightIndex) == 24, "GPULightBounds::lightIndex offset mismatch");
+static_assert(offsetof(GPULightBounds, reserved) == 28, "GPULightBounds::reserved offset mismatch");
 
 struct alignas(16) GPUMaterialDataV3 {
   Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
@@ -348,6 +467,14 @@ static_assert(sizeof(GPUMaterialDataV3) == 128,
               "GPUMaterialDataV3 struct must be exactly 128 bytes");
 static_assert(alignof(GPUMaterialDataV3) == 16,
               "GPUMaterialDataV3 alignment must be 16 bytes");
+static_assert(offsetof(GPUMaterialDataV3, baseColor) == 0, "GPUMaterialDataV3::baseColor offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, emissiveAndIntensity) == 16, "GPUMaterialDataV3::emissiveAndIntensity offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, pbrParams) == 32, "GPUMaterialDataV3::pbrParams offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, textureSlots) == 48, "GPUMaterialDataV3::textureSlots offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, fresnelControl) == 64, "GPUMaterialDataV3::fresnelControl offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, uvParams) == 80, "GPUMaterialDataV3::uvParams offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, reserved0) == 96, "GPUMaterialDataV3::reserved0 offset mismatch");
+static_assert(offsetof(GPUMaterialDataV3, reserved1) == 112, "GPUMaterialDataV3::reserved1 offset mismatch");
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).
@@ -379,9 +506,19 @@ constexpr uint32_t GPU_ENTITY_FLAG_NO_ROTATION =
     1 << 3; // Entity maintains fixed rotation (ignores velocity alignment)
 
 // Ensure Stride is exactly 64 bytes for SSBO alignment
+static_assert(std::is_standard_layout_v<GPUEntity>,
+              "GPUEntity must be standard layout");
 static_assert(
     sizeof(GPUEntity) == 64,
     "GPUEntity struct must be exactly 64 bytes for physics SSBO compatibility");
+static_assert(offsetof(GPUEntity, position) == 0, "GPUEntity::position offset mismatch");
+static_assert(offsetof(GPUEntity, prevPosition) == 8, "GPUEntity::prevPosition offset mismatch");
+static_assert(offsetof(GPUEntity, velocity) == 16, "GPUEntity::velocity offset mismatch");
+static_assert(offsetof(GPUEntity, radius) == 24, "GPUEntity::radius offset mismatch");
+static_assert(offsetof(GPUEntity, type) == 28, "GPUEntity::type offset mismatch");
+static_assert(offsetof(GPUEntity, flags) == 32, "GPUEntity::flags offset mismatch");
+static_assert(offsetof(GPUEntity, frameId) == 36, "GPUEntity::frameId offset mismatch");
+static_assert(offsetof(GPUEntity, padding) == 40, "GPUEntity::padding offset mismatch");
 
 namespace GPUFlags {
   constexpr uint32_t AI_STATE_SHIFT = 8;
@@ -427,9 +564,19 @@ struct GPUSkillEffect {
 };
 
 // Ensure Stride is exactly 64 bytes
+static_assert(std::is_standard_layout_v<GPUSkillEffect>,
+              "GPUSkillEffect must be standard layout");
 static_assert(
     sizeof(GPUSkillEffect) == 64,
     "GPUSkillEffect struct must be exactly 64 bytes for SSBO alignment");
+static_assert(offsetof(GPUSkillEffect, position) == 0, "GPUSkillEffect::position offset mismatch");
+static_assert(offsetof(GPUSkillEffect, velocity) == 8, "GPUSkillEffect::velocity offset mismatch");
+static_assert(offsetof(GPUSkillEffect, coreColor) == 16, "GPUSkillEffect::coreColor offset mismatch");
+static_assert(offsetof(GPUSkillEffect, glowColor) == 32, "GPUSkillEffect::glowColor offset mismatch");
+static_assert(offsetof(GPUSkillEffect, radius) == 48, "GPUSkillEffect::radius offset mismatch");
+static_assert(offsetof(GPUSkillEffect, sectorAngle) == 52, "GPUSkillEffect::sectorAngle offset mismatch");
+static_assert(offsetof(GPUSkillEffect, flags) == 56, "GPUSkillEffect::flags offset mismatch");
+static_assert(offsetof(GPUSkillEffect, type) == 60, "GPUSkillEffect::type offset mismatch");
 
 /**
  * @brief Structure for GPU HoloBlade instances.
@@ -447,8 +594,17 @@ struct HoloBladeInstance {
   HoloBladeInstance() = default;
 };
 
+static_assert(std::is_standard_layout_v<HoloBladeInstance>,
+              "HoloBladeInstance must be standard layout");
 static_assert(sizeof(HoloBladeInstance) == 48,
               "HoloBladeInstance struct must be 48 bytes for SSBO alignment");
+static_assert(offsetof(HoloBladeInstance, position) == 0, "HoloBladeInstance::position offset mismatch");
+static_assert(offsetof(HoloBladeInstance, rotation) == 8, "HoloBladeInstance::rotation offset mismatch");
+static_assert(offsetof(HoloBladeInstance, scale) == 12, "HoloBladeInstance::scale offset mismatch");
+static_assert(offsetof(HoloBladeInstance, holoColor) == 16, "HoloBladeInstance::holoColor offset mismatch");
+static_assert(offsetof(HoloBladeInstance, rimStrength) == 32, "HoloBladeInstance::rimStrength offset mismatch");
+static_assert(offsetof(HoloBladeInstance, noiseSpeed) == 36, "HoloBladeInstance::noiseSpeed offset mismatch");
+static_assert(offsetof(HoloBladeInstance, padding) == 40, "HoloBladeInstance::padding offset mismatch");
 
 /**
  * @brief Structure for GPU damage popups.
@@ -468,8 +624,19 @@ struct GPUPopupInstance {
   GPUPopupInstance() = default;
 };
 
+static_assert(std::is_standard_layout_v<GPUPopupInstance>,
+              "GPUPopupInstance must be standard layout");
 static_assert(sizeof(GPUPopupInstance) == 48,
               "GPUPopupInstance struct must be 48 bytes for SSBO alignment");
+static_assert(offsetof(GPUPopupInstance, position) == 0, "GPUPopupInstance::position offset mismatch");
+static_assert(offsetof(GPUPopupInstance, velocity) == 8, "GPUPopupInstance::velocity offset mismatch");
+static_assert(offsetof(GPUPopupInstance, timer) == 16, "GPUPopupInstance::timer offset mismatch");
+static_assert(offsetof(GPUPopupInstance, lifeTime) == 20, "GPUPopupInstance::lifeTime offset mismatch");
+static_assert(offsetof(GPUPopupInstance, glyphData) == 24, "GPUPopupInstance::glyphData offset mismatch");
+static_assert(offsetof(GPUPopupInstance, colorPacked) == 28, "GPUPopupInstance::colorPacked offset mismatch");
+static_assert(offsetof(GPUPopupInstance, flags) == 32, "GPUPopupInstance::flags offset mismatch");
+static_assert(offsetof(GPUPopupInstance, scale) == 36, "GPUPopupInstance::scale offset mismatch");
+static_assert(offsetof(GPUPopupInstance, padding) == 40, "GPUPopupInstance::padding offset mismatch");
 
 /**
  * @brief GPU text command from CPU-side event collection.
@@ -486,6 +653,10 @@ static_assert(std::is_standard_layout_v<GPUTextCommand>,
               "GPUTextCommand must be standard layout");
 static_assert(sizeof(GPUTextCommand) == 16,
               "GPUTextCommand struct must be exactly 16 bytes");
+static_assert(offsetof(GPUTextCommand, worldPosX) == 0, "GPUTextCommand::worldPosX offset mismatch");
+static_assert(offsetof(GPUTextCommand, worldPosY) == 4, "GPUTextCommand::worldPosY offset mismatch");
+static_assert(offsetof(GPUTextCommand, stringId) == 8, "GPUTextCommand::stringId offset mismatch");
+static_assert(offsetof(GPUTextCommand, colorAndFlags) == 12, "GPUTextCommand::colorAndFlags offset mismatch");
 
 /**
  * @brief GPU glyph metric table entry for text layout compute.
@@ -508,6 +679,16 @@ static_assert(std::is_standard_layout_v<GPUGlyphMetrics>,
               "GPUGlyphMetrics must be standard layout");
 static_assert(sizeof(GPUGlyphMetrics) == 40,
               "GPUGlyphMetrics struct must be exactly 40 bytes");
+static_assert(offsetof(GPUGlyphMetrics, uvMinX) == 0, "GPUGlyphMetrics::uvMinX offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, uvMinY) == 4, "GPUGlyphMetrics::uvMinY offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, uvMaxX) == 8, "GPUGlyphMetrics::uvMaxX offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, uvMaxY) == 12, "GPUGlyphMetrics::uvMaxY offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, offsetX) == 16, "GPUGlyphMetrics::offsetX offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, offsetY) == 20, "GPUGlyphMetrics::offsetY offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, sizeX) == 24, "GPUGlyphMetrics::sizeX offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, sizeY) == 28, "GPUGlyphMetrics::sizeY offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, advance) == 32, "GPUGlyphMetrics::advance offset mismatch");
+static_assert(offsetof(GPUGlyphMetrics, reserved) == 36, "GPUGlyphMetrics::reserved offset mismatch");
 
 /**
  * @brief GPU text quad generated by layout pass and consumed by draw pass.
@@ -530,6 +711,16 @@ static_assert(std::is_standard_layout_v<GPUTextQuad>,
               "GPUTextQuad must be standard layout");
 static_assert(sizeof(GPUTextQuad) == 40,
               "GPUTextQuad struct must be exactly 40 bytes");
+static_assert(offsetof(GPUTextQuad, screenPosX) == 0, "GPUTextQuad::screenPosX offset mismatch");
+static_assert(offsetof(GPUTextQuad, screenPosY) == 4, "GPUTextQuad::screenPosY offset mismatch");
+static_assert(offsetof(GPUTextQuad, sizeX) == 8, "GPUTextQuad::sizeX offset mismatch");
+static_assert(offsetof(GPUTextQuad, sizeY) == 12, "GPUTextQuad::sizeY offset mismatch");
+static_assert(offsetof(GPUTextQuad, uvMinX) == 16, "GPUTextQuad::uvMinX offset mismatch");
+static_assert(offsetof(GPUTextQuad, uvMinY) == 20, "GPUTextQuad::uvMinY offset mismatch");
+static_assert(offsetof(GPUTextQuad, uvMaxX) == 24, "GPUTextQuad::uvMaxX offset mismatch");
+static_assert(offsetof(GPUTextQuad, uvMaxY) == 28, "GPUTextQuad::uvMaxY offset mismatch");
+static_assert(offsetof(GPUTextQuad, colorPacked) == 32, "GPUTextQuad::colorPacked offset mismatch");
+static_assert(offsetof(GPUTextQuad, opacity) == 36, "GPUTextQuad::opacity offset mismatch");
 
 /**
  * @brief GPU loot instance payload for V4 loot rendering path.
@@ -550,6 +741,16 @@ static_assert(std::is_standard_layout_v<GPULootInstance>,
               "GPULootInstance must be standard layout");
 static_assert(sizeof(GPULootInstance) == 32,
               "GPULootInstance struct must be exactly 32 bytes");
+static_assert(alignof(GPULootInstance) == alignof(float),
+              "GPULootInstance alignment mismatch");
+static_assert(offsetof(GPULootInstance, worldPosX) == 0, "GPULootInstance::worldPosX offset mismatch");
+static_assert(offsetof(GPULootInstance, worldPosY) == 4, "GPULootInstance::worldPosY offset mismatch");
+static_assert(offsetof(GPULootInstance, labelOffsetX) == 8, "GPULootInstance::labelOffsetX offset mismatch");
+static_assert(offsetof(GPULootInstance, labelOffsetY) == 12, "GPULootInstance::labelOffsetY offset mismatch");
+static_assert(offsetof(GPULootInstance, itemId) == 16, "GPULootInstance::itemId offset mismatch");
+static_assert(offsetof(GPULootInstance, rarityColor) == 20, "GPULootInstance::rarityColor offset mismatch");
+static_assert(offsetof(GPULootInstance, glowIntensity) == 24, "GPULootInstance::glowIntensity offset mismatch");
+static_assert(offsetof(GPULootInstance, flags) == 28, "GPULootInstance::flags offset mismatch");
 
 /**
  * @brief Emissive material stamp projection payload (CPU-side span DTO).
@@ -585,6 +786,16 @@ static_assert(std::is_standard_layout_v<RadianceCascadeConfig>,
               "RadianceCascadeConfig must be standard layout");
 static_assert(sizeof(RadianceCascadeConfig) == 32,
               "RadianceCascadeConfig struct must be exactly 32 bytes");
+static_assert(alignof(RadianceCascadeConfig) == alignof(uint32_t),
+              "RadianceCascadeConfig alignment mismatch");
+static_assert(offsetof(RadianceCascadeConfig, numLevels) == 0, "RadianceCascadeConfig::numLevels offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, raysPerProbe) == 4, "RadianceCascadeConfig::raysPerProbe offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, baseInterval) == 8, "RadianceCascadeConfig::baseInterval offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, temporalWeight) == 12, "RadianceCascadeConfig::temporalWeight offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, halfResolution) == 16, "RadianceCascadeConfig::halfResolution offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, sdfUpdateInterval) == 20, "RadianceCascadeConfig::sdfUpdateInterval offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, giIntensity) == 24, "RadianceCascadeConfig::giIntensity offset mismatch");
+static_assert(offsetof(RadianceCascadeConfig, reserved) == 28, "RadianceCascadeConfig::reserved offset mismatch");
 
 /**
  * @brief V5 SPH particle payload.
@@ -632,6 +843,15 @@ static_assert(std::is_standard_layout_v<GPUFluidConfig>,
               "GPUFluidConfig must be standard layout");
 static_assert(sizeof(GPUFluidConfig) == 32,
               "GPUFluidConfig struct must be exactly 32 bytes");
+static_assert(alignof(GPUFluidConfig) == alignof(float),
+              "GPUFluidConfig alignment mismatch");
+static_assert(offsetof(GPUFluidConfig, smoothingRadius) == 0, "GPUFluidConfig::smoothingRadius offset mismatch");
+static_assert(offsetof(GPUFluidConfig, restDensity) == 4, "GPUFluidConfig::restDensity offset mismatch");
+static_assert(offsetof(GPUFluidConfig, stiffness) == 8, "GPUFluidConfig::stiffness offset mismatch");
+static_assert(offsetof(GPUFluidConfig, viscosity) == 12, "GPUFluidConfig::viscosity offset mismatch");
+static_assert(offsetof(GPUFluidConfig, gravity) == 16, "GPUFluidConfig::gravity offset mismatch");
+static_assert(offsetof(GPUFluidConfig, surfaceTension) == 24, "GPUFluidConfig::surfaceTension offset mismatch");
+static_assert(offsetof(GPUFluidConfig, maxParticles) == 28, "GPUFluidConfig::maxParticles offset mismatch");
 
 /**
  * @brief Structure for GPU Visual Stats (Attribute Sync).
@@ -656,9 +876,22 @@ struct GPUVisualStats {
 };
 
 // Ensure Stride is exactly 64 bytes
+static_assert(std::is_standard_layout_v<GPUVisualStats>,
+              "GPUVisualStats must be standard layout");
 static_assert(
     sizeof(GPUVisualStats) == 64,
     "GPUVisualStats struct must be exactly 64 bytes for SSBO alignment");
+static_assert(offsetof(GPUVisualStats, weaponDamage) == 0, "GPUVisualStats::weaponDamage offset mismatch");
+static_assert(offsetof(GPUVisualStats, attackSpeed) == 4, "GPUVisualStats::attackSpeed offset mismatch");
+static_assert(offsetof(GPUVisualStats, critChance) == 8, "GPUVisualStats::critChance offset mismatch");
+static_assert(offsetof(GPUVisualStats, critDamage) == 12, "GPUVisualStats::critDamage offset mismatch");
+static_assert(offsetof(GPUVisualStats, defenseRating) == 16, "GPUVisualStats::defenseRating offset mismatch");
+static_assert(offsetof(GPUVisualStats, statusStrength) == 20, "GPUVisualStats::statusStrength offset mismatch");
+static_assert(offsetof(GPUVisualStats, glowIntensity) == 24, "GPUVisualStats::glowIntensity offset mismatch");
+static_assert(offsetof(GPUVisualStats, glowColorPacked) == 28, "GPUVisualStats::glowColorPacked offset mismatch");
+static_assert(offsetof(GPUVisualStats, activeStatusMask) == 32, "GPUVisualStats::activeStatusMask offset mismatch");
+static_assert(offsetof(GPUVisualStats, statusTimer) == 36, "GPUVisualStats::statusTimer offset mismatch");
+static_assert(offsetof(GPUVisualStats, padding) == 40, "GPUVisualStats::padding offset mismatch");
 
 /**
  * @brief Structure for GPU Item Label instances (Instanced UI).
@@ -677,7 +910,16 @@ struct GPULabelInstance {
 };
 
 // Static assert for alignment safety
+static_assert(std::is_standard_layout_v<GPULabelInstance>,
+              "GPULabelInstance must be standard layout");
 static_assert(sizeof(GPULabelInstance) == 64, "GPULabelInstance must be 64 bytes");
+static_assert(offsetof(GPULabelInstance, position) == 0, "GPULabelInstance::position offset mismatch");
+static_assert(offsetof(GPULabelInstance, size) == 8, "GPULabelInstance::size offset mismatch");
+static_assert(offsetof(GPULabelInstance, bgColor) == 16, "GPULabelInstance::bgColor offset mismatch");
+static_assert(offsetof(GPULabelInstance, borderColor) == 32, "GPULabelInstance::borderColor offset mismatch");
+static_assert(offsetof(GPULabelInstance, borderWidth) == 48, "GPULabelInstance::borderWidth offset mismatch");
+static_assert(offsetof(GPULabelInstance, cornerRadius) == 52, "GPULabelInstance::cornerRadius offset mismatch");
+static_assert(offsetof(GPULabelInstance, padding) == 56, "GPULabelInstance::padding offset mismatch");
 
 /**
  * @brief Structure for individual GPU glyph instances (Text Rendering).
@@ -696,8 +938,17 @@ struct GPUGlyphInstance {
 };
 
 // Ensure Stride is exactly 48 bytes
+static_assert(std::is_standard_layout_v<GPUGlyphInstance>,
+              "GPUGlyphInstance must be standard layout");
 static_assert(sizeof(GPUGlyphInstance) == 48,
               "GPUGlyphInstance struct must be exactly 48 bytes for SSBO alignment");
+static_assert(offsetof(GPUGlyphInstance, position) == 0, "GPUGlyphInstance::position offset mismatch");
+static_assert(offsetof(GPUGlyphInstance, size) == 8, "GPUGlyphInstance::size offset mismatch");
+static_assert(offsetof(GPUGlyphInstance, uvMin) == 16, "GPUGlyphInstance::uvMin offset mismatch");
+static_assert(offsetof(GPUGlyphInstance, uvMax) == 24, "GPUGlyphInstance::uvMax offset mismatch");
+static_assert(offsetof(GPUGlyphInstance, colorPacked) == 32, "GPUGlyphInstance::colorPacked offset mismatch");
+static_assert(offsetof(GPUGlyphInstance, scale) == 36, "GPUGlyphInstance::scale offset mismatch");
+static_assert(offsetof(GPUGlyphInstance, padding) == 40, "GPUGlyphInstance::padding offset mismatch");
 
 /**
  * @brief Per-glyph layout template (text-origin-relative, GPU-ready).

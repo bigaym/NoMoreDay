@@ -1,11 +1,13 @@
 #pragma once
 
+#include "engine/render/GPUData.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 
 #include "raylib.h"
 #include <cstdint>
 #include <string>
+#include <vector>
 
 class ResourceManager;
 
@@ -70,12 +72,10 @@ public:
 
 private:
   bool EnsureResources(int width, int height);
-  uint64_t BuildLightSignature() const;
 
   Shader m_compositeShader = {};
 
   int m_sceneResolutionLoc = -1;
-  int m_radianceResolutionLoc = -1;
   int m_temporalWeightLoc = -1;
   int m_giIntensityLoc = -1;
   int m_resetHistoryLoc = -1;
@@ -83,6 +83,11 @@ private:
   int m_zoomRatioLoc = -1;
   int m_occupancyEnabledLoc = -1;
   int m_radianceTexLoc = -1;
+  int m_heightFieldTexLoc = -1;
+  int m_heightFieldEnabledLoc = -1;
+  int m_raysPerProbeLoc = -1;
+  int m_dirtyRectCountLoc = -1;
+  int m_dirtyRectsLoc = -1;
 
   resources::FramebufferHandle m_outputScene = {};
   resources::FramebufferHandle m_historyA = {};
@@ -101,7 +106,7 @@ private:
   bool m_prevCameraValid = false;
   Vector2 m_prevCameraTarget = {0.0f, 0.0f};
   float m_prevCameraZoom = 0.0f;
-  uint64_t m_prevLightSignature = 0u;
+  std::vector<components::GPULight> m_prevActiveLights = {};
   const OccluderExtractPass *m_occluderExtractPass = nullptr;
   uint64_t m_prevOccluderMaskVersion = 0u;
   const RadianceCascadesPass *m_radianceCascadesPass = nullptr;

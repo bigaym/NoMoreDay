@@ -2,6 +2,7 @@
 
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/PersistentBuffer.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 
@@ -80,7 +81,7 @@ private:
   Shader m_atlasTileShader = {};
   resources::FramebufferHandle m_sdfField = {};
   resources::FramebufferHandle m_shadowAtlas = {};
-  NoMoreDay::core::ComputeBuffer m_occluderBuffer;
+  NoMoreDay::render::PersistentBuffer m_occluderBuffer;
 
   int m_resolutionLoc = -1;
   int m_occluderCountLoc = -1;

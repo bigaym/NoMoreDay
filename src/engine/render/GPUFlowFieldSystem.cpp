@@ -51,8 +51,8 @@ void GPUFlowFieldSystem::Init(ResourceManager &resources, int width,
                               RL_DYNAMIC_DRAW);
 
   // 3. Flow Buffer (Vector2)
-  // Initialize with zero
-  m_flowBuffer.Create(cellCount * sizeof(Vector2));
+  // Initialize with zero (triple buffered for async readback ring)
+  m_flowBuffer.Create(cellCount * sizeof(Vector2), 3);
   Vector2 *flowPtr = (Vector2 *)m_flowBuffer.BeginWrite();
   for (size_t i = 0; i < cellCount; ++i)
     flowPtr[i] = {0.0f, 0.0f};
@@ -291,18 +291,28 @@ void GPUFlowFieldSystem::SyncToCPU() {
 
   // Ensure shadow buffer size is correct (though it should be from Init)
   if (m_flowFieldShadow.size() != cellCount) {
-    m_flowFieldShadow.resize(cellCount);
+    m_flowFieldShadow.assign(cellCount, {0.0f, 0.0f});
   }
 
-  // Read data from GPU to CPU shadow buffer
-  m_flowBuffer.Read(m_flowFieldShadow.data(), cellCount * sizeof(Vector2));
+  // Zero CPU-GPU sync stalls in production: poll delayed slot without blocking
+  if (m_flowBuffer.TryReadNonBlocking(m_flowFieldShadow.data(),
+                                      cellCount * sizeof(Vector2), 1)) {
+    m_hasValidSnapshot = true;
+  }
+  // AI uses the latest ready CPU snapshot
   m_syncedThisFrame = true;
 }
 
 void GPUFlowFieldSystem::DownloadFlowField(std::vector<Vector2>& out) const {
   size_t cellCount = (size_t)m_width * m_height;
   if (out.size() != cellCount) out.resize(cellCount);
-  m_flowBuffer.Read(out.data(), cellCount * sizeof(Vector2));
+  // T6.7: never block the main thread when no ready snapshot exists. Fall back
+  // to the zero-initialized CPU shadow (safe until the first SyncToCPU).
+  if (!m_flowBuffer.TryReadNonBlocking(out.data(), cellCount * sizeof(Vector2), 1)) {
+    if (!m_flowFieldShadow.empty()) {
+      std::memcpy(out.data(), m_flowFieldShadow.data(), cellCount * sizeof(Vector2));
+    }
+  }
 }
 
 void GPUFlowFieldSystem::Shutdown() {
@@ -317,6 +327,7 @@ void GPUFlowFieldSystem::Shutdown() {
   m_flowFieldShadow.shrink_to_fit();
   m_costCache.clear();
   m_costCache.shrink_to_fit();
+  m_hasValidSnapshot = false;
 }
 
 } // namespace NoMoreDay::systems

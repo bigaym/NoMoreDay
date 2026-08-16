@@ -64,7 +64,7 @@ enum class Binding : uint32_t {
  * 必须与 particle.compute / particle_emit.compute 中的 binding 保持一致。
  */
 namespace BindingGovernance {
-constexpr std::array<uint32_t, 12> kGlobalSharedSSBOBindings = {
+constexpr std::array<uint32_t, 16> kGlobalSharedSSBOBindings = {
     static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA),
     static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID),
     static_cast<uint32_t>(Binding::SSBO_COMMAND),
@@ -75,6 +75,10 @@ constexpr std::array<uint32_t, 12> kGlobalSharedSSBOBindings = {
     static_cast<uint32_t>(Binding::SSBO_POPUP_DATA),
     static_cast<uint32_t>(Binding::SSBO_GLYPH_INSTANCE),
     static_cast<uint32_t>(Binding::SSBO_LIGHT_DATA),
+    static_cast<uint32_t>(Binding::SSBO_TRAIL_HEADERS),
+    static_cast<uint32_t>(Binding::SSBO_TRAIL_POINTS),
+    static_cast<uint32_t>(Binding::SSBO_MATERIAL_DATA),
+    static_cast<uint32_t>(Binding::SSBO_DISTORTION_DATA),
     static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE),
     static_cast<uint32_t>(Binding::SSBO_LOOT_INSTANCE),
 };
@@ -131,6 +135,11 @@ constexpr uint32_t QUAD_BUFFER = 3;
 constexpr uint32_t COUNTER_BUFFER = 4;
 constexpr uint32_t STRING_META = 5;
 } // namespace TextLayoutCS
+
+namespace TextIndirectArgsCS {
+constexpr uint32_t COUNTER_BUFFER = 0;
+constexpr uint32_t COMMAND_BUFFER = 1;
+} // namespace TextIndirectArgsCS
 
 namespace StatsScatterCS {
 constexpr uint32_t UPDATES = 0;
@@ -290,7 +299,7 @@ constexpr uint32_t kStableLightRetentionFrames = 120;
 } // namespace Shadow
 
 namespace ShadowCS {
-constexpr uint32_t kOccluderBinding = static_cast<uint32_t>(Binding::SSBO_RESERVED_15);
+constexpr uint32_t kOccluderBinding = 0u; // Shadow-phase local physical slot 0 (not in global table)
 constexpr uint32_t kSdfImageBinding = 0;
 } // namespace ShadowCS
 
@@ -300,7 +309,7 @@ constexpr uint32_t kOccluderMaskFormat = 0x8229; // GL_R8
 constexpr uint32_t kDistanceFieldFormat = 0x822D; // GL_R16F
 constexpr uint32_t kSeedFieldFormat = 0x823A; // GL_RG16UI
 constexpr uint32_t kEmissiveFormat = 0x881A; // GL_RGBA16F
-constexpr uint32_t kRadianceFormat = 0x881A; // GL_RGBA16F
+constexpr uint32_t kRadianceFormat = 0x822F; // GL_RG16F (RG16F Directional Probe Atlas)
 
 // Reserved image bindings for V5 compute pipelines.
 constexpr uint32_t kOccluderMaskImageBinding = 0;

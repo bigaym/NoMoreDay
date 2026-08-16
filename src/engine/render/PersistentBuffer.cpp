@@ -118,6 +118,10 @@ void PersistentBuffer::CreatePersistent(size_t size) {
     
     m_mode = Mode::Compat;
     CreateCompat(size);
+  } else {
+    // Zero-initialize every slot so a first-frame read of a never-written
+    // slot is defined (IsSlotSignaled treats a null fence as ready).
+    std::memset(m_mappedPtr, 0, m_totalSize);
   }
 }
 
@@ -125,12 +129,12 @@ void PersistentBuffer::CreateCompat(size_t size) {
   if (m_bufferId == 0) {
       utils::GPUUtils::GenBuffers(1, &m_bufferId);
   }
+  m_stagingBuffer.assign(size, 0);
   utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);
-  utils::GPUUtils::BufferData(GL::SHADER_STORAGE_BUFFER, size, nullptr,
+  utils::GPUUtils::BufferData(GL::SHADER_STORAGE_BUFFER, size,
+                              m_stagingBuffer.data(),
                               0x88E8); // GL_DYNAMIC_DRAW
   utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, 0);
-
-  m_stagingBuffer.resize(size);
 }
 
 void PersistentBuffer::Destroy() {
@@ -257,6 +261,60 @@ void PersistentBuffer::ReadFromSlot(void *data, size_t size,
     utils::GPUUtils::GetBufferSubData(GL::SHADER_STORAGE_BUFFER, 0, size, data);
     utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, 0);
   }
+}
+
+bool PersistentBuffer::IsSlotSignaled(int slotIndex) const {
+  if (slotIndex < 0 || slotIndex >= m_bufferCount) {
+    return false;
+  }
+  if (m_mode == Mode::Persistent) {
+    void *fencePtr = m_fences[slotIndex];
+    if (fencePtr == nullptr) {
+      return true;
+    }
+    constexpr uint32_t kGLAlreadySignaled = 0x911A;
+    constexpr uint32_t kGLConditionSatisfied = 0x911C;
+    const uint32_t status = utils::GPUUtils::ClientWaitSync(fencePtr, 0, 0);
+    if (status == kGLAlreadySignaled || status == kGLConditionSatisfied) {
+      utils::GPUUtils::DeleteSync(fencePtr);
+      const_cast<PersistentBuffer *>(this)->m_fences[slotIndex] = nullptr;
+      return true;
+    }
+    return false;
+  }
+  return true;
+}
+
+bool PersistentBuffer::TryReadFromSlotNonBlocking(void *data, size_t size,
+                                                  int slotIndex) const {
+  if (slotIndex < 0 || slotIndex >= m_bufferCount || data == nullptr || size == 0) {
+    return false;
+  }
+  if (m_mode == Mode::Persistent) {
+    if (!m_mappedPtr || !IsSlotSignaled(slotIndex)) {
+      return false;
+    }
+    utils::GPUUtils::MemoryBarrier(RenderConstants::Barrier::Client);
+    size_t copySize = std::min(size, m_slotSize);
+    std::memcpy(data, m_mappedPtr + slotIndex * m_slotSize, copySize);
+    return true;
+  } else {
+    if (!m_stagingBuffer.empty()) {
+      size_t copySize = std::min(size, m_stagingBuffer.size());
+      std::memcpy(data, m_stagingBuffer.data(), copySize);
+      return true;
+    }
+    return false;
+  }
+}
+
+bool PersistentBuffer::TryReadNonBlocking(void *data, size_t size,
+                                          int delaySlots) const {
+  if (m_bufferCount <= 0) {
+    return false;
+  }
+  int targetSlot = (m_writeSlot - std::max(1, delaySlots) + m_bufferCount * 2) % m_bufferCount;
+  return TryReadFromSlotNonBlocking(data, size, targetSlot);
 }
 
 void PersistentBuffer::BindBase(unsigned int bindingPoint) const {

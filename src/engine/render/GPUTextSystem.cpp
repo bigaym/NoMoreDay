@@ -18,7 +18,33 @@ struct DrawArraysIndirectCommand {
   uint32_t baseInstance = 0;
 };
 
+constexpr uint32_t kGLCopyReadBuffer = 0x8F36;
+constexpr uint32_t kGLCopyWriteBuffer = 0x8F37;
+constexpr uint32_t kGLStreamRead = 0x88E1;
+constexpr uint32_t kGLSyncGpuCommandsComplete = 0x9117;
+constexpr uint32_t kGLAlreadySignaled = 0x911A;
+constexpr uint32_t kGLConditionSatisfied = 0x911C;
+
 } // namespace
+
+GPUTextSystem::SnapshotPollOutcome
+GPUTextSystem::TryPublishReadySnapshot(
+    const bool slotArmed, const bool frameEligible, const bool fenceSignaled,
+    const size_t readIndex, const size_t ringDepth,
+    const uint32_t pendingSnapshot, const uint32_t currentSnapshot) noexcept {
+  if (slotArmed && frameEligible && fenceSignaled) {
+    return {
+        .published = true,
+        .snapshot = pendingSnapshot,
+        .nextReadIndex = (ringDepth > 0) ? ((readIndex + 1) % ringDepth) : 0,
+    };
+  }
+  return {
+      .published = false,
+      .snapshot = currentSnapshot,
+      .nextReadIndex = readIndex,
+  };
+}
 
 void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
                          const uint32_t maxQuads) {
@@ -29,12 +55,21 @@ void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
   m_maxCommands = maxCommands;
   m_maxQuads = maxQuads;
   m_lastQuadCount = 0;
+  m_frameIndex = 0;
 
   m_layoutShader = resources.loadComputeShader(
       entt::hashed_string{"gpu_text_layout_cs"},
       "assets/shaders/text/text_layout.compute");
   if (m_layoutShader.id == 0) {
     LOG_ERROR("GPUTextSystem: failed to load text_layout.compute");
+    return;
+  }
+
+  m_indirectArgsShader = resources.loadComputeShader(
+      entt::hashed_string{"gpu_text_indirect_args_cs"},
+      "assets/shaders/text/text_indirect_args.compute");
+  if (m_indirectArgsShader.id == 0) {
+    LOG_ERROR("GPUTextSystem: failed to load text_indirect_args.compute");
     return;
   }
 
@@ -46,6 +81,8 @@ void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
       rlGetLocationUniform(m_layoutShader.id, "uStringMetaCount");
   m_locTime = rlGetLocationUniform(m_layoutShader.id, "uTime");
   m_locAnimDuration = rlGetLocationUniform(m_layoutShader.id, "uAnimDuration");
+  m_locIndirectMaxQuadCount =
+      rlGetLocationUniform(m_indirectArgsShader.id, "uMaxQuadCount");
 
   m_cpuCommands.reserve(m_maxCommands);
   m_commandBuffer.Create(m_maxCommands * sizeof(components::GPUTextCommand));
@@ -54,6 +91,26 @@ void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
                       RL_DYNAMIC_DRAW);
   m_counterBuffer.Create(sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
   m_indirectBuffer.Create(sizeof(DrawArraysIndirectCommand), nullptr, RL_DYNAMIC_DRAW);
+
+  const DrawArraysIndirectCommand zeroCmd = {6u, 0u, 0u, 0u};
+  m_indirectBuffer.Update(&zeroCmd, sizeof(zeroCmd), 0);
+
+  for (auto &slot : m_readbackRing) {
+    if (slot.counterReadbackBufferId == 0) {
+      utils::GPUUtils::GenBuffers(1, &slot.counterReadbackBufferId);
+      if (slot.counterReadbackBufferId != 0) {
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, slot.counterReadbackBufferId);
+        utils::GPUUtils::BufferData(kGLCopyWriteBuffer, sizeof(uint32_t), nullptr,
+                                    kGLStreamRead);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, 0);
+      }
+    }
+    slot.fence = nullptr;
+    slot.armed = false;
+    slot.submittedFrame = 0;
+  }
+  m_ringWrite = 0;
+  m_ringRead = 0;
 
   m_renderShader = NoMoreDay::utils::GPUUtils::LoadShaderLabeled(
       "assets/shaders/text/text_quad.vert", "assets/shaders/text/text_quad.frag");
@@ -107,6 +164,23 @@ void GPUTextSystem::Shutdown() {
   m_counterBuffer.Release();
   m_indirectBuffer.Release();
 
+  for (auto &slot : m_readbackRing) {
+    if (slot.fence != nullptr) {
+      utils::GPUUtils::DeleteSync(slot.fence);
+      slot.fence = nullptr;
+    }
+    if (slot.counterReadbackBufferId != 0) {
+      utils::GPUUtils::DeleteBuffers(1, &slot.counterReadbackBufferId);
+      slot.counterReadbackBufferId = 0;
+    }
+    slot.armed = false;
+    slot.submittedFrame = 0;
+  }
+  m_ringWrite = 0;
+  m_ringRead = 0;
+  m_frameIndex = 0;
+  m_lastQuadCount = 0;
+
   m_cpuCommands.clear();
   m_cpuGlyphMetrics.clear();
   m_cpuGlyphIndices.clear();
@@ -134,15 +208,13 @@ void GPUTextSystem::Shutdown() {
   }
 
   m_layoutShader = {};
+  m_indirectArgsShader = {};
   m_renderShader = {};
   m_initialized = false;
 }
 
 void GPUTextSystem::BeginFrame() {
   m_cpuCommands.clear();
-  m_lastQuadCount = 0;
-  const DrawArraysIndirectCommand zeroCmd = {6u, 0u, 0u, 0u};
-  m_indirectBuffer.Update(&zeroCmd, sizeof(zeroCmd), 0);
 }
 
 bool GPUTextSystem::EnqueueCommand(const components::GPUTextCommand &command) {
@@ -200,11 +272,79 @@ void GPUTextSystem::UploadStringTable(
 
 void GPUTextSystem::DispatchLayout(const float timeSeconds,
                                    const float animDurationSeconds) {
-  if (!m_initialized || m_layoutShader.id == 0 || m_cpuCommands.empty() ||
-      m_cpuGlyphMetrics.empty() || m_cpuStringMeta.empty() ||
-      m_glyphIndexBuffer.GetId() == 0 || m_stringMetaBuffer.GetId() == 0) {
-    const DrawArraysIndirectCommand zeroCmd = {6u, 0u, 0u, 0u};
-    m_indirectBuffer.Update(&zeroCmd, sizeof(zeroCmd), 0);
+  if (!m_initialized || m_layoutShader.id == 0 || m_indirectArgsShader.id == 0) {
+    return;
+  }
+
+  ++m_frameIndex;
+
+  // 1. Poll delayed readback ring slot (non-blocking, timeout 0). Debug/test
+  // builds refresh the snapshot every frame; production keeps the last
+  // published snapshot (zero synchronous readback on the render path).
+  if (m_readbackEnabledForTesting) {
+    auto &readSlot = m_readbackRing[m_ringRead];
+    const bool frameEligible =
+        readSlot.armed && m_frameIndex > readSlot.submittedFrame;
+    bool fenceSignaled = false;
+    if (frameEligible && readSlot.fence != nullptr) {
+      const uint32_t status =
+          utils::GPUUtils::ClientWaitSync(readSlot.fence, 0, 0); // timeout 0
+      fenceSignaled = (status == kGLAlreadySignaled ||
+                       status == kGLConditionSatisfied);
+    }
+
+    uint32_t pendingSnapshot = m_lastQuadCount;
+    if (fenceSignaled) {
+      uint32_t readCount = 0;
+      utils::GPUUtils::BindBuffer(kGLCopyReadBuffer,
+                                  readSlot.counterReadbackBufferId);
+      utils::GPUUtils::GetBufferSubData(kGLCopyReadBuffer, 0, sizeof(readCount),
+                                        &readCount);
+      utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, 0);
+      pendingSnapshot = (readCount > m_maxQuads) ? m_maxQuads : readCount;
+    }
+
+    const SnapshotPollOutcome pollOutcome = TryPublishReadySnapshot(
+        readSlot.armed, frameEligible, fenceSignaled, m_ringRead, kRingDepth,
+        pendingSnapshot, m_lastQuadCount);
+    if (pollOutcome.published) {
+      m_lastQuadCount = pollOutcome.snapshot;
+      utils::GPUUtils::DeleteSync(readSlot.fence);
+      readSlot.fence = nullptr;
+      readSlot.armed = false;
+      m_ringRead = pollOutcome.nextReadIndex;
+    }
+  }
+
+  // 2. Early return if nothing to layout; clear GPU counter and generate zero indirect args.
+  if (m_cpuCommands.empty() || m_cpuGlyphMetrics.empty() ||
+      m_cpuStringMeta.empty() || m_glyphIndexBuffer.GetId() == 0 ||
+      m_stringMetaBuffer.GetId() == 0) {
+    const uint32_t zero = 0;
+    m_counterBuffer.Update(&zero, sizeof(zero), 0);
+
+    rlEnableShader(m_indirectArgsShader.id);
+    if (m_locIndirectMaxQuadCount >= 0) {
+      const int maxQuadCount = static_cast<int>(m_maxQuads);
+      rlSetUniform(m_locIndirectMaxQuadCount, &maxQuadCount,
+                   RL_SHADER_UNIFORM_INT, 1);
+    }
+    m_counterBuffer.BindBase(
+        NoMoreDay::RenderConstants::TextIndirectArgsCS::COUNTER_BUFFER);
+    m_indirectBuffer.BindBase(
+        NoMoreDay::RenderConstants::TextIndirectArgsCS::COMMAND_BUFFER);
+    {
+      utils::GPUUtils::ScopedDebugGroup debugGroup("TextIndirectArgsZero");
+      utils::GPUUtils::DispatchCompute(1, 1, 1);
+    }
+    rlDisableShader();
+    NoMoreDay::utils::GPUUtils::BindBufferBase(
+        NoMoreDay::RenderConstants::TextIndirectArgsCS::COUNTER_BUFFER, 0);
+    NoMoreDay::utils::GPUUtils::BindBufferBase(
+        NoMoreDay::RenderConstants::TextIndirectArgsCS::COMMAND_BUFFER, 0);
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(
+        NoMoreDay::RenderConstants::Barrier::SSBO |
+        NoMoreDay::RenderConstants::Barrier::Command);
     return;
   }
 
@@ -261,18 +401,66 @@ void GPUTextSystem::DispatchLayout(const float timeSeconds,
   }
   rlDisableShader();
 
-  uint32_t outCount = 0;
-  m_counterBuffer.Read(&outCount, sizeof(outCount), 0);
-  m_lastQuadCount = (outCount > m_maxQuads) ? m_maxQuads : outCount;
-  const DrawArraysIndirectCommand drawCmd = {6u, m_lastQuadCount, 0u, 0u};
-  m_indirectBuffer.Update(&drawCmd, sizeof(drawCmd), 0);
+  // SSBO barrier: ensure layout compute writes to counterBuffer are visible to indirect args compute
+  NoMoreDay::utils::GPUUtils::MemoryBarrier(NoMoreDay::RenderConstants::Barrier::SSBO);
+
+  // 3. Phase-local indirect args compute pass
+  rlEnableShader(m_indirectArgsShader.id);
+  if (m_locIndirectMaxQuadCount >= 0) {
+    rlSetUniform(m_locIndirectMaxQuadCount, &maxQuadCount,
+                 RL_SHADER_UNIFORM_INT, 1);
+  }
+  m_counterBuffer.BindBase(TextIndirectArgsCS::COUNTER_BUFFER);
+  m_indirectBuffer.BindBase(TextIndirectArgsCS::COMMAND_BUFFER);
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("TextIndirectArgs");
+    utils::GPUUtils::DispatchCompute(1, 1, 1);
+  }
+  rlDisableShader();
+
+  // Clean up phase-local bindings
+  NoMoreDay::utils::GPUUtils::BindBufferBase(
+      TextIndirectArgsCS::COUNTER_BUFFER, 0);
+  NoMoreDay::utils::GPUUtils::BindBufferBase(
+      TextIndirectArgsCS::COMMAND_BUFFER, 0);
+
+  // Memory barrier: ensure indirect command is visible for drawing
+  NoMoreDay::utils::GPUUtils::MemoryBarrier(
+      NoMoreDay::RenderConstants::Barrier::SSBO |
+      NoMoreDay::RenderConstants::Barrier::Command);
+
+  // 4. Submit non-blocking debug readback copy to write slot (debug/test only)
+  if (m_readbackEnabledForTesting) {
+    auto &writeSlot = m_readbackRing[m_ringWrite];
+    if (CanSubmitReadbackCopy(writeSlot.armed)) {
+      const uint32_t counterSrc = m_counterBuffer.GetId();
+      if (counterSrc != 0 && writeSlot.counterReadbackBufferId != 0) {
+        utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, counterSrc);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer,
+                                    writeSlot.counterReadbackBufferId);
+        utils::GPUUtils::CopyBufferSubData(kGLCopyReadBuffer, kGLCopyWriteBuffer,
+                                           0, 0, sizeof(uint32_t));
+        utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, 0);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, 0);
+
+        void *fence =
+            utils::GPUUtils::FenceSync(kGLSyncGpuCommandsComplete, 0);
+        if (fence != nullptr) {
+          writeSlot.fence = fence;
+          writeSlot.armed = true;
+          writeSlot.submittedFrame = m_frameIndex;
+          m_ringWrite = (m_ringWrite + 1) % kRingDepth;
+        }
+      }
+    }
+  }
 
   m_commandBuffer.Lock();
 }
 
 void GPUTextSystem::Render(const Matrix &viewProj) const {
   if (!m_initialized || m_renderShader.id == 0 || m_atlasTexture.id == 0 ||
-      m_lastQuadCount == 0 || m_vao == 0 || m_indirectBuffer.GetId() == 0) {
+      m_vao == 0 || m_indirectBuffer.GetId() == 0) {
     return;
   }
 

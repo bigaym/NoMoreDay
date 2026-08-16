@@ -953,6 +953,10 @@ void MaterialManager::BindSSBO(NoMoreDay::RenderConstants::Binding binding) cons
   m_ssbo.BindBase(static_cast<unsigned int>(binding));
 }
 
+void MaterialManager::UnbindSSBO(NoMoreDay::RenderConstants::Binding binding) const {
+  utils::GPUUtils::BindBufferBase(static_cast<unsigned int>(binding), 0);
+}
+
 const components::GPUMaterialDataV3 &
 MaterialManager::GetGpuMaterialForTesting(int materialId) const {
   static const components::GPUMaterialDataV3 kFallback = {};

@@ -320,6 +320,9 @@ void DistortionPass::Execute(graph::RenderContext &context) {
     }
     resources::FullscreenQuad::Draw();
     EndShaderMode();
+    NoMoreDay::utils::GPUUtils::BindBufferBase(
+        static_cast<uint32_t>(NoMoreDay::RenderConstants::Binding::SSBO_DISTORTION_DATA),
+        0);
   }
 
   BindFramebufferAndViewport(m_applyBuffer);

@@ -335,6 +335,13 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   if (locShadowFactor != -1) {
     rlSetUniform(locShadowFactor, &shadowFactor, RL_SHADER_UNIFORM_FLOAT, 1);
   }
+  const int locLinearPipeline =
+      rlGetLocationUniform(m_renderShader.id, "uLinearPipeline");
+  if (locLinearPipeline != -1) {
+    const int linearPipeline =
+        core::QualityTierManager::Get().IsLinearPipelineEnabled() ? 1 : 0;
+    rlSetUniform(locLinearPipeline, &linearPipeline, RL_SHADER_UNIFORM_INT, 1);
+  }
   const int locMaterialCount =
       rlGetLocationUniform(m_renderShader.id, "uMaterialCount");
   if (locMaterialCount != -1) {
@@ -405,6 +412,7 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   rlDisableVertexArray();
 
   rlDisableShader();
+  MaterialManager::Get().UnbindSSBO(Binding::SSBO_MATERIAL_DATA);
   if (boundMaterialArrays) {
     TextureArrayManager::Get().Unbind(
         static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));

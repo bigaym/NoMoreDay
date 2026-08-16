@@ -69,10 +69,10 @@ void FluidSimulationPass::Setup(graph::RenderGraphBuilder &builder) {
   builder.Write(graph::RenderResourceTag::SceneHdrColor,
                 graph::RenderOwnerTag::FluidSimulation);
 
-  // Same-pass phase barriers: the SPH compute pipeline (grid hash -> neighbor
-  // search -> density -> force -> integrate) exchanges particle state through
-  // SSBOs, and the integrate dispatch feeds the instanced vertex draw that
-  // follows in this Execute. Declared here and emitted via EmitPhaseBarrier at
+  // Same-pass phase barriers: the SPH compute pipeline (grid hash -> prefix sum ->
+  // compact -> neighbor search -> density -> force -> integrate) exchanges particle
+  // state through SSBOs, and the integrate dispatch feeds the instanced vertex draw
+  // that follows in this Execute. Declared here and emitted via EmitPhaseBarrier at
   // each dispatch boundary (the exact execution points pass-entry barriers
   // cannot cover).
   builder.AddPhaseBarrier(graph::PipelineStage::Compute,
@@ -208,6 +208,7 @@ bool FluidSimulationPass::EnsureRuntimeBuffers(const uint32_t maxParticles,
       static_cast<size_t>(maxParticles) * sizeof(components::GPUFluidParticle);
   const size_t cellCoordBytes = static_cast<size_t>(maxParticles) * sizeof(uint32_t);
   const size_t cellCountBytes = std::max<size_t>(1u, gridCellCount) * sizeof(uint32_t);
+  const size_t particleIndexBytes = static_cast<size_t>(maxParticles) * sizeof(uint32_t);
   const size_t neighborListBytes = static_cast<size_t>(maxParticles) * kMaxNeighbors *
                                    sizeof(uint32_t);
   const size_t neighborCountBytes =
@@ -217,12 +218,18 @@ bool FluidSimulationPass::EnsureRuntimeBuffers(const uint32_t maxParticles,
   m_particlePong.Create(particleBytes, nullptr, RL_DYNAMIC_DRAW);
   m_cellCoordBuffer.Create(cellCoordBytes, nullptr, RL_DYNAMIC_DRAW);
   m_cellCountBuffer.Create(cellCountBytes, nullptr, RL_DYNAMIC_DRAW);
+  m_cellStartBuffer.Create(cellCountBytes, nullptr, RL_DYNAMIC_DRAW);
+  m_cellEndBuffer.Create(cellCountBytes, nullptr, RL_DYNAMIC_DRAW);
+  m_cellOffsetBuffer.Create(cellCountBytes, nullptr, RL_DYNAMIC_DRAW);
+  m_gridParticleIndexBuffer.Create(particleIndexBytes, nullptr, RL_DYNAMIC_DRAW);
   m_neighborListBuffer.Create(neighborListBytes, nullptr, RL_DYNAMIC_DRAW);
   m_neighborCountBuffer.Create(neighborCountBytes, nullptr, RL_DYNAMIC_DRAW);
   m_configBuffer.Create(sizeof(components::GPUFluidConfig), nullptr, RL_DYNAMIC_DRAW);
 
   if (m_particlePing.GetId() == 0 || m_particlePong.GetId() == 0 ||
       m_cellCoordBuffer.GetId() == 0 || m_cellCountBuffer.GetId() == 0 ||
+      m_cellStartBuffer.GetId() == 0 || m_cellEndBuffer.GetId() == 0 ||
+      m_cellOffsetBuffer.GetId() == 0 || m_gridParticleIndexBuffer.GetId() == 0 ||
       m_neighborListBuffer.GetId() == 0 || m_neighborCountBuffer.GetId() == 0 ||
       m_configBuffer.GetId() == 0) {
     m_lastFailureReason = "fluid runtime buffer allocation failed";
@@ -321,7 +328,12 @@ bool FluidSimulationPass::DispatchGridHash(const graph::RenderContext &context,
   if (m_gridCellSizeLoc >= 0) {
     rlSetUniform(m_gridCellSizeLoc, &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
   }
-  const float gridOrigin[2] = {0.0f, 0.0f};
+  float gridOrigin[2] = {0.0f, 0.0f};
+  if (context.camera != nullptr) {
+    const float zoom = std::max(context.camera->zoom, 0.0001f);
+    gridOrigin[0] = context.camera->target.x - (context.camera->offset.x / zoom);
+    gridOrigin[1] = context.camera->target.y - (context.camera->offset.y / zoom);
+  }
   if (m_gridOriginLoc >= 0) {
     rlSetUniform(m_gridOriginLoc, gridOrigin, RL_SHADER_UNIFORM_VEC2, 1);
   }
@@ -338,7 +350,65 @@ bool FluidSimulationPass::DispatchGridHash(const graph::RenderContext &context,
     utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
   }
   rlDisableShader();
-  // Same-pass sync before the neighbor-search dispatch reads the cell SSBOs.
+  // Same-pass sync before the prefix sum dispatch reads the cell count SSBO.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
+  return true;
+}
+
+bool FluidSimulationPass::DispatchPrefixSum(const graph::RenderContext &context,
+                                            const uint32_t totalCells) {
+  if (m_prefixSumShader.id == 0 || m_cellCountBuffer.GetId() == 0u ||
+      m_cellStartBuffer.GetId() == 0u || m_cellEndBuffer.GetId() == 0u ||
+      m_cellOffsetBuffer.GetId() == 0u || totalCells == 0u) {
+    return false;
+  }
+
+  rlEnableShader(m_prefixSumShader.id);
+  const int totalCellsInt = static_cast<int>(totalCells);
+  if (m_prefixSumTotalCellsLoc >= 0) {
+    rlSetUniform(m_prefixSumTotalCellsLoc, &totalCellsInt, RL_SHADER_UNIFORM_INT, 1);
+  }
+
+  utils::GPUUtils::BindBufferBase(0u, m_cellCountBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(1u, m_cellStartBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(2u, m_cellEndBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(3u, m_cellOffsetBuffer.GetId());
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidPrefixSum");
+    utils::GPUUtils::DispatchComputeNoBarrier(1u, 1u, 1u);
+  }
+  rlDisableShader();
+  // Same-pass sync before the compact dispatch reads the cell start/offset SSBOs.
+  context.EmitPhaseBarrier(graph::PipelineStage::Compute,
+                           graph::PipelineStage::Compute);
+  return true;
+}
+
+bool FluidSimulationPass::DispatchCompact(const graph::RenderContext &context,
+                                          const uint32_t particleCount) {
+  if (m_compactShader.id == 0 || m_cellCoordBuffer.GetId() == 0u ||
+      m_cellStartBuffer.GetId() == 0u || m_cellOffsetBuffer.GetId() == 0u ||
+      m_gridParticleIndexBuffer.GetId() == 0u || particleCount == 0u) {
+    return false;
+  }
+
+  rlEnableShader(m_compactShader.id);
+  const int particleCountInt = static_cast<int>(particleCount);
+  if (m_compactParticleCountLoc >= 0) {
+    rlSetUniform(m_compactParticleCountLoc, &particleCountInt, RL_SHADER_UNIFORM_INT, 1);
+  }
+
+  utils::GPUUtils::BindBufferBase(0u, m_cellCoordBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(1u, m_cellStartBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(2u, m_cellOffsetBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(3u, m_gridParticleIndexBuffer.GetId());
+  {
+    utils::GPUUtils::ScopedDebugGroup debugGroup("FluidCompact");
+    utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
+  }
+  rlDisableShader();
+  // Same-pass sync before the neighbor-search dispatch reads the compacted indices.
   context.EmitPhaseBarrier(graph::PipelineStage::Compute,
                            graph::PipelineStage::Compute);
   return true;
@@ -347,7 +417,9 @@ bool FluidSimulationPass::DispatchGridHash(const graph::RenderContext &context,
 bool FluidSimulationPass::DispatchNeighborSearch(const graph::RenderContext &context,
                                                  const uint32_t particleCount) {
   if (m_neighborSearchShader.id == 0 || m_neighborListBuffer.GetId() == 0u ||
-      m_neighborCountBuffer.GetId() == 0u || particleCount == 0u) {
+      m_neighborCountBuffer.GetId() == 0u || m_cellStartBuffer.GetId() == 0u ||
+      m_cellEndBuffer.GetId() == 0u || m_gridParticleIndexBuffer.GetId() == 0u ||
+      particleCount == 0u) {
     return false;
   }
 
@@ -366,11 +438,30 @@ bool FluidSimulationPass::DispatchNeighborSearch(const graph::RenderContext &con
   if (m_neighborRadiusLoc >= 0) {
     rlSetUniform(m_neighborRadiusLoc, &radius, RL_SHADER_UNIFORM_FLOAT, 1);
   }
+  const float cellSize = kDefaultSmoothingRadius;
+  if (m_neighborCellSizeLoc >= 0) {
+    rlSetUniform(m_neighborCellSizeLoc, &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+  }
+  float gridOrigin[2] = {0.0f, 0.0f};
+  if (context.camera != nullptr) {
+    const float zoom = std::max(context.camera->zoom, 0.0001f);
+    gridOrigin[0] = context.camera->target.x - (context.camera->offset.x / zoom);
+    gridOrigin[1] = context.camera->target.y - (context.camera->offset.y / zoom);
+  }
+  if (m_neighborGridOriginLoc >= 0) {
+    rlSetUniform(m_neighborGridOriginLoc, gridOrigin, RL_SHADER_UNIFORM_VEC2, 1);
+  }
+  const int gridDim[2] = {m_gridWidth, m_gridHeight};
+  if (m_neighborGridDimLoc >= 0) {
+    rlSetUniform(m_neighborGridDimLoc, gridDim, RL_SHADER_UNIFORM_IVEC2, 1);
+  }
 
   utils::GPUUtils::BindBufferBase(0u, CurrentParticleBufferId());
-  utils::GPUUtils::BindBufferBase(1u, m_cellCoordBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(1u, m_cellStartBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(2u, m_cellEndBuffer.GetId());
   utils::GPUUtils::BindBufferBase(3u, m_neighborListBuffer.GetId());
   utils::GPUUtils::BindBufferBase(4u, m_neighborCountBuffer.GetId());
+  utils::GPUUtils::BindBufferBase(5u, m_gridParticleIndexBuffer.GetId());
   {
     utils::GPUUtils::ScopedDebugGroup debugGroup("FluidNeighborSearch");
     utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
@@ -640,6 +731,8 @@ bool FluidSimulationPass::LoadShaders() {
 
 void FluidSimulationPass::UnloadShaders() {
   m_gridHashShader = {};
+  m_prefixSumShader = {};
+  m_compactShader = {};
   m_neighborSearchShader = {};
   m_densityShader = {};
   m_forceShader = {};
@@ -653,9 +746,16 @@ void FluidSimulationPass::UnloadShaders() {
   m_gridOriginLoc = -1;
   m_gridDimLoc = -1;
 
+  m_prefixSumTotalCellsLoc = -1;
+
+  m_compactParticleCountLoc = -1;
+
   m_neighborParticleCountLoc = -1;
   m_neighborMaxNeighborsLoc = -1;
   m_neighborRadiusLoc = -1;
+  m_neighborCellSizeLoc = -1;
+  m_neighborGridOriginLoc = -1;
+  m_neighborGridDimLoc = -1;
 
   m_densityParticleCountLoc = -1;
   m_densityMaxNeighborsLoc = -1;
@@ -702,6 +802,10 @@ void FluidSimulationPass::ReleaseRuntimeBuffers() {
   m_particlePong.Release();
   m_cellCoordBuffer.Release();
   m_cellCountBuffer.Release();
+  m_cellStartBuffer.Release();
+  m_cellEndBuffer.Release();
+  m_cellOffsetBuffer.Release();
+  m_gridParticleIndexBuffer.Release();
   m_neighborListBuffer.Release();
   m_neighborCountBuffer.Release();
   m_configBuffer.Release();
@@ -750,6 +854,12 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
     m_gridHashShader = context.resources->loadComputeShader(
         "v5_fluid_gridhash_compute"_hs,
         "assets/shaders/lighting/v5_fluid_gridhash.comp");
+    m_prefixSumShader = context.resources->loadComputeShader(
+        "v5_fluid_prefix_sum_compute"_hs,
+        "assets/shaders/lighting/v5_fluid_prefix_sum.comp");
+    m_compactShader = context.resources->loadComputeShader(
+        "v5_fluid_compact_compute"_hs,
+        "assets/shaders/lighting/v5_fluid_compact.comp");
     m_neighborSearchShader = context.resources->loadComputeShader(
         "v5_fluid_neighbor_search_compute"_hs,
         "assets/shaders/lighting/v5_fluid_neighbor_search.comp");
@@ -772,7 +882,8 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
         "v5_fluid_render_shader"_hs, "assets/shaders/lighting/v5_fluid_render.vert",
         "assets/shaders/lighting/v5_fluid_render.frag");
 
-    if (m_gridHashShader.id == 0 || m_neighborSearchShader.id == 0 ||
+    if (m_gridHashShader.id == 0 || m_prefixSumShader.id == 0 ||
+        m_compactShader.id == 0 || m_neighborSearchShader.id == 0 ||
         m_densityShader.id == 0 || m_forceShader.id == 0 || m_integrateShader.id == 0 ||
         m_emissiveInjectShader.id == 0 || m_occluderInjectShader.id == 0 ||
         m_renderShader.id == 0) {
@@ -786,11 +897,19 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
     m_gridOriginLoc = rlGetLocationUniform(m_gridHashShader.id, "uGridOrigin");
     m_gridDimLoc = rlGetLocationUniform(m_gridHashShader.id, "uGridDim");
 
+    m_prefixSumTotalCellsLoc =
+        rlGetLocationUniform(m_prefixSumShader.id, "uTotalCells");
+    m_compactParticleCountLoc =
+        rlGetLocationUniform(m_compactShader.id, "uParticleCount");
+
     m_neighborParticleCountLoc =
         rlGetLocationUniform(m_neighborSearchShader.id, "uParticleCount");
     m_neighborMaxNeighborsLoc =
         rlGetLocationUniform(m_neighborSearchShader.id, "uMaxNeighbors");
     m_neighborRadiusLoc = rlGetLocationUniform(m_neighborSearchShader.id, "uSearchRadius");
+    m_neighborCellSizeLoc = rlGetLocationUniform(m_neighborSearchShader.id, "uCellSize");
+    m_neighborGridOriginLoc = rlGetLocationUniform(m_neighborSearchShader.id, "uGridOrigin");
+    m_neighborGridDimLoc = rlGetLocationUniform(m_neighborSearchShader.id, "uGridDim");
 
     m_densityParticleCountLoc = rlGetLocationUniform(m_densityShader.id, "uParticleCount");
     m_densityMaxNeighborsLoc = rlGetLocationUniform(m_densityShader.id, "uMaxNeighbors");
@@ -867,7 +986,10 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
   const float deltaTime = ClampDeltaTime(GetFrameTime());
   UploadConfig(particleCount);
 
+  const uint32_t totalCells = static_cast<uint32_t>(m_gridWidth * m_gridHeight);
   if (!DispatchGridHash(context, particleCount) ||
+      !DispatchPrefixSum(context, totalCells) ||
+      !DispatchCompact(context, particleCount) ||
       !DispatchNeighborSearch(context, particleCount) ||
       !DispatchDensity(context, particleCount, deltaTime) ||
       !DispatchForce(context, particleCount, deltaTime) ||

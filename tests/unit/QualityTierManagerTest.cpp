@@ -764,3 +764,67 @@ TEST_CASE("[Unit] QualityTierManager - non-object settings structures fail close
     CHECK(ReadRaw(settingsPath) == before);
   }
 }
+
+TEST_CASE("[Unit] QualityTierManager - Color Linear Pipeline Feature Flag (T8.3)") {
+  auto &manager = render::core::QualityTierManager::Get();
+
+  SUBCASE("Default initialization has linear pipeline enabled") {
+    const auto settingsPath = MakeTempSettingsPath("linear_pipeline_default.json");
+    WriteJson(settingsPath, {{"renderQualityTier", "High"}});
+    manager.Initialize(settingsPath.string(), true);
+
+    CHECK(manager.IsLinearPipelineEnabled() == true);
+    CHECK(manager.GetConfig().linearPipeline == true);
+  }
+
+  SUBCASE("Flat render.color.linearPipeline=false override loads correctly") {
+    const auto settingsPath = MakeTempSettingsPath("linear_pipeline_flat.json");
+    WriteJson(settingsPath,
+              {{"renderQualityTier", "High"},
+               {"render.color.linearPipeline", false}});
+    manager.Initialize(settingsPath.string(), true);
+
+    CHECK(manager.IsLinearPipelineEnabled() == false);
+    CHECK(manager.GetConfig().linearPipeline == false);
+  }
+
+  SUBCASE("Nested render.color.linearPipeline=false override loads correctly") {
+    const auto settingsPath = MakeTempSettingsPath("linear_pipeline_nested.json");
+    WriteJson(settingsPath,
+              {{"renderQualityTier", "High"},
+               {"render", {{"color", {{"linearPipeline", false}}}}}});
+    manager.Initialize(settingsPath.string(), true);
+
+    CHECK(manager.IsLinearPipelineEnabled() == false);
+    CHECK(manager.GetConfig().linearPipeline == false);
+  }
+
+  SUBCASE("SetLinearPipelineEnabled updates runtime and persists to settings atomically") {
+    const auto settingsPath = MakeTempSettingsPath("linear_pipeline_persist.json");
+    WriteJson(settingsPath, {{"renderQualityTier", "Ultra"}});
+    manager.Initialize(settingsPath.string(), true);
+    CHECK(manager.IsLinearPipelineEnabled() == true);
+
+    CHECK(manager.SetLinearPipelineEnabled(false, settingsPath.string()));
+    CHECK(manager.IsLinearPipelineEnabled() == false);
+    CHECK(manager.GetConfig().linearPipeline == false);
+
+    // Read back persisted JSON
+    const nlohmann::json saved = ReadJson(settingsPath);
+    REQUIRE(saved.contains("render"));
+    REQUIRE(saved["render"].contains("color"));
+    REQUIRE(saved["render"]["color"].contains("linearPipeline"));
+    CHECK(saved["render"]["color"]["linearPipeline"].get<bool>() == false);
+    REQUIRE(saved.contains("render.color.linearPipeline"));
+    CHECK(saved["render.color.linearPipeline"].get<bool>() == false);
+
+    // Re-initialize from saved settings verifies roundtrip
+    manager.Initialize(settingsPath.string(), true);
+    CHECK(manager.IsLinearPipelineEnabled() == false);
+
+    // Toggle back to true
+    CHECK(manager.SetLinearPipelineEnabled(true, settingsPath.string()));
+    CHECK(manager.IsLinearPipelineEnabled() == true);
+  }
+}
+

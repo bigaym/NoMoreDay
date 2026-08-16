@@ -39,6 +39,7 @@ public:
 
   void SyncToGPU();
   void BindSSBO(NoMoreDay::RenderConstants::Binding binding) const;
+  void UnbindSSBO(NoMoreDay::RenderConstants::Binding binding) const;
 
   static constexpr int MAX_MATERIALS = 256;
   static constexpr int PRESET_RESERVE = 8;

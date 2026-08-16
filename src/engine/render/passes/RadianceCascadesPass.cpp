@@ -31,6 +31,12 @@ constexpr uint32_t kGLReadWrite = 0x88BA;
 constexpr uint32_t kGLWriteOnly = 0x88B9;
 constexpr uint32_t kGLR16f = 0x822D;
 constexpr uint32_t kGLRgba16f = 0x881A;
+constexpr uint32_t kGLTextureMinFilter = 0x2801;
+constexpr uint32_t kGLTextureMagFilter = 0x2800;
+constexpr uint32_t kGLLinear = 0x2601;
+constexpr uint32_t kGLTextureWrapS = 0x2802;
+constexpr uint32_t kGLTextureWrapT = 0x2803;
+constexpr uint32_t kGLClampToEdge = 0x812F;
 constexpr uint32_t kGLComputeGroupSize = 8u;
 constexpr uint32_t kTextureFetchBarrierBit = 0x00000008;
 constexpr uint32_t kRadianceConfigBinding = 2u;
@@ -138,6 +144,8 @@ bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
       rlGetLocationUniform(m_radianceCascadeShader.id, "uCascadeCount");
   m_radianceRaysPerProbeLoc =
       rlGetLocationUniform(m_radianceCascadeShader.id, "uRaysPerProbe");
+  m_radianceParentRaysLoc =
+      rlGetLocationUniform(m_radianceCascadeShader.id, "uParentRaysPerProbe");
   m_radianceRayMinLengthLoc =
       rlGetLocationUniform(m_radianceCascadeShader.id, "uRayMinLength");
   m_radianceRayMaxLengthLoc =
@@ -163,6 +171,16 @@ bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
   return true;
 }
 
+void RadianceCascadesPass::DestroyCascadeTarget(CascadeRadianceTarget &target) {
+  if (target.texture != 0u) {
+    NoMoreDay::utils::GPUUtils::DeleteTextures(1, &target.texture);
+    target.texture = 0u;
+  }
+  target.width = 0;
+  target.height = 0;
+  target.directions = 0u;
+}
+
 void RadianceCascadesPass::Shutdown() {
   m_emissiveBuildShader = {};
   m_materialEmissiveShader = {};
@@ -174,7 +192,7 @@ void RadianceCascadesPass::Shutdown() {
   resources::FramebufferManager::Destroy(m_particleEmissive);
   resources::FramebufferManager::Destroy(m_emissiveCombined);
   for (auto &level : m_cascadeRadiance) {
-    resources::FramebufferManager::Destroy(level);
+    DestroyCascadeTarget(level);
   }
 
   m_radianceConfigBuffer.Release();
@@ -204,6 +222,7 @@ void RadianceCascadesPass::Shutdown() {
   m_radianceCascadeLevelLoc = -1;
   m_radianceCascadeCountLoc = -1;
   m_radianceRaysPerProbeLoc = -1;
+  m_radianceParentRaysLoc = -1;
   m_radianceRayMinLengthLoc = -1;
   m_radianceRayMaxLengthLoc = -1;
   m_radianceEmissiveTextureLoc = -1;
@@ -215,6 +234,7 @@ void RadianceCascadesPass::Shutdown() {
   m_cachedFullHeight = 0;
   m_cachedCascadeLevels = 0u;
   m_cachedHalfResolution = false;
+  m_cachedTier = core::QualityTier::Ultra;
   m_frameIndex = 0u;
   m_vfxEmissionSnapshotValid = false;
   m_vfxEmissionSnapshotVersion = 0u;
@@ -251,10 +271,11 @@ bool RadianceCascadesPass::PrepareVfxEmissionSnapshot(
     return false;
   }
 
+  const auto tier = context.qualityManager->GetTier();
   const uint32_t cascadeLevels =
       std::clamp<uint32_t>(config.giCascadeLevels, 1u, kMaxCascadeLevels);
   if (!EnsureResources(context.hdrSceneBuffer.width, context.hdrSceneBuffer.height,
-                       cascadeLevels, config.giHalfResolution)) {
+                       cascadeLevels, config.giHalfResolution, tier)) {
     return false;
   }
 
@@ -270,7 +291,8 @@ bool RadianceCascadesPass::PrepareVfxEmissionSnapshot(
 
 bool RadianceCascadesPass::EnsureResources(const int fullWidth, const int fullHeight,
                                            const uint32_t cascadeLevels,
-                                           const bool halfResolution) {
+                                           const bool halfResolution,
+                                           const core::QualityTier tier) {
   if (fullWidth <= 0 || fullHeight <= 0 || cascadeLevels == 0u ||
       cascadeLevels > kMaxCascadeLevels) {
     return false;
@@ -308,16 +330,38 @@ bool RadianceCascadesPass::EnsureResources(const int fullWidth, const int fullHe
   for (uint32_t level = 0; level < cascadeLevels; ++level) {
     const int levelWidth = std::max(1, baseWidth >> static_cast<int>(level));
     const int levelHeight = std::max(1, baseHeight >> static_cast<int>(level));
+    const uint32_t directions = ResolveRaysPerProbe(level, cascadeLevels, tier);
     auto &target = m_cascadeRadiance[level];
-    if (!target.IsValid()) {
-      target = resources::FramebufferManager::Create(levelWidth, levelHeight,
-                                                     radianceFormat, false);
-    } else if (target.width != levelWidth || target.height != levelHeight) {
-      resources::FramebufferManager::Resize(target, levelWidth, levelHeight);
+    if (!target.IsValid() || target.width != levelWidth || target.height != levelHeight ||
+        target.directions != directions) {
+      DestroyCascadeTarget(target);
+      uint32_t tex = 0u;
+      NoMoreDay::utils::GPUUtils::GenTextures(1, &tex);
+      NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2DArray, tex);
+      NoMoreDay::utils::GPUUtils::TexStorage3D(kGLTexture2DArray, 1,
+                                              radianceFormat, levelWidth, levelHeight,
+                                              static_cast<int>(directions));
+      NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2DArray,
+                                                kGLTextureMinFilter,
+                                                kGLLinear);
+      NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2DArray,
+                                                kGLTextureMagFilter,
+                                                kGLLinear);
+      NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2DArray,
+                                                kGLTextureWrapS,
+                                                kGLClampToEdge);
+      NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2DArray,
+                                                kGLTextureWrapT,
+                                                kGLClampToEdge);
+      NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2DArray, 0u);
+      target.texture = tex;
+      target.width = levelWidth;
+      target.height = levelHeight;
+      target.directions = directions;
     }
   }
   for (uint32_t level = cascadeLevels; level < kMaxCascadeLevels; ++level) {
-    resources::FramebufferManager::Destroy(m_cascadeRadiance[level]);
+    DestroyCascadeTarget(m_cascadeRadiance[level]);
   }
 
   const bool ok = m_emissiveBase.IsValid() && m_particleEmissive.IsValid() &&
@@ -330,6 +374,7 @@ bool RadianceCascadesPass::EnsureResources(const int fullWidth, const int fullHe
   m_cachedFullHeight = fullHeight;
   m_cachedCascadeLevels = cascadeLevels;
   m_cachedHalfResolution = halfResolution;
+  m_cachedTier = tier;
   return true;
 }
 
@@ -342,7 +387,7 @@ bool RadianceCascadesPass::ClearParticleCounter() {
   return true;
 }
 
-uint32_t RadianceCascadesPass::ReadParticleCounter() const {
+uint32_t RadianceCascadesPass::ReadParticleCounterForTesting() const {
   if (m_particleCounterBuffer.GetId() == 0) {
     return 0u;
   }
@@ -558,7 +603,8 @@ bool RadianceCascadesPass::RunEmissiveMerge(const graph::RenderContext &context,
 
 bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
                                            const uint32_t cascadeLevels,
-                                           const bool holographicMode) {
+                                           const bool holographicMode,
+                                           const core::QualityTier tier) {
   if (m_radianceCascadeShader.id == 0 || context.giDistanceFieldTexture == 0u ||
       !m_emissiveCombined.IsValid() || cascadeLevels == 0u) {
     return false;
@@ -612,11 +658,21 @@ bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
     }
 
     const uint32_t raysPerProbe = ResolveRaysPerProbe(static_cast<uint32_t>(level),
-                                                      cascadeLevels);
+                                                      cascadeLevels, tier);
     const int raysPerProbeInt = static_cast<int>(raysPerProbe);
     if (m_radianceRaysPerProbeLoc >= 0) {
       rlSetUniform(m_radianceRaysPerProbeLoc, &raysPerProbeInt, RL_SHADER_UNIFORM_INT,
                    1);
+    }
+
+    const bool hasParent = (level + 1) < static_cast<int>(cascadeLevels) &&
+                           m_cascadeRadiance[static_cast<size_t>(level + 1)].IsValid();
+    const uint32_t parentRays = hasParent
+        ? ResolveRaysPerProbe(static_cast<uint32_t>(level + 1), cascadeLevels, tier)
+        : 0u;
+    const int parentRaysInt = static_cast<int>(parentRays);
+    if (m_radianceParentRaysLoc >= 0) {
+      rlSetUniform(m_radianceParentRaysLoc, &parentRaysInt, RL_SHADER_UNIFORM_INT, 1);
     }
 
     const float rayMin = ResolveRayMinLength(static_cast<uint32_t>(level));
@@ -628,8 +684,6 @@ bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
       rlSetUniform(m_radianceRayMaxLengthLoc, &rayMax, RL_SHADER_UNIFORM_FLOAT, 1);
     }
 
-    const bool hasParent = (level + 1) < static_cast<int>(cascadeLevels) &&
-                           m_cascadeRadiance[static_cast<size_t>(level + 1)].IsValid();
     const int parentValid = hasParent ? 1 : 0;
     if (m_radianceParentValidLoc >= 0) {
       rlSetUniform(m_radianceParentValidLoc, &parentValid, RL_SHADER_UNIFORM_INT, 1);
@@ -637,12 +691,12 @@ bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
 
     NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0 + 1u);
     NoMoreDay::utils::GPUUtils::BindTexture(
-        kGLTexture2D,
-        hasParent ? m_cascadeRadiance[static_cast<size_t>(level + 1)].colorTexture
-                  : m_emissiveCombined.colorTexture);
+        kGLTexture2DArray,
+        hasParent ? m_cascadeRadiance[static_cast<size_t>(level + 1)].texture
+                  : target.texture);
     NoMoreDay::utils::GPUUtils::BindImageTexture(
-        RenderConstants::V5GI::kRadianceImageBinding, target.colorTexture, 0, false, 0,
-        kGLWriteOnly, kGLRgba16f);
+        RenderConstants::V5GI::kRadianceImageBinding, target.texture, 0, true, 0,
+        kGLWriteOnly, RenderConstants::V5GI::kRadianceFormat);
     {
       NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("RadianceCascadeTrace");
       NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
@@ -656,13 +710,16 @@ bool RadianceCascadesPass::RunCascadeTrace(const graph::RenderContext &context,
   }
 
   rlDisableShader();
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0 + 1u);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2DArray, 0u);
   NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
   return true;
 }
 
 void RadianceCascadesPass::UploadConfig(const graph::RenderContext &context,
                                         const uint32_t cascadeLevels,
-                                        const bool halfResolution) {
+                                        const bool halfResolution,
+                                        const core::QualityTier tier) {
   if (context.qualityManager == nullptr || m_radianceConfigBuffer.GetId() == 0) {
     return;
   }
@@ -670,7 +727,7 @@ void RadianceCascadesPass::UploadConfig(const graph::RenderContext &context,
   const auto &config = context.qualityManager->GetConfig();
   ::NoMoreDay::components::RadianceCascadeConfig payload = {};
   payload.numLevels = cascadeLevels;
-  payload.raysPerProbe = ResolveRaysPerProbe(0u, cascadeLevels);
+  payload.raysPerProbe = ResolveRaysPerProbe(0u, cascadeLevels, tier);
   payload.baseInterval = 4.0f;
   payload.temporalWeight = std::clamp(config.giTemporalWeight, 0.0f, 0.98f);
   payload.halfResolution = halfResolution ? 1u : 0u;
@@ -681,20 +738,19 @@ void RadianceCascadesPass::UploadConfig(const graph::RenderContext &context,
 }
 
 uint32_t RadianceCascadesPass::ResolveRaysPerProbe(
-    const uint32_t cascadeLevel, const uint32_t cascadeLevels) const noexcept {
-  if (cascadeLevels >= 6u && cascadeLevel == 0u) {
-    return 8u;
+    const uint32_t cascadeLevel, const uint32_t cascadeLevels,
+    const core::QualityTier tier) noexcept {
+  if (tier == core::QualityTier::Low || tier == core::QualityTier::Medium) {
+    return 1u;
   }
-  if (cascadeLevel <= 1u) {
-    return 4u;
+  if (tier == core::QualityTier::High) {
+    return std::max(2u, 4u >> cascadeLevel);
   }
-  if (cascadeLevel <= 3u) {
-    return 8u;
-  }
-  return 12u;
+  // Ultra (or default, directions_k = max(2, 16 >> k)):
+  return std::max(2u, 16u >> cascadeLevel);
 }
 
-float RadianceCascadesPass::ResolveRayMinLength(const uint32_t cascadeLevel) const noexcept {
+float RadianceCascadesPass::ResolveRayMinLength(const uint32_t cascadeLevel) noexcept {
   if (cascadeLevel == 0u) {
     return 0.0f;
   }
@@ -702,7 +758,7 @@ float RadianceCascadesPass::ResolveRayMinLength(const uint32_t cascadeLevel) con
   return maxDistance * 0.5f;
 }
 
-float RadianceCascadesPass::ResolveRayMaxLength(const uint32_t cascadeLevel) const noexcept {
+float RadianceCascadesPass::ResolveRayMaxLength(const uint32_t cascadeLevel) noexcept {
   const uint32_t scale = 1u << cascadeLevel;
   return 4.0f * static_cast<float>(scale);
 }
@@ -763,17 +819,18 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
     return;
   }
 
+  const auto tier = context.qualityManager->GetTier();
   const uint32_t cascadeLevels = std::clamp<uint32_t>(config.giCascadeLevels, 1u,
                                                       kMaxCascadeLevels);
   const bool halfResolution = config.giHalfResolution;
   const int width = context.hdrSceneBuffer.width;
   const int height = context.hdrSceneBuffer.height;
-  if (!EnsureResources(width, height, cascadeLevels, halfResolution)) {
+  if (!EnsureResources(width, height, cascadeLevels, halfResolution, tier)) {
     ReportFailure("failed to allocate radiance resources");
     return;
   }
 
-  UploadConfig(context, cascadeLevels, halfResolution);
+  UploadConfig(context, cascadeLevels, halfResolution, tier);
   if (!RunEmissiveBuild(context, width, height)) {
     ReportFailure("emissive build failed");
     return;
@@ -790,7 +847,7 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
     ReportFailure("emissive merge failed");
     return;
   }
-  if (!RunCascadeTrace(context, cascadeLevels, config.giHolographicEnabled)) {
+  if (!RunCascadeTrace(context, cascadeLevels, config.giHolographicEnabled, tier)) {
     ReportFailure("radiance cascade trace failed");
     return;
   }
@@ -798,16 +855,18 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
   context.giEmissiveTexture = m_emissiveCombined.colorTexture;
   context.giEmissiveWidth = m_emissiveCombined.width;
   context.giEmissiveHeight = m_emissiveCombined.height;
-  context.giRadianceTexture = m_cascadeRadiance[0].colorTexture;
+  context.giRadianceTexture = m_cascadeRadiance[0].texture;
   context.giRadianceWidth = m_cascadeRadiance[0].width;
   context.giRadianceHeight = m_cascadeRadiance[0].height;
+  context.giRadianceDirections = m_cascadeRadiance[0].directions;
 
   if ((m_frameIndex % 120u) == 0u) {
     LOG_INFO(
         "RadianceCascadesPass debug: frame={} cascades={} halfRes={} "
-        "radiance={}x{} materialStamps={} particleWrites={} holographic={}",
+        "radiance={}x{} dirs={} materialStamps={} particleWrites={} holographic={}",
         m_frameIndex, cascadeLevels, halfResolution ? 1 : 0, m_cascadeRadiance[0].width,
-        m_cascadeRadiance[0].height, m_lastMaterialStampCount, m_lastParticleWriteCount,
+        m_cascadeRadiance[0].height, m_cascadeRadiance[0].directions,
+        m_lastMaterialStampCount, m_lastParticleWriteCount,
         config.giHolographicEnabled ? 1 : 0);
   }
 

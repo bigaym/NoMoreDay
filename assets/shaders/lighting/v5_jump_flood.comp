@@ -32,44 +32,62 @@ float distanceSqToSeed(ivec2 workPixel, uvec2 seed) {
     return dot(delta, delta);
 }
 
+shared uint s_groupOverflow;
+
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + uRectMin;
-    if (pixel.x >= uWorkResolution.x || pixel.y >= uWorkResolution.y) {
-        return;
+    if (gl_LocalInvocationIndex == 0u) {
+        s_groupOverflow = 0u;
     }
+    groupMemoryBarrier();
+    barrier();
 
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + uRectMin;
+    bool inBounds = (pixel.x < uWorkResolution.x && pixel.y < uWorkResolution.y);
 
-    uvec4 currentSeedWord = imageLoad(uSeedIn, pixel);
-    uvec2 bestSeed = currentSeedWord.xy;
-    float bestDistSq = isValidSeed(bestSeed)
-        ? distanceSqToSeed(pixel, bestSeed)
-        : 3.402823e+38;
+    uvec2 bestSeed = uvec2(INVALID_COORD, INVALID_COORD);
 
-    for (int offsetY = -1; offsetY <= 1; ++offsetY) {
-        for (int offsetX = -1; offsetX <= 1; ++offsetX) {
-            ivec2 samplePixel = pixel + ivec2(offsetX, offsetY) * uStepSize;
-            if (samplePixel.x < 0 || samplePixel.y < 0 ||
-                samplePixel.x >= uWorkResolution.x ||
-                samplePixel.y >= uWorkResolution.y) {
-                continue;
-            }
+    if (inBounds) {
+        uvec4 currentSeedWord = imageLoad(uSeedIn, pixel);
+        bestSeed = currentSeedWord.xy;
+        float bestDistSq = isValidSeed(bestSeed)
+            ? distanceSqToSeed(pixel, bestSeed)
+            : 3.402823e+38;
 
-            uvec2 candidateSeed = imageLoad(uSeedIn, samplePixel).xy;
-            if (!isValidSeed(candidateSeed)) {
-                continue;
-            }
+        for (int offsetY = -1; offsetY <= 1; ++offsetY) {
+            for (int offsetX = -1; offsetX <= 1; ++offsetX) {
+                ivec2 samplePixel = pixel + ivec2(offsetX, offsetY) * uStepSize;
+                if (samplePixel.x < 0 || samplePixel.y < 0 ||
+                    samplePixel.x >= uWorkResolution.x ||
+                    samplePixel.y >= uWorkResolution.y) {
+                    continue;
+                }
 
-            float candidateDistSq = distanceSqToSeed(pixel, candidateSeed);
-            if (candidateDistSq < bestDistSq) {
-                bestDistSq = candidateDistSq;
-                bestSeed = candidateSeed;
+                uvec2 candidateSeed = imageLoad(uSeedIn, samplePixel).xy;
+                if (!isValidSeed(candidateSeed)) {
+                    continue;
+                }
+
+                float candidateDistSq = distanceSqToSeed(pixel, candidateSeed);
+                if (candidateDistSq < bestDistSq) {
+                    bestDistSq = candidateDistSq;
+                    bestSeed = candidateSeed;
+                }
             }
         }
+
+        if (!isValidSeed(bestSeed)) {
+            atomicAdd(s_groupOverflow, 1u);
+        }
+
+        imageStore(uSeedOut, pixel, uvec4(bestSeed, 0u, 0u));
     }
 
-    if (!isValidSeed(bestSeed)) {
-        atomicAdd(overflowCount, 1u);
-    }
+    groupMemoryBarrier();
+    barrier();
 
-    imageStore(uSeedOut, pixel, uvec4(bestSeed, 0u, 0u));
+    if (gl_LocalInvocationIndex == 0u) {
+        if (s_groupOverflow > 0u) {
+            atomicAdd(overflowCount, s_groupOverflow);
+        }
+    }
 }

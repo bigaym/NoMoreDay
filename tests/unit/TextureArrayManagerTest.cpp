@@ -154,3 +154,79 @@ TEST_CASE("[Unit] TextureArrayManager - Rebuild On Resize Keeps Valid Defaults")
   Cleanup(texPath);
   manager.Shutdown();
 }
+
+TEST_CASE("[Unit] TextureArrayManager - Color Space Linear Metadata (T8.1)") {
+  using NoMoreDay::render::TextureArrayManager;
+  using NoMoreDay::render::TextureArraySemantic;
+
+  auto &manager = TextureArrayManager::Get();
+  manager.Shutdown();
+  manager.Initialize(16, 16);
+
+  // Semantic-level defaults:
+  // Albedo holds authored sRGB color data -> needs linearizing (default linear = false)
+  CHECK_FALSE(TextureArrayManager::GetDefaultLinearForSemantic(
+      TextureArraySemantic::Albedo));
+  CHECK_FALSE(manager.IsSemanticLinear(TextureArraySemantic::Albedo));
+
+  // Normal, Mask, Detail hold mathematical/physical data -> already linear (default linear = true)
+  CHECK(TextureArrayManager::GetDefaultLinearForSemantic(
+      TextureArraySemantic::Normal));
+  CHECK(manager.IsSemanticLinear(TextureArraySemantic::Normal));
+
+  CHECK(TextureArrayManager::GetDefaultLinearForSemantic(
+      TextureArraySemantic::Mask));
+  CHECK(manager.IsSemanticLinear(TextureArraySemantic::Mask));
+
+  CHECK(TextureArrayManager::GetDefaultLinearForSemantic(
+      TextureArraySemantic::Detail));
+  CHECK(manager.IsSemanticLinear(TextureArraySemantic::Detail));
+
+  // Default layer linear state matches semantic default
+  const int albedoDefault =
+      manager.GetDefaultLayer(TextureArraySemantic::Albedo);
+  CHECK_FALSE(manager.IsLayerLinear(TextureArraySemantic::Albedo, albedoDefault));
+
+  const int normalDefault =
+      manager.GetDefaultLayer(TextureArraySemantic::Normal);
+  CHECK(manager.IsLayerLinear(TextureArraySemantic::Normal, normalDefault));
+
+  // Loading custom layer with explicit linear flag override
+  const auto texLinear = MakeTexturePath("linear_override.bmp");
+  const auto texSrgb = MakeTexturePath("srgb_override.bmp");
+  WriteTinyBmp(texLinear, 128, 128, 128);
+  WriteTinyBmp(texSrgb, 200, 100, 50);
+
+  const int layerLinear = manager.LoadLayer(
+      TextureArraySemantic::Albedo, texLinear.string(), /*isLinear=*/true);
+  REQUIRE(layerLinear >= 0);
+  CHECK(manager.IsLayerLinear(TextureArraySemantic::Albedo, layerLinear));
+
+  const int layerSrgb = manager.LoadLayer(
+      TextureArraySemantic::Normal, texSrgb.string(), /*isLinear=*/false);
+  REQUIRE(layerSrgb >= 0);
+  CHECK_FALSE(manager.IsLayerLinear(TextureArraySemantic::Normal, layerSrgb));
+
+  // Hot-reload with per-layer linear flags
+  const auto reloadA = MakeTexturePath("reload_linear_a.bmp");
+  const auto reloadB = MakeTexturePath("reload_linear_b.bmp");
+  WriteTinyBmp(reloadA, 255, 0, 0);
+  WriteTinyBmp(reloadB, 0, 255, 0);
+
+  CHECK(manager.HotReloadLayers(TextureArraySemantic::Albedo,
+                                {reloadA.string(), reloadB.string()},
+                                {true, false}));
+  // Layer lookup
+  const int reloadALayer = manager.LoadLayer(TextureArraySemantic::Albedo,
+                                             reloadA.string());
+  const int reloadBLayer = manager.LoadLayer(TextureArraySemantic::Albedo,
+                                             reloadB.string());
+  CHECK(manager.IsLayerLinear(TextureArraySemantic::Albedo, reloadALayer) == true);
+  CHECK(manager.IsLayerLinear(TextureArraySemantic::Albedo, reloadBLayer) == false);
+
+  Cleanup(texLinear);
+  Cleanup(texSrgb);
+  Cleanup(reloadA);
+  Cleanup(reloadB);
+  manager.Shutdown();
+}

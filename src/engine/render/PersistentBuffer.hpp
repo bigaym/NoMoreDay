@@ -54,6 +54,18 @@ public:
   // Read from a specific slot index
   void ReadFromSlot(void *data, size_t size, int slotIndex) const;
 
+  // Non-blocking read from a specific slot index.
+  // Returns true if the fence was already signaled (or null) and data was copied without CPU stall.
+  // Returns false if the fence is still pending.
+  bool TryReadFromSlotNonBlocking(void *data, size_t size, int slotIndex) const;
+
+  // Non-blocking read from a slot delayed by delaySlots (default 1 = previous frame).
+  // Returns true if data was copied without CPU stall.
+  bool TryReadNonBlocking(void *data, size_t size, int delaySlots = 1) const;
+
+  // Query if a specific slot's fence is signaled without waiting.
+  bool IsSlotSignaled(int slotIndex) const;
+
   // Get byte offset for a specific slot
   // In COMPAT mode, this is always 0 as the buffer only has one slot.
   size_t GetSlotOffset(int slotIndex) const { 

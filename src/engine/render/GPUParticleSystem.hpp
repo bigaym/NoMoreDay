@@ -109,6 +109,7 @@ private:
     int m_renderNormalLightingEnabledLoc = -1;
     int m_renderSpecularEnabledLoc = -1;
     int m_renderShadowFactorLoc = -1;
+    int m_renderLinearPipelineLoc = -1;
     int m_emissionSnapshotMvpLoc = -1;
     
     // VAO for quad rendering

@@ -49,6 +49,8 @@ private:
   void SeedParticles(uint32_t count, const Camera2D &camera, int width, int height);
   void UploadConfig(uint32_t maxParticles);
   bool DispatchGridHash(const graph::RenderContext &context, uint32_t particleCount);
+  bool DispatchPrefixSum(const graph::RenderContext &context, uint32_t totalCells);
+  bool DispatchCompact(const graph::RenderContext &context, uint32_t particleCount);
   bool DispatchNeighborSearch(const graph::RenderContext &context,
                               uint32_t particleCount);
   bool DispatchDensity(const graph::RenderContext &context, uint32_t particleCount,
@@ -72,6 +74,8 @@ private:
   const RadianceCascadesPass *m_radiancePass = nullptr;
 
   Shader m_gridHashShader = {};
+  Shader m_prefixSumShader = {};
+  Shader m_compactShader = {};
   Shader m_neighborSearchShader = {};
   Shader m_densityShader = {};
   Shader m_forceShader = {};
@@ -85,9 +89,16 @@ private:
   int m_gridOriginLoc = -1;
   int m_gridDimLoc = -1;
 
+  int m_prefixSumTotalCellsLoc = -1;
+
+  int m_compactParticleCountLoc = -1;
+
   int m_neighborParticleCountLoc = -1;
   int m_neighborMaxNeighborsLoc = -1;
   int m_neighborRadiusLoc = -1;
+  int m_neighborCellSizeLoc = -1;
+  int m_neighborGridOriginLoc = -1;
+  int m_neighborGridDimLoc = -1;
 
   int m_densityParticleCountLoc = -1;
   int m_densityMaxNeighborsLoc = -1;
@@ -132,6 +143,10 @@ private:
   NoMoreDay::core::ComputeBuffer m_particlePong;
   NoMoreDay::core::ComputeBuffer m_cellCoordBuffer;
   NoMoreDay::core::ComputeBuffer m_cellCountBuffer;
+  NoMoreDay::core::ComputeBuffer m_cellStartBuffer;
+  NoMoreDay::core::ComputeBuffer m_cellEndBuffer;
+  NoMoreDay::core::ComputeBuffer m_cellOffsetBuffer;
+  NoMoreDay::core::ComputeBuffer m_gridParticleIndexBuffer;
   NoMoreDay::core::ComputeBuffer m_neighborListBuffer;
   NoMoreDay::core::ComputeBuffer m_neighborCountBuffer;
   NoMoreDay::core::ComputeBuffer m_configBuffer;
@@ -157,3 +172,4 @@ private:
 };
 
 } // namespace NoMoreDay::render::passes
+

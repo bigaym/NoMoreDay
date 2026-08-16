@@ -51,6 +51,8 @@ struct RenderContext {
   uint32_t giRadianceTexture = 0u;
   int giRadianceWidth = 0;
   int giRadianceHeight = 0;
+  uint32_t giRadianceDirections = 0u;
+  uint32_t heightFieldTexture = 0u;
 
   // Game-side occluder projection injected before graph execution (filled by the
   // gameplay adapter via the shared OccluderProjector). Points into an

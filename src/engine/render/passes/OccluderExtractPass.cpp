@@ -90,7 +90,7 @@ void OccluderExtractPass::Shutdown() {
   m_extractShader = {};
   m_composeShader = {};
 
-  m_occluderBuffer.Release();
+  m_occluderBuffer.Destroy();
   resources::FramebufferManager::Destroy(m_staticMask);
   resources::FramebufferManager::Destroy(m_dynamicMask);
   resources::FramebufferManager::Destroy(m_occluderMask);
@@ -164,18 +164,20 @@ bool OccluderExtractPass::UploadOccluders(
       std::max<size_t>(1u, static_cast<size_t>(occluderCount)) *
       sizeof(NoMoreDay::components::GPUShadowCaster);
   if (m_occluderBuffer.GetId() == 0 || m_occluderBuffer.GetSize() < requiredBytes) {
-    m_occluderBuffer.Create(requiredBytes, nullptr, RL_DYNAMIC_DRAW);
+    m_occluderBuffer.Create(requiredBytes, 3);
   }
   if (m_occluderBuffer.GetId() == 0) {
     return false;
   }
 
   if (occluders != nullptr && occluderCount > 0u) {
-    m_occluderBuffer.Update(
-        occluders,
-        static_cast<size_t>(occluderCount) *
-            sizeof(NoMoreDay::components::GPUShadowCaster),
-        0);
+    void *ptr = m_occluderBuffer.BeginWrite();
+    if (ptr != nullptr) {
+      std::memcpy(ptr, occluders,
+                  static_cast<size_t>(occluderCount) *
+                      sizeof(NoMoreDay::components::GPUShadowCaster));
+    }
+    m_occluderBuffer.Flush();
   }
   return true;
 }
@@ -219,8 +221,7 @@ bool OccluderExtractPass::RunExtractPass(const graph::RenderContext &context,
     rlSetUniform(m_dynamicOnlyLoc, &dynamicOnlyInt, RL_SHADER_UNIFORM_INT, 1);
   }
 
-  NoMoreDay::utils::GPUUtils::BindBufferBase(RenderConstants::ShadowCS::kOccluderBinding,
-                                             m_occluderBuffer.GetId());
+  m_occluderBuffer.BindBase(RenderConstants::ShadowCS::kOccluderBinding);
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kOccluderMaskImageBinding, outputTexture, 0, false, 0,
       kGLWriteOnly, kGLR8);
@@ -231,6 +232,10 @@ bool OccluderExtractPass::RunExtractPass(const graph::RenderContext &context,
         DivUp(static_cast<uint32_t>(m_cachedHeight), kComputeGroupSize), 1);
   }
   rlDisableShader();
+  NoMoreDay::utils::GPUUtils::BindBufferBase(RenderConstants::ShadowCS::kOccluderBinding, 0);
+  NoMoreDay::utils::GPUUtils::BindImageTexture(
+      RenderConstants::V5GI::kOccluderMaskImageBinding, 0, 0, false, 0,
+      kGLWriteOnly, kGLR8);
 
   // Same-pass sync before the compose dispatch reads the layer images: emitted
   // at this exact execution point from the Setup AddPhaseBarrier declaration.
@@ -427,6 +432,7 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
         m_staticRebuildCount, m_maskChangedThisFrame ? 1 : 0);
   }
 
+  m_occluderBuffer.Lock();
   MarkSuccess();
   core::ApplyRlglFlushTemplate();
 }

@@ -16,8 +16,12 @@ layout(std430, binding = 0) readonly buffer ParticlesIn {
     FluidParticle particles[];
 };
 
-layout(std430, binding = 1) readonly buffer CellCoords {
-    uint cellCoord[];
+layout(std430, binding = 1) readonly buffer CellStarts {
+    uint cellStarts[];
+};
+
+layout(std430, binding = 2) readonly buffer CellEnds {
+    uint cellEnds[];
 };
 
 layout(std430, binding = 3) writeonly buffer NeighborIndices {
@@ -28,9 +32,16 @@ layout(std430, binding = 4) buffer NeighborCounts {
     uint neighborCounts[];
 };
 
+layout(std430, binding = 5) readonly buffer GridParticleIndices {
+    uint gridParticleIndices[];
+};
+
 uniform int uParticleCount;
 uniform int uMaxNeighbors;
 uniform float uSearchRadius;
+uniform float uCellSize;
+uniform vec2 uGridOrigin;
+uniform ivec2 uGridDim;
 
 void main() {
     uint idx = gl_GlobalInvocationID.x;
@@ -39,30 +50,65 @@ void main() {
         return;
     }
 
+    vec2 world = particles[idx].position;
+    vec2 local = (world - uGridOrigin) / max(uCellSize, 0.0001);
+    int cx = clamp(int(floor(local.x)), 0, max(0, uGridDim.x - 1));
+    int cy = clamp(int(floor(local.y)), 0, max(0, uGridDim.y - 1));
+
     float radiusSq = max(uSearchRadius, 0.0001) * max(uSearchRadius, 0.0001);
     uint maxNeighbors = uint(max(uMaxNeighbors, 0));
     uint found = 0u;
+    uint base = idx * maxNeighbors;
 
-    for (uint j = 0u; j < count; ++j) {
-        if (j == idx) {
+    for (int dy = -1; dy <= 1; ++dy) {
+        int ny = cy + dy;
+        if (ny < 0 || ny >= uGridDim.y) {
             continue;
         }
+        for (int dx = -1; dx <= 1; ++dx) {
+            int nx = cx + dx;
+            if (nx < 0 || nx >= uGridDim.x) {
+                continue;
+            }
 
-        vec2 d = particles[idx].position - particles[j].position;
-        float distSq = dot(d, d);
-        if (distSq > radiusSq) {
-            continue;
+            uint neighborCell = uint(ny * max(1, uGridDim.x) + nx);
+            if (neighborCell >= cellEnds.length() || neighborCell >= cellStarts.length()) {
+                continue;
+            }
+
+            uint start = cellStarts[neighborCell];
+            uint end = cellEnds[neighborCell];
+
+            for (uint k = start; k < end; ++k) {
+                if (k >= gridParticleIndices.length()) {
+                    break;
+                }
+                uint j = gridParticleIndices[k];
+                if (j == idx || j >= count) {
+                    continue;
+                }
+
+                vec2 d = particles[idx].position - particles[j].position;
+                float distSq = dot(d, d);
+                if (distSq > radiusSq) {
+                    continue;
+                }
+
+                if (found < maxNeighbors) {
+                    neighborIndices[base + found] = j;
+                    found++;
+                } else {
+                    break;
+                }
+            }
+            if (found >= maxNeighbors) {
+                break;
+            }
         }
-
-        if (found < maxNeighbors) {
-            uint base = idx * maxNeighbors;
-            neighborIndices[base + found] = j;
-            found++;
-        } else {
+        if (found >= maxNeighbors) {
             break;
         }
     }
 
     neighborCounts[idx] = found;
 }
-

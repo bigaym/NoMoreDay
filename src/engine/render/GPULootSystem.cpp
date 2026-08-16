@@ -18,7 +18,6 @@ namespace {
 
 constexpr uint32_t kWorkGroupSize = 64u;
 constexpr uint32_t kIndirectBufferBinding = 3u;
-constexpr uint32_t kLootRenderInstanceBinding = 0u;
 constexpr uint32_t kVisibleIndexBinding = 1u;
 constexpr uint32_t kCounterBinding = 2u;
 constexpr uint32_t kForceBinding = 4u;
@@ -307,6 +306,25 @@ Shader LoadComputeShaderFromFile(const char *path) {
 
 } // namespace
 
+GPULootSystem::SnapshotPollOutcome
+GPULootSystem::TryPublishReadySnapshot(
+    const bool slotArmed, const bool frameEligible, const bool fenceSignaled,
+    const size_t readIndex, const size_t ringDepth,
+    const uint32_t pendingSnapshot, const uint32_t currentSnapshot) noexcept {
+  if (slotArmed && frameEligible && fenceSignaled) {
+    return {
+        .published = true,
+        .snapshot = pendingSnapshot,
+        .nextReadIndex = (ringDepth > 0) ? ((readIndex + 1) % ringDepth) : 0,
+    };
+  }
+  return {
+      .published = false,
+      .snapshot = currentSnapshot,
+      .nextReadIndex = readIndex,
+  };
+}
+
 void GPULootSystem::Init(const uint32_t maxInstances) {
   if (m_initialized) {
     return;
@@ -315,6 +333,7 @@ void GPULootSystem::Init(const uint32_t maxInstances) {
   m_maxInstances = std::max(1u, maxInstances);
   m_syncedInstanceCount = 0;
   m_visibleInstanceCount = 0;
+  m_frameIndex = 0;
   m_gridWidth = 128;
   m_gridHeight = 128;
   m_instances.clear();
@@ -328,6 +347,25 @@ void GPULootSystem::Init(const uint32_t maxInstances) {
   m_forceBuffer.Create(m_maxInstances * sizeof(Vector2), nullptr, RL_DYNAMIC_DRAW);
   m_gridCountBuffer.Create(m_gridWidth * m_gridHeight * sizeof(uint32_t), nullptr,
                            RL_DYNAMIC_DRAW);
+
+  constexpr uint32_t kGLCopyWriteBuffer = 0x8F37;
+  constexpr uint32_t kGLStreamRead = 0x88E1;
+  for (auto &slot : m_readbackRing) {
+    if (slot.counterReadbackBufferId == 0) {
+      utils::GPUUtils::GenBuffers(1, &slot.counterReadbackBufferId);
+      if (slot.counterReadbackBufferId != 0) {
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, slot.counterReadbackBufferId);
+        utils::GPUUtils::BufferData(kGLCopyWriteBuffer, sizeof(uint32_t), nullptr,
+                                    kGLStreamRead);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, 0);
+      }
+    }
+    slot.fence = nullptr;
+    slot.armed = false;
+    slot.submittedFrame = 0;
+  }
+  m_ringWrite = 0;
+  m_ringRead = 0;
 
   m_instanceBuffer.BindBase(NoMoreDay::RenderConstants::LootPassBinding::INSTANCE_SSBO);
 
@@ -416,6 +454,22 @@ void GPULootSystem::Shutdown() {
   m_instances.clear();
   m_syncedInstanceCount = 0;
   m_visibleInstanceCount = 0;
+  m_frameIndex = 0;
+
+  for (auto &slot : m_readbackRing) {
+    if (slot.fence != nullptr) {
+      utils::GPUUtils::DeleteSync(slot.fence);
+      slot.fence = nullptr;
+    }
+    if (slot.counterReadbackBufferId != 0) {
+      utils::GPUUtils::DeleteBuffers(1, &slot.counterReadbackBufferId);
+      slot.counterReadbackBufferId = 0;
+    }
+    slot.armed = false;
+    slot.submittedFrame = 0;
+  }
+  m_ringWrite = 0;
+  m_ringRead = 0;
 
   if (m_vao != 0) {
     NoMoreDay::render::resources::GPUResourceRegistry::Get().UnregisterResource(
@@ -470,7 +524,6 @@ void GPULootSystem::EnsureCapacity(const uint32_t requiredInstances) {
   if (!m_initialized || requiredInstances <= m_maxInstances) {
     return;
   }
-
   const uint32_t newCapacity = std::max(requiredInstances, m_maxInstances * 2u);
   m_maxInstances = newCapacity;
   m_instances.reserve(m_maxInstances);
@@ -514,7 +567,6 @@ void GPULootSystem::UploadInstances(
 }
 
 void GPULootSystem::ResetDispatchState() {
-  m_visibleInstanceCount = 0;
   const uint32_t zero = 0u;
   const DrawArraysIndirectCommand cmd = {6u, 0u, 0u, 0u};
   m_counterBuffer.Update(&zero, sizeof(zero), 0);
@@ -524,6 +576,54 @@ void GPULootSystem::ResetDispatchState() {
 void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
                              const int screenHeight,
                              const bool enableForceDirected) {
+  ++m_frameIndex;
+
+  constexpr uint32_t kGLCopyReadBuffer = 0x8F36;
+  constexpr uint32_t kGLCopyWriteBuffer = 0x8F37;
+  constexpr uint32_t kGLSyncGpuCommandsComplete = 0x9117;
+  constexpr uint32_t kGLAlreadySignaled = 0x911A;
+  constexpr uint32_t kGLConditionSatisfied = 0x911C;
+
+  // 1. Poll delayed readback ring slot (non-blocking, timeout 0). Debug/test
+  // builds refresh the snapshot every frame; production keeps the last
+  // published snapshot (zero synchronous readback on the render path).
+  if (m_readbackEnabledForTesting) {
+    auto &readSlot = m_readbackRing[m_ringRead];
+
+    const bool frameEligible =
+        readSlot.armed && m_frameIndex > readSlot.submittedFrame;
+    bool fenceSignaled = false;
+    if (frameEligible && readSlot.fence != nullptr) {
+      const uint32_t status =
+          utils::GPUUtils::ClientWaitSync(readSlot.fence, 0, 0); // timeout 0
+      fenceSignaled = (status == kGLAlreadySignaled ||
+                       status == kGLConditionSatisfied);
+    }
+
+    uint32_t pendingSnapshot = m_visibleInstanceCount;
+    if (fenceSignaled) {
+      uint32_t readCount = 0;
+      utils::GPUUtils::BindBuffer(kGLCopyReadBuffer,
+                                  readSlot.counterReadbackBufferId);
+      utils::GPUUtils::GetBufferSubData(kGLCopyReadBuffer, 0, sizeof(readCount),
+                                        &readCount);
+      utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, 0);
+      pendingSnapshot = std::min(readCount, m_maxInstances);
+    }
+
+    const SnapshotPollOutcome pollOutcome = TryPublishReadySnapshot(
+        readSlot.armed, frameEligible, fenceSignaled, m_ringRead, kRingDepth,
+        pendingSnapshot, m_visibleInstanceCount);
+    if (pollOutcome.published) {
+      m_visibleInstanceCount = pollOutcome.snapshot;
+      m_debugSnapshot.visible = m_visibleInstanceCount;
+      utils::GPUUtils::DeleteSync(readSlot.fence);
+      readSlot.fence = nullptr;
+      readSlot.armed = false;
+      m_ringRead = pollOutcome.nextReadIndex;
+    }
+  }
+
   if (!m_initialized || m_syncedInstanceCount == 0) {
     ResetDispatchState();
     return;
@@ -539,8 +639,7 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
       std::min(worldTL.x, worldBR.x) - 80.0f, std::min(worldTL.y, worldBR.y) - 80.0f,
       std::max(worldTL.x, worldBR.x) + 80.0f, std::max(worldTL.y, worldBR.y) + 80.0f};
 
-  // Render shader uses a dedicated low binding index for wider GLSL compiler compatibility.
-  m_instanceBuffer.BindBase(kLootRenderInstanceBinding);
+  m_instanceBuffer.BindBase(NoMoreDay::RenderConstants::LootPassBinding::INSTANCE_SSBO);
   m_visibleIndexBuffer.BindBase(kVisibleIndexBinding);
   m_counterBuffer.BindBase(kCounterBinding);
   m_indirectBuffer.BindBase(kIndirectBufferBinding);
@@ -562,6 +661,8 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
     rlDisableShader();
   }
 
+  NoMoreDay::utils::GPUUtils::MemoryBarrier(NoMoreDay::RenderConstants::Barrier::SSBO);
+
   {
     NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootIndirectArgs");
     rlEnableShader(m_indirectArgsShader.id);
@@ -573,93 +674,125 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
     rlDisableShader();
   }
 
-  m_counterBuffer.Read(&m_visibleInstanceCount, sizeof(m_visibleInstanceCount), 0);
-  m_debugSnapshot.visible = m_visibleInstanceCount;
-  
-  if (m_visibleInstanceCount == 0 || !enableForceDirected) {
-    return;
+  NoMoreDay::utils::GPUUtils::MemoryBarrier(
+      NoMoreDay::RenderConstants::Barrier::SSBO |
+      NoMoreDay::RenderConstants::Barrier::Command);
+
+  if (enableForceDirected) {
+    const std::vector<uint32_t> zeroGrid(m_gridWidth * m_gridHeight, 0u);
+    m_gridCountBuffer.OrphanAndUpload(zeroGrid.data(),
+                                      zeroGrid.size() * sizeof(uint32_t), RL_DYNAMIC_DRAW);
+
+    const int conservativeVisibleCount = static_cast<int>(m_syncedInstanceCount);
+    const uint32_t gridGroups =
+        (m_syncedInstanceCount + kWorkGroupSize - 1u) / kWorkGroupSize;
+
+    {
+      NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootGridHash");
+      rlEnableShader(m_gridHashShader.id);
+      const int gridWidth = static_cast<int>(m_gridWidth);
+      const int gridHeight = static_cast<int>(m_gridHeight);
+      if (m_locGridVisibleCount >= 0) {
+        rlSetUniform(m_locGridVisibleCount, &conservativeVisibleCount, RL_SHADER_UNIFORM_INT, 1);
+      }
+      if (m_locGridCellSize >= 0) {
+        rlSetUniform(m_locGridCellSize, &m_gridCellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      if (m_locGridGridWidth >= 0) {
+        rlSetUniform(m_locGridGridWidth, &gridWidth, RL_SHADER_UNIFORM_INT, 1);
+      }
+      if (m_locGridGridHeight >= 0) {
+        rlSetUniform(m_locGridGridHeight, &gridHeight, RL_SHADER_UNIFORM_INT, 1);
+      }
+      NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
+      rlDisableShader();
+    }
+
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(NoMoreDay::RenderConstants::Barrier::SSBO);
+
+    {
+      NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootRepulsion");
+      rlEnableShader(m_repulsionShader.id);
+      constexpr float kMinDistance = 34.0f;
+      constexpr float kStiffness = 16.0f;
+      constexpr float kMaxForce = 4.0f;
+      constexpr float kDamping = 0.86f;
+      if (m_locRepulsionVisibleCount >= 0) {
+        rlSetUniform(m_locRepulsionVisibleCount, &conservativeVisibleCount, RL_SHADER_UNIFORM_INT, 1);
+      }
+      if (m_locRepulsionMinDist >= 0) {
+        rlSetUniform(m_locRepulsionMinDist, &kMinDistance, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      if (m_locRepulsionStiffness >= 0) {
+        rlSetUniform(m_locRepulsionStiffness, &kStiffness, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      if (m_locRepulsionMaxForce >= 0) {
+        rlSetUniform(m_locRepulsionMaxForce, &kMaxForce, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      if (m_locRepulsionDamping >= 0) {
+        rlSetUniform(m_locRepulsionDamping, &kDamping, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
+      rlDisableShader();
+    }
+
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(NoMoreDay::RenderConstants::Barrier::SSBO);
+
+    {
+      NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootPositionUpdate");
+      rlEnableShader(m_positionUpdateShader.id);
+      constexpr float kOffsetDamping = 0.78f;
+      constexpr float kMaxOffset = 84.0f;
+      if (m_locUpdateVisibleCount >= 0) {
+        rlSetUniform(m_locUpdateVisibleCount, &conservativeVisibleCount, RL_SHADER_UNIFORM_INT, 1);
+      }
+      if (m_locUpdateDamping >= 0) {
+        rlSetUniform(m_locUpdateDamping, &kOffsetDamping, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      if (m_locUpdateMaxOffset >= 0) {
+        rlSetUniform(m_locUpdateMaxOffset, &kMaxOffset, RL_SHADER_UNIFORM_FLOAT, 1);
+      }
+      NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
+      rlDisableShader();
+    }
+
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(
+        NoMoreDay::RenderConstants::Barrier::SSBO |
+        NoMoreDay::RenderConstants::Barrier::Command);
   }
 
-  const std::vector<uint32_t> zeroGrid(m_gridWidth * m_gridHeight, 0u);
-  m_gridCountBuffer.OrphanAndUpload(zeroGrid.data(),
-                                    zeroGrid.size() * sizeof(uint32_t), RL_DYNAMIC_DRAW);
+  // 2. Submit non-blocking debug readback copy to write slot (debug/test only)
+  if (m_readbackEnabledForTesting) {
+    auto &writeSlot = m_readbackRing[m_ringWrite];
+    if (CanSubmitReadbackCopy(writeSlot.armed)) {
+      const uint32_t counterSrc = m_counterBuffer.GetId();
+      if (counterSrc != 0 && writeSlot.counterReadbackBufferId != 0) {
+        utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, counterSrc);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer,
+                                    writeSlot.counterReadbackBufferId);
+        utils::GPUUtils::CopyBufferSubData(kGLCopyReadBuffer, kGLCopyWriteBuffer,
+                                           0, 0, sizeof(uint32_t));
+        utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, 0);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, 0);
 
-  const int visibleCount = static_cast<int>(m_visibleInstanceCount);
-  const uint32_t gridGroups =
-      (m_visibleInstanceCount + kWorkGroupSize - 1u) / kWorkGroupSize;
-
-  {
-    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootGridHash");
-    rlEnableShader(m_gridHashShader.id);
-    const int gridWidth = static_cast<int>(m_gridWidth);
-    const int gridHeight = static_cast<int>(m_gridHeight);
-    if (m_locGridVisibleCount >= 0) {
-      rlSetUniform(m_locGridVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
+        void *fence =
+            utils::GPUUtils::FenceSync(kGLSyncGpuCommandsComplete, 0);
+        if (fence != nullptr) {
+          writeSlot.fence = fence;
+          writeSlot.armed = true;
+          writeSlot.submittedFrame = m_frameIndex;
+          m_ringWrite = (m_ringWrite + 1) % kRingDepth;
+        }
+      }
     }
-    if (m_locGridCellSize >= 0) {
-      rlSetUniform(m_locGridCellSize, &m_gridCellSize, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    if (m_locGridGridWidth >= 0) {
-      rlSetUniform(m_locGridGridWidth, &gridWidth, RL_SHADER_UNIFORM_INT, 1);
-    }
-    if (m_locGridGridHeight >= 0) {
-      rlSetUniform(m_locGridGridHeight, &gridHeight, RL_SHADER_UNIFORM_INT, 1);
-    }
-    NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
-    rlDisableShader();
-  }
-
-  {
-    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootRepulsion");
-    rlEnableShader(m_repulsionShader.id);
-    constexpr float kMinDistance = 34.0f;
-    constexpr float kStiffness = 16.0f;
-    constexpr float kMaxForce = 4.0f;
-    constexpr float kDamping = 0.86f;
-    if (m_locRepulsionVisibleCount >= 0) {
-      rlSetUniform(m_locRepulsionVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
-    }
-    if (m_locRepulsionMinDist >= 0) {
-      rlSetUniform(m_locRepulsionMinDist, &kMinDistance, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    if (m_locRepulsionStiffness >= 0) {
-      rlSetUniform(m_locRepulsionStiffness, &kStiffness, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    if (m_locRepulsionMaxForce >= 0) {
-      rlSetUniform(m_locRepulsionMaxForce, &kMaxForce, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    if (m_locRepulsionDamping >= 0) {
-      rlSetUniform(m_locRepulsionDamping, &kDamping, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
-    rlDisableShader();
-  }
-
-  {
-    NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("LootPositionUpdate");
-    rlEnableShader(m_positionUpdateShader.id);
-    constexpr float kOffsetDamping = 0.78f;
-    constexpr float kMaxOffset = 84.0f;
-    if (m_locUpdateVisibleCount >= 0) {
-      rlSetUniform(m_locUpdateVisibleCount, &visibleCount, RL_SHADER_UNIFORM_INT, 1);
-    }
-    if (m_locUpdateDamping >= 0) {
-      rlSetUniform(m_locUpdateDamping, &kOffsetDamping, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    if (m_locUpdateMaxOffset >= 0) {
-      rlSetUniform(m_locUpdateMaxOffset, &kMaxOffset, RL_SHADER_UNIFORM_FLOAT, 1);
-    }
-    NoMoreDay::utils::GPUUtils::DispatchCompute(gridGroups, 1u, 1u);
-    rlDisableShader();
   }
 }
 
 void GPULootSystem::Render(const Matrix &viewProj, const bool enableGlow) const {
   if (!m_initialized || m_renderShader.id == 0 || m_vao == 0 ||
-      m_visibleInstanceCount == 0) {
+      m_indirectBuffer.GetId() == 0) {
     return;
   }
-
   static MultiDrawArraysIndirectCountFn s_multiDrawArraysIndirect = nullptr;
   static bool s_multiDrawProbeDone = false;
   if (!s_multiDrawProbeDone) {
@@ -682,7 +815,9 @@ void GPULootSystem::Render(const Matrix &viewProj, const bool enableGlow) const 
   m_instanceBuffer.BindBase(NoMoreDay::RenderConstants::LootPassBinding::INSTANCE_SSBO);
   m_visibleIndexBuffer.BindBase(kVisibleIndexBinding);
   m_indirectBuffer.Bind(kGLDrawIndirectBuffer);
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(NoMoreDay::RenderConstants::Barrier::All);
+  NoMoreDay::utils::GPUUtils::MemoryBarrier(
+      NoMoreDay::RenderConstants::Barrier::SSBO |
+      NoMoreDay::RenderConstants::Barrier::Command);
 
   rlEnableVertexArray(m_vao);
   if (s_multiDrawArraysIndirect != nullptr) {

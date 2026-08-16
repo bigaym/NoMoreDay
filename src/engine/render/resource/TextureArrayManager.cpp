@@ -95,8 +95,10 @@ bool TextureArrayManager::BuildState(ArrayState &state,
   state.loadedLayers = 0;
   state.activeLayers = 0;
   state.defaultLayer = -1;
+  state.defaultLinear = GetDefaultLinearForSemantic(semantic);
   state.freeLayers.clear();
   state.occupied.assign(static_cast<size_t>(state.maxLayers), false);
+  state.layerLinear.assign(static_cast<size_t>(state.maxLayers), state.defaultLinear);
   state.sourcePaths.clear();
   state.pathToLayer.clear();
 
@@ -168,6 +170,7 @@ bool TextureArrayManager::EnsureDefaultLayer(ArrayState &state,
   state.activeLayers = 1;
   state.defaultLayer = layer;
   state.occupied[static_cast<size_t>(layer)] = true;
+  state.layerLinear[static_cast<size_t>(layer)] = state.defaultLinear;
   state.pathToLayer[defaultPath] = layer;
   state.sourcePaths.push_back(defaultPath);
 
@@ -205,7 +208,7 @@ bool TextureArrayManager::EnsureDefaultLayer(ArrayState &state,
 }
 
 int TextureArrayManager::LoadLayerInternal(ArrayState &state, const std::string &path,
-                                           bool allowMissing) {
+                                           bool allowMissing, bool isLinear) {
   if (path.empty()) {
     return state.defaultLayer;
   }
@@ -259,19 +262,56 @@ int TextureArrayManager::LoadLayerInternal(ArrayState &state, const std::string 
   }
 
   state.occupied[static_cast<size_t>(layer)] = true;
+  state.layerLinear[static_cast<size_t>(layer)] = isLinear;
   ++state.activeLayers;
   state.pathToLayer[path] = layer;
   state.sourcePaths.push_back(path);
   return layer;
 }
 
+bool TextureArrayManager::GetDefaultLinearForSemantic(
+    TextureArraySemantic semantic) {
+  // Albedo textures contain color authored in sRGB space (requires sRGB->linear decoding).
+  // Normal, Mask/Roughness, and Detail textures contain mathematical data (already linear).
+  switch (semantic) {
+  case TextureArraySemantic::Albedo:
+    return false;
+  case TextureArraySemantic::Normal:
+  case TextureArraySemantic::Mask:
+  case TextureArraySemantic::Detail:
+  default:
+    return true;
+  }
+}
+
+bool TextureArrayManager::IsSemanticLinear(TextureArraySemantic semantic) const {
+  return GetDefaultLinearForSemantic(semantic);
+}
+
+bool TextureArrayManager::IsLayerLinear(TextureArraySemantic semantic,
+                                        int layer) const {
+  const ArrayState *state = GetState(semantic);
+  if (layer < 0 || layer >= state->maxLayers) {
+    return state->defaultLinear;
+  }
+  if (!state->occupied[static_cast<size_t>(layer)]) {
+    return state->defaultLinear;
+  }
+  return state->layerLinear[static_cast<size_t>(layer)];
+}
+
 int TextureArrayManager::LoadLayer(TextureArraySemantic semantic,
                                    const std::string &path) {
+  return LoadLayer(semantic, path, GetDefaultLinearForSemantic(semantic));
+}
+
+int TextureArrayManager::LoadLayer(TextureArraySemantic semantic,
+                                   const std::string &path, bool isLinear) {
   if (!m_initialized) {
     Initialize(m_maxLayers, m_layerSize);
   }
   ArrayState *state = GetState(semantic);
-  const int layer = LoadLayerInternal(*state, path, false);
+  const int layer = LoadLayerInternal(*state, path, false, isLinear);
   if (layer < 0) {
     return state->defaultLayer;
   }
@@ -291,6 +331,7 @@ void TextureArrayManager::ReleaseLayer(TextureArraySemantic semantic, int layer)
   }
 
   state->occupied[static_cast<size_t>(layer)] = false;
+  state->layerLinear[static_cast<size_t>(layer)] = state->defaultLinear;
   state->freeLayers.push_back(layer);
   state->activeLayers = std::max(0, state->activeLayers - 1);
 
@@ -355,6 +396,14 @@ void TextureArrayManager::Unbind(uint32_t textureUnit) const {
 
 bool TextureArrayManager::HotReloadLayers(TextureArraySemantic semantic,
                                           const std::vector<std::string> &paths) {
+  const bool defaultLinear = GetDefaultLinearForSemantic(semantic);
+  const std::vector<bool> linearFlags(paths.size(), defaultLinear);
+  return HotReloadLayers(semantic, paths, linearFlags);
+}
+
+bool TextureArrayManager::HotReloadLayers(
+    TextureArraySemantic semantic, const std::vector<std::string> &paths,
+    const std::vector<bool> &linearFlags) {
   if (!m_initialized) {
     Initialize(m_maxLayers, m_layerSize);
   }
@@ -364,11 +413,14 @@ bool TextureArrayManager::HotReloadLayers(TextureArraySemantic semantic,
     return false;
   }
 
-  for (const std::string &path : paths) {
+  const bool defaultLinear = GetDefaultLinearForSemantic(semantic);
+  for (size_t i = 0; i < paths.size(); ++i) {
+    const std::string &path = paths[i];
     if (path.empty()) {
       continue;
     }
-    if (LoadLayerInternal(staging, path, false) < 0) {
+    const bool isLinear = (i < linearFlags.size()) ? linearFlags[i] : defaultLinear;
+    if (LoadLayerInternal(staging, path, false, isLinear) < 0) {
       DestroyState(staging);
       LOG_WARN("TextureArrayManager: hot reload rejected path={}", path);
       return false;
@@ -400,12 +452,19 @@ bool TextureArrayManager::RebuildForResize(int width, int height) {
     }
 
     const auto previousPaths = m_states[i].sourcePaths;
-    for (const std::string &path : previousPaths) {
+    for (size_t p = 0; p < previousPaths.size(); ++p) {
+      const std::string &path = previousPaths[p];
       const std::string defaultPath = kDefaultTexturePaths[i];
       if (path == defaultPath || path.empty()) {
         continue;
       }
-      (void)LoadLayerInternal(staging, path, true);
+      const auto it = m_states[i].pathToLayer.find(path);
+      const bool prevLinear =
+          (it != m_states[i].pathToLayer.end() && it->second >= 0 &&
+           it->second < m_states[i].maxLayers)
+              ? m_states[i].layerLinear[static_cast<size_t>(it->second)]
+              : staging.defaultLinear;
+      (void)LoadLayerInternal(staging, path, true, prevLinear);
     }
 
     ArrayState old = std::move(m_states[i]);

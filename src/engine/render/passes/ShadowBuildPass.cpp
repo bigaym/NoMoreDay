@@ -242,7 +242,7 @@ void ShadowBuildPass::Shutdown() {
   // reuses the same (still alive) shader objects.
   m_sdfComputeShader = {};
   m_atlasTileShader = {};
-  m_occluderBuffer.Release();
+  m_occluderBuffer.Destroy();
   resources::FramebufferManager::Destroy(m_sdfField);
   resources::FramebufferManager::Destroy(m_shadowAtlas);
   m_cachedWidth = 0;
@@ -325,8 +325,8 @@ bool ShadowBuildPass::UploadOccluders(
   const size_t requiredBytes =
       std::max<size_t>(1u, uploadCount) * sizeof(NoMoreDay::components::GPUShadowCaster);
   if (m_occluderBuffer.GetId() == 0 || m_occluderBuffer.GetSize() < requiredBytes) {
-    m_occluderBuffer.Create(requiredBytes, nullptr, RL_DYNAMIC_DRAW);
-    // B11 (RG-3 owner metadata): ComputeBuffer registers owner Unknown; the
+    m_occluderBuffer.Create(requiredBytes, 3);
+    // B11 (RG-3 owner metadata): PersistentBuffer registers owner Unknown; the
     // occluder backing must carry the RenderGraph owner contract (Shadow).
     ReclassifyShadowComputeBuffer(m_occluderBuffer.GetId());
   }
@@ -336,11 +336,13 @@ bool ShadowBuildPass::UploadOccluders(
   }
 
   if (occluders != nullptr && uploadCount > 0u) {
-    m_occluderBuffer.Update(
-        occluders,
-        static_cast<size_t>(uploadCount) *
-            sizeof(NoMoreDay::components::GPUShadowCaster),
-        0);
+    void *ptr = m_occluderBuffer.BeginWrite();
+    if (ptr != nullptr) {
+      std::memcpy(ptr, occluders,
+                  static_cast<size_t>(uploadCount) *
+                      sizeof(NoMoreDay::components::GPUShadowCaster));
+    }
+    m_occluderBuffer.Flush();
   }
   m_occluderCount = uploadCount;
   return true;
@@ -526,9 +528,12 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
                     "missing or invalid for this frame");
       return;
     }
+    // Graph-driven binding only range-binds slot 0 of the triple-buffer
+    // PersistentBuffer, which is refreshed once every 3 frames. Rebind the
+    // current write slot so the dispatch sees this frame's occluder upload.
+    m_occluderBuffer.BindBase(RenderConstants::ShadowCS::kOccluderBinding);
   } else {
-    NoMoreDay::utils::GPUUtils::BindBufferBase(
-        RenderConstants::ShadowCS::kOccluderBinding, m_occluderBuffer.GetId());
+    m_occluderBuffer.BindBase(RenderConstants::ShadowCS::kOccluderBinding);
     NoMoreDay::utils::GPUUtils::BindImageTexture(
         RenderConstants::ShadowCS::kSdfImageBinding, m_sdfField.colorTexture, 0, false,
         0, kGLWriteOnly, kGLRg16f);
@@ -540,6 +545,13 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
         (static_cast<uint32_t>(height) + (kShadowGroupSize - 1u)) / kShadowGroupSize, 1);
   }
   rlDisableShader();
+  if (context.activeGraph == nullptr) {
+    NoMoreDay::utils::GPUUtils::BindBufferBase(
+        RenderConstants::ShadowCS::kOccluderBinding, 0);
+    NoMoreDay::utils::GPUUtils::BindImageTexture(
+        RenderConstants::ShadowCS::kSdfImageBinding, 0, 0, false, 0,
+        kGLWriteOnly, kGLRg16f);
+  }
 
   // Same-pass phase barrier: emitted at the exact execution point (after the
   // SDF dispatch, before the Hybrid atlas tile draws). The graph resolves the
@@ -556,6 +568,7 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
     RenderAtlasTiles(context);
   }
 
+  m_occluderBuffer.Lock();
   MarkSuccess();
 }
 

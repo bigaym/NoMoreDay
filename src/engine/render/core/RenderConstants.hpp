@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/RenderConstants.hpp"
 #include <cctype>
 #include <cstdint>
 #include <optional>
@@ -100,10 +101,11 @@ struct RenderConfig {
   int vfxSequenceDetail = 0; // 0=minimal, 1=reduced, 2=full
   bool hotReloadEnabled = false;
 
-  // Phase 5 - Color Grading
+  // Phase 5 - Color Grading & Linear Color Pipeline (Group 8)
   bool colorGradingEnabled = false;
   int colorGradingLutSize = 0; // 0=off, 16 or 32
   float colorGradingIntensity = 1.0f;
+  bool linearPipeline = true;
 
   // Phase 5 - Volumetric Light
   bool volumetricLightEnabled = false;

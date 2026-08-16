@@ -25,6 +25,9 @@ public:
   void OnResize(int width, int height);
   bool ReloadShaders();
   [[nodiscard]] bool IsInitialized() const { return m_initialized; }
+  [[nodiscard]] uint32_t GetHeightFieldTexture() const noexcept {
+    return m_heightField.GetTextureId();
+  }
 
 private:
   void DrawFullscreen(Shader shader, uint32_t sourceTexture,

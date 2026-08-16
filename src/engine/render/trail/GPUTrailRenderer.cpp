@@ -275,6 +275,9 @@ void GPUTrailRenderer::Render(const Camera2D &camera) {
 
   rlDisableVertexArray();
   EndShaderMode();
+
+  m_headerSSBO.UnbindBase(RenderConstants::TrailBinding::HEADERS);
+  m_pointsSSBO.UnbindBase(RenderConstants::TrailBinding::POINTS);
 }
 
 void GPUTrailRenderer::ClearAll() {

@@ -11,6 +11,10 @@ layout(std430, binding = 1) readonly buffer VisibleIndexBuffer {
   uint visibleIndices[];
 };
 
+layout(std430, binding = 2) readonly buffer CounterBuffer {
+  uint visibleCount;
+};
+
 layout(std430, binding = 5) buffer GridCountBuffer {
   uint gridCounts[];
 };
@@ -22,7 +26,8 @@ uniform int uGridHeight;
 
 void main() {
   uint i = gl_GlobalInvocationID.x;
-  if (i >= uint(uVisibleCount) || uGridCellSize <= 0.0 || uGridWidth <= 0 || uGridHeight <= 0) {
+  uint count = (uVisibleCount > 0) ? min(uint(uVisibleCount), visibleCount) : visibleCount;
+  if (i >= count || uGridCellSize <= 0.0 || uGridWidth <= 0 || uGridHeight <= 0) {
     return;
   }
 

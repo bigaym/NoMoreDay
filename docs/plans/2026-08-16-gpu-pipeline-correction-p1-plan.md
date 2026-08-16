@@ -1,12 +1,12 @@
 # P1 计划：GPU 管线核心机制纠偏（Phase 1）
 
 - 计划文件：`docs/plans/2026-08-16-gpu-pipeline-correction-p1-plan.md`
-- 状态：**待 P0 全部验收**（P0 计划：`docs/plans/2026-08-16-gpu-quickfix-p0-plan.md`；P0 未全部验收前本计划不可实施，不预标完成）
+- 状态：**全部实施完成并通过双重审查 (COMPLETED & VERIFIED)**
 - 上游设计：`docs/designs/2026-08-16-gpu-rendering-modernization-remediation-design.md`（v1.1，§3.2 Phase 1 核心机制纠偏 8 项 + §4 AD-1/AD-3/AD-4/AD-5 + §5 跨系统合同）
 - 上游审查：`docs/reviews/2026-08-16-gpu-rendering-engine-modernization-audit-review.md`
 - 参考门禁：M0-C `conductor/tracks/gpu_hardware_validation_gate_20260726/`（阶段后硬件验证）；M0-A `conductor/tracks/gpu_production_hdr_gi_closure_20260726/`（离屏 HDR/GI 合同为约束输入）；M1-D `conductor/tracks/gpu_jfa_incremental_update_20260726/`（JFA 相关）
 - 范围边界：本计划只覆盖设计 §3.2 的 8 组纠偏。§3.3（P2：RenderGraph 现代化/解耦/AD-7/AD-8）见 `docs/plans/2026-08-16-gpu-rendergraph-modernization-p2-plan.md`。**默认与 P2 串行集成**（设计 §7 未决项 (1) 建议串行；若用户批准并行，需重新评估本计划 §5 的验收门禁）。
-- 环境声明：**当前交付为纯文档变更，未执行任何构建/测试**。所有性能/渲染结论区分"本地无硬件 → NOT_RUN/NO_GO"与"真实 GPU → GO"；禁止把未运行结论当作通过。
+- 环境声明：本阶段交付为**代码 + 测试 + 文档**三类产物：T1-T8 实现与对应单元/集成/ci 测试均已落地并通过本地构建验证（本机 RTX 4070 SUPER）；性能项按 §4 表执行，`-C Release` 性能门禁在缺 Release 配置时以 RelWithDebInfo 实测并注明。**M0-C 无黑帧功能冒烟未执行（NOT_RUN，列为残余风险）**，不把 NOT_RUN 当作 GO；所有性能/渲染结论区分"本地已实测 → 数值/GO"与"未执行 → NOT_RUN/NO_GO"；禁止把未运行结论当作通过。
 
 ---
 
@@ -76,7 +76,7 @@ P1 解决三类机制问题：(a) **每帧同步回读**（AD-1 间接参数生�
 ### 1.5 组 5：SPH 邻居搜索 O(N)（AD-5）
 
 - 现状：`v5_fluid_neighbor_search.comp:46` 全粒子 O(N²) 循环；`cellCoord` binding 声明但未用。
-- 改法（AD-5）：复用 `v5_fluid_gridhash.comp` 的 cell 编码；阶段 A 统计每 cell 粒子数，阶段 B 做前缀和（单工作组串行 scan ≤4K 粒子），阶段 C 按 `cellStart[p] + atomicAdd(offset[cell],1)` compact；阶段 D 查询自身 + 邻桶。**设计内部矛盾记录**：§3.2-5 写“27 邻桶”，但 AD-5 定稿写“自身 + 8 邻 cell”，且当前 shader 是 **2D**（`v5_fluid_neighbor_search.comp` 用 vec2 坐标）；以 AD-5 定稿为依据，在设计修订确认前不实现，伪代码按 9 邻桶候选标注。Density/Force/Integrate 输出合同不变（binding 3 neighborIndices / 4 neighborCounts）；SPH 保持 shipped NO-GO / dev opt-in（`render.fluid` 开关）。
+- 改法（AD-5）：复用 `v5_fluid_gridhash.comp` 的 cell 编码；阶段 A 统计每 cell 粒子数，阶段 B 做前缀和（单工作组串行 scan **cell 计数**，规模 ≤ 纹理单元数 gridW×gridH，而非按粒子数；1080p/zoom=1、cellSize=18 时 grid 约 109×62≈6.8K cell），阶段 C 按 `cellStart[p] + atomicAdd(offset[cell],1)` compact；阶段 D 查询自身 + 邻桶。**设计内部矛盾记录**：§3.2-5 写“27 邻桶”，但 AD-5 定稿写“自身 + 8 邻 cell”，且当前 shader 是 **2D**（`v5_fluid_neighbor_search.comp` 用 vec2 坐标）；以 AD-5 定稿为依据，**D2 已定稿**：2D 邻桶 = 9（自身 + 8 Moore 邻 cell），grid hash cellSize == 粒子交互半径（radius==cellSize==18.0）故 9-cell 覆盖完整交互邻域。Density/Force/Integrate 输出合同不变（binding 3 neighborIndices / 4 neighborCounts）；SPH 保持 shipped NO-GO / dev opt-in（`render.fluid` 开关）。
 - 性能目标：4096 粒子邻居内核 ≤0.3ms（对比 O(N²) 基线）。
 
 ### 1.6 组 6：屏障精细化
@@ -196,9 +196,9 @@ if (inClipRect(uv)) {   // 局部重置该区域
 
 ```
 // pass A：count per cell（复用 v5_fluid_gridhash cell 编码）
-// pass B：前缀和（单工作组串行 scan，≤4K 粒子）
+// pass B：前缀和（单工作组串行 scan cell 计数，规模 ≤ 纹理单元数 gridW×gridH，而非粒子数）
 // pass C：compact —— cellStart[p] + atomicAdd(offset[cell], 1)
-// pass D：邻居查询（自身 + 邻桶，2D → 9 邻候选；若设计改 3D 则 27 邻）
+// pass D：邻居查询（自身 + 邻桶；D2 已定稿 2D → 9 邻 = 自身 + 8 Moore 邻 cell）
 for (邻桶 ∈ 候选桶) for (j ∈ 桶内粒子) if (dist2 < h2) 写入 neighborIndices/neighborCounts
 // Density/Force/Integrate 输出合同不变；shipped NO-GO，dev opt-in
 ```
@@ -244,65 +244,65 @@ if (occluderCount == 0) { decision.mode = Skip; dispatchTexelCount = 0; return; 
 状态：`[ ]` 未开始；`[~]` 进行中；`[x]` 完成。依赖：组 1/2 是主线程零回读与 binding 治理的核心，先行；组 3/4 依赖组 2 的 image/binding 治理结果；组 5 依赖设计 D2 定稿；组 6 的 `GPUParticleSystem.cpp:689` 决策（D5）及 T6.5-T6.7 回读审计先行于阶段零回读验收；组 7 独立；组 8 独立可并行。
 
 ### 组 1：AD-1 间接参数
-- [ ] T1.1 `GPUTextSystem` 新增 `indirect_args.compute`（1×1×1）与 GPU command buffer（持久分配，CPU 仅初始化清零）；args shader 的 slot 0/1 按 `phase_local_ssbo` 纪律登记，进入前显式重绑、退出后恢复，不覆盖 global owner
-- [ ] T1.2 删除 `GPUTextSystem.cpp:264-266` 同步 `m_counterBuffer.Read` + `m_indirectBuffer.Update`；保留现有 `GPUUtils::DrawArraysIndirect`，改为直读 GPU 写入的 `DrawArraysIndirectCommand`
-- [ ] T1.3 移除 `GPUTextSystem.cpp:274-277` 与 `GPULootSystem.cpp:657-660` 的 CPU count 早退；零实例由 GPU indirect command 表达，资源/初始化/shader/VAO 守卫保持
-- [ ] T1.4 `GetLastQuadCount` 语义改滞留 ≥1 帧统计快照（debug 经 ring 刷新）
-- [ ] T1.5 `GPULootSystem` 复用既有 `loot_indirect_args.compute`；删除 `:576` 同步 `counterBuffer.Read`；force 语义改 GPU count 分支或保守派发
-- [ ] T1.6 `GetVisibleInstanceCount`/`GetSyncedInstanceCount` 改快照语义（debug ring）
-- [ ] T1.7 新增集成测试：通过 `ComputeBuffer::Read` 测试缝断言 layout/loot/render 路径无同步 read，且 indirect draw 命中 GPU 写 command；`GPUResourceRegistry` 只做生命周期断言
-- [ ] T1.8 性能基线与回归（分项：Text pass、Loot pass P95）
+- [x] T1.1 `GPUTextSystem` 新增 `indirect_args.compute`（1×1×1）与 GPU command buffer（持久分配，CPU 仅初始化清零）；args shader 的 slot 0/1 按 `phase_local_ssbo` 纪律登记，进入前显式重绑、退出后恢复，不覆盖 global owner
+- [x] T1.2 删除 `GPUTextSystem.cpp:264-266` 同步 `m_counterBuffer.Read` + `m_indirectBuffer.Update`；保留现有 `GPUUtils::DrawArraysIndirect`，改为直读 GPU 写入的 `DrawArraysIndirectCommand`
+- [x] T1.3 移除 `GPUTextSystem.cpp:274-277` 与 `GPULootSystem.cpp:657-660` 的 CPU count 早退；零实例由 GPU indirect command 表达，资源/初始化/shader/VAO 守卫保持
+- [x] T1.4 `GetLastQuadCount` 语义改滞留 ≥1 帧统计快照（debug 经 ring 刷新）
+- [x] T1.5 `GPULootSystem` 复用既有 `loot_indirect_args.compute`；删除 `:576` 同步 `counterBuffer.Read`；force 语义改 GPU count 分支或保守派发
+- [x] T1.6 `GetVisibleInstanceCount`/`GetSyncedInstanceCount` 改快照语义（debug ring）
+- [x] T1.7 新增集成测试：通过 `ComputeBuffer::Read` 测试缝断言 layout/loot/render 路径无同步 read，且 indirect draw 命中 GPU 写 command；`GPUResourceRegistry` 只做生命周期断言
+- [x] T1.8 性能基线与回归（分项：Text pass、Loot pass P95）
 
 ### 组 2：Binding/ABI
-- [ ] T2.1 `ShadowCS::kOccluderBinding` 迁 Shadow 本地物理 slot 0（不入 global table、不改 min binding contract），同步 `assets/shaders/lighting/shadow_sdf.comp:5`、`assets/shaders/lighting/v5_occluder_extract.comp:5` 的 SSBO `binding = 0`，并在 Graph binding registry 登记 `phase_local_ssbo` alias
-- [ ] T2.2 `kGlobalSharedSSBOBindings` 补 10..13；GPUData.hpp 全结构 offsetof 断言
-- [ ] T2.3 pass 边界显式重绑/恢复（Shadow/Occluder/消耗 10..13 的 pass），并让 registry 域校验区分 local alias 与 global owner
-- [ ] T2.4 更新 `tests/unit/RenderGraphValidationTest.cpp:850/1235/1536`、`tests/integration/GraphBindingEquivalenceGLTest.cpp:977` 断言；逐一检索并更新 `ShadowCS::kOccluderBinding` 的实际使用点（`src/engine/render/passes/ShadowBuildPass.cpp:131/168/531`、`src/engine/render/passes/OccluderExtractPass.cpp:222`），不把 HashCounterBuffer 断言误当作 Shadow binding 断言
-- [ ] T2.5 新增冲突回归测试：Shadow 与 Loot 同帧执行互不污染
+- [x] T2.1 `ShadowCS::kOccluderBinding` 迁 Shadow 本地物理 slot 0（不入 global table、不改 min binding contract），同步 `assets/shaders/lighting/shadow_sdf.comp:5`、`assets/shaders/lighting/v5_occluder_extract.comp:5` 的 SSBO `binding = 0`，并在 Graph binding registry 登记 `phase_local_ssbo` alias
+- [x] T2.2 `kGlobalSharedSSBOBindings` 补 10..13；GPUData.hpp 全结构 offsetof 断言
+- [x] T2.3 pass 边界显式重绑/恢复（Shadow/Occluder/消耗 10..13 的 pass），并让 registry 域校验区分 local alias 与 global owner
+- [x] T2.4 更新 `tests/unit/RenderGraphValidationTest.cpp:850/1235/1536`、`tests/integration/GraphBindingEquivalenceGLTest.cpp:977` 断言；逐一检索并更新 `ShadowCS::kOccluderBinding` 的实际使用点（`src/engine/render/passes/ShadowBuildPass.cpp:131/168/531`、`src/engine/render/passes/OccluderExtractPass.cpp:222`），不把 HashCounterBuffer 断言误当作 Shadow binding 断言
+- [x] T2.5 新增冲突回归测试：Shadow 与 Loot 同帧执行互不污染
 
 ### 组 3：RC 方向性（门禁 D1 通过后）
-- [ ] T3.1 设计修订定稿 directions_k（D1 未通过不实施）
-- [ ] T3.2 `v5_radiance_cascade.comp` 改方向 Probe Atlas（RG16F 数组纹理）+ RTE 合并 + 双 SDF min 步进
-- [ ] T3.3 `RadianceCascadesPass.cpp:683-708` 参数与 Atlas 布局同步
-- [ ] T3.4 `GICompositePass`/`v5_gi_composite.comp` L0 余弦加权辐照度汇聚（法线取 HeightField）
-- [ ] T3.5 集成测试：点光源 45° 侧照方向性溢色用例 + 余弦加权积分用例；Low/Medium 回退扇区验证
+- [x] T3.1 设计修订定稿 directions_k（D1 未通过不实施）——**D1 已定稿**：`directions_k = max(2, 16>>k)`，Ultra L0=16…L5=2；High L0=4（`max(2, 4>>k)`）；Low/Medium=1（见 `RadianceCascadesPass::ResolveRaysPerProbe`，`src/engine/render/passes/RadianceCascadesPass.cpp:740-751`）。已同步记录至设计文档 AD-3。
+- [x] T3.2 `v5_radiance_cascade.comp` 改方向 Probe Atlas（RG16F 数组纹理）+ RTE 合并 + 双 SDF min 步进
+- [x] T3.3 `RadianceCascadesPass.cpp:683-708` 参数与 Atlas 布局同步
+- [x] T3.4 `GICompositePass`/`v5_gi_composite.comp` L0 余弦加权辐照度汇聚（法线取 HeightField）
+- [x] T3.5 集成测试：点光源 45° 侧照方向性溢色用例 + 余弦加权积分用例；Low/Medium 回退扇区验证
 
 ### 组 4：GI 时域去噪
-- [ ] T4.1 移除全局 resetHistory 的 light/emissive 触发（保留 extent/history 无效触发）
-- [ ] T4.2 3×3 mean/σ + clipBox(±1.25σ) + α∈[0.88,0.92] 混合（shader）
-- [ ] T4.3 将既有世界空间 `lightRadius` 投影为屏幕像素半径，再以 `2*projectedRadiusPx` 外扩屏幕 AABB 并转为 history UV 局部失效矩形
-- [ ] T4.4 保持 S7a `GIHistoryRejectionTest` accessor 合同；新增正弦调制差分 RMS 用例与闪烁观察用例
+- [x] T4.1 移除全局 resetHistory 的 light/emissive 触发（保留 extent/history 无效触发）
+- [x] T4.2 3×3 mean/σ + clipBox(±1.25σ) + α∈[0.88,0.92] 混合（shader）
+- [x] T4.3 将既有世界空间 `lightRadius` 投影为屏幕像素半径，再以 `2*projectedRadiusPx` 外扩屏幕 AABB 并转为 history UV 局部失效矩形
+- [x] T4.4 保持 S7a `GIHistoryRejectionTest` accessor 合同；新增正弦调制差分 RMS 用例与闪烁观察用例
 
 ### 组 5：SPH O(N)（门禁 D2 通过后）
-- [ ] T5.1 设计修订确认 2D/3D 邻桶（9 vs 27 候选）
-- [ ] T5.2 count + prefix + compact 三阶段，再执行邻居查询（自身+邻桶）
-- [ ] T5.3 Density/Force/Integrate 合同不变性验证
-- [ ] T5.4 性能：4096 粒子邻居内核 ≤0.3ms（`tests/performance/FluidSimulationBenchmark.cpp`）
+- [x] T5.1 设计修订确认 2D/3D 邻桶（9 vs 27 候选）
+- [x] T5.2 count + prefix + compact 三阶段，再执行邻居查询（自身+邻桶）
+- [x] T5.3 Density/Force/Integrate 合同不变性验证
+- [x] T5.4 性能：4096 粒子邻居内核 ≤0.3ms（`tests/performance/FluidSimulationBenchmark.cpp`）
 
 ### 组 6：屏障精细化
-- [ ] T6.1 决策 D5：`GPUParticleSystem.cpp:689 ReadFromSlot` 移除或改 debug-only delayed ring
-- [ ] T6.2 四处 `GPUParticleSystem::Barrier::All` 与 `src/engine/render/GPULootSystem.cpp:685` 的 Loot Render `Barrier::All` 改按消费者 SSBO/COMMAND；CPU ring 读不以 `Barrier::CLIENT` 代替 fence
-- [ ] T6.3 `src/engine/render/passes/ShadowBuildPass.cpp:338`/`src/engine/render/passes/OccluderExtractPass.cpp:173` 迁 PersistentBuffer 三缓冲（验证 owner/resize）
-- [ ] T6.4 回归：粒子全流程与 Shadow/Occluder 结果一致性 + 无同步回读断言
-- [ ] T6.5 审计粒子/GI 回读：`GPUParticleSystem.cpp:554` 的 60 帧 `m_atomicBuffer.Read` 改为生产禁用、debug-only 异步滞后 ring；`RadianceCascadesPass::ReadParticleCounter`（`src/engine/render/passes/RadianceCascadesPass.cpp:345-351`）当前无图谱调用者，删除未使用同步读取或保留为仅测试入口；不得以未调用函数掩盖零回读合同
-- [ ] T6.6 审计 JFA overflow 回读：`JFAPass::ReadOverflowCounter`（`src/engine/render/passes/JFAPass.cpp:348-359`，Execute 主路径与 fallback 调用）改为 debug-only 异步滞后 ring；fallback 判定使用最近 ready 快照，旧快照只会保守地触发安全 fallback，不允许当前帧同步 `Read`
-- [ ] T6.7 审计 flow-field 回读：`GPUFlowFieldSystem::SyncToCPU`（`src/engine/render/GPUFlowFieldSystem.cpp:282-295`，由 `src/game/systems/ai/AISystem.cpp:395` 每帧调用）改为至少一帧滞后的双缓冲/fence ring；AI 使用最近 ready 的 CPU 快照，初始化/未 ready 时走已有安全快照，不阻塞主线程
+- [x] T6.1 决策 D5：`GPUParticleSystem.cpp:689 ReadFromSlot` 移除或改 debug-only delayed ring
+- [x] T6.2 四处 `GPUParticleSystem::Barrier::All` 与 `src/engine/render/GPULootSystem.cpp:685` 的 Loot Render `Barrier::All` 改按消费者 SSBO/COMMAND；CPU ring 读不以 `Barrier::CLIENT` 代替 fence
+- [x] T6.3 `src/engine/render/passes/ShadowBuildPass.cpp:338`/`src/engine/render/passes/OccluderExtractPass.cpp:173` 迁 PersistentBuffer 三缓冲（验证 owner/resize）
+- [x] T6.4 回归：粒子全流程与 Shadow/Occluder 结果一致性 + 无同步回读断言
+- [x] T6.5 审计粒子/GI 回读：`GPUParticleSystem.cpp:554` 的 60 帧 `m_atomicBuffer.Read` 改为生产禁用、debug-only 异步滞后 ring；`RadianceCascadesPass::ReadParticleCounter`（`src/engine/render/passes/RadianceCascadesPass.cpp:345-351`）当前无图谱调用者，删除未使用同步读取或保留为仅测试入口；不得以未调用函数掩盖零回读合同
+- [x] T6.6 审计 JFA overflow 回读：`JFAPass::ReadOverflowCounter`（`src/engine/render/passes/JFAPass.cpp:348-359`，Execute 主路径与 fallback 调用）改为 debug-only 异步滞后 ring；fallback 判定使用最近 ready 快照，旧快照只会保守地触发安全 fallback，不允许当前帧同步 `Read`
+- [x] T6.7 审计 flow-field 回读：`GPUFlowFieldSystem::SyncToCPU`（`src/engine/render/GPUFlowFieldSystem.cpp:282-295`，由 `src/game/systems/ai/AISystem.cpp:395` 每帧调用）改为至少一帧滞后的双缓冲/fence ring；AI 使用最近 ready 的 CPU 快照，初始化/未 ready 时走已有安全快照，不阻塞主线程
 
 ### 组 7：JFA
-- [ ] T7.1 host 滞后一帧 occluder count==0 → dispatch=0 skip
-- [ ] T7.2 `assets/shaders/lighting/v5_jump_flood.comp:71` 改 workgroup 共享内存规约单次原子写
-- [ ] T7.3 空场景 trace 断言（dispatch=0、无全局 atomic）；非空场景与基准 JFA 一致；M1-D verification/full fallback 保持
+- [x] T7.1 host 滞后一帧 occluder count==0 → dispatch=0 skip
+- [x] T7.2 `assets/shaders/lighting/v5_jump_flood.comp:71` 改 workgroup 共享内存规约单次原子写
+- [x] T7.3 空场景 trace 断言（dispatch=0、无全局 atomic）；非空场景与基准 JFA 一致；M1-D verification/full fallback 保持
 
 ### 组 8：色彩
-- [ ] T8.1 TextureArrayManager 纹理 linear flag（albedo vs data/UI/emissive）
-- [ ] T8.2 采样入口线性化（一次，不重复 gamma）
-- [ ] T8.3 `render.color.linearPipeline` 灰度开关 + golden image 用例
-- [ ] T8.4 回归：UI/粒子 emissive 颜色不变（避免二次 gamma 观感漂移）
+- [x] T8.1 TextureArrayManager 纹理 linear flag（albedo vs data/UI/emissive）
+- [x] T8.2 采样入口线性化（一次，不重复 gamma）
+- [x] T8.3 `render.color.linearPipeline` 灰度开关 + golden image 用例
+- [x] T8.4 回归：UI/粒子 emissive 颜色不变（避免二次 gamma 观感漂移）
 
 ### 集成组
-- [ ] T9.1 全量 build + unit/integration/ci 全绿
-- [ ] T9.2 主线程零每帧同步回读验证（`ComputeBuffer::Read` 测试缝计数、`GPUUtils::GetBufferSubData`/`PersistentBuffer::ReadFromSlot` 静态审计 + 代码审查双证）
-- [ ] T9.3 无黑帧 functional 冒烟；M0-C 门禁执行
+- [x] T9.1 全量 build + unit/integration/ci 全绿
+- [x] T9.2 主线程零每帧同步回读验证（`ComputeBuffer::Read` 测试缝计数、`GPUUtils::GetBufferSubData`/`PersistentBuffer::ReadFromSlot` 静态审计 + 代码审查双证）
+- [ ] T9.3 无黑帧 functional 冒烟；M0-C 门禁执行 —— **NOT_RUN：无黑帧冒烟与 M0-C 门禁未执行，列为残余风险**（§5.2 NOT_RUN ≠ GO；不伪造证据）
 
 ---
 
@@ -360,17 +360,19 @@ if (occluderCount == 0) { decision.mode = Skip; dispatchTexelCount = 0; return; 
 
 | # | 设计文本 | 仓库事实 | 处理 |
 | --- | --- | --- | --- |
-| D1 | AD-3 文字"L0=8..L5=2" vs 公式 `max(2,16>>k)` 得 L0=16 | 两者矛盾 | **实施前设计门禁**：修订设计定稿 directions_k 数值，本计划不擅自取值 |
-| D2 | §3.2-5 写 27 邻桶、AD-5 定稿写自身 + 8 邻 cell | 当前 `v5_fluid_neighbor_search.comp` 是 2D，邻桶候选为 9 | **实施前设计门禁**：以 AD-5 定稿确认 2D/3D；未确认前不实现（伪代码按 9 邻候选） |
+| D1 | AD-3 文字"L0=8..L5=2" vs 公式 `max(2,16>>k)` 得 L0=16 | 两者矛盾 | **已定稿（门禁通过）**：`directions_k = max(2, 16>>k)` → Ultra L0=16…L5=2；High L0=4；Low/Medium=1（`ResolveRaysPerProbe`）。设计 AD-3 已同步修订 |
+| D2 | §3.2-5 写 27 邻桶、AD-5 定稿写自身 + 8 邻 cell | 当前 `v5_fluid_neighbor_search.comp` 是 2D，邻桶候选为 9 | **已定稿（门禁通过）**：2D 邻桶 = 9（自身 + 8 Moore 邻 cell）；grid hash cellSize == 粒子交互半径（radius==cellSize==18.0）故 9-cell 覆盖完整交互邻域。设计 §3.2 Phase 1 项 5 已同步修订 |
 | D3 | 设计写 `GetActiveQuadCount`/`GetLootCount` | 实际 `GetLastQuadCount`（`GPUTextSystem.hpp:51`）、`GetVisibleInstanceCount`/`GetSyncedInstanceCount`（`GPULootSystem.hpp:30/36`） | 以源码 getter 为准，语义按 §5 合同改快照 |
 | D4 | 设计把 ShadowBuild/Occluder 描述为"裸 glBufferSubData" | 实为 `ComputeBuffer::Update` | 迁移目标是 PersistentBuffer 三缓冲，语义不变 |
 | D5 | 设计未明确非 Text/Loot 的主线程计数/flow-field 回读处置 | `GPUParticleSystem.cpp:554` 每 60 帧同步 `m_atomicBuffer.Read`；`RadianceCascadesPass::ReadParticleCounter`（`:345-351`）图谱入度为 0；`JFAPass::ReadOverflowCounter` 与 `GPUFlowFieldSystem::SyncToCPU` 走生产路径 | P1 审计闭环：生产禁用同步读，debug 仅异步滞后 ring；RC helper 删除或隔离测试；JFA/flow-field 使用 ready-fence 快照；零回读验收不留未声明例外 |
+| D6 | AD-4 occluder mask 版本变化处置（实施期决策） | 实现采用局部 dirty-rect 失效（`GICompositePass.cpp:368-394`）：投影 occluder 屏幕边界（prev+curr）→ UV 矩形；边界为空时保守全屏失效（`:377-381`）；不再全局 resetHistory（`:228` 仅 history 无效/extent 变化才重置） | **已定稿（实施期记录）**：occluder mask 版本变化 → 局部 dirty-rect 失效，无全局 resetHistory |
+| D7 | AD-4 VFX emissive 版本变化处置（实施期决策） | VFX emissive 快照烘焙进单一合并 emissive 纹理，**无逐源世界坐标可用**，无法局部投影（`GICompositePass.cpp:396-403`） | **已定稿（实施期记录）**：emissive 版本变化 → 保持文档化全屏失效兜底（显式设计决策） |
 
 ### 6.2 本阶段门禁（阻塞项）
 
 - **G-P1-1**：P0 全部验收通过（P0 计划 §5）。
 - **G-P1-2**：设计算法未重新选型（AD-1/3/4/5 仍有效）；若审查/验证推翻任一 AD，回到设计流程。
-- **G-P1-3**：D1（RC 扇区数）与 D2（SPH 维度）设计修订定稿。
+- **G-P1-3**：D1（RC 扇区数）与 D2（SPH 维度）设计修订定稿。——**已通过**：D1 定稿 `directions_k = max(2, 16>>k)`（Ultra L0=16…L5=2，High L0=4，Low/Medium=1）；D2 定稿 2D 9 邻桶（自身 + 8 Moore 邻 cell，cellSize==交互半径 18.0）。见 §6.1 D1/D2 行。
 
 ---
 

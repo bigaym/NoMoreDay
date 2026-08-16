@@ -33,6 +33,7 @@
 
 namespace {
 
+using namespace NoMoreDay;
 using NoMoreDay::render::graph::RenderContext;
 using NoMoreDay::render::graph::RenderGraphBuilder;
 using NoMoreDay::render::graph::RenderPass;
@@ -1089,7 +1090,8 @@ TEST_CASE("[Unit] RenderGraph - binding without descriptor warns (observer-only)
   graph.AddPass(std::make_shared<TestRenderPass>(
       "ScenePass", [](RenderGraphBuilder &builder) {
         builder.Write(RenderResourceTag::SceneHdrColor, RenderOwnerTag::Scene);
-        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO,
+                               RenderConstants::ShadowCS::kOccluderBinding);
       }));
 
   CHECK_NOTHROW(graph.Build());
@@ -1122,13 +1124,14 @@ TEST_CASE("[Unit] RenderGraph - duplicate backing snapshots fail closed") {
         desc.kind = ResourceKind::StorageBuffer;
         desc.lifetime = ResourceLifetime::Persistent;
         builder.DeclareResource(desc);
-        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO,
+                               RenderConstants::ShadowCS::kOccluderBinding);
 
         ResourceImportInfo import;
         import.resourceTag = RenderResourceTag::ShadowOccluderSSBO;
         import.kind = ResourceKind::StorageBuffer;
         import.backingOwner = RenderOwnerTag::Shadow;
-        import.bindingPoint = 15u;
+        import.bindingPoint = RenderConstants::ShadowCS::kOccluderBinding;
         builder.ImportResource(import);
       }));
   graph.Build();
@@ -1444,12 +1447,13 @@ TEST_CASE("[Unit] RenderGraph - import binding surface mismatch with observed ma
 
         // Manual bind stays authoritative; a stale import binding point is a
         // warning, never an error, and never a GL ownership change.
-        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO,
+                               RenderConstants::ShadowCS::kOccluderBinding);
         ResourceImportInfo import;
         import.resourceTag = RenderResourceTag::ShadowOccluderSSBO;
         import.kind = ResourceKind::StorageBuffer;
         import.backingOwner = RenderOwnerTag::Shadow;
-        import.bindingPoint = 7u; // stale: manual bind uses 15
+        import.bindingPoint = 7u; // stale: manual bind uses ShadowCS::kOccluderBinding
         builder.ImportResource(import);
       }));
 
@@ -1601,7 +1605,8 @@ TEST_CASE("[Unit] RenderGraph - B12 import kind incompatible with binding kind i
         builder.Write(RenderResourceTag::ShadowOccluderSSBO, RenderOwnerTag::Shadow,
                       PipelineStage::Compute, ResourceUsage::StorageWrite);
         // BufferBase binding on a Texture2D-backed import: kind clash.
-        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO, 15u);
+        builder.BindBufferBase(RenderResourceTag::ShadowOccluderSSBO,
+                               RenderConstants::ShadowCS::kOccluderBinding);
 
         ResourceImportInfo import;
         import.resourceTag = RenderResourceTag::ShadowOccluderSSBO;

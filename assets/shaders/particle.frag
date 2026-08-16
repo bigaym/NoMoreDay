@@ -18,6 +18,7 @@ uniform int uMaterialQualityLevel;
 uniform int uNormalLightingEnabled;
 uniform int uSpecularEnabled;
 uniform float uShadowFactor;
+uniform int uLinearPipeline;
 
 out vec4 finalColor;
 
@@ -92,6 +93,9 @@ void main() {
 
     if (vTextureIndex >= 0) {
         vec4 texColor = texture(particleAtlas, vec3(vAtlasUV, float(vTextureIndex)));
+        if (uLinearPipeline != 0) {
+            texColor.rgb = pow(texColor.rgb, vec3(2.2));
+        }
         rgb *= texColor.rgb;
         alpha *= texColor.a;
         if (effectiveBlend == 1u) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/core/RenderConstants.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 
@@ -15,13 +16,23 @@ namespace NoMoreDay::render::passes {
 
 class RadianceCascadesPass final : public graph::RenderPass {
 public:
+  struct CascadeRadianceTarget {
+    uint32_t texture = 0u;
+    int width = 0;
+    int height = 0;
+    uint32_t directions = 0u;
+    [[nodiscard]] bool IsValid() const noexcept {
+      return texture != 0u && width > 0 && height > 0 && directions > 0u;
+    }
+  };
+
   RadianceCascadesPass();
   ~RadianceCascadesPass() override;
 
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
   const char *GetName() const override { return "RadianceCascadesPass"; }
-  graph::RenderPassType Type() const override {
+  [[nodiscard]] graph::RenderPassType Type() const override {
     return graph::RenderPassType::RadianceCascades;
   }
 
@@ -49,7 +60,7 @@ public:
     return m_cascadeRadiance[0].IsValid();
   }
   [[nodiscard]] uint32_t GetRadianceTexture() const noexcept {
-    return m_cascadeRadiance[0].colorTexture;
+    return m_cascadeRadiance[0].texture;
   }
   [[nodiscard]] int GetRadianceWidth() const noexcept {
     return m_cascadeRadiance[0].width;
@@ -57,14 +68,27 @@ public:
   [[nodiscard]] int GetRadianceHeight() const noexcept {
     return m_cascadeRadiance[0].height;
   }
+  [[nodiscard]] uint32_t GetRadianceDirections() const noexcept {
+    return m_cascadeRadiance[0].directions;
+  }
+  [[nodiscard]] const CascadeRadianceTarget &GetCascadeTarget(size_t level) const noexcept {
+    return m_cascadeRadiance[level < kMaxCascadeLevels ? level : 0u];
+  }
+  [[nodiscard]] uint32_t ReadParticleCounterForTesting() const;
+
+  static uint32_t ResolveRaysPerProbe(
+      uint32_t cascadeLevel, uint32_t cascadeLevels,
+      core::QualityTier tier = core::QualityTier::Ultra) noexcept;
+  static float ResolveRayMinLength(uint32_t cascadeLevel) noexcept;
+  static float ResolveRayMaxLength(uint32_t cascadeLevel) noexcept;
 
 private:
   static constexpr uint32_t kMaxCascadeLevels = 6u;
 
   bool EnsureResources(int fullWidth, int fullHeight, uint32_t cascadeLevels,
-                       bool halfResolution);
+                       bool halfResolution, core::QualityTier tier);
+  void DestroyCascadeTarget(CascadeRadianceTarget &target);
   bool ClearParticleCounter();
-  uint32_t ReadParticleCounter() const;
   bool RunEmissiveBuild(const graph::RenderContext &context, int width, int height);
   bool RunMaterialEmissive(const graph::RenderContext &context, int width,
                            int height);
@@ -72,13 +96,9 @@ private:
                            int height);
   bool RunEmissiveMerge(const graph::RenderContext &context, int width, int height);
   bool RunCascadeTrace(const graph::RenderContext &context, uint32_t cascadeLevels,
-                       bool holographicMode);
+                       bool holographicMode, core::QualityTier tier);
   void UploadConfig(const graph::RenderContext &context, uint32_t cascadeLevels,
-                    bool halfResolution);
-  uint32_t ResolveRaysPerProbe(uint32_t cascadeLevel,
-                               uint32_t cascadeLevels) const noexcept;
-  float ResolveRayMinLength(uint32_t cascadeLevel) const noexcept;
-  float ResolveRayMaxLength(uint32_t cascadeLevel) const noexcept;
+                    bool halfResolution, core::QualityTier tier);
   void ReportFailure(const char *reason);
   void MarkSuccess();
   void LogBarrierAuditOnce();
@@ -113,6 +133,7 @@ private:
   int m_radianceCascadeLevelLoc = -1;
   int m_radianceCascadeCountLoc = -1;
   int m_radianceRaysPerProbeLoc = -1;
+  int m_radianceParentRaysLoc = -1;
   int m_radianceRayMinLengthLoc = -1;
   int m_radianceRayMaxLengthLoc = -1;
   int m_radianceEmissiveTextureLoc = -1;
@@ -123,7 +144,7 @@ private:
   resources::FramebufferHandle m_emissiveBase = {};
   resources::FramebufferHandle m_particleEmissive = {};
   resources::FramebufferHandle m_emissiveCombined = {};
-  std::array<resources::FramebufferHandle, kMaxCascadeLevels> m_cascadeRadiance = {};
+  std::array<CascadeRadianceTarget, kMaxCascadeLevels> m_cascadeRadiance = {};
 
   ::NoMoreDay::core::ComputeBuffer m_radianceConfigBuffer = {};
   ::NoMoreDay::core::ComputeBuffer m_particleCounterBuffer = {};
@@ -132,6 +153,7 @@ private:
   int m_cachedFullHeight = 0;
   uint32_t m_cachedCascadeLevels = 0u;
   bool m_cachedHalfResolution = false;
+  core::QualityTier m_cachedTier = core::QualityTier::Ultra;
   uint32_t m_frameIndex = 0u;
   uint32_t m_lastMaterialStampCount = 0u;
   uint32_t m_lastParticleWriteCount = 0u;

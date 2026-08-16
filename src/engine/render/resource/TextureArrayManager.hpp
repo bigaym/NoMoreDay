@@ -27,6 +27,12 @@ public:
 
   // Load an image layer and return the assigned layer index.
   int LoadLayer(TextureArraySemantic semantic, const std::string &path);
+  // Per-layer linear override. RESERVED/EXPERIMENTAL (T8.1 metadata only):
+  // the flag is recorded but decode is gated by the global uLinearPipeline
+  // uniform; per-layer shader plumbing is not wired yet, so a non-default
+  // value does not change decoding. Kept for the T8.1 API contract and tests.
+  int LoadLayer(TextureArraySemantic semantic, const std::string &path,
+                bool isLinear);
   void ReleaseLayer(TextureArraySemantic semantic, int layer);
 
   // Resolve invalid layer ids to semantic-specific defaults.
@@ -35,6 +41,14 @@ public:
   [[nodiscard]] int GetDefaultLayer(TextureArraySemantic semantic) const;
   [[nodiscard]] int GetLayerCount(TextureArraySemantic semantic) const;
   [[nodiscard]] unsigned int GetTextureId(TextureArraySemantic semantic) const;
+
+  // Linear color space metadata query (T8.1)
+  [[nodiscard]] static bool GetDefaultLinearForSemantic(TextureArraySemantic semantic);
+  // RESERVED/EXPERIMENTAL: metadata queries kept for the T8.1 API contract.
+  // Not consumed by the shader pipeline yet — actual decode is gated by the
+  // global uLinearPipeline uniform (see particle.frag / entity_mdi.frag).
+  [[nodiscard]] bool IsSemanticLinear(TextureArraySemantic semantic) const;
+  [[nodiscard]] bool IsLayerLinear(TextureArraySemantic semantic, int layer) const;
 
   void Bind(TextureArraySemantic semantic, uint32_t textureUnit) const;
   void Unbind(uint32_t textureUnit) const;
@@ -45,6 +59,10 @@ public:
   // Atomic hot-reload flow: validate staging resources -> swap.
   bool HotReloadLayers(TextureArraySemantic semantic,
                        const std::vector<std::string> &paths);
+  // linearFlags variant: RESERVED/EXPERIMENTAL, see LoadLayer(semantic,path,bool).
+  bool HotReloadLayers(TextureArraySemantic semantic,
+                       const std::vector<std::string> &paths,
+                       const std::vector<bool> &linearFlags);
 
 private:
   TextureArrayManager() = default;
@@ -56,8 +74,10 @@ private:
     int loadedLayers = 0;
     int activeLayers = 0;
     int defaultLayer = -1;
+    bool defaultLinear = true;
     std::vector<int> freeLayers;
     std::vector<bool> occupied;
+    std::vector<bool> layerLinear;
     std::vector<std::string> sourcePaths;
     std::unordered_map<std::string, int> pathToLayer;
   };
@@ -67,7 +87,7 @@ private:
                   int layerSize);
   void DestroyState(ArrayState &state);
   int LoadLayerInternal(ArrayState &state, const std::string &path,
-                        bool allowMissing);
+                        bool allowMissing, bool isLinear);
   bool EnsureDefaultLayer(ArrayState &state, TextureArraySemantic semantic);
   bool UploadDefaultPixel(ArrayState &state, TextureArraySemantic semantic,
                           int layer);

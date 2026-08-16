@@ -50,6 +50,7 @@ public:
     return x >= 0 && x < m_width && y >= 0 && y < m_height;
   }
   void ResetSyncTag() { m_syncedThisFrame = false; }
+  bool HasValidSnapshot() const { return m_hasValidSnapshot; }
 
   // Density Weight for Flanking
   float m_densityWeight = 10.0f;
@@ -80,6 +81,7 @@ private:
   // Cache for cost buffer updates to avoid repeated allocation
   std::vector<uint32_t> m_costCache;
   bool m_syncedThisFrame = false;
+  bool m_hasValidSnapshot = false;
 
   int m_width = 0;
   int m_height = 0;

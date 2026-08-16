@@ -100,6 +100,10 @@ public:
     rlBindShaderBuffer(m_id, index);
   }
 
+  void UnbindBase(unsigned int index) const {
+    utils::GPUUtils::BindBufferBase(index, 0);
+  }
+
   inline static uint64_t s_testReadCallCount = 0;
   static void ResetTestReadCount() { s_testReadCallCount = 0; }
   static uint64_t GetTestReadCount() { return s_testReadCallCount; }

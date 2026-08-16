@@ -26,7 +26,11 @@ uniform int maxParticles;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    if (id >= uint(subEmitCount)) {
+    uint totalToEmit = subEmitCounter;
+    if (subEmitCount > 0 && totalToEmit > uint(subEmitCount)) {
+        totalToEmit = uint(subEmitCount);
+    }
+    if (id >= totalToEmit) {
         return;
     }
 

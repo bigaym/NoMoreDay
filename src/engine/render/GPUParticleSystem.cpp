@@ -227,6 +227,7 @@ void GPUParticleSystem::Shutdown() {
   m_renderNormalLightingEnabledLoc = -1;
   m_renderSpecularEnabledLoc = -1;
   m_renderShadowFactorLoc = -1;
+  m_renderLinearPipelineLoc = -1;
   m_emissionSnapshotMvpLoc = -1;
   m_emitCountLoc = -1;
   m_subEmitCountLoc = -1;
@@ -371,6 +372,8 @@ bool GPUParticleSystem::LoadShaders() {
     m_renderSpecularEnabledLoc =
         GetShaderLocation(m_renderShader, "uSpecularEnabled");
     m_renderShadowFactorLoc = GetShaderLocation(m_renderShader, "uShadowFactor");
+    m_renderLinearPipelineLoc =
+        GetShaderLocation(m_renderShader, "uLinearPipeline");
   } else {
     LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
   }
@@ -596,12 +599,15 @@ void GPUParticleSystem::Update(float dt) {
   core::ComputeBuffer &bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
   core::ComputeBuffer &bufOut = m_pingPong ? m_particleBuffer : m_compactBuffer;
 
-  // 0.1 Throttled Readback (Once every 60 frames)
-  // This drastically reduces GPU->CPU sync stalls
+  // 0.1 Delayed Non-blocking Snapshot Poll
+  // Zero CPU-GPU sync stalls in production: poll delayed slot without waiting.
   m_readbackFrameCounter++;
   if (m_readbackFrameCounter >= 60) {
-      m_atomicBuffer.Read(&m_lastKnownAliveCount, sizeof(uint32_t));
-      m_readbackFrameCounter = 0;
+    uint32_t readyAliveCount = 0;
+    if (m_atomicBuffer.TryReadNonBlocking(&readyAliveCount, sizeof(uint32_t), 2)) {
+      m_lastKnownAliveCount = readyAliveCount;
+    }
+    m_readbackFrameCounter = 0;
   }
 
   // 1. Reset current atomic counter and initialize INDIRECT buffer slot
@@ -691,7 +697,7 @@ void GPUParticleSystem::Update(float dt) {
         rlComputeShaderDispatch(workGroups, 1, 1);
         }
 
-        utils::GPUUtils::MemoryBarrier(Barrier::All);
+        utils::GPUUtils::MemoryBarrier(Barrier::SSBO);
         rlDisableShader();
     }
   }
@@ -725,7 +731,7 @@ void GPUParticleSystem::Update(float dt) {
           int workGroups = (newCountInt + 255) / 256;
           utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleEmit");
           rlComputeShaderDispatch(workGroups, 1, 1);
-          utils::GPUUtils::MemoryBarrier(Barrier::All);
+          utils::GPUUtils::MemoryBarrier(Barrier::SSBO);
           rlDisableShader();
 
           totalAfterEmission += allowedNew; 
@@ -733,39 +739,36 @@ void GPUParticleSystem::Update(float dt) {
   }
 
   // 4. Merge GPU-generated sub-emissions into the compact output buffer.
+  // Zero CPU sync readback in production: shader reads subEmitCounter directly on GPU.
   if (subEmitterEnabled && m_subEmitShader.id != 0) {
-    uint32_t subEmitCount = 0;
-    m_subEmitCountBuffer.ReadFromSlot(&subEmitCount, sizeof(uint32_t),
-                                      m_subEmitCountBuffer.GetCurrentSlot());
-    subEmitCount = std::min(subEmitCount, m_subEmissionCap);
+    rlEnableShader(m_subEmitShader.id);
+    const int subEmitCapInt = static_cast<int>(m_subEmissionCap);
+    if (m_subEmitCountLoc >= 0) {
+      rlSetUniform(m_subEmitCountLoc, &subEmitCapInt, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_subEmitMaxParticlesLoc >= 0) {
+      rlSetUniform(m_subEmitMaxParticlesLoc, &m_maxParticles,
+                   RL_SHADER_UNIFORM_INT, 1);
+    }
 
-    if (subEmitCount > 0) {
-      rlEnableShader(m_subEmitShader.id);
-      const int subEmitCountInt = static_cast<int>(subEmitCount);
-      if (m_subEmitCountLoc >= 0) {
-        rlSetUniform(m_subEmitCountLoc, &subEmitCountInt, RL_SHADER_UNIFORM_INT,
-                     1);
-      }
-      if (m_subEmitMaxParticlesLoc >= 0) {
-        rlSetUniform(m_subEmitMaxParticlesLoc, &m_maxParticles,
-                     RL_SHADER_UNIFORM_INT, 1);
-      }
+    using namespace NoMoreDay::RenderConstants;
+    m_subEmissionBuffer.BindBase(ParticleCS::SUB_EMISSION);
+    m_subEmitCountBuffer.BindBase(ParticleCS::SUB_EMIT_COUNTER);
+    bufOut.BindBase(ParticleCS::PARTICLES_OUT);
+    m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
 
-      using namespace NoMoreDay::RenderConstants;
-      m_subEmissionBuffer.BindBase(ParticleCS::SUB_EMISSION);
-      m_subEmitCountBuffer.BindBase(ParticleCS::SUB_EMIT_COUNTER);
-      bufOut.BindBase(ParticleCS::PARTICLES_OUT);
-      m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
+    const int workGroups = (subEmitCapInt + 255) / 256;
+    if (workGroups > 0) {
+      utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleSubEmitMerge");
+      rlComputeShaderDispatch(workGroups, 1, 1);
+    }
+    utils::GPUUtils::MemoryBarrier(Barrier::SSBO);
+    rlDisableShader();
 
-      const int workGroups = (subEmitCountInt + 255) / 256;
-      if (workGroups > 0) {
-        utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleSubEmitMerge");
-        rlComputeShaderDispatch(workGroups, 1, 1);
-      }
-      utils::GPUUtils::MemoryBarrier(Barrier::All);
-      rlDisableShader();
-
-      totalAfterEmission += subEmitCount;
+    // Debug-only delayed snapshot query for sub-emission stats (non-blocking)
+    uint32_t delayedSubEmitCount = 0;
+    if (m_subEmitCountBuffer.TryReadNonBlocking(&delayedSubEmitCount, sizeof(uint32_t), 1)) {
+      totalAfterEmission += std::min(delayedSubEmitCount, m_subEmissionCap);
     }
   }
 
@@ -810,7 +813,7 @@ void GPUParticleSystem::FinalizeFrame() {
     
     utils::GPUUtils::ScopedDebugGroup debugGroup("ParticleFinalize");
     rlComputeShaderDispatch(1, 1, 1);
-    utils::GPUUtils::MemoryBarrier(Barrier::All);
+    utils::GPUUtils::MemoryBarrier(Barrier::SSBO | Barrier::Command);
     
     rlDisableShader();
 }
@@ -914,6 +917,12 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   if (m_renderShadowFactorLoc >= 0) {
     SetShaderValue(m_renderShader, m_renderShadowFactorLoc, &shadowFactor,
                    SHADER_UNIFORM_FLOAT);
+  }
+  if (m_renderLinearPipelineLoc >= 0) {
+    const int linearPipeline =
+        render::core::QualityTierManager::Get().IsLinearPipelineEnabled() ? 1 : 0;
+    SetShaderValue(m_renderShader, m_renderLinearPipelineLoc, &linearPipeline,
+                   SHADER_UNIFORM_INT);
   }
 
   const int normalUnit =

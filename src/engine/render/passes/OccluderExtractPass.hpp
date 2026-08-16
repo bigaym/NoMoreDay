@@ -2,6 +2,7 @@
 
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/PersistentBuffer.hpp"
 #include "engine/render/gi/JFADistanceFieldEvaluator.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
@@ -101,7 +102,7 @@ private:
   resources::FramebufferHandle m_dynamicMask = {};
   resources::FramebufferHandle m_occluderMask = {};
 
-  NoMoreDay::core::ComputeBuffer m_occluderBuffer;
+  NoMoreDay::render::PersistentBuffer m_occluderBuffer;
 
   int m_resolutionLoc = -1;
   int m_occluderCountLoc = -1;

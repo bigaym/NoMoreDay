@@ -14,19 +14,22 @@ layout(std430, binding = 2) readonly buffer RadianceConfigBuffer {
 };
 
 layout(r16f, binding = 3) uniform readonly image2D uDistanceField;
-layout(rgba16f, binding = 5) uniform writeonly image2D uRadianceOut;
+layout(rg16f, binding = 5) uniform writeonly image2DArray uRadianceAtlas;
 
 uniform sampler2D uEmissiveTexture;
-uniform sampler2D uParentRadiance;
+uniform sampler2DArray uParentRadiance;
 uniform ivec2 uFullResolution;
 uniform ivec2 uCascadeResolution;
 uniform int uCascadeLevel;
 uniform int uCascadeCount;
 uniform int uRaysPerProbe;
+uniform int uParentRaysPerProbe;
 uniform float uRayMinLength;
 uniform float uRayMaxLength;
 uniform int uParentValid;
 uniform int uHolographicMode;
+
+const float kTwoPi = 6.28318530717958647692;
 
 float sampleDistanceField(vec2 uv) {
     vec2 clampedUv = clamp(uv, vec2(0.0), vec2(0.99999));
@@ -34,46 +37,66 @@ float sampleDistanceField(vec2 uv) {
     return imageLoad(uDistanceField, pixel).r;
 }
 
-vec3 traceRaySDF(vec2 originUv, vec2 direction) {
+// Dual SDF ray marching taking min(d_occluder, d_emissive)
+// and integrating emission along the interval with extinction sigma:
+// L_local = int_0^t e^(-sigma * s) * E(s) ds
+// outTransmittance = e^(-sigma * t)
+vec3 marchRayDualSDF(vec2 originUv, vec2 direction, out float outTransmittance) {
     float maxDimension = float(max(uFullResolution.x, uFullResolution.y));
     float t = max(0.0, uRayMinLength);
-    vec3 radiance = vec3(0.0);
+    vec3 accumulatedEmission = vec3(0.0);
+    const float sigma = 0.02; // Volumetric extinction coefficient
+    outTransmittance = 1.0;
 
     for (int step = 0; step < 24 && t <= uRayMaxLength; ++step) {
         vec2 sampleUv = originUv + direction * (t / max(maxDimension, 1.0));
         if (sampleUv.x < 0.0 || sampleUv.y < 0.0 ||
             sampleUv.x >= 1.0 || sampleUv.y >= 1.0) {
+            outTransmittance = exp(-sigma * t);
             break;
         }
 
-        float sdf = sampleDistanceField(sampleUv);
-        if (sdf < 0.0) {
+        float dOccluder = sampleDistanceField(sampleUv);
+        if (dOccluder < 0.0) {
+            // Ray hits occluder: transmission terminates
+            outTransmittance = 0.0;
             break;
         }
 
         vec3 emission = texture(uEmissiveTexture, sampleUv).rgb;
-        float weight = 1.0 / (1.0 + t * 0.02);
-        radiance += emission * weight;
+        // Dual SDF: min(d_occluder, d_emissive)
+        float dEmissive = (length(emission) > 0.001) ? 0.5 : max(abs(dOccluder), 1.0);
+        float dualSdf = min(abs(dOccluder), dEmissive);
 
-        float stepSize = max(abs(sdf), 0.75);
+        float stepSize = max(dualSdf, 0.75);
         if (uHolographicMode != 0) {
             stepSize = max(stepSize * 0.75, 0.5);
         }
+
+        float segTransmittance = exp(-sigma * t);
+        float stepNorm = stepSize / max(maxDimension, 1.0) * 12.0 + 0.15;
+        accumulatedEmission += emission * segTransmittance * stepNorm;
+
         t += stepSize;
+        outTransmittance = exp(-sigma * t);
     }
-    return radiance;
+
+    return accumulatedEmission;
 }
 
-vec3 mergeCascade(vec3 nearField, vec2 uv) {
-    if (uParentValid == 0) {
-        return nearField;
+// Spatial bilinear + angular nearest sector interpolation from parent cascade
+vec3 sampleParentCascade(vec2 endUv, float angle) {
+    if (uParentValid == 0 || uParentRaysPerProbe <= 0) {
+        return vec3(0.0);
     }
 
-    vec3 farField = texture(uParentRadiance, uv).rgb;
-    float levelRatio =
-        float(max(uCascadeLevel, 0)) / float(max(uCascadeCount - 1, 1));
-    float farBlend = mix(0.35, 0.8, clamp(levelRatio, 0.0, 1.0));
-    return mix(nearField, farField, farBlend);
+    float normAngle = fract(angle / kTwoPi);
+    int parentSector = int(floor(normAngle * float(uParentRaysPerProbe) + 0.5)) % uParentRaysPerProbe;
+    parentSector = clamp(parentSector, 0, uParentRaysPerProbe - 1);
+
+    vec2 clampedEnd = clamp(endUv, vec2(0.0), vec2(0.99999));
+    vec2 parentRg = texture(uParentRadiance, vec3(clampedEnd, float(parentSector))).rg;
+    return vec3(parentRg.r, parentRg.g, (parentRg.r + parentRg.g) * 0.5);
 }
 
 void main() {
@@ -86,20 +109,31 @@ void main() {
     vec3 emissiveBase = texture(uEmissiveTexture, uv).rgb * 0.25;
 
     int rays = max(uRaysPerProbe, 1);
-    vec3 traced = vec3(0.0);
+    float maxDimension = float(max(uFullResolution.x, uFullResolution.y));
+
     for (int ray = 0; ray < rays; ++ray) {
-        float angle = (float(ray) + 0.5) / float(rays) * 6.28318530718;
+        float angle = (float(ray) + 0.5) / float(rays) * kTwoPi;
         if (uHolographicMode != 0) {
             float hash = fract(
-                sin(dot(vec2(pixel), vec2(12.9898, 78.233))) * 43758.5453);
-            angle += hash * 0.6;
+                sin(dot(vec2(pixel), vec2(12.9898, 78.233)) + float(ray) * 1.6180339887) * 43758.5453);
+            angle += (hash - 0.5) * (kTwoPi / float(rays) * 0.5);
         }
         vec2 direction = vec2(cos(angle), sin(angle));
-        traced += traceRaySDF(uv, direction);
+
+        float transmittance = 1.0;
+        vec3 localRadiance = marchRayDualSDF(uv, direction, transmittance);
+        if (uCascadeLevel == 0) {
+            localRadiance += emissiveBase;
+        }
+
+        vec2 endUv = uv + direction * (uRayMaxLength / max(maxDimension, 1.0));
+        vec3 parentRadiance = sampleParentCascade(endUv, angle);
+
+        // Radiance Transfer Equation (RTE) cascade merging:
+        // L_k(x, omega) = localRadiance + e^(-sigma * t) * L_{k+1}(x + t*omega, omega)
+        vec3 mergedRadiance = localRadiance + transmittance * parentRadiance;
+
+        // Output to RG16F 2D array texture at layer = ray
+        imageStore(uRadianceAtlas, ivec3(pixel, ray), vec4(mergedRadiance.rg, 0.0, 0.0));
     }
-
-    vec3 localRadiance = emissiveBase + traced / float(rays);
-    vec3 merged = mergeCascade(localRadiance, uv);
-    imageStore(uRadianceOut, pixel, vec4(merged, 1.0));
 }
-

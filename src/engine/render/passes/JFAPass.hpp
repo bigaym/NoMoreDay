@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/PersistentBuffer.hpp"
 #include "engine/render/gi/JFADistanceFieldEvaluator.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
@@ -55,12 +56,13 @@ public:
   [[nodiscard]] uint32_t GetDistanceFieldTexture() const noexcept {
     return m_distanceFieldFull.colorTexture;
   }
-  [[nodiscard]] int GetDistanceFieldWidth() const noexcept {
+  [[nodiscard]] uint32_t GetDistanceFieldWidth() const noexcept {
     return m_distanceFieldFull.width;
   }
   [[nodiscard]] int GetDistanceFieldHeight() const noexcept {
     return m_distanceFieldFull.height;
   }
+  [[nodiscard]] uint32_t ReadOverflowCounterImmediateForTesting() const;
   [[nodiscard]] bool UsedFallbackPlus2ThisFrame() const noexcept {
     return m_usedFallbackPlus2ThisFrame;
   }
@@ -75,6 +77,9 @@ public:
   }
   [[nodiscard]] uint32_t GetSdfVersion() const noexcept {
     return m_sdfVersion;
+  }
+  [[nodiscard]] uint32_t GetOccluderCountSnapshot() const noexcept {
+    return m_occluderCountSnapshot;
   }
   void SetForceFallbackPlus2ForTesting(bool enabled) noexcept {
     m_forceFallbackPlus2ForTesting = enabled;
@@ -154,7 +159,7 @@ private:
   int m_upsampleRectMinLoc = -1;
   int m_upsampleMaskTextureLoc = -1;
 
-  uint32_t m_overflowCounterBuffer = 0u;
+  NoMoreDay::render::PersistentBuffer m_overflowCounterBuffer;
 
   int m_fullWidth = 0;
   int m_fullHeight = 0;
@@ -162,11 +167,13 @@ private:
   int m_workHeight = 0;
   uint32_t m_frameIndex = 0;
   uint32_t m_lastOverflowCount = 0;
+  uint32_t m_lastReadyOverflowCount = 0;
   uint32_t m_sdfVersion = 0;
 
   gi::JFAViewKey m_previousViewKey = {};
   gi::JFARect m_previousOccluderBounds = {};
   uint32_t m_previousOccluderCount = 0;
+  uint32_t m_occluderCountSnapshot = 0;
   gi::JFARect m_testPreviousBounds = {};
 
   gi::JFARect m_testCurrentBounds = {};

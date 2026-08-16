@@ -1,8 +1,12 @@
 #include "doctest.h"
 
+#include "engine/render/GPUData.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/passes/JFAPass.hpp"
+#include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
 
@@ -197,6 +201,110 @@ TEST_CASE("[Integration] JFAPass - RunUpsample binds uMaskTexture and preserves 
 
   NoMoreDay::utils::GPUUtils::DeleteTextures(1, &maskTex);
   jfaPass.Shutdown();
+
+  const auto glErrors = DrainGlErrors();
+  CHECK(glErrors.empty());
+}
+
+TEST_CASE("[Integration] JFAPass - Empty scene host skip and non-empty distance field parity") {
+  if (!EnsureGpuContext()) {
+    FAIL("Cannot initialize OpenGL context for JFAPass");
+  }
+  (void)DrainGlErrors();
+
+  ResourceManager resources;
+  auto &qm = NoMoreDay::render::core::QualityTierManager::Get();
+  qm.Initialize();
+  qm.ForceTier(NoMoreDay::render::core::QualityTier::Ultra);
+  auto &cfg = const_cast<NoMoreDay::render::core::RenderConfig &>(qm.GetConfig());
+  cfg.giEnabled = true;
+  cfg.giHalfResolution = false;
+
+  Camera2D camera = {};
+  camera.zoom = 1.0f;
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+
+  constexpr int kWidth = 32;
+  constexpr int kHeight = 32;
+  auto hdr = NoMoreDay::render::resources::FramebufferManager::Create(kWidth, kHeight, 0x881A, false);
+  REQUIRE(hdr.IsValid());
+
+  NoMoreDay::render::passes::OccluderExtractPass occluderPass;
+  REQUIRE(occluderPass.Initialize(resources));
+
+  NoMoreDay::render::passes::JFAPass jfaPass;
+  REQUIRE(jfaPass.Initialize(resources));
+  jfaPass.SetOccluderExtractPass(&occluderPass);
+
+  NoMoreDay::render::graph::RenderContext context = {};
+  context.resources = &resources;
+  context.qualityManager = &qm;
+  context.camera = &camera;
+  context.hdrSceneBuffer = hdr;
+  context.occluderCount = 0;
+  context.occluderStaticCount = 0;
+  context.occluders = nullptr;
+
+  SUBCASE("Empty scene trace asserts dispatchTexelCount == 0 and zero overflow atomic writes") {
+    occluderPass.Execute(context);
+    jfaPass.Execute(context);
+
+    const auto &report = jfaPass.GetLastReport();
+    CHECK(report.mode == NoMoreDay::render::gi::JFAUpdateMode::Skip);
+    CHECK(report.dispatchTexelCount == 0);
+    CHECK(jfaPass.GetLastOverflowCount() == 0);
+    CHECK(jfaPass.GetOccluderCountSnapshot() == 0);
+  }
+
+  SUBCASE("Non-empty scene produces valid distance field matching baseline parity") {
+    NoMoreDay::components::GPUShadowCaster caster = {};
+    caster.posX = 16.0f;
+    caster.posY = 16.0f;
+    caster.radius = 6.0f;
+    caster.occluderHeight = 1.0f;
+    caster.dynamicFlag = 0;
+
+    context.occluderCount = 1;
+    context.occluderStaticCount = 1;
+    context.occluderStaticSignature = 101;
+    context.occluders = &caster;
+
+    occluderPass.Execute(context);
+    jfaPass.Execute(context);
+
+    const auto &report = jfaPass.GetLastReport();
+    CHECK(report.mode == NoMoreDay::render::gi::JFAUpdateMode::Full);
+    CHECK(report.dispatchTexelCount == static_cast<uint32_t>(kWidth * kHeight));
+
+    std::vector<float> outputDistances;
+    REQUIRE(ReadbackTextureR16F(jfaPass.GetDistanceFieldTexture(), kWidth, kHeight, outputDistances));
+
+    // Center inside occluder (x=16, y=16): negative distance
+    const float insideVal = outputDistances[16 * kWidth + 16];
+    CHECK(insideVal < 0.0f);
+
+    // Far corner outside occluder (x=0, y=0): positive distance
+    const float outsideVal = outputDistances[0];
+    CHECK(outsideVal > 0.0f);
+
+    // Subsequent empty frame must immediately skip
+    context.occluderCount = 0;
+    context.occluderStaticCount = 0;
+    context.occluderStaticSignature = 102;
+    context.occluders = nullptr;
+    occluderPass.Execute(context);
+    jfaPass.Execute(context);
+
+    const auto &emptyReport = jfaPass.GetLastReport();
+    CHECK(emptyReport.mode == NoMoreDay::render::gi::JFAUpdateMode::Skip);
+    CHECK(emptyReport.dispatchTexelCount == 0);
+    CHECK(jfaPass.GetOccluderCountSnapshot() == 0);
+  }
+
+  NoMoreDay::render::resources::FramebufferManager::Destroy(hdr);
+  jfaPass.Shutdown();
+  occluderPass.Shutdown();
 
   const auto glErrors = DrainGlErrors();
   CHECK(glErrors.empty());

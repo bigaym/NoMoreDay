@@ -1,0 +1,36 @@
+#version 430 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 0) readonly buffer CellCoords {
+    uint cellCoord[];
+};
+
+layout(std430, binding = 1) readonly buffer CellStarts {
+    uint cellStarts[];
+};
+
+layout(std430, binding = 2) buffer CellOffsets {
+    uint cellOffsets[];
+};
+
+layout(std430, binding = 3) writeonly buffer GridParticleIndices {
+    uint gridParticleIndices[];
+};
+
+uniform int uParticleCount;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= uint(max(uParticleCount, 0))) {
+        return;
+    }
+
+    uint cell = cellCoord[idx];
+    if (cell < cellStarts.length() && cell < cellOffsets.length()) {
+        uint slot = cellStarts[cell] + atomicAdd(cellOffsets[cell], 1u);
+        if (slot < gridParticleIndices.length()) {
+            gridParticleIndices[slot] = idx;
+        }
+    }
+}

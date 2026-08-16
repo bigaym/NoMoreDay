@@ -85,9 +85,12 @@ inline NeighborTable BuildNeighborTableHashed(
   const float invCellSize = 1.0f / smoothingRadius;
   const int gridW = std::max(1, static_cast<int>((maxP.x - minP.x) * invCellSize) + 1);
   const int gridH = std::max(1, static_cast<int>((maxP.y - minP.y) * invCellSize) + 1);
+  const size_t totalCells = static_cast<size_t>(gridW * gridH);
 
   std::vector<uint32_t> hashedCells(particles.size(), 0u);
-  std::vector<std::vector<uint32_t>> buckets(static_cast<size_t>(gridW * gridH));
+  std::vector<uint32_t> cellCounts(totalCells, 0u);
+
+  // Phase A: Count per cell
   for (size_t i = 0; i < particles.size(); ++i) {
     const int cx = std::clamp(static_cast<int>((particles[i].position.x - minP.x) * invCellSize),
                               0, gridW - 1);
@@ -95,9 +98,26 @@ inline NeighborTable BuildNeighborTableHashed(
                               0, gridH - 1);
     const uint32_t cell = static_cast<uint32_t>(cy * gridW + cx);
     hashedCells[i] = cell;
-    buckets[cell].push_back(static_cast<uint32_t>(i));
+    cellCounts[cell]++;
   }
 
+  // Phase B: Prefix sum (cellStarts)
+  std::vector<uint32_t> cellStarts(totalCells, 0u);
+  uint32_t runningSum = 0u;
+  for (size_t c = 0; c < totalCells; ++c) {
+    cellStarts[c] = runningSum;
+    runningSum += cellCounts[c];
+  }
+
+  // Phase C: Compact into sorted array
+  std::vector<uint32_t> cellOffsets = cellStarts;
+  std::vector<uint32_t> sortedIndices(particles.size(), 0u);
+  for (size_t i = 0; i < particles.size(); ++i) {
+    const uint32_t cell = hashedCells[i];
+    sortedIndices[cellOffsets[cell]++] = static_cast<uint32_t>(i);
+  }
+
+  // Phase D: 9-neighbor query
   const float radiusSq = smoothingRadius * smoothingRadius;
   for (size_t i = 0; i < particles.size(); ++i) {
     const uint32_t cell = hashedCells[i];
@@ -112,8 +132,12 @@ inline NeighborTable BuildNeighborTableHashed(
         if (nx < 0 || ny < 0 || nx >= gridW || ny >= gridH) {
           continue;
         }
-        const auto &bucket = buckets[static_cast<size_t>(ny * gridW + nx)];
-        for (const uint32_t candidate : bucket) {
+        const size_t ncell = static_cast<size_t>(ny * gridW + nx);
+        const uint32_t start = cellStarts[ncell];
+        const uint32_t end = start + cellCounts[ncell];
+
+        for (uint32_t k = start; k < end; ++k) {
+          const uint32_t candidate = sortedIndices[k];
           if (candidate == i) {
             continue;
           }
@@ -125,8 +149,16 @@ inline NeighborTable BuildNeighborTableHashed(
           if (count < kMaxNeighbors) {
             table.indices[i][count] = candidate;
             ++count;
+          } else {
+            break;
           }
         }
+        if (count >= kMaxNeighbors) {
+          break;
+        }
+      }
+      if (count >= kMaxNeighbors) {
+        break;
       }
     }
     table.counts[i] = count;
