@@ -5,9 +5,9 @@
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
 
-#include <chrono>
 #include <algorithm>
 #include <array>
+#include <chrono>
 
 namespace NoMoreDay::render::debug {
 
@@ -74,12 +74,14 @@ void GPUTimerQueryRing::Shutdown() {
                 .UnregisterResource(slot.queryBegin,
                                     NoMoreDay::render::graph::ResourceKind::QueryRing);
             reinterpret_cast<FnType>(s_glDeleteQueries)(1, &slot.queryBegin);
+            slot.queryBegin = 0;
           }
           if (slot.queryEnd > 0) {
             NoMoreDay::render::resources::GPUResourceRegistry::Get()
                 .UnregisterResource(slot.queryEnd,
                                     NoMoreDay::render::graph::ResourceKind::QueryRing);
             reinterpret_cast<FnType>(s_glDeleteQueries)(1, &slot.queryEnd);
+            slot.queryEnd = 0;
           }
         }
       }
@@ -145,6 +147,21 @@ void GPUTimerQueryRing::DebugSetGpuTimerSupported(bool supported) {
   m_gpuTimerOverrideValue = supported;
 }
 
+SlotState GPUTimerQueryRing::DebugGetSlotState(size_t ringIndex, uint32_t passId) const {
+  if (ringIndex >= kRingDepth) return SlotState::Free;
+  auto it = m_ring[ringIndex].slots.find(passId);
+  if (it != m_ring[ringIndex].slots.end()) {
+    return it->second.state;
+  }
+  return SlotState::Free;
+}
+
+void GPUTimerQueryRing::DebugSetSlotState(size_t ringIndex, uint32_t passId, SlotState state) {
+  if (ringIndex < kRingDepth) {
+    m_ring[ringIndex].slots[passId].state = state;
+  }
+}
+
 void GPUTimerQueryRing::BeginPass(uint32_t passId) {
   if (!m_initialized) return;
 
@@ -159,17 +176,58 @@ void GPUTimerQueryRing::BeginPass(uint32_t passId) {
   slot.gpuDurationMs = 0.0;
   slot.cpuStartTimeMs = GetCurrentTimeMs();
 
-  if (s_glGenQueries && s_glBeginQuery) {
-    using FnGen = void (APIENTRY *)(int, uint32_t *);
-    using FnBegin = void (APIENTRY *)(uint32_t, uint32_t);
-
-    if (slot.queryBegin == 0) {
+  // 1. Check if previous query on this slot is still busy or ready
+  if (slot.state == SlotState::Pending || slot.state == SlotState::Ready) {
+    int available = 0;
+    if (s_glGetQueryObjectiv && slot.queryBegin > 0) {
+      using FnGetIv = void (APIENTRY *)(uint32_t, uint32_t, int *);
+      reinterpret_cast<FnGetIv>(s_glGetQueryObjectiv)(
+          slot.queryBegin, kGLQueryResultAvailable, &available);
+    }
+    if (available != 0) {
+      if (s_glGetQueryObjectui64v && slot.queryBegin > 0 && slot.state == SlotState::Ready) {
+        using FnGetUi64v = void (APIENTRY *)(uint32_t, uint32_t, uint64_t *);
+        uint64_t timeNs = 0;
+        reinterpret_cast<FnGetUi64v>(s_glGetQueryObjectui64v)(slot.queryBegin, kGLQueryResult, &timeNs);
+        GPUTimerResult res = {};
+        res.gpuTimeMs = static_cast<double>(timeNs) / 1000000.0;
+        res.cpuTimeMs = slot.cpuDurationMs;
+        res.frameIndex = slot.frameIndex;
+        res.state = QueryState::Valid;
+        if (passId == kFramePassId) {
+          m_latestFrameResult = res;
+        } else {
+          m_latestValidResults[passId] = res;
+        }
+      }
+      slot.state = SlotState::Free;
+    } else {
+      // Previous query still executing on GPU! Drop sample, do not call glBeginQuery on busy query, do not block.
+      slot.state = SlotState::Discarded;
+    }
+  } else if (slot.state == SlotState::Discarded) {
+    // Recreate query object to avoid slot exhaustion
+    if (s_glDeleteQueries && s_glGenQueries) {
+      using FnDel = void (APIENTRY *)(int, const uint32_t *);
+      using FnGen = void (APIENTRY *)(int, uint32_t *);
+      if (slot.queryBegin > 0) {
+        NoMoreDay::render::resources::GPUResourceRegistry::Get()
+            .UnregisterResource(slot.queryBegin,
+                                NoMoreDay::render::graph::ResourceKind::QueryRing);
+        reinterpret_cast<FnDel>(s_glDeleteQueries)(1, &slot.queryBegin);
+        slot.queryBegin = 0;
+      }
+      if (slot.queryEnd > 0) {
+        NoMoreDay::render::resources::GPUResourceRegistry::Get()
+            .UnregisterResource(slot.queryEnd,
+                                NoMoreDay::render::graph::ResourceKind::QueryRing);
+        reinterpret_cast<FnDel>(s_glDeleteQueries)(1, &slot.queryEnd);
+        slot.queryEnd = 0;
+      }
       uint32_t q[2] = {0, 0};
       reinterpret_cast<FnGen>(s_glGenQueries)(2, q);
       slot.queryBegin = q[0];
       slot.queryEnd = q[1];
-      // RG-3 (observer-only): register each successfully generated query;
-      // Shutdown remains the sole GL releaser.
       if (slot.queryBegin > 0) {
         NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
             slot.queryBegin, NoMoreDay::render::graph::ResourceKind::QueryRing,
@@ -183,8 +241,39 @@ void GPUTimerQueryRing::BeginPass(uint32_t passId) {
             "GPUTimerQueryRing");
       }
     }
-    if (slot.queryBegin > 0) {
-      reinterpret_cast<FnBegin>(s_glBeginQuery)(kGLTimeElapsed, slot.queryBegin);
+    slot.state = SlotState::Free;
+  }
+
+  // 2. If slot is Free, begin query
+  if (slot.state == SlotState::Free) {
+    if (s_glGenQueries && s_glBeginQuery) {
+      using FnGen = void (APIENTRY *)(int, uint32_t *);
+      using FnBegin = void (APIENTRY *)(uint32_t, uint32_t);
+
+      if (slot.queryBegin == 0) {
+        uint32_t q[2] = {0, 0};
+        reinterpret_cast<FnGen>(s_glGenQueries)(2, q);
+        slot.queryBegin = q[0];
+        slot.queryEnd = q[1];
+        // RG-3 (observer-only): register each successfully generated query;
+        // Shutdown remains the sole GL releaser.
+        if (slot.queryBegin > 0) {
+          NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+              slot.queryBegin, NoMoreDay::render::graph::ResourceKind::QueryRing,
+              NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+              "GPUTimerQueryRing");
+        }
+        if (slot.queryEnd > 0) {
+          NoMoreDay::render::resources::GPUResourceRegistry::Get().RegisterResource(
+              slot.queryEnd, NoMoreDay::render::graph::ResourceKind::QueryRing,
+              NoMoreDay::render::graph::RenderOwnerTag::Unknown, 0u,
+              "GPUTimerQueryRing");
+        }
+      }
+      if (slot.queryBegin > 0) {
+        reinterpret_cast<FnBegin>(s_glBeginQuery)(kGLTimeElapsed, slot.queryBegin);
+        slot.state = SlotState::Pending;
+      }
     }
   }
 }
@@ -196,9 +285,12 @@ void GPUTimerQueryRing::EndPass(uint32_t passId) {
   auto it = frameSlot.slots.find(passId);
   if (it != frameSlot.slots.end() && it->second.active) {
     it->second.cpuDurationMs = GetCurrentTimeMs() - it->second.cpuStartTimeMs;
-    if (s_glEndQuery && it->second.queryBegin > 0) {
-      using FnEnd = void (APIENTRY *)(uint32_t);
-      reinterpret_cast<FnEnd>(s_glEndQuery)(kGLTimeElapsed);
+    if (it->second.state == SlotState::Pending) {
+      if (s_glEndQuery && it->second.queryBegin > 0) {
+        using FnEnd = void (APIENTRY *)(uint32_t);
+        reinterpret_cast<FnEnd>(s_glEndQuery)(kGLTimeElapsed);
+      }
+      it->second.state = SlotState::Ready;
     }
   }
 }
@@ -221,30 +313,38 @@ void GPUTimerQueryRing::PollReadyQueries() {
         using FnGetIv = void (APIENTRY *)(uint32_t, uint32_t, int *);
         using FnGetUi64v = void (APIENTRY *)(uint32_t, uint32_t, uint64_t *);
 
-        int available = 0;
-        reinterpret_cast<FnGetIv>(s_glGetQueryObjectiv)(slot.queryBegin, kGLQueryResultAvailable, &available);
-        if (available != 0) {
-          uint64_t timeNs = 0;
-          reinterpret_cast<FnGetUi64v>(s_glGetQueryObjectui64v)(slot.queryBegin, kGLQueryResult, &timeNs);
-          res.gpuTimeMs = static_cast<double>(timeNs) / 1000000.0;
-          res.state = QueryState::Valid;
-          slot.gpuDurationMs = res.gpuTimeMs;
-          slot.resultValid = true;
-          if (passId == kFramePassId) {
-            m_latestFrameResult = res;
+        if (slot.state == SlotState::Ready) {
+          int available = 0;
+          reinterpret_cast<FnGetIv>(s_glGetQueryObjectiv)(slot.queryBegin, kGLQueryResultAvailable, &available);
+          if (available != 0) {
+            uint64_t timeNs = 0;
+            reinterpret_cast<FnGetUi64v>(s_glGetQueryObjectui64v)(slot.queryBegin, kGLQueryResult, &timeNs);
+            res.gpuTimeMs = static_cast<double>(timeNs) / 1000000.0;
+            res.state = QueryState::Valid;
+            slot.gpuDurationMs = res.gpuTimeMs;
+            slot.resultValid = true;
+            if (passId == kFramePassId) {
+              m_latestFrameResult = res;
+            } else {
+              m_latestValidResults[passId] = res;
+            }
+            slot.active = false;
+            slot.resultReady = true;
+            slot.state = SlotState::Free;
           } else {
-            m_latestValidResults[passId] = res;
+            res.state = QueryState::Pending;
           }
+        } else if (slot.state == SlotState::Discarded) {
+          res.state = QueryState::Unavailable;
           slot.active = false;
           slot.resultReady = true;
-        } else {
-          res.state = QueryState::Pending;
         }
       } else {
         res.gpuTimeMs = slot.cpuDurationMs;
         res.state = QueryState::CpuFallback;
         slot.active = false;
         slot.resultReady = true;
+        slot.state = SlotState::Free;
       }
     }
 

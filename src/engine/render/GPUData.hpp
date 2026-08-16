@@ -588,22 +588,31 @@ static_assert(sizeof(RadianceCascadeConfig) == 32,
 
 /**
  * @brief V5 SPH particle payload.
- * 48 bytes.
+ * 48 bytes, 16-byte aligned (AD-2).
  */
-struct GPUFluidParticle {
-  Vector2 position = {0.0f, 0.0f};   // 8
-  Vector2 velocity = {0.0f, 0.0f};   // 8
-  float density = 0.0f;              // 4
-  float pressure = 0.0f;             // 4
-  Vector4 color = {1.0f, 1.0f, 1.0f, 1.0f}; // 16
-  float lifetime = 0.0f;             // 4
-  uint32_t flags = 0;                // 4
+struct alignas(16) GPUFluidParticle {
+  Vector2 position = {0.0f, 0.0f};   // 8 (offset 0)
+  Vector2 velocity = {0.0f, 0.0f};   // 8 (offset 8)
+  Vector4 color = {1.0f, 1.0f, 1.0f, 1.0f}; // 16 (offset 16)
+  float density = 0.0f;              // 4 (offset 32)
+  float pressure = 0.0f;             // 4 (offset 36)
+  float lifetime = 0.0f;             // 4 (offset 40)
+  uint32_t flags = 0;                // 4 (offset 44)
 };
 
 static_assert(std::is_standard_layout_v<GPUFluidParticle>,
               "GPUFluidParticle must be standard layout");
+static_assert(offsetof(GPUFluidParticle, position) == 0);
+static_assert(offsetof(GPUFluidParticle, velocity) == 8);
+static_assert(offsetof(GPUFluidParticle, color) == 16);
+static_assert(offsetof(GPUFluidParticle, density) == 32);
+static_assert(offsetof(GPUFluidParticle, pressure) == 36);
+static_assert(offsetof(GPUFluidParticle, lifetime) == 40);
+static_assert(offsetof(GPUFluidParticle, flags) == 44);
 static_assert(sizeof(GPUFluidParticle) == 48,
               "GPUFluidParticle struct must be exactly 48 bytes");
+static_assert(alignof(GPUFluidParticle) == 16,
+              "GPUFluidParticle must be 16-byte aligned");
 
 /**
  * @brief V5 SPH runtime config payload.

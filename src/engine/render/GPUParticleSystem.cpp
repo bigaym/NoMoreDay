@@ -153,7 +153,13 @@ void GPUParticleSystem::Init(int maxParticles) {
   }
 
   // Create resources
-  LoadShaders();
+  if (!LoadShaders()) {
+    LOG_ERROR("GPUParticleSystem: Failed to load shaders, aborting initialization.");
+    m_initialized = false;
+    Shutdown();
+    return;
+  }
+
   CreateBuffers();
   CreateQuadVAO();
   render::ParticleTextureManager::Get().Init(
@@ -169,7 +175,6 @@ void GPUParticleSystem::Init(int maxParticles) {
   render::TextureArrayManager::Get().Initialize(
       64, NoMoreDay::Constants::GPU::TEXTURE_LAYER_SIZE);
 
-  using namespace NoMoreDay::RenderConstants;
   m_initialized = true;
 
   LOG_INFO("GPUParticleSystem: Initialized successfully with Indirect Drawing "
@@ -177,9 +182,6 @@ void GPUParticleSystem::Init(int maxParticles) {
 }
 
 void GPUParticleSystem::Shutdown() {
-  if (!m_initialized)
-    return;
-
   LOG_INFO("GPUParticleSystem: Shutting down...");
 
   // Clean up shaders
@@ -189,9 +191,11 @@ void GPUParticleSystem::Shutdown() {
   }
   if (m_renderShader.id != 0) {
     UnloadShader(m_renderShader);
+    m_renderShader = { 0 };
   }
   if (m_emissionSnapshotShader.id != 0) {
     UnloadShader(m_emissionSnapshotShader);
+    m_emissionSnapshotShader = { 0 };
   }
   if (m_emitShader.id != 0) {
     rlUnloadShaderProgram(m_emitShader.id);
@@ -205,6 +209,28 @@ void GPUParticleSystem::Shutdown() {
     rlUnloadShaderProgram(m_finalizeShader.id);
     m_finalizeShader.id = 0;
   }
+
+  // Reset shader uniform locations
+  m_computeDtLoc = -1;
+  m_computeTimeLoc = -1;
+  m_computeTotalLoc = -1;
+  m_computeForceFieldCountLoc = -1;
+  m_computeSubEmitterEnabledLoc = -1;
+  m_renderMvpLoc = -1;
+  m_renderAtlasLoc = -1;
+  m_renderBlendPassLoc = -1;
+  m_renderMaterialCountLoc = -1;
+  m_renderNormalArrayLoc = -1;
+  m_renderMaskArrayLoc = -1;
+  m_renderDetailArrayLoc = -1;
+  m_renderMaterialQualityLoc = -1;
+  m_renderNormalLightingEnabledLoc = -1;
+  m_renderSpecularEnabledLoc = -1;
+  m_renderShadowFactorLoc = -1;
+  m_emissionSnapshotMvpLoc = -1;
+  m_emitCountLoc = -1;
+  m_subEmitCountLoc = -1;
+  m_subEmitMaxParticlesLoc = -1;
 
   // VAO/VBO cleanup
   if (m_quadVBO != 0) {
@@ -236,6 +262,18 @@ void GPUParticleSystem::Shutdown() {
   m_emissionBuffer.Destroy();
   m_subEmissionBuffer.Release();
   m_subEmitCountBuffer.Destroy();
+
+  m_mappedPtr = nullptr;
+  m_emitHead = 0;
+  m_emissionCap = 0;
+  m_currentParticleCount = 0;
+  m_targetDispatchCount = 0;
+  m_lastKnownAliveCount = 0;
+  m_readbackFrameCounter = 0;
+  m_totalTime = 0.0f;
+  m_pingPong = false;
+  m_requestClear = false;
+
   render::ParticleTextureManager::Get().Shutdown();
   render::TextureArrayManager::Get().Shutdown();
   render::ForceFieldManager::Get().Shutdown();
@@ -281,7 +319,12 @@ void GPUParticleSystem::Clear() {
   LOG_INFO("GPUParticleSystem: Logical and Physical clear executed (All slots and GPU counters reset).");
 }
 
-void GPUParticleSystem::LoadShaders() {
+bool GPUParticleSystem::LoadShaders() {
+  if (m_failShadersForTesting) {
+    LOG_ERROR("GPUParticleSystem: LoadShaders simulated failure for testing");
+    return false;
+  }
+
   // 1. Load Compute Shader
   unsigned int compId =
       LoadComputeShaderWithIncludes("assets/shaders/particle.compute");
@@ -384,12 +427,15 @@ void GPUParticleSystem::LoadShaders() {
     LOG_ERROR("GPUParticleSystem: particle_finalize.compute compilation failed!");
   }
 
-  // Verify core shaders
+  // Verify all required shaders
   if (m_computeShader.id == 0 || m_renderShader.id == 0 ||
-      m_emitShader.id == 0 || m_subEmitShader.id == 0 ||
-      m_finalizeShader.id == 0) {
-    LOG_ERROR("GPUParticleSystem: [AG] Shader initialization incomplete!");
+      m_emissionSnapshotShader.id == 0 || m_emitShader.id == 0 ||
+      m_subEmitShader.id == 0 || m_finalizeShader.id == 0) {
+    LOG_ERROR("GPUParticleSystem: Shader initialization incomplete!");
+    return false;
   }
+
+  return true;
 }
 
 void GPUParticleSystem::CreateBuffers() {
@@ -488,6 +534,9 @@ void GPUParticleSystem::Emit(const components::GPUParticle &particle) {
 
 void GPUParticleSystem::Emit(const components::GPUParticle &particle,
                              int materialId) {
+  if (!m_initialized || m_mappedPtr == nullptr)
+    return;
+
   components::GPUParticle packed = particle;
   components::GPUFlags::PackMaterialId(packed.flags, materialId);
   uint32_t idx = m_emitHead.fetch_add(1);
@@ -503,7 +552,7 @@ void GPUParticleSystem::EmitBatch(
 
 void GPUParticleSystem::EmitBatch(
     const std::vector<components::GPUParticle> &particles, int materialId) {
-  if (particles.empty())
+  if (!m_initialized || m_mappedPtr == nullptr || particles.empty())
     return;
 
   uint32_t count = (uint32_t)particles.size();
@@ -527,7 +576,7 @@ void GPUParticleSystem::EmitBatch(
 
 void GPUParticleSystem::Update(float dt) {
   NoMoreDay::utils::ScopedTimer timer("Particle Update", 3000); 
-  if (!m_initialized)
+  if (!m_initialized || m_computeShader.id == 0)
     return;
 
   bool forceFieldEnabled = false;

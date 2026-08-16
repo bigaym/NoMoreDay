@@ -90,9 +90,18 @@ public:
   void SetVerificationReadbackEnabledForTesting(bool enabled) noexcept {
     m_verificationReadbackEnabled = enabled;
   }
+  bool RunUpsampleForTesting(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
+                             const gi::JFARect *rect = nullptr) {
+    return RunUpsample(occluderMaskTexture, fullWidth, fullHeight, rect);
+  }
+  bool EnsureResourcesForTesting(int fullWidth, int fullHeight, bool halfResolution) {
+    return EnsureResources(fullWidth, fullHeight, halfResolution);
+  }
+  [[nodiscard]] resources::FramebufferHandle GetWorkDistanceFieldForTesting() const noexcept {
+    return m_distanceFieldWork;
+  }
   [[nodiscard]] static gi::JFAUpdateDecision ApplyProductionUpdatePolicy(
       gi::JFAUpdateDecision decision, bool incrementalEnabled) noexcept;
-
 
 private:
   bool EnsureResources(int fullWidth, int fullHeight, bool halfResolution);
@@ -105,7 +114,8 @@ private:
                           uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
                           uint32_t inputSeedTexture, uint32_t outputDistanceTexture,
                           const gi::JFARect *rect = nullptr);
-  bool RunUpsample(int fullWidth, int fullHeight, const gi::JFARect *rect = nullptr);
+  bool RunUpsample(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
+                   const gi::JFARect *rect = nullptr);
   bool ClearOverflowCounter();
   uint32_t ReadOverflowCounter() const;
   void ReportFailure(const char *reason);
@@ -142,6 +152,7 @@ private:
   int m_upsampleHalfResolutionLoc = -1;
   int m_upsampleFullResolutionLoc = -1;
   int m_upsampleRectMinLoc = -1;
+  int m_upsampleMaskTextureLoc = -1;
 
   uint32_t m_overflowCounterBuffer = 0u;
 
@@ -176,4 +187,3 @@ private:
 };
 
 } // namespace NoMoreDay::render::passes
-

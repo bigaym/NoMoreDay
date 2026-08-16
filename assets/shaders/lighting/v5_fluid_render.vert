@@ -1,4 +1,4 @@
-﻿#version 430 core
+#version 430 core
 
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec2 aUV;
@@ -6,9 +6,9 @@ layout(location = 1) in vec2 aUV;
 struct FluidParticle {
     vec2 position;
     vec2 velocity;
+    vec4 color;
     float density;
     float pressure;
-    vec4 color;
     float lifetime;
     uint flags;
 };

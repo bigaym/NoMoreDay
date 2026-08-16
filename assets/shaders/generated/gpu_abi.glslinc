@@ -98,9 +98,9 @@ struct RadianceCascadeConfig {
 struct GPUFluidParticle {
     vec2 position;
     vec2 velocity;
+    vec4 color;
     float density;
     float pressure;
-    vec4 color;
     float lifetime;
     uint flags;
 };

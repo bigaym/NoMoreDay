@@ -147,6 +147,9 @@ public:
                          uint32_t usage);
   static void BufferSubData(uint32_t target, ptrdiff_t offset, ptrdiff_t size,
                             const void *data);
+  static void CopyBufferSubData(uint32_t readTarget, uint32_t writeTarget,
+                                ptrdiff_t readOffset, ptrdiff_t writeOffset,
+                                ptrdiff_t size);
   static void GetBufferSubData(uint32_t target, ptrdiff_t offset,
                                ptrdiff_t size, void *data);
   static void BufferStorage(uint32_t target, ptrdiff_t size, const void *data,
@@ -220,6 +223,9 @@ public:
   static void Disable(uint32_t cap);
   static void BlendFunc(uint32_t sfactor, uint32_t dfactor);
 
+  // === State Queries ===
+  static void GetIntegerv(uint32_t pname, int *params);
+
 private:
   GPUUtils() = delete;
 
@@ -227,6 +233,7 @@ private:
   static GPUSupportInfo s_info;
 
   // Basic Pointers
+  static void *s_glGetIntegerv;
   static void *s_glMemoryBarrier;
   static void *s_glDrawArraysIndirect;
   static void *s_glBindBuffer;
@@ -246,6 +253,7 @@ private:
   static void *s_glDeleteBuffers;
   static void *s_glBufferData;
   static void *s_glBufferSubData;
+  static void *s_glCopyBufferSubData;
   static void *s_glGetBufferSubData;
   static void *s_glBindBufferRange;
 

@@ -57,8 +57,9 @@ public:
                        const Camera2D &camera,
                        NoMoreDay::render::GameplayRenderHooks *gameplayHooks = nullptr);
     
-    static void Initialize();
+    [[nodiscard]] static bool Initialize();
     static void Shutdown();
+    [[nodiscard]] static bool IsInitialized() { return s_initialized; }
 
     // World/HDR targets may be reduced while screen-space UI remains native.
     [[nodiscard]] static RenderTargetExtent GetRenderTargetExtent(int nativeWidth,
@@ -113,6 +114,7 @@ public:
     static void SetShakeMultiplier(float multiplier) { s_shakeMultiplier = multiplier; }
 
 private:
+    static bool s_initialized;
     static float s_trauma;
     static float s_shakeMultiplier;
     

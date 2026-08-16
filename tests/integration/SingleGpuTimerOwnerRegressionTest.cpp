@@ -12,6 +12,7 @@
 #include "engine/render/passes/UIWorldPass.hpp"
 #include "engine/render/passes/VFXPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
 #include "engine/resource/ResourceManager.hpp"
 
@@ -238,3 +239,131 @@ TEST_CASE("[Integration] S1a - Gate loop single ring frame owner (no slot overwr
 
   resources::FramebufferManager::Destroy(hdr);
 }
+
+// Regression (T6.1, T6.2): GPUTimerQueryRing slot lifecycle state machine:
+// - Slot states Free -> Pending -> Ready -> Free.
+// - Busy / unready query is discarded without glBeginQuery on active query (no 0x502 GL_INVALID_OPERATION).
+// - Discarded slot recreates query objects on next reuse without leaking resources in GPUResourceRegistry.
+// - Deep frame sequence produces valid query results and releases all resources on Shutdown.
+TEST_CASE("[Integration] P0-6 - GPUTimerQueryRing slot state machine, discard and query regeneration (T6.1, T6.2)") {
+  using namespace NoMoreDay;
+  using namespace NoMoreDay::render;
+  using namespace NoMoreDay::render::debug;
+  using namespace NoMoreDay::render::resources;
+
+  if (!S1aEnsureGpuContext()) {
+    FAIL("Cannot create GPU context; skipping P0-6 timer ring state machine test");
+  }
+
+  (void)S1aDrainGlErrors();
+
+  auto &ring = GPUTimerQueryRing::Get();
+  ring.Shutdown();
+  ring.Initialize();
+
+  if (!ring.IsGpuTimerSupported()) {
+    // Headless or driver without timer queries
+    ring.Shutdown();
+    return;
+  }
+
+  const uint32_t kTestPassId = 0x5001u;
+  const uint32_t kTestPassId2 = 0x5002u;
+
+  // Phase 1: Slot state transitions under normal sequence
+  ring.BeginFrame();
+  const size_t ringIdx0 = ring.DebugGetFrameIndex() % GPUTimerQueryRing::kRingDepth;
+  CHECK(ring.DebugGetSlotState(ringIdx0, kTestPassId) == SlotState::Free);
+
+  ring.BeginPass(kTestPassId);
+  CHECK(ring.DebugGetSlotState(ringIdx0, kTestPassId) == SlotState::Pending);
+
+  ring.EndPass(kTestPassId);
+  CHECK(ring.DebugGetSlotState(ringIdx0, kTestPassId) == SlotState::Ready);
+
+  ring.EndFrame();
+
+  // Poll ready queries -> should eventually become Free and produce Valid result
+  for (int attempt = 0; attempt < 60; ++attempt) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    ring.PollReadyQueries();
+    if (ring.IsGpuTimeValid(kTestPassId)) {
+      break;
+    }
+  }
+  CHECK(ring.IsGpuTimeValid(kTestPassId));
+  CHECK(ring.GetValidGpuTimeMs(kTestPassId) >= 0.0);
+  CHECK(ring.DebugGetSlotState(ringIdx0, kTestPassId) == SlotState::Free);
+
+  // Drain GL errors
+  auto errors = S1aDrainGlErrors();
+  CHECK(errors.empty());
+
+  // Phase 2: Discard and regeneration path
+  // Simulate a slot left in Discarded state
+  const size_t targetRingIdx = (ring.DebugGetFrameIndex() + 1) % GPUTimerQueryRing::kRingDepth;
+  ring.DebugSetSlotState(targetRingIdx, kTestPassId2, SlotState::Discarded);
+  CHECK(ring.DebugGetSlotState(targetRingIdx, kTestPassId2) == SlotState::Discarded);
+
+  // Count active QueryRing resources before BeginPass on discarded slot
+  size_t queryRecordsBefore = 0;
+  for (const auto &rec : GPUResourceRegistry::Get().GetActiveResources()) {
+    if (rec.kind == graph::ResourceKind::QueryRing) {
+      queryRecordsBefore++;
+    }
+  }
+
+  // Advance frame to targetRingIdx and BeginPass
+  ring.BeginFrame();
+  CHECK(ring.DebugGetFrameIndex() % GPUTimerQueryRing::kRingDepth == targetRingIdx);
+  ring.BeginPass(kTestPassId2);
+  // Discarded slot should delete old queries, regenerate new ones, and transition to Pending
+  CHECK(ring.DebugGetSlotState(targetRingIdx, kTestPassId2) == SlotState::Pending);
+
+  ring.EndPass(kTestPassId2);
+  CHECK(ring.DebugGetSlotState(targetRingIdx, kTestPassId2) == SlotState::Ready);
+  ring.EndFrame();
+
+  // Resource registry must not have leaked extra queries (deleted old + created new = stable count)
+  size_t queryRecordsAfter = 0;
+  for (const auto &rec : GPUResourceRegistry::Get().GetActiveResources()) {
+    if (rec.kind == graph::ResourceKind::QueryRing) {
+      queryRecordsAfter++;
+    }
+  }
+  CHECK(queryRecordsAfter <= queryRecordsBefore + 2);
+
+  errors = S1aDrainGlErrors();
+  CHECK(errors.empty());
+
+  // Phase 3: Deep frame sequence (simulating rapid frames, query ring reuse across depth)
+  constexpr int kDeepFrames = 60;
+  for (int f = 0; f < kDeepFrames; ++f) {
+    ring.BeginFrame();
+    ring.BeginPass(kTestPassId);
+    ring.EndPass(kTestPassId);
+    ring.BeginPass(kTestPassId2);
+    ring.EndPass(kTestPassId2);
+    ring.EndFrame();
+    ring.PollReadyQueries();
+  }
+
+  errors = S1aDrainGlErrors();
+  for (GLenum err : errors) {
+    CAPTURE(err);
+  }
+  const bool hasInvalidOp =
+      std::find(errors.begin(), errors.end(), kS1aGlInvalidOperation) != errors.end();
+  CHECK_FALSE(hasInvalidOp);
+
+  // Phase 4: Shutdown cleans up all QueryRing resources
+  ring.Shutdown();
+  size_t queryRecordsPostShutdown = 0;
+  for (const auto &rec : GPUResourceRegistry::Get().GetActiveResources()) {
+    if (rec.kind == graph::ResourceKind::QueryRing) {
+      queryRecordsPostShutdown++;
+    }
+  }
+  CHECK(queryRecordsPostShutdown == 0);
+}
+

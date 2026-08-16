@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -43,6 +44,10 @@ class DeviceCapabilityMatrix {
 public:
   static DeviceCapabilityMatrix &Get();
 
+  // Pure predicate to evaluate if the given OpenGL version satisfies Desktop OpenGL >= 4.3.
+  // Fail-closed for GLES profile, non-positive major, or negative minor.
+  static bool IsDesktopGL43OrNewer(int major, int minor, bool isGlesProfile = false);
+
   CapabilityReport ProbeCapabilities();
   const CapabilityReport &GetCachedReport() const { return m_cachedReport; }
 
@@ -53,12 +58,24 @@ public:
   static ProductionCapabilityCheck CheckProductionRequirements(
       const CapabilityReport &report);
 
+  // Testing seam: inject a mock capability report or reset state.
+  void SetProbeOverrideForTesting(std::optional<CapabilityReport> overrideReport) {
+    m_probeOverrideForTesting = std::move(overrideReport);
+    m_probed = false;
+  }
+  void ResetForTesting() {
+    m_probed = false;
+    m_cachedReport = {};
+    m_probeOverrideForTesting = std::nullopt;
+  }
+
 private:
   DeviceCapabilityMatrix() = default;
   ~DeviceCapabilityMatrix() = default;
 
   CapabilityReport m_cachedReport;
   bool m_probed = false;
+  std::optional<CapabilityReport> m_probeOverrideForTesting = std::nullopt;
 };
 
 } // namespace NoMoreDay::render::core

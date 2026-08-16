@@ -1,11 +1,17 @@
 #include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include "engine/render/GPUUtils.hpp"
-#include "rlgl.h"
 #include <GLFW/glfw3.h>
 
+#include <cstdio>
+#include <cstring>
 #include <sstream>
 
 namespace NoMoreDay::render::core {
+
+namespace {
+constexpr uint32_t kGLMajorVersion = 0x821B;
+constexpr uint32_t kGLMinorVersion = 0x821C;
+} // namespace
 
 DeviceCapabilityMatrix &DeviceCapabilityMatrix::Get() {
   static DeviceCapabilityMatrix instance;
@@ -13,6 +19,14 @@ DeviceCapabilityMatrix &DeviceCapabilityMatrix::Get() {
     instance.ProbeCapabilities();
   }
   return instance;
+}
+
+bool DeviceCapabilityMatrix::IsDesktopGL43OrNewer(int major, int minor,
+                                                 bool isGlesProfile) {
+  if (isGlesProfile || major <= 0 || minor < 0) {
+    return false;
+  }
+  return major > 4 || (major == 4 && minor >= 3);
 }
 
 ProductionCapabilityCheck DeviceCapabilityMatrix::CheckProductionRequirements(
@@ -38,12 +52,30 @@ ProductionCapabilityCheck DeviceCapabilityMatrix::CheckProductionRequirements(
 }
 
 CapabilityReport DeviceCapabilityMatrix::ProbeCapabilities() {
+  if (m_probeOverrideForTesting.has_value()) {
+    m_cachedReport = *m_probeOverrideForTesting;
+    m_probed = true;
+    return m_cachedReport;
+  }
   if (m_probed) return m_cachedReport;
 
   CapabilityReport report = {};
-  int version = rlGetVersion();
 
-  report.isGL43Supported = (version == RL_OPENGL_43);
+  int major = 0;
+  int minor = 0;
+  bool isGles = false;
+
+  if (glfwGetCurrentContext() != nullptr) {
+    NoMoreDay::utils::GPUUtils::GetIntegerv(kGLMajorVersion, &major);
+    NoMoreDay::utils::GPUUtils::GetIntegerv(kGLMinorVersion, &minor);
+
+    const char *versionStr = reinterpret_cast<const char *>(glGetString(GL_VERSION));
+    if (versionStr != nullptr && std::strstr(versionStr, "OpenGL ES") != nullptr) {
+      isGles = true;
+    }
+  }
+
+  report.isGL43Supported = IsDesktopGL43OrNewer(major, minor, isGles);
   report.isComputeSupported = report.isGL43Supported;
   report.isSSBOSupported = report.isGL43Supported;
   report.isImageLoadStoreSupported = report.isGL43Supported;

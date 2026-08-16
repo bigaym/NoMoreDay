@@ -1,5 +1,8 @@
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include <algorithm>
+#include <cstdio>
+#include <cstring>
 
 namespace {
 // Values verified against raylib 5.5 external/glad.h (GL 3.0+ constants not
@@ -9,12 +12,15 @@ namespace {
 constexpr uint32_t kGlProgram = 0x82E2;
 constexpr uint32_t kGlShader = 0x82E1;
 constexpr uint32_t kGlDebugSourceApplication = 0x824A;
+constexpr uint32_t kGLMajorVersion = 0x821B;
+constexpr uint32_t kGLMinorVersion = 0x821C;
 }  // namespace
 
 namespace NoMoreDay::utils {
 
 bool GPUUtils::s_initialized = false;
 GPUSupportInfo GPUUtils::s_info = {};
+void *GPUUtils::s_glGetIntegerv = nullptr;
 void *GPUUtils::s_glMemoryBarrier = nullptr;
 void *GPUUtils::s_glDrawArraysIndirect = nullptr;
 void *GPUUtils::s_glBindBuffer = nullptr;
@@ -33,6 +39,7 @@ void *GPUUtils::s_glGenBuffers = nullptr;
 void *GPUUtils::s_glDeleteBuffers = nullptr;
 void *GPUUtils::s_glBufferData = nullptr;
 void *GPUUtils::s_glBufferSubData = nullptr;
+void *GPUUtils::s_glCopyBufferSubData = nullptr;
 void *GPUUtils::s_glGetBufferSubData = nullptr;
 void *GPUUtils::s_glBindBufferRange = nullptr;
 
@@ -69,6 +76,9 @@ GPUSupportInfo GPUUtils::Initialize() {
     return s_info;
   }
 
+  // Load GetIntegerv first so CheckSupport / version probing can use it
+  s_glGetIntegerv = (void *)glfwGetProcAddress("glGetIntegerv");
+
   // Detect basic version
   s_info = CheckSupport();
 
@@ -95,6 +105,7 @@ GPUSupportInfo GPUUtils::Initialize() {
   s_glDeleteBuffers = (void *)glfwGetProcAddress("glDeleteBuffers");
   s_glBufferData = (void *)glfwGetProcAddress("glBufferData");
   s_glBufferSubData = (void *)glfwGetProcAddress("glBufferSubData");
+  s_glCopyBufferSubData = (void *)glfwGetProcAddress("glCopyBufferSubData");
   s_glGetBufferSubData = (void *)glfwGetProcAddress("glGetBufferSubData");
   s_glBindBufferRange = (void *)glfwGetProcAddress("glBindBufferRange");
 
@@ -161,15 +172,26 @@ GPUSupportInfo GPUUtils::CheckSupport() {
   if (s_initialized) return s_info;
   
   GPUSupportInfo info;
-  int version = rlGetVersion();
-  if (version == RL_OPENGL_43) {
-    info.majorVersion = 4;
-    info.minorVersion = 3;
-    info.computeShaderSupported = true;
-  } else if (version == RL_OPENGL_33) {
-    info.majorVersion = 3;
-    info.minorVersion = 3;
+  if (glfwGetCurrentContext() == nullptr) {
+    return info;
   }
+
+  int major = 0;
+  int minor = 0;
+  GetIntegerv(kGLMajorVersion, &major);
+  GetIntegerv(kGLMinorVersion, &minor);
+
+  bool isGles = false;
+  const char *versionStr = reinterpret_cast<const char *>(glGetString(GL_VERSION));
+  if (versionStr != nullptr && std::strstr(versionStr, "OpenGL ES") != nullptr) {
+    isGles = true;
+  }
+
+  info.majorVersion = major;
+  info.minorVersion = minor;
+  info.computeShaderSupported =
+      render::core::DeviceCapabilityMatrix::IsDesktopGL43OrNewer(major, minor, isGles);
+
   return info;
 }
 
@@ -369,6 +391,17 @@ void GPUUtils::BufferSubData(uint32_t target, ptrdiff_t offset, ptrdiff_t size,
     using FnType =
         void(APIENTRY *)(uint32_t, ptrdiff_t, ptrdiff_t, const void *);
     reinterpret_cast<FnType>(s_glBufferSubData)(target, offset, size, data);
+  }
+}
+
+void GPUUtils::CopyBufferSubData(uint32_t readTarget, uint32_t writeTarget,
+                                 ptrdiff_t readOffset, ptrdiff_t writeOffset,
+                                 ptrdiff_t size) {
+  if (s_glCopyBufferSubData) {
+    using FnType =
+        void(APIENTRY *)(uint32_t, uint32_t, ptrdiff_t, ptrdiff_t, ptrdiff_t);
+    reinterpret_cast<FnType>(s_glCopyBufferSubData)(
+        readTarget, writeTarget, readOffset, writeOffset, size);
   }
 }
 
@@ -683,6 +716,15 @@ void GPUUtils::BindImageTexture(uint32_t unit, uint32_t textureId, int level,
                                     uint32_t, uint32_t);
     reinterpret_cast<FnType>(s_glBindImageTexture)(
         unit, textureId, level, layered ? 1 : 0, layer, access, format);
+  }
+}
+
+void GPUUtils::GetIntegerv(uint32_t pname, int *params) {
+  if (s_glGetIntegerv) {
+    using FnType = void(APIENTRY *)(uint32_t, int *);
+    reinterpret_cast<FnType>(s_glGetIntegerv)(pname, params);
+  } else {
+    glGetIntegerv(pname, params);
   }
 }
 

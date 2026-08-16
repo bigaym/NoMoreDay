@@ -42,6 +42,11 @@ struct StatUpdateCmd {
 
 class MDIRenderer {
 public:
+  static constexpr uint32_t kCullLocalSize = 256;
+  [[nodiscard]] static constexpr uint32_t CalculateCullDispatchGroups(uint32_t entityCount) noexcept {
+    return (entityCount + kCullLocalSize - 1) / kCullLocalSize;
+  }
+
   [[deprecated("Use RenderContext injection instead")]]
   static MDIRenderer &Get();
 

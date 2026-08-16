@@ -14,8 +14,6 @@
 #include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include "engine/render/debug/GLDebugCallback.hpp"
 
-#include "rlgl.h"
-
 #include <string>
 #include <vector>
 
@@ -93,7 +91,11 @@ TEST_CASE(
   CHECK(check.missingRequirements.empty() == allPresent);
 
   // Probe sanity against the live context.
-  CHECK(report.isGL43Supported == (rlGetVersion() == RL_OPENGL_43));
+  int major = 0;
+  int minor = 0;
+  NoMoreDay::utils::GPUUtils::GetIntegerv(0x821B /* GL_MAJOR_VERSION */, &major);
+  NoMoreDay::utils::GPUUtils::GetIntegerv(0x821C /* GL_MINOR_VERSION */, &minor);
+  CHECK(report.isGL43Supported == DeviceCapabilityMatrix::IsDesktopGL43OrNewer(major, minor, false));
   CHECK(report.maxSSBOBindings == 16);
 }
 

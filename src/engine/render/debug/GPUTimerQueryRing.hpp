@@ -8,6 +8,23 @@
 
 namespace NoMoreDay::render::debug {
 
+enum class SlotState : uint8_t {
+  Free = 0,
+  Pending,
+  Ready,
+  Discarded,
+};
+
+constexpr const char *ToSlotStateName(SlotState state) {
+  switch (state) {
+  case SlotState::Free: return "Free";
+  case SlotState::Pending: return "Pending";
+  case SlotState::Ready: return "Ready";
+  case SlotState::Discarded: return "Discarded";
+  default: return "Unknown";
+  }
+}
+
 enum class QueryState : uint8_t {
   Pending = 0,
   Valid,
@@ -69,6 +86,9 @@ public:
   // clears both overrides.
   void DebugInjectPassResult(uint32_t passId, const GPUTimerResult &result);
   void DebugSetGpuTimerSupported(bool supported);
+  // Test hooks (P0-6): observe / manipulate slot state.
+  SlotState DebugGetSlotState(size_t ringIndex, uint32_t passId) const;
+  void DebugSetSlotState(size_t ringIndex, uint32_t passId, SlotState state);
 
 private:
   GPUTimerQueryRing() = default;
@@ -79,6 +99,7 @@ private:
     uint32_t queryEnd = 0;
     uint32_t passId = 0;
     uint64_t frameIndex = 0;
+    SlotState state = SlotState::Free;
     bool active = false;
     bool touchedThisFrame = false;
     bool resultReady = false;

@@ -14,6 +14,7 @@
 #include "rlgl.h"
 
 #include <algorithm>
+#include <cassert>
 #include <entt/entt.hpp>
 #include <vector>
 
@@ -23,6 +24,12 @@ namespace {
 using namespace entt::literals;
 
 constexpr uint32_t kGLShaderStorageBarrierBit = 0x00002000;
+constexpr uint32_t kGLCopyReadBuffer = 0x8F36;
+constexpr uint32_t kGLCopyWriteBuffer = 0x8F37;
+constexpr uint32_t kGLStreamRead = 0x88E1;
+constexpr uint32_t kGLSyncGpuCommandsComplete = 0x9117;
+constexpr uint32_t kGLAlreadySignaled = 0x9118;
+constexpr uint32_t kGLConditionSatisfied = 0x9119;
 constexpr uint32_t kComputeGroupSizeX = 8u;
 constexpr uint32_t kComputeGroupSizeY = 8u;
 constexpr uint32_t kComputeGroupSizeZ = 1u;
@@ -37,6 +44,22 @@ uint32_t DivUp(const uint32_t value, const uint32_t divisor) {
 LightCullingPass::LightCullingPass() = default;
 
 LightCullingPass::~LightCullingPass() { Shutdown(); }
+
+LightCullingPass::SnapshotPollOutcome LightCullingPass::TryPublishReadySnapshot(
+    const bool slotArmed, const bool frameEligible, const bool fenceSignaled,
+    const size_t readIndex, const size_t ringDepth,
+    const uint32_t pendingSnapshot, const uint32_t currentSnapshot) noexcept {
+  assert(ringDepth > 0u);
+  SnapshotPollOutcome outcome;
+  outcome.snapshot = currentSnapshot;
+  outcome.nextReadIndex = readIndex;
+  if (slotArmed && frameEligible && fenceSignaled) {
+    outcome.published = true;
+    outcome.snapshot = pendingSnapshot;
+    outcome.nextReadIndex = (readIndex + 1u) % ringDepth;
+  }
+  return outcome;
+}
 
 void LightCullingPass::Setup(graph::RenderGraphBuilder &builder) {
   const auto declareClusterBuffer = [&builder](graph::RenderResourceTag tag,
@@ -179,6 +202,27 @@ bool LightCullingPass::Initialize(::ResourceManager &resources) {
   m_maxTotalClusteredLightsLoc =
       rlGetLocationUniform(m_lightCullingShader.id, "uMaxTotalClusteredLights");
 
+  constexpr size_t kCounterBytes = sizeof(components::GPUClusterCounters);
+
+  for (auto &slot : m_overflowRing) {
+    if (slot.counterReadbackBufferId == 0) {
+      utils::GPUUtils::GenBuffers(1, &slot.counterReadbackBufferId);
+      if (slot.counterReadbackBufferId != 0) {
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, slot.counterReadbackBufferId);
+        utils::GPUUtils::BufferData(kGLCopyWriteBuffer,
+                                    static_cast<ptrdiff_t>(kCounterBytes),
+                                    nullptr, kGLStreamRead);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, 0);
+      }
+    }
+    slot.fence = nullptr;
+    slot.armed = false;
+    slot.submittedFrame = 0;
+  }
+  m_ringWrite = 0;
+  m_ringRead = 0;
+  m_lastOverflowSnapshot = 0;
+
   m_initialized = true;
   return true;
 }
@@ -199,8 +243,24 @@ void LightCullingPass::Shutdown() {
   m_lastExecuteFailure = false;
   m_lastExecuteSuccess = false;
   m_lastOverflowCount = 0;
-  m_readbackEnabledForTesting = true;
+  m_lastOverflowSnapshot = 0;
+  m_ringWrite = 0;
+  m_ringRead = 0;
+  m_readbackEnabledForTesting = false;
   m_lastFailureReason.clear();
+
+  for (auto &slot : m_overflowRing) {
+    if (slot.fence != nullptr) {
+      utils::GPUUtils::DeleteSync(slot.fence);
+      slot.fence = nullptr;
+    }
+    if (slot.counterReadbackBufferId != 0) {
+      utils::GPUUtils::DeleteBuffers(1, &slot.counterReadbackBufferId);
+      slot.counterReadbackBufferId = 0;
+    }
+    slot.armed = false;
+    slot.submittedFrame = 0;
+  }
 }
 
 void LightCullingPass::SetComputeShaderPathForTesting(const std::string &path) {
@@ -419,7 +479,77 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     }
     m_lastOverflowCount = clusterState.GetLastOverflowSum();
   } else {
-    m_lastOverflowCount = 0;
+    // 1. Poll FIFO read slot (non-blocking, timeout 0). The publish decision is
+    // delegated to the pure TryPublishReadySnapshot contract; the GL side
+    // effects (fence wait, counter readback, sync delete) stay here.
+    auto &readSlot = m_overflowRing[m_ringRead];
+    const bool frameEligible =
+        readSlot.armed && m_frameIndex > readSlot.submittedFrame;
+    bool fenceSignaled = false;
+    if (frameEligible && readSlot.fence != nullptr) {
+      const uint32_t status =
+          utils::GPUUtils::ClientWaitSync(readSlot.fence, 0, 0); // timeout 0
+      fenceSignaled = (status == kGLAlreadySignaled ||
+                       status == kGLConditionSatisfied);
+    }
+
+    uint32_t pendingSnapshot = m_lastOverflowSnapshot;
+    if (fenceSignaled) {
+      components::GPUClusterCounters counters = {};
+      utils::GPUUtils::BindBuffer(kGLCopyReadBuffer,
+                                  readSlot.counterReadbackBufferId);
+      utils::GPUUtils::GetBufferSubData(kGLCopyReadBuffer, 0, sizeof(counters),
+                                        &counters);
+      utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, 0);
+
+      const uint64_t overflowSum =
+          static_cast<uint64_t>(counters.overflowPoint) +
+          static_cast<uint64_t>(counters.overflowSpot) +
+          static_cast<uint64_t>(counters.overflowArea) +
+          static_cast<uint64_t>(counters.overflowLine);
+      pendingSnapshot = static_cast<uint32_t>(
+          std::min<uint64_t>(overflowSum,
+                             std::numeric_limits<uint32_t>::max()));
+    }
+
+    const SnapshotPollOutcome pollOutcome = TryPublishReadySnapshot(
+        readSlot.armed, frameEligible, fenceSignaled, m_ringRead, kRingDepth,
+        pendingSnapshot, m_lastOverflowSnapshot);
+    if (pollOutcome.published) {
+      m_lastOverflowSnapshot = pollOutcome.snapshot;
+      utils::GPUUtils::DeleteSync(readSlot.fence);
+      readSlot.fence = nullptr;
+      readSlot.armed = false;
+      m_ringRead = pollOutcome.nextReadIndex;
+    }
+
+    // 2. Submit copy to write slot if not armed (dropped when the ring is full):
+    auto &writeSlot = m_overflowRing[m_ringWrite];
+    if (CanSubmitReadbackCopy(writeSlot.armed)) {
+      constexpr size_t counterBytes = sizeof(components::GPUClusterCounters);
+      const uint32_t counterSrc = clusterState.GetCounterBufferId();
+
+      if (counterSrc != 0 && writeSlot.counterReadbackBufferId != 0) {
+        utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, counterSrc);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer,
+                                    writeSlot.counterReadbackBufferId);
+        utils::GPUUtils::CopyBufferSubData(
+            kGLCopyReadBuffer, kGLCopyWriteBuffer, 0, 0,
+            static_cast<ptrdiff_t>(counterBytes));
+
+        utils::GPUUtils::BindBuffer(kGLCopyReadBuffer, 0);
+        utils::GPUUtils::BindBuffer(kGLCopyWriteBuffer, 0);
+
+        void *fence = utils::GPUUtils::FenceSync(kGLSyncGpuCommandsComplete, 0);
+        if (fence != nullptr) {
+          writeSlot.fence = fence;
+          writeSlot.armed = true;
+          writeSlot.submittedFrame = m_frameIndex;
+          m_ringWrite = (m_ringWrite + 1) % kRingDepth;
+        }
+      }
+    }
+    m_lastOverflowCount = m_lastOverflowSnapshot;
   }
   m_clusterDataReadyForCurrentFrame = true;
   MarkSuccess();

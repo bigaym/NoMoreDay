@@ -241,7 +241,9 @@ void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Ve
   // Dispatch - No barrier here, Render() will handle it as the Consumer
   uint32_t dispatchCount = (m_maxActiveEntities > 0) ? m_maxActiveEntities : m_maxEntities;
   utils::GPUUtils::ScopedDebugGroup debugGroup("MDICull");
-  utils::GPUUtils::DispatchComputeNoBarrier((dispatchCount + 63) / 64, 1, 1);
+  constexpr uint32_t kCullLocalSize = 256;
+  uint32_t groups = (dispatchCount + kCullLocalSize - 1) / kCullLocalSize;
+  utils::GPUUtils::DispatchComputeNoBarrier(groups, 1, 1);
 
   rlDisableShader();
 }

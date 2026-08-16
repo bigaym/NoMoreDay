@@ -103,9 +103,9 @@
         "fields": [
           { "type": "vec2", "name": "position" },
           { "type": "vec2", "name": "velocity" },
+          { "type": "vec4", "name": "color" },
           { "type": "float", "name": "density" },
           { "type": "float", "name": "pressure" },
-          { "type": "vec4", "name": "color" },
           { "type": "float", "name": "lifetime" },
           { "type": "uint", "name": "flags" }
         ]

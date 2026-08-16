@@ -44,6 +44,9 @@ public:
     int GetMaxParticles() const { return m_maxParticles; }
     bool IsInitialized() const { return m_initialized; }
     
+    // Testing seam: inject shader loading failure
+    void SetFailShadersForTesting(bool fail) { m_failShadersForTesting = fail; }
+    
 private:
     GPUParticleSystem() = default;
     ~GPUParticleSystem() = default;
@@ -52,11 +55,12 @@ private:
     
     // Internal helpers
     void CreateQuadVAO();
-    void LoadShaders();
+    bool LoadShaders();
     void CreateBuffers();
     
     // State
     bool m_initialized = false;
+    bool m_failShadersForTesting = false;
     int m_maxParticles = 100000;
     int m_currentParticleCount = 0;  // Total particles in buffer (alive + dead slots)
     int m_targetDispatchCount = 0;   // Adaptive dispatch range

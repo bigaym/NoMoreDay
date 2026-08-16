@@ -9,7 +9,9 @@
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 TEST_CASE("[Unit] GPU ABI - Generated include matches CPU contract") {
   using namespace NoMoreDay::render::abi;
@@ -149,10 +151,13 @@ TEST_CASE("[Unit] GPU ABI - V5 layout snapshot placeholders") {
 
   CHECK(std::is_standard_layout_v<GPUFluidParticle>);
   CHECK(sizeof(GPUFluidParticle) == 48);
-  CHECK(alignof(GPUFluidParticle) == alignof(float));
+  CHECK(alignof(GPUFluidParticle) == 16);
   CHECK(offsetof(GPUFluidParticle, position) == 0);
-  CHECK(offsetof(GPUFluidParticle, pressure) == 20);
-  CHECK(offsetof(GPUFluidParticle, color) == 24);
+  CHECK(offsetof(GPUFluidParticle, velocity) == 8);
+  CHECK(offsetof(GPUFluidParticle, color) == 16);
+  CHECK(offsetof(GPUFluidParticle, density) == 32);
+  CHECK(offsetof(GPUFluidParticle, pressure) == 36);
+  CHECK(offsetof(GPUFluidParticle, lifetime) == 40);
   CHECK(offsetof(GPUFluidParticle, flags) == 44);
 
   CHECK(std::is_standard_layout_v<GPUFluidConfig>);
@@ -162,4 +167,44 @@ TEST_CASE("[Unit] GPU ABI - V5 layout snapshot placeholders") {
   CHECK(offsetof(GPUFluidConfig, gravity) == 16);
   CHECK(offsetof(GPUFluidConfig, surfaceTension) == 24);
   CHECK(offsetof(GPUFluidConfig, maxParticles) == 28);
+}
+
+TEST_CASE("[Unit] GPU ABI - FluidParticle shader mirrors layout match") {
+  const std::vector<std::string> shaderPaths = {
+      "assets/shaders/lighting/v5_fluid_density.comp",
+      "assets/shaders/lighting/v5_fluid_gridhash.comp",
+      "assets/shaders/lighting/v5_fluid_emissive_inject.comp",
+      "assets/shaders/lighting/v5_fluid_force.comp",
+      "assets/shaders/lighting/v5_fluid_integrate.comp",
+      "assets/shaders/lighting/v5_fluid_occluder_inject.comp",
+      "assets/shaders/lighting/v5_fluid_render.vert",
+      "assets/shaders/lighting/v5_fluid_neighbor_search.comp",
+  };
+
+  const std::string expectedStruct =
+      "struct FluidParticle {\n"
+      "    vec2 position;\n"
+      "    vec2 velocity;\n"
+      "    vec4 color;\n"
+      "    float density;\n"
+      "    float pressure;\n"
+      "    float lifetime;\n"
+      "    uint flags;\n"
+      "};";
+
+  for (const auto &pathStr : shaderPaths) {
+    std::ifstream file(pathStr);
+    INFO("Checking shader file: " << pathStr);
+    REQUIRE(file.is_open());
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    std::string normalized;
+    normalized.reserve(content.size());
+    for (char c : content) {
+      if (c != '\r') {
+        normalized.push_back(c);
+      }
+    }
+    CHECK(normalized.find(expectedStruct) != std::string::npos);
+  }
 }

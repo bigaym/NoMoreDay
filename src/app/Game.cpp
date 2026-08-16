@@ -361,7 +361,10 @@ void Game::init() {
     InitializeGPUTextBootstrap(m_resourceManager);
 
     // Initialize Instanced Label Renderer
-    RenderSystem::Initialize();
+    if (!RenderSystem::Initialize()) {
+      LOG_CRITICAL("Game::Init: RenderSystem initialization failed. Aborting game startup.");
+      throw std::runtime_error("Game::init: RenderSystem initialization failed. Aborting game startup.");
+    }
 
     // Link context
     m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;

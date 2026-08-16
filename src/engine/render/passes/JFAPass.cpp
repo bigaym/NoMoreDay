@@ -203,6 +203,8 @@ bool JFAPass::Initialize(ResourceManager &resources) {
   m_upsampleFullResolutionLoc =
       rlGetLocationUniform(m_upsampleShader.id, "uFullResolution");
   m_upsampleRectMinLoc = rlGetLocationUniform(m_upsampleShader.id, "uRectMin");
+  m_upsampleMaskTextureLoc =
+      rlGetLocationUniform(m_upsampleShader.id, "uMaskTexture");
 
 
   NoMoreDay::utils::GPUUtils::GenBuffers(1, &m_overflowCounterBuffer);
@@ -249,6 +251,8 @@ void JFAPass::Shutdown() {
   m_distanceMaskTextureLoc = -1;
   m_upsampleHalfResolutionLoc = -1;
   m_upsampleFullResolutionLoc = -1;
+  m_upsampleRectMinLoc = -1;
+  m_upsampleMaskTextureLoc = -1;
 
   m_fullWidth = 0;
   m_fullHeight = 0;
@@ -540,10 +544,10 @@ bool JFAPass::RunDistanceResolve(const graph::RenderContext &context,
   return true;
 }
 
-bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight,
-                          const gi::JFARect *rect) {
-  if (m_upsampleShader.id == 0 || !m_distanceFieldWork.IsValid() ||
-      !m_distanceFieldFull.IsValid()) {
+bool JFAPass::RunUpsample(const uint32_t occluderMaskTexture, const int fullWidth,
+                          const int fullHeight, const gi::JFARect *rect) {
+  if (occluderMaskTexture == 0u || m_upsampleShader.id == 0 ||
+      !m_distanceFieldWork.IsValid() || !m_distanceFieldFull.IsValid()) {
     return false;
   }
 
@@ -574,10 +578,16 @@ bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight,
     dispatchH = DivUp(static_cast<uint32_t>(fullMaxY - rectMin[1]), kComputeGroupSize);
   }
 
-
   if (m_upsampleRectMinLoc >= 0) {
     rlSetUniform(m_upsampleRectMinLoc, rectMin, RL_SHADER_UNIFORM_IVEC2, 1);
   }
+
+  constexpr int kUpsampleMaskUnit = 2;
+  if (m_upsampleMaskTextureLoc >= 0) {
+    rlSetUniform(m_upsampleMaskTextureLoc, &kUpsampleMaskUnit, RL_SHADER_UNIFORM_INT, 1);
+  }
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0 + kUpsampleMaskUnit);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, occluderMaskTexture);
 
   constexpr uint32_t kHalfInputBinding = 0u;
   constexpr uint32_t kFullOutputBinding = 1u;
@@ -591,6 +601,9 @@ bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight,
     NoMoreDay::utils::GPUUtils::ScopedDebugGroup debugGroup("JFAUpsample");
     NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   }
+
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, 0u);
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
   rlDisableShader();
 
   // Cross-pass sync: RadianceCascadesPass consumes DistanceField via image
@@ -787,7 +800,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
                             distanceOutput, rect)) {
       return false;
     }
-    return !halfResolution || RunUpsample(fullWidth, fullHeight, rect);
+    return !halfResolution || RunUpsample(occluderMaskTexture, fullWidth, fullHeight, rect);
   };
 
   if (!runJfa(dispatchRect)) {

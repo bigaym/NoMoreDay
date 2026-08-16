@@ -19,6 +19,7 @@ public:
 
   void Initialize();
   void Shutdown();
+  [[nodiscard]] bool IsInitialized() const { return m_initialized; }
 
   int RegisterMaterial(const MaterialInstance &mat, const std::string &name = "");
   int LoadFromJson(const std::string &path);

@@ -100,9 +100,14 @@ public:
     rlBindShaderBuffer(m_id, index);
   }
 
+  inline static uint64_t s_testReadCallCount = 0;
+  static void ResetTestReadCount() { s_testReadCallCount = 0; }
+  static uint64_t GetTestReadCount() { return s_testReadCallCount; }
+
   void Read(void *outData, size_t size, size_t offset = 0) const {
     if (m_id == 0)
       return;
+    ++s_testReadCallCount;
     rlReadShaderBuffer(m_id, outData, size, offset);
   }
 

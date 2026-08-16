@@ -28,7 +28,7 @@ TEST_CASE("[Integration] GPU ABI - Cross-tier shader/link and binding governance
         "assets/shaders/generated/gpu_abi.glslinc", false));
     CHECK(RenderConstants::BindingGovernance::HasUniqueGlobalBindings());
 
-    CHECK_NOTHROW(RenderSystem::Initialize());
+    CHECK(RenderSystem::Initialize());
     RenderSystem::Shutdown();
   }
 

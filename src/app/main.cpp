@@ -154,13 +154,17 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    {
+    try {
         // 确保 Game 对象在 Logger::Shutdown 之前析构
         // Create Game Instance
         Game game(2560, 1440, "NoMoreDay - High Performance ECS");
         
         // Run Loop
         game.run();
+    } catch (const std::exception &ex) {
+        LOG_CRITICAL("Game initialization/execution failed: {}", ex.what());
+        tools::Logger::Shutdown();
+        return 1;
     }
 
     LOG_INFO("Engine Shutdown.");

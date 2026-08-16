@@ -76,6 +76,7 @@ std::vector<NoMoreDay::components::GPUGlyphInstance>
 NoMoreDay::render::resources::FramebufferHandle RenderSystem::s_hdrSceneBuffer;
 
 // Static Members Definition
+bool RenderSystem::s_initialized = false;
 float RenderSystem::s_trauma = 0.0f;
 float RenderSystem::s_shakeMultiplier = 1.0f;
 Shader RenderSystem::s_labelShader = {0};
@@ -905,49 +906,80 @@ RenderSystem::ScopedTargetStateGuard::~ScopedTargetStateGuard() {
 #endif
 }
 
-void RenderSystem::Initialize() {
-#if defined(NDEBUG)
-  constexpr bool kHardFailGpuAbiMismatch = false;
-#else
-  constexpr bool kHardFailGpuAbiMismatch = true;
-#endif
-  const bool abiCompatible = NoMoreDay::render::abi::ValidateGeneratedShaderABI(
-      "assets/shaders/generated/gpu_abi.glslinc", kHardFailGpuAbiMismatch);
-  if (!abiCompatible) {
-    LOG_ERROR("RenderSystem: startup aborted due incompatible GPU ABI contract.");
-    return;
+bool RenderSystem::Initialize() {
+  if (s_initialized) {
+    return true;
+  }
+
+  if (!NoMoreDay::render::abi::ValidateGeneratedShaderABI(
+          NoMoreDay::render::abi::GetGeneratedShaderABIManifest(), false)) {
+    LOG_CRITICAL("RenderSystem::Initialize: GPU ABI validation failed!");
+    Shutdown();
+    return false;
   }
 
   auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
   qualityManager.Initialize("settings.json");
+  if (!qualityManager.IsInitialized()) {
+    LOG_CRITICAL("RenderSystem::Initialize: QualityTierManager failed to initialize!");
+    Shutdown();
+    return false;
+  }
   ConfigureAdaptiveQualityController(qualityManager.GetConfig(),
                                      qualityManager.GetTier());
   qualityManager.SetV3ToggleCallback(
       [](bool enabled) { HandleV3RuntimeToggle(enabled); });
-  NoMoreDay::render::MaterialManager::Get().Initialize();
-  NoMoreDay::render::MaterialManager::Get().LoadFromJson(
-      "assets/data/materials_vfx.json");
-  NoMoreDay::render::TextureArrayManager::Get().Initialize(64, 128);
-  NoMoreDay::render::lighting::LightManager::Get().Initialize();
-  if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
-    // Phase F (RG-4): probe the device capability matrix once at init and fail
-    // closed when production-critical features (GL 4.3 core, compute, SSBO,
-    // image load/store, glMemoryBarrier) are missing. No silent degradation.
-    const auto &capabilityReport =
-        NoMoreDay::render::core::DeviceCapabilityMatrix::Get()
-            .ProbeCapabilities();
-    const auto capabilityCheck =
-        NoMoreDay::render::core::DeviceCapabilityMatrix::
-            CheckProductionRequirements(capabilityReport);
-    if (!capabilityCheck.passed) {
-      LOG_ERROR("RenderSystem: production capability gate FAILED - missing "
-                "required feature(s):");
-      for (const auto &missing : capabilityCheck.missingRequirements) {
-        LOG_ERROR("  - {}", missing);
-      }
-      LOG_ERROR("{}", capabilityReport.DumpReport());
-      return;
+
+  auto &materialManager = NoMoreDay::render::MaterialManager::Get();
+  materialManager.Initialize();
+  materialManager.LoadFromJson("assets/data/materials_vfx.json");
+  if (!materialManager.IsInitialized()) {
+    LOG_CRITICAL("RenderSystem::Initialize: MaterialManager failed to initialize!");
+    Shutdown();
+    return false;
+  }
+
+  auto &textureArrayManager = NoMoreDay::render::TextureArrayManager::Get();
+  textureArrayManager.Initialize(64, 128);
+  if (!textureArrayManager.IsInitialized()) {
+    LOG_CRITICAL("RenderSystem::Initialize: TextureArrayManager failed to initialize!");
+    Shutdown();
+    return false;
+  }
+
+  auto &lightManager = NoMoreDay::render::lighting::LightManager::Get();
+  lightManager.Initialize();
+  if (!lightManager.IsInitialized()) {
+    LOG_CRITICAL("RenderSystem::Initialize: LightManager failed to initialize!");
+    Shutdown();
+    return false;
+  }
+
+  // Phase F (RG-4): probe the device capability matrix once at init and fail
+  // closed when production-critical features (GL 4.3 core, compute, SSBO,
+  // image load/store, glMemoryBarrier) are missing. No silent degradation.
+  auto &capMatrix = NoMoreDay::render::core::DeviceCapabilityMatrix::Get();
+  const auto capabilityReport = capMatrix.ProbeCapabilities();
+  const auto capabilityCheck =
+      NoMoreDay::render::core::DeviceCapabilityMatrix::CheckProductionRequirements(
+          capabilityReport);
+  if (!capabilityCheck.passed) {
+    std::string failureReason;
+    for (size_t i = 0; i < capabilityCheck.missingRequirements.size(); ++i) {
+      if (i > 0) failureReason += ", ";
+      failureReason += capabilityCheck.missingRequirements[i];
     }
+    LOG_CRITICAL("RenderSystem::Initialize: GPU production requirements not met: {}", failureReason);
+    LOG_ERROR("RenderSystem: production capability gate FAILED - missing required feature(s):");
+    for (const auto &missing : capabilityCheck.missingRequirements) {
+      LOG_ERROR("  - {}", missing);
+    }
+    LOG_ERROR("{}", capabilityReport.DumpReport());
+    Shutdown();
+    return false;
+  }
+
+  if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
     // P0 S3: install the resident production GL debug callback so driver
     // errors surface through the log instead of silently. Diagnostic-only.
     NoMoreDay::render::debug::GLDebugCallback::Get().Install();
@@ -959,6 +991,7 @@ void RenderSystem::Initialize() {
           screenWidth, screenHeight, 0x881A, false); // GL_RGBA16F
     }
   }
+
   g_postProcessPass = std::make_shared<NoMoreDay::render::passes::PostProcessPass>();
   g_postProcessPass->Initialize();
   g_lightCullingPass =
@@ -1063,27 +1096,35 @@ void RenderSystem::Initialize() {
       nullptr, RL_DYNAMIC_DRAW);
 
   NoMoreDay::render::GPULootSystem::Get().Init();
+
+  s_initialized = true;
+  return true;
 }
 
 void RenderSystem::Shutdown() {
+  s_initialized = false;
   g_adaptiveQualityConfigured = false;
   g_adaptiveQualityController.Configure({});
   if (s_labelShader.id != 0) {
     UnloadShader(s_labelShader);
     s_labelShader.id = 0;
   }
+  s_labelMvpLoc = -1;
   s_labelInstanceBuffer = nullptr;
 
   if (s_beamShader.id != 0) {
     UnloadShader(s_beamShader);
     s_beamShader.id = 0;
   }
+  s_beamMvpLoc = -1;
   s_beamInstanceBuffer = nullptr;
 
   if (s_glyphShader.id != 0) {
     UnloadShader(s_glyphShader);
     s_glyphShader.id = 0;
   }
+  s_glyphMvpLoc = -1;
+  s_glyphTexLoc = -1;
   s_glyphInstanceBuffer = nullptr;
   if (s_glyphMsdfShader.id != 0) {
     UnloadShader(s_glyphMsdfShader);
@@ -1092,9 +1133,15 @@ void RenderSystem::Shutdown() {
     s_glyphMsdfTexLoc = -1;
     s_glyphMsdfPxRangeLoc = -1;
   }
+  s_labelBuffer.clear();
+  s_glyphBuffer.clear();
+
   NoMoreDay::render::GPULootSystem::Get().Shutdown();
 
-  NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
+  if (s_hdrSceneBuffer.IsValid()) {
+    NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
+    s_hdrSceneBuffer = {};
+  }
   NoMoreDay::render::MaterialManager::Get().Shutdown();
   NoMoreDay::render::TextureArrayManager::Get().Shutdown();
   NoMoreDay::render::lighting::LightManager::Get().Shutdown();

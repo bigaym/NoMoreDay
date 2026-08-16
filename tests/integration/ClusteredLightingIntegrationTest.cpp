@@ -456,6 +456,7 @@ TEST_CASE("[Integration] Clustered Lighting - Boundary conditions") {
   REQUIRE(hdr.IsValid());
 
   render::passes::LightCullingPass cullingPass;
+  cullingPass.SetReadbackEnabledForTesting(true);
   render::lighting::LightManager::Get().Initialize();
   entt::registry registry;
 

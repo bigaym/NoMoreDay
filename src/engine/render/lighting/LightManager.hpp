@@ -35,6 +35,7 @@ public:
 
   void Initialize();
   void Shutdown();
+  [[nodiscard]] bool IsInitialized() const { return m_lightBuffer != nullptr; }
 
   void UpdateCandidates(std::span<const components::GPULight> candidates,
                         const Camera2D &camera, int maxLights, int ecsLights);

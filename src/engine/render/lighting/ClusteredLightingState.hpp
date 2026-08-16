@@ -72,6 +72,7 @@ public:
   [[nodiscard]] uint32_t GetUploadedLightBoundsCount() const noexcept {
     return m_uploadedLightBoundsCount;
   }
+  /// Snapshot delayed by >= 1 frame in production; same-frame when readbackEnabledForTesting is true.
   [[nodiscard]] uint32_t GetLastOverflowSum() const noexcept {
     return m_lastOverflowSum;
   }

@@ -1806,6 +1806,7 @@ TEST_CASE(
   uint64_t countsHashValid = 0;
   {
     auto lightCullingPass = std::make_shared<render::passes::LightCullingPass>();
+    lightCullingPass->SetReadbackEnabledForTesting(true);
     auto consumerPass = std::make_shared<ClusterConsumerPass>();
 
     RenderGraph graph;

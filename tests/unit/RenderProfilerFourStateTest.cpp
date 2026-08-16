@@ -266,3 +266,29 @@ TEST_CASE("[Unit] RenderProfiler four-state - DRS/HUD decision inputs") {
 
   GPUTimerQueryRing::Get().Shutdown();
 }
+
+// P0-6: SlotState string conversion and debug state observation
+TEST_CASE("[Unit] GPUTimerQueryRing slot state machine - SlotState transitions") {
+  using NoMoreDay::render::debug::SlotState;
+  using NoMoreDay::render::debug::ToSlotStateName;
+  CHECK(std::string(ToSlotStateName(SlotState::Free)) == "Free");
+  CHECK(std::string(ToSlotStateName(SlotState::Pending)) == "Pending");
+  CHECK(std::string(ToSlotStateName(SlotState::Ready)) == "Ready");
+  CHECK(std::string(ToSlotStateName(SlotState::Discarded)) == "Discarded");
+
+  GPUTimerQueryRing::Get().Shutdown();
+  GPUTimerQueryRing::Get().Initialize();
+
+  const uint32_t testPassId = 0x1234u;
+  CHECK(GPUTimerQueryRing::Get().DebugGetSlotState(0, testPassId) == SlotState::Free);
+
+  GPUTimerQueryRing::Get().DebugSetSlotState(0, testPassId, SlotState::Discarded);
+  CHECK(GPUTimerQueryRing::Get().DebugGetSlotState(0, testPassId) == SlotState::Discarded);
+
+  GPUTimerQueryRing::Get().DebugSetSlotState(0, testPassId, SlotState::Ready);
+  CHECK(GPUTimerQueryRing::Get().DebugGetSlotState(0, testPassId) == SlotState::Ready);
+
+  GPUTimerQueryRing::Get().Shutdown();
+  CHECK(GPUTimerQueryRing::Get().DebugGetSlotState(0, testPassId) == SlotState::Free);
+}
+

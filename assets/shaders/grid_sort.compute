@@ -21,13 +21,15 @@ uniform int maxEntities;
 uniform float cellSize;
 uniform int gridCols;
 uniform int gridRows;
+uniform vec2 gridOrigin = vec2(0, 0);
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
     if (id >= maxEntities || entities[id].radius <= 0.0) return;
 
-    int cx = int(entities[id].position.x / cellSize);
-    int cy = int(entities[id].position.y / cellSize);
+    vec2 relativePos = entities[id].position - gridOrigin;
+    int cx = int(relativePos.x / cellSize);
+    int cy = int(relativePos.y / cellSize);
     if (cx < 0 || cx >= gridCols || cy < 0 || cy >= gridRows) return;
     
     uint cellIdx = cy * gridCols + cx;

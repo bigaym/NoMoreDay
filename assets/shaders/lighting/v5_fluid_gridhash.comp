@@ -1,13 +1,13 @@
-﻿#version 430 core
+#version 430 core
 
 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
 struct FluidParticle {
     vec2 position;
     vec2 velocity;
+    vec4 color;
     float density;
     float pressure;
-    vec4 color;
     float lifetime;
     uint flags;
 };
