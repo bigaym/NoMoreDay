@@ -24,6 +24,9 @@ struct CapabilityReport {
   bool isTimerQuerySupported = false;
   bool isDebugCallbackSupported = false;
   uint32_t maxSSBOBindings = 0;
+  // True when the driver query was unavailable (no GL context or query
+  // failure) and the GL 4.3 spec minimum was used instead.
+  bool maxSSBOBindingsFallbackUsed = false;
   FormatSupportInfo formatSupport;
 
   bool isFullyCompatible = false;

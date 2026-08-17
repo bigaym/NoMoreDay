@@ -47,6 +47,7 @@ private:
   int m_screenSizeLoc = -1;
   int m_heightWorldOriginLoc = -1;
   int m_heightWorldSizeLoc = -1;
+  int m_lightDirLoc = -1;
 
   int m_cachedWidth = 0;
   int m_cachedHeight = 0;

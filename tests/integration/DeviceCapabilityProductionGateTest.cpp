@@ -96,7 +96,8 @@ TEST_CASE(
   NoMoreDay::utils::GPUUtils::GetIntegerv(0x821B /* GL_MAJOR_VERSION */, &major);
   NoMoreDay::utils::GPUUtils::GetIntegerv(0x821C /* GL_MINOR_VERSION */, &minor);
   CHECK(report.isGL43Supported == DeviceCapabilityMatrix::IsDesktopGL43OrNewer(major, minor, false));
-  CHECK(report.maxSSBOBindings == 16);
+  // GL 4.3 guarantees >= 16 SSBO binding slots; the driver may report more.
+  CHECK(report.maxSSBOBindings >= 16);
 }
 
 TEST_CASE(

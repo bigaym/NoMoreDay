@@ -14,6 +14,11 @@ uniform vec2 uCameraOffset;
 uniform vec2 uScreenSize;
 uniform vec2 uHeightWorldOrigin;
 uniform vec2 uHeightWorldSize;
+// Light direction for the height-field shadow raymarch, driven by the active
+// light data (HeightShadowPass resolves the first directional light). The
+// initializer preserves the historical hardcoded direction when the uniform is
+// never set (e.g. shader hot reload without a CPU-side value).
+uniform vec2 uLightDir = vec2(-0.45, -0.75);
 
 float sampleHeightAtWorld(vec2 worldPos) {
     vec2 size = max(uHeightWorldSize, vec2(1.0));
@@ -27,7 +32,7 @@ float shadowRaymarch(vec2 uv, int steps) {
     }
     vec2 worldPos = uv * uScreenSize + uCameraOffset;
     float h0 = sampleHeightAtWorld(worldPos);
-    vec2 lightDir = normalize(vec2(-0.45, -0.75));
+    vec2 lightDir = normalize(uLightDir);
     float occlusion = 0.0;
     float stride = 1.0 / float(max(steps, 1));
     for (int i = 1; i <= steps; ++i) {

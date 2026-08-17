@@ -14,7 +14,7 @@ layout(std430, binding = 2) readonly buffer RadianceConfigBuffer {
 };
 
 layout(r16f, binding = 3) uniform readonly image2D uDistanceField;
-layout(rg16f, binding = 5) uniform writeonly image2DArray uRadianceAtlas;
+layout(rgba16f, binding = 5) uniform writeonly image2DArray uRadianceAtlas;
 
 uniform sampler2D uEmissiveTexture;
 uniform sampler2DArray uParentRadiance;
@@ -95,8 +95,8 @@ vec3 sampleParentCascade(vec2 endUv, float angle) {
     parentSector = clamp(parentSector, 0, uParentRaysPerProbe - 1);
 
     vec2 clampedEnd = clamp(endUv, vec2(0.0), vec2(0.99999));
-    vec2 parentRg = texture(uParentRadiance, vec3(clampedEnd, float(parentSector))).rg;
-    return vec3(parentRg.r, parentRg.g, (parentRg.r + parentRg.g) * 0.5);
+    // Full RGB radiance is stored in the parent cascade (RGBA16F atlas).
+    return texture(uParentRadiance, vec3(clampedEnd, float(parentSector))).rgb;
 }
 
 void main() {
@@ -133,7 +133,7 @@ void main() {
         // L_k(x, omega) = localRadiance + e^(-sigma * t) * L_{k+1}(x + t*omega, omega)
         vec3 mergedRadiance = localRadiance + transmittance * parentRadiance;
 
-        // Output to RG16F 2D array texture at layer = ray
-        imageStore(uRadianceAtlas, ivec3(pixel, ray), vec4(mergedRadiance.rg, 0.0, 0.0));
+        // Output full RGB radiance to RGBA16F 2D array texture at layer = ray
+        imageStore(uRadianceAtlas, ivec3(pixel, ray), vec4(mergedRadiance, 0.0));
     }
 }

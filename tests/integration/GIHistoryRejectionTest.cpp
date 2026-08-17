@@ -31,7 +31,7 @@
 namespace {
 
 constexpr uint32_t R3GIKHdrRgba16f = 0x881A;
-constexpr uint32_t R3GIKRadianceRg16f = 0x822F;
+constexpr uint32_t R3GIKRadianceRgba16f = 0x881A;
 
 struct R3GIRadianceAtlasHandle {
   uint32_t texture = 0u;
@@ -47,7 +47,7 @@ R3GIRadianceAtlasHandle R3GICreateRadianceAtlas(int width, int height, int direc
   uint32_t tex = 0u;
   NoMoreDay::utils::GPUUtils::GenTextures(1, &tex);
   NoMoreDay::utils::GPUUtils::BindTexture(0x8C1A /* GL_TEXTURE_2D_ARRAY */, tex);
-  NoMoreDay::utils::GPUUtils::TexStorage3D(0x8C1A, 1, R3GIKRadianceRg16f, width, height, directions);
+  NoMoreDay::utils::GPUUtils::TexStorage3D(0x8C1A, 1, R3GIKRadianceRgba16f, width, height, directions);
   NoMoreDay::utils::GPUUtils::TexParameteri(0x8C1A, 0x2801 /* GL_TEXTURE_MIN_FILTER */, 0x2601 /* GL_LINEAR */);
   NoMoreDay::utils::GPUUtils::TexParameteri(0x8C1A, 0x2800 /* GL_TEXTURE_MAG_FILTER */, 0x2601 /* GL_LINEAR */);
   NoMoreDay::utils::GPUUtils::TexParameteri(0x8C1A, 0x2802 /* GL_TEXTURE_WRAP_S */, 0x812F /* GL_CLAMP_TO_EDGE */);
@@ -80,7 +80,7 @@ bool R3GICreateMinimalGpuContext() {
 }
 
 // A minimal executable render context for GICompositePass::Execute.
-// `radiance` must be a valid RG16F 2D array texture atlas.
+// `radiance` must be a valid RGBA16F 2D array texture atlas.
 NoMoreDay::render::graph::RenderContext R3GIBuildContext(
     NoMoreDay::render::resources::FramebufferHandle &hdr,
     R3GIRadianceAtlasHandle &radiance,

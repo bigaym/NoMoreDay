@@ -326,7 +326,7 @@ constexpr uint32_t kOccluderMaskFormat = 0x8229; // GL_R8
 constexpr uint32_t kDistanceFieldFormat = 0x822D; // GL_R16F
 constexpr uint32_t kSeedFieldFormat = 0x823A; // GL_RG16UI
 constexpr uint32_t kEmissiveFormat = 0x881A; // GL_RGBA16F
-constexpr uint32_t kRadianceFormat = 0x822F; // GL_RG16F (RG16F Directional Probe Atlas)
+constexpr uint32_t kRadianceFormat = 0x881A; // GL_RGBA16F (RGBA16F Directional Probe Atlas)
 
 // Reserved image bindings for V5 compute pipelines.
 constexpr uint32_t kOccluderMaskImageBinding = 0;

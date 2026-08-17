@@ -6,12 +6,14 @@
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
 
 #include "rlgl.h"
 
 #include <algorithm>
+#include <cmath>
 #include <span>
 
 namespace NoMoreDay::render::passes {
@@ -28,6 +30,41 @@ constexpr const char *kFullscreenVertexShader =
     "assets/shaders/postprocess/fullscreen.vert";
 constexpr const char *kHeightShadowFragmentShader =
     "assets/shaders/lighting/height_shadow_apply.frag";
+
+// Historical hardcoded light direction in height_shadow_apply.frag
+// (shadowRaymarch). Kept as the CPU-side default so rendering is unchanged when
+// the scene has no directional light.
+constexpr float kDefaultHeightShadowLightDirX = -0.45f;
+constexpr float kDefaultHeightShadowLightDirY = -0.75f;
+
+// A light provides a usable height-shadow direction only when it carries a real
+// spot cone. Mirrors the shader convention (light_accumulation.frag:
+// spotCosHalfAngle <= -0.9999 denotes a point light) and requires a non-zero
+// direction vector.
+bool IsDirectionalLight(const components::GPULight &light) {
+  if (light.spotCosHalfAngle <= -0.9999f) {
+    return false;
+  }
+  const float lenSq = light.dirX * light.dirX + light.dirY * light.dirY;
+  return lenSq > 1e-8f;
+}
+
+// Resolves the height-shadow light direction: the first directional (spot)
+// light in the active light list wins; falls back to the historical default.
+void ResolveHeightShadowLightDir(float outDir[2]) {
+  const auto &activeLights = lighting::LightManager::Get().GetActiveLightsCpu();
+  for (const components::GPULight &light : activeLights) {
+    if (!IsDirectionalLight(light)) {
+      continue;
+    }
+    const float len = std::sqrt(light.dirX * light.dirX + light.dirY * light.dirY);
+    outDir[0] = light.dirX / len;
+    outDir[1] = light.dirY / len;
+    return;
+  }
+  outDir[0] = kDefaultHeightShadowLightDirX;
+  outDir[1] = kDefaultHeightShadowLightDirY;
+}
 
 void BindFramebufferAndViewport(const resources::FramebufferHandle &handle) {
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, handle.fbo);
@@ -74,6 +111,7 @@ bool HeightShadowPass::Initialize() {
   m_heightWorldOriginLoc =
       GetShaderLocation(m_heightShadowShader, "uHeightWorldOrigin");
   m_heightWorldSizeLoc = GetShaderLocation(m_heightShadowShader, "uHeightWorldSize");
+  m_lightDirLoc = GetShaderLocation(m_heightShadowShader, "uLightDir");
 
   m_initialized = true;
   return true;
@@ -106,6 +144,7 @@ bool HeightShadowPass::ReloadShaders() {
   m_heightWorldOriginLoc =
       GetShaderLocation(m_heightShadowShader, "uHeightWorldOrigin");
   m_heightWorldSizeLoc = GetShaderLocation(m_heightShadowShader, "uHeightWorldSize");
+  m_lightDirLoc = GetShaderLocation(m_heightShadowShader, "uLightDir");
   LOG_INFO("HeightShadowPass: shader hot reloaded");
   return true;
 }
@@ -270,6 +309,13 @@ void HeightShadowPass::Execute(graph::RenderContext &context) {
       SetShaderValue(m_heightShadowShader, m_heightWorldSizeLoc, size,
                      SHADER_UNIFORM_VEC2);
     }
+  }
+
+  float lightDir[2] = {0.0f, 0.0f};
+  ResolveHeightShadowLightDir(lightDir);
+  if (m_lightDirLoc >= 0) {
+    SetShaderValue(m_heightShadowShader, m_lightDirLoc, lightDir,
+                   SHADER_UNIFORM_VEC2);
   }
 
   DrawFullscreen(m_heightShadowShader, context.hdrSceneBuffer.colorTexture,

@@ -412,7 +412,9 @@ TEST_CASE("[Unit] RenderGraph - Phase 4 Capability Matrix & Shader Reload Govern
   // Test Device Capability Matrix
   auto &caps = DeviceCapabilityMatrix::Get();
   auto report = caps.ProbeCapabilities();
-  CHECK_EQ(report.maxSSBOBindings, 16);
+  // GL 4.3 spec minimum is 16; the probe may report more on a live driver,
+  // or fall back to the spec minimum without a GL context.
+  CHECK(report.maxSSBOBindings >= 16);
   std::string dump = report.DumpReport();
   CHECK(dump.find("Device Capability Matrix") != std::string::npos);
 

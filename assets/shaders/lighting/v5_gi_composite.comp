@@ -66,8 +66,8 @@ vec3 gatherL0Irradiance(vec2 uv, vec2 n, bool hasN) {
         float angle = (float(k) + 0.5) / float(N) * kTwoPi;
         vec2 omega_k = vec2(cos(angle), sin(angle));
         float cosWeight = hasN ? max(0.0, dot(n, omega_k)) : 1.0;
-        vec2 rad = texture(uRadianceAtlas, vec3(uv, float(k))).rg;
-        vec3 L0_k = vec3(rad.r, rad.g, (rad.r + rad.g) * 0.5);
+        // Full RGB radiance is stored in the L0 atlas (RGBA16F).
+        vec3 L0_k = texture(uRadianceAtlas, vec3(uv, float(k))).rgb;
         gathered += L0_k * cosWeight;
     }
 

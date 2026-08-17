@@ -987,6 +987,46 @@ void RenderGraph::Execute(RenderContext &context) {
 
   debug::GPUTimerQueryRing::Get().BeginFrame();
 
+  // Review #9 (exception safety): local RAII guard for the pass-execution
+  // window. If a pass throws, the guard's destructor restores every piece of
+  // state a partially-executed pass can leave behind: the open GL timer query
+  // is closed and its slot marked Discarded (the ring stays clean for the next
+  // frame), the profiler CPU sample is closed (cpuRunning does not leak), and
+  // context.activeGraph / m_activeNodeIndex are cleared. The success path calls
+  // Commit() to disarm the guard and performs the regular EndPass bookkeeping
+  // in the loop body.
+  class PassExecutionGuard {
+  public:
+    PassExecutionGuard(RenderContext &context, RenderGraph &graph,
+                       uint32_t stablePassId, debug::RenderPassId passType)
+        : m_context(context), m_graph(graph), m_stablePassId(stablePassId),
+          m_passType(passType), m_committed(false) {}
+
+    ~PassExecutionGuard() {
+      if (m_committed) {
+        return;
+      }
+      // Abort path: DiscardPass closes the in-flight GL query (glEndQuery) and
+      // marks the slot Discarded so the timer ring stays clean; the profiler
+      // sample is closed so cpuRunning does not leak into the next frame.
+      debug::GPUTimerQueryRing::Get().DiscardPass(m_stablePassId);
+      if (m_context.renderProfiler != nullptr) {
+        m_context.renderProfiler->EndPass(m_passType);
+      }
+      m_graph.m_activeNodeIndex = static_cast<size_t>(-1);
+      m_context.activeGraph = nullptr;
+    }
+
+    void Commit() { m_committed = true; }
+
+  private:
+    RenderContext &m_context;
+    RenderGraph &m_graph;
+    uint32_t m_stablePassId;
+    debug::RenderPassId m_passType;
+    bool m_committed;
+  };
+
   for (Node &node : m_nodes) {
     const uint32_t stablePassId = node.stablePassId;
 
@@ -1022,8 +1062,36 @@ void RenderGraph::Execute(RenderContext &context) {
 
     context.activeGraph = this;
     m_activeNodeIndex = node.passIndex;
-    ApplyActivePassBindings(context);
-    node.pass->Execute(context);
+
+    // RAII guard for the pass-execution window (class defined above): restores
+    // timer/profiler/graph state if the pass throws; disarmed via Commit() on
+    // the success path.
+    PassExecutionGuard passGuard(context, *this, stablePassId,
+                                 node.pass->Type());
+
+    try {
+      ApplyActivePassBindings(context);
+      node.pass->Execute(context);
+    } catch (const std::exception &e) {
+      // Fail-soft (review #9): a failing pass must not take down the frame or
+      // the game. The guard already restored timer/profiler/graph state during
+      // cleanup; here we log, flush any pending rlgl batch (stale vertices
+      // must not leak into the next frame), and stop executing further passes.
+      // The frame degrades to the passes already executed, and the caller's
+      // frame-end cleanup (timer ring EndFrame, transient/texture pools,
+      // registry AdvanceFrame) still runs normally.
+      LOG_ERROR("RenderGraph: pass '{}' threw during Execute: {}", node.passName,
+                e.what());
+      NoMoreDay::render::core::ApplyRlglFlushTemplate();
+      break;
+    } catch (...) {
+      LOG_ERROR(
+          "RenderGraph: pass '{}' threw a non-std exception during Execute",
+          node.passName);
+      NoMoreDay::render::core::ApplyRlglFlushTemplate();
+      break;
+    }
+
     m_activeNodeIndex = static_cast<size_t>(-1);
     context.activeGraph = nullptr;
     NoMoreDay::render::core::ApplyRlglFlushTemplate();
@@ -1032,6 +1100,7 @@ void RenderGraph::Execute(RenderContext &context) {
       context.renderProfiler->EndPass(node.pass->Type());
     }
     debug::GPUTimerQueryRing::Get().EndPass(stablePassId);
+    passGuard.Commit();
   }
 
   debug::GPUTimerQueryRing::Get().EndFrame();

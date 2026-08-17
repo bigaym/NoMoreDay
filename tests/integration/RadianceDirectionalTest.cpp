@@ -41,7 +41,7 @@
 namespace {
 
 constexpr uint32_t R3DKHdrRgba16f = 0x881A;
-constexpr uint32_t R3DKRg16f = 0x822F;
+constexpr uint32_t R3DKRgba16f = 0x881A;
 constexpr uint32_t R3DKR16f = 0x822D;
 constexpr uint32_t R3DKR8 = 0x8229;
 constexpr uint32_t R3DKTexture2DArray = 0x8C1A;
@@ -89,7 +89,7 @@ R3DRadianceAtlas R3DCreateRadianceAtlas(int width, int height, int directions) {
   uint32_t tex = 0u;
   NoMoreDay::utils::GPUUtils::GenTextures(1, &tex);
   NoMoreDay::utils::GPUUtils::BindTexture(R3DKTexture2DArray, tex);
-  NoMoreDay::utils::GPUUtils::TexStorage3D(R3DKTexture2DArray, 1, R3DKRg16f, width, height, directions);
+  NoMoreDay::utils::GPUUtils::TexStorage3D(R3DKTexture2DArray, 1, R3DKRgba16f, width, height, directions);
   NoMoreDay::utils::GPUUtils::TexParameteri(R3DKTexture2DArray, 0x2801 /* GL_TEXTURE_MIN_FILTER */, 0x2601 /* GL_LINEAR */);
   NoMoreDay::utils::GPUUtils::TexParameteri(R3DKTexture2DArray, 0x2800 /* GL_TEXTURE_MAG_FILTER */, 0x2601 /* GL_LINEAR */);
   NoMoreDay::utils::GPUUtils::TexParameteri(R3DKTexture2DArray, 0x2802 /* GL_TEXTURE_WRAP_S */, 0x812F /* GL_CLAMP_TO_EDGE */);
