@@ -206,6 +206,43 @@
           { "type": "vec4", "name": "reserved0" },
           { "type": "vec4", "name": "reserved1" }
         ]
+      },
+      {
+        "name": "GPUPackedEntityInstance",
+        "fields": [
+          { "type": "vec2", "name": "position" },
+          { "type": "vec2", "name": "prevPosition" },
+          { "type": "uvec4", "name": "words" }
+        ]
+      },
+      {
+        "name": "GPUEntity",
+        "fields": [
+          { "type": "vec2", "name": "position" },
+          { "type": "vec2", "name": "prevPosition" },
+          { "type": "vec2", "name": "velocity" },
+          { "type": "float", "name": "radius" },
+          { "type": "int", "name": "type" },
+          { "type": "uint", "name": "flags" },
+          { "type": "uint", "name": "frameId" },
+          { "type": "float", "name": "padding[6]" }
+        ]
+      },
+      {
+        "name": "GPUVisualStats",
+        "fields": [
+          { "type": "float", "name": "weaponDamage" },
+          { "type": "float", "name": "attackSpeed" },
+          { "type": "float", "name": "critChance" },
+          { "type": "float", "name": "critDamage" },
+          { "type": "float", "name": "defenseRating" },
+          { "type": "float", "name": "statusStrength" },
+          { "type": "float", "name": "glowIntensity" },
+          { "type": "uint", "name": "glowColorPacked" },
+          { "type": "uint", "name": "activeStatusMask" },
+          { "type": "float", "name": "statusTimer" },
+          { "type": "float", "name": "padding[6]" }
+        ]
       }
     ]
   },

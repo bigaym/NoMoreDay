@@ -36,10 +36,12 @@ void main() {
     // SKIP IF INACTIVE
     if (e.radius <= 0.01 || (e.flags & 2u) != 0u) return;
     
-    // FRUSTUM CHECK
+    // FRUSTUM CHECK (AD-9: Swept bounding box for temporal synchronization across interpolation frames)
     float r = e.radius * 4.0;
-    bool visible = (e.position.x + r >= viewBounds.x && e.position.x - r <= viewBounds.z &&
-                    e.position.y + r >= viewBounds.y && e.position.y - r <= viewBounds.w);
+    vec2 minPos = min(e.position, e.prevPosition);
+    vec2 maxPos = max(e.position, e.prevPosition);
+    bool visible = (maxPos.x + r >= viewBounds.x && minPos.x - r <= viewBounds.z &&
+                    maxPos.y + r >= viewBounds.y && minPos.y - r <= viewBounds.w);
     
     if (visible) {
         uint idx = atomicAdd(instanceCount, 1);

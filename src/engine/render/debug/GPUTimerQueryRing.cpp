@@ -295,6 +295,32 @@ void GPUTimerQueryRing::EndPass(uint32_t passId) {
   }
 }
 
+void GPUTimerQueryRing::DiscardPass(uint32_t passId) {
+  if (!m_initialized) return;
+
+  auto &frameSlot = m_ring[m_currentRingIndex];
+  auto &slot = frameSlot.slots[passId];
+  // M8 hardening: if the underlying GL query is still in-flight (glBeginQuery
+  // issued without a matching glEndQuery), close it before discarding. GL allows
+  // only one active query per target; leaving it active would make the next
+  // glBeginQuery on this target fail with GL_INVALID_OPERATION.
+  if (slot.state == SlotState::Pending) {
+    if (s_glEndQuery && slot.queryBegin > 0) {
+      using FnEnd = void (APIENTRY *)(uint32_t);
+      reinterpret_cast<FnEnd>(s_glEndQuery)(kGLTimeElapsed);
+    }
+  }
+  slot.passId = passId;
+  slot.frameIndex = m_frameIndex;
+  slot.active = false;
+  slot.touchedThisFrame = true;
+  slot.resultReady = true;
+  slot.resultValid = false;
+  slot.state = SlotState::Discarded;
+  slot.gpuDurationMs = 0.0;
+  slot.cpuDurationMs = 0.0;
+}
+
 void GPUTimerQueryRing::PollReadyQueries() {
   if (!m_initialized) return;
 

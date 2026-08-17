@@ -5,9 +5,11 @@
 #include <cctype>
 #include <cstddef>
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace NoMoreDay::render::graph {
@@ -361,6 +363,46 @@ public:
   void Read(const TypedPassAccess &access);
   void Write(const TypedPassAccess &access);
   void DeclareResource(const TypedResourceDescriptor &descriptor);
+
+  // Typed Stable Resource Handle declarations and creation (T1.1)
+  RGTextureHandle DeclareTexture(const TypedResourceDescriptor &descriptor);
+  RGBufferHandle DeclareBuffer(const TypedResourceDescriptor &descriptor);
+  RGTextureHandle CreateTexture(std::string_view name,
+                                ResourceFormat format,
+                                const ExtentPolicy &extentPolicy,
+                                uint32_t usage = ResourceUsage::ColorAttachment | ResourceUsage::ShaderRead,
+                                ResourceLifetime lifetime = ResourceLifetime::Transient,
+                                RenderOwnerTag ownerTag = RenderOwnerTag::Unknown);
+  RGBufferHandle CreateBuffer(std::string_view name,
+                              size_t estimatedSizeBytes,
+                              uint32_t usage = ResourceUsage::StorageBuffer | ResourceUsage::StorageRead | ResourceUsage::StorageWrite,
+                              ResourceLifetime lifetime = ResourceLifetime::Transient,
+                              RenderOwnerTag ownerTag = RenderOwnerTag::Unknown);
+
+  // Handle-based typed Read/Write overloads (T1.1)
+  RGTextureHandle Read(RGTextureHandle handle, RenderOwnerTag ownerTag,
+                       PipelineStage stage = PipelineStage::Fragment,
+                       uint32_t usageFlags = ResourceUsage::ShaderRead);
+  RGTextureHandle Write(RGTextureHandle handle, RenderOwnerTag ownerTag,
+                        PipelineStage stage = PipelineStage::FramebufferAttachment,
+                        uint32_t usageFlags = ResourceUsage::ColorAttachment);
+  RGBufferHandle Read(RGBufferHandle handle, RenderOwnerTag ownerTag,
+                      PipelineStage stage = PipelineStage::Compute,
+                      uint32_t usageFlags = ResourceUsage::StorageRead);
+  RGBufferHandle Write(RGBufferHandle handle, RenderOwnerTag ownerTag,
+                       PipelineStage stage = PipelineStage::Compute,
+                       uint32_t usageFlags = ResourceUsage::StorageWrite);
+
+  // Export resource declarations (T1.2 & T1.5) - marks resource as exported to protect producer pass from culling
+  void ExportResource(RenderResourceTag tag);
+  void ExportResource(RGTextureHandle handle);
+  void ExportResource(RGBufferHandle handle);
+  void ExportResource(const std::string &resourceName);
+
+  // Pass side-effects declaration (T1.5) - marks pass as having CPU/GPU side-effects so it is never culled
+  void SetHasSideEffects(bool hasSideEffects = true);
+  bool HasSideEffects() const { return m_hasSideEffects; }
+
   void AddPassLocalBarrier(uint32_t barrierBits);
 
   // Declares a same-pass phase transition that requires a GL memory barrier
@@ -400,6 +442,9 @@ public:
   const std::vector<ResourceImportInfo> &GetImports() const {
     return m_imports;
   }
+  const std::vector<std::string> &GetExportedResources() const {
+    return m_exportedResources;
+  }
 
 private:
   std::vector<ResourceAccess> m_accesses;
@@ -409,6 +454,8 @@ private:
   std::vector<PhaseBarrierDeclaration> m_phaseBarriers;
   std::vector<ResourceBindingDeclaration> m_bindings;
   std::vector<ResourceImportInfo> m_imports;
+  std::vector<std::string> m_exportedResources;
+  bool m_hasSideEffects = false;
 };
 
 struct RenderContext;
@@ -483,6 +530,75 @@ struct CompiledResourceImport {
   uint32_t colorAttachmentIndex = 0;
 };
 
+// Pass Culling Information (T1.2, T1.5)
+struct PassCullingInfo {
+  std::vector<bool> passCulled; // size == passes.size(), true if culled/skipped
+  size_t totalPassCount = 0;
+  size_t culledPassCount = 0;
+  float cullingRate = 0.0f;
+  std::vector<uint32_t> culledStablePassIds;
+  std::vector<std::string> culledPassNames;
+};
+
+// Transient Resource Lifetime Interval (T1.3)
+struct ResourceLifetimeInterval {
+  uint64_t stableResourceId = 0;
+  std::string resourceName;
+  RenderResourceTag tag = RenderResourceTag::Custom;
+  size_t firstUsePassIndex = 0;
+  size_t lastUsePassIndex = 0;
+  bool isTransient = false;
+  size_t estimatedSizeBytes = 0;
+  TypedResourceDescriptor descriptor;
+};
+
+// Transient Aliasing Table Entry (T1.3)
+struct TransientAliasingEntry {
+  uint64_t originalResourceId = 0;
+  std::string resourceName;
+  uint64_t aliasedToResourceId = 0;
+  std::string aliasedToResourceName;
+  uint32_t aliasGroupIndex = 0;
+  size_t byteOffset = 0; // 256B aligned offset
+  size_t allocatedSizeBytes = 0;
+};
+
+// Transient Aliasing Table (T1.3)
+struct TransientAliasingTable {
+  bool enabled = false;
+  bool exactAllocationMode = false;
+  std::vector<ResourceLifetimeInterval> intervals;
+  std::vector<TransientAliasingEntry> entries;
+  size_t totalVRAMEstimatedBytes = 0;
+  size_t aliasedVRAMEstimatedBytes = 0;
+  float memorySavingsRate = 0.0f;
+};
+
+// Compilation Cache Key (T1.4)
+struct PlanCompilationKey {
+  uint64_t topoHash = 0;
+  uint64_t declHash = 0;
+  uint64_t extentHash = 0;
+  uint64_t qualityAndFeatureHash = 0;
+
+  uint64_t GetCombinedHash() const {
+    uint64_t hash = 1469598103934665603ull;
+    const uint64_t kPrime = 1099511628211ull;
+    hash ^= topoHash; hash *= kPrime;
+    hash ^= declHash; hash *= kPrime;
+    hash ^= extentHash; hash *= kPrime;
+    hash ^= qualityAndFeatureHash; hash *= kPrime;
+    return hash;
+  }
+
+  bool operator==(const PlanCompilationKey &other) const {
+    return topoHash == other.topoHash &&
+           declHash == other.declHash &&
+           extentHash == other.extentHash &&
+           qualityAndFeatureHash == other.qualityAndFeatureHash;
+  }
+};
+
 class RenderGraph {
 public:
   struct ValidationDiagnostic {
@@ -502,10 +618,12 @@ public:
     uint32_t stablePassId = 0;
     std::string passName;
     size_t passIndex = 0;
+    bool isCulled = false;
   };
 
   struct CompiledRenderPlan {
     bool isValid = false;
+    PlanCompilationKey compilationKey = {};
     std::vector<std::string> passOrder;
     std::vector<CompiledPassState> passes;
     std::vector<ProducerConsumerEdge> edges;
@@ -515,32 +633,14 @@ public:
     std::vector<CompiledResourceBinding> bindings;
     std::vector<CompiledResourceImport> imports;
     std::vector<ValidationDiagnostic> diagnostics;
+    PassCullingInfo cullingInfo = {};
+    TransientAliasingTable aliasingTable = {};
 
     std::string DumpPlan() const;
   };
 
   // -------------------------------------------------------------------------
   // B12 graph-driven binding admission/execution contract (2026-08-04)
-  //
-  // RenderGraph can resolve, for the pass currently executing, the real GL
-  // binds that match its compiled binding declarations (BindBufferBase /
-  // BindImageUnit) against the per-frame imported backing snapshot supplied by
-  // the owners through RenderContext. The graph never allocates, resizes,
-  // releases, or owns GL handles: handles are copied from the snapshot at
-  // admission time and only the existing GPUUtils binding APIs are invoked.
-  //
-  // Admission is EXPLICIT and FAIL-CLOSED. A binding is executed only when ALL
-  // of the following hold:
-  //   - the pass declared a matching ImportResource for the same tag,
-  //   - the import kind is compatible with the binding kind (tag/kind agree),
-  //   - the RenderContext snapshot carries a non-zero handle for that tag and
-  //     ImportedBackingHandle::IsValidFor(import.kind) returns true.
-  // Anything missing, inconsistent, or zero-handed is DENIED: no GL bind is
-  // issued, a validation/runtime diagnostic is recorded, and the caller
-  // receives false. Unsupported binding kinds (TextureUnit / ColorAttachment)
-  // are also denied with an explicit "unsupported" diagnostic. Manual binds
-  // inside pass Execute remain the authoritative surface and stay untouched;
-  // graph-driven binds are behavior-equivalent duplicates of them.
   // -------------------------------------------------------------------------
   struct ResolvedBindingOperation {
     enum class Kind : uint8_t {
@@ -558,10 +658,6 @@ public:
     uint32_t format = 0; // image internal format (BindImageTexture)
   };
 
-  // Result of resolving a pass's binding declarations against the snapshot.
-  // `operations` holds only ADMITTED operations in declaration order; denied
-  // or unsupported bindings never appear as GL binds and are reported through
-  // `diagnostics` + `allAdmitted == false`.
   struct BindingResolutionResult {
     std::vector<ResolvedBindingOperation> operations;
     std::vector<ValidationDiagnostic> diagnostics;
@@ -574,46 +670,61 @@ public:
   void Execute(RenderContext &context);
   void OnResize(int width, int height);
 
+  // P2 AD-6 (H1): collects per-node Setup declarations without compiling the
+  // plan. This is the lightweight counterpart of Build() used when the frame
+  // needs declaration data (e.g. RenderSystem's composite-input inference via
+  // FindLastWriterOwner) before the pass set is complete. It never touches the
+  // compilation cache and never runs validation/plan construction.
+  void CollectPassDeclarations();
+
+  // P2 AD-6 (M1): injects the current dynamic-resolution scale so the
+  // compilation key invalidates when adaptive resolution changes the rendered
+  // extent even at an unchanged screen size. RenderSystem feeds the live DRS
+  // scale once per frame.
+  void SetDynamicResolutionScale(float scale);
+
+  // P2 AD-6 (H1): clears the engine-level (cross-instance) compiled-plan cache.
+  // Used by tests to reset cache accounting and by forced-recompile paths.
+  static void ClearCompilationCache();
+
   // Phase D (RG-1): infers the owner of the pass that most recently declared a
   // typed Write to `resourceTag` (last writer in insertion/execution order),
-  // or RenderOwnerTag::Unknown when no graph pass writes it. Requires the pass
-  // accesses to be collected by Build(); returns Unknown on an unbuilt graph.
-  // Replaces RenderSystem's manual sceneHdrOwner/ldrOwner tracking.
+  // or RenderOwnerTag::Unknown when no graph pass writes it.
   RenderOwnerTag FindLastWriterOwner(RenderResourceTag resourceTag) const;
   static void SetValidationEnabled(bool enabled);
   static bool IsValidationEnabled();
   static void SetTransientAliasingEnabled(bool enabled);
   static bool IsTransientAliasingEnabled();
 
+  // Pass Culling and Aliasing inspection API (T1.2, T1.3)
+  const PassCullingInfo &GetPassCullingInfo() const { return m_compiledPlan.cullingInfo; }
+  size_t GetCulledPassCount() const { return m_compiledPlan.cullingInfo.culledPassCount; }
+  float GetCullingRate() const { return m_compiledPlan.cullingInfo.cullingRate; }
+  [[nodiscard]] bool IsPassCulled(size_t passIndex) const;
+  [[nodiscard]] bool IsPassCulled(uint32_t stablePassId) const;
+  [[nodiscard]] bool IsPassCulled(std::string_view passName) const;
+  const TransientAliasingTable &GetAliasingTable() const { return m_compiledPlan.aliasingTable; }
+
+  // Compilation Cache inspection API (T1.4)
+  const PlanCompilationKey &GetCompilationKey() const { return m_compiledPlan.compilationKey; }
+  size_t GetCompilationCacheHits() const { return m_compilationCacheHits; }
+  size_t GetCompilationCacheMisses() const { return m_compilationCacheMisses; }
+  void InvalidateCompilationCache();
+
+  int GetScreenWidth() const { return m_screenWidth; }
+  int GetScreenHeight() const { return m_screenHeight; }
+
   // Emits the GL barrier declared via RenderGraphBuilder::AddPhaseBarrier(...)
-  // for the pass currently executing. Only valid between the start and end of
-  // a pass Execute driven by RenderGraph::Execute. Returns false (with an
-  // error log) when the phase pair was never declared for the active pass.
+  // for the pass currently executing.
   bool EmitActivePassPhaseBarrier(PipelineStage sourcePhase,
                                   PipelineStage targetPhase);
 
-  // B12 graph-driven binding (see contract note above).
-  //
-  // Resolves the binding operations for the pass at `passIndex` by admitting
-  // each compiled binding declaration against a matching import and a valid
-  // snapshot handle. Pure resolution: no GL calls, no ownership change, no
-  // graph state mutation — fully unit-testable without a GL context.
+  // B12 graph-driven binding
   BindingResolutionResult ResolvePassBindings(size_t passIndex,
                                               const RenderContext &context) const;
-
-  // Same as ResolvePassBindings, but for the pass currently executing inside
-  // RenderGraph::Execute. Fail-closed when no pass is active.
   BindingResolutionResult ResolveActivePassBindings(const RenderContext &context) const;
-
-  // Executes the admitted binding operations of the currently active pass via
-  // the existing GPUUtils binding APIs, immediately before pass Execute.
-  // Denied / unsupported bindings are never bound and are recorded (and
-  // logged) as runtime diagnostics. Returns true only when every supported
-  // binding of the active pass was admitted and bound.
   bool ApplyActivePassBindings(RenderContext &context);
 
-  // Runtime diagnostics recorded by ApplyActivePassBindings during the current
-  // RenderGraph::Execute frame (accumulated across passes, cleared each frame).
   const std::vector<ValidationDiagnostic> &GetRuntimeBindingDiagnostics() const {
     return m_runtimeBindingDiagnostics;
   }
@@ -628,6 +739,24 @@ public:
   std::string DumpCompiledPlan() const { return m_compiledPlan.DumpPlan(); }
 
 private:
+  // P2 AD-6 (H1): engine-level compiled-plan cache. The plan produced by a
+  // Build() is keyed only by PlanCompilationKey, so a fresh graph instance
+  // whose topology/declarations/extent/quality match a previously compiled
+  // key can reuse the plan without re-running validation or plan construction.
+  // This makes the per-frame graph in RenderSystem hit the cache across
+  // frames (the old instance-local cache could never hit there).
+  struct CachedPlanEntry {
+    CompiledRenderPlan plan;
+    // P2 AD-6 (M3): cache hits skip ValidatePassIdentityContract /
+    // RejectLegacyStringAccess under the assumption that an equal key implies
+    // an equal, already-validated plan. We keep the defensive flag so a hit is
+    // only trusted when the entry demonstrably passed validation; entries are
+    // only inserted with validated=true, so a corrupted/false entry would be
+    // treated as a miss and rebuilt.
+    bool validated = false;
+  };
+  static std::unordered_map<uint64_t, CachedPlanEntry> s_compiledPlanCache;
+
   struct Node {
     std::shared_ptr<RenderPass> pass;
     RenderPassType passType = RenderPassType::Count;
@@ -642,12 +771,17 @@ private:
     std::vector<PhaseBarrierDeclaration> phaseBarriers;
     std::vector<ResourceBindingDeclaration> bindings;
     std::vector<ResourceImportInfo> imports;
+    std::vector<std::string> exportedResources;
+    bool hasSideEffects = false;
   };
 
   bool ValidatePassIdentityContract();
   bool RejectLegacyStringAccess();
   void ValidateBuildContracts();
   void BuildCompiledPlan();
+  PlanCompilationKey ComputeCompilationKey() const;
+  void PerformPassCulling(std::map<uint64_t, CompiledResourceState> &resourceMap);
+  void ComputeTransientAliasing(std::map<uint64_t, CompiledResourceState> &resourceMap);
   void AddValidationDiagnostic(ValidationDiagnostic::Severity severity,
                                size_t passIndex,
                                const std::string &passName,
@@ -663,6 +797,14 @@ private:
   std::vector<ValidationDiagnostic> m_runtimeBindingDiagnostics;
   static bool s_validationEnabled;
   static bool s_transientAliasingEnabled;
+
+  uint64_t m_cachedPlanKey = 0;
+  bool m_hasCachedPlan = false;
+  size_t m_compilationCacheHits = 0;
+  size_t m_compilationCacheMisses = 0;
+  int m_screenWidth = 1920;
+  int m_screenHeight = 1080;
+  float m_dynamicResolutionScale = 1.0f;
 };
 
 } // namespace NoMoreDay::render::graph

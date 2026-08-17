@@ -512,7 +512,11 @@ set "BUILD_LOG=!BUILD_LOG_DIR!\nomoreday_build_%RANDOM%_%RANDOM%.log"
 set "CMAKE_BUILD_TARGETS=NoMoreDay"
 if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
 echo [Build] Building !CMAKE_BUILD_TARGETS! ^(!BUILD_TYPE!, j=!PARALLEL_JOBS!^)...
-cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+if /i "!ENABLE_FAST_BUILD!"=="ON" (
+    cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+) else (
+    cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+)
 set "BUILD_EXIT=!errorlevel!"
 
 if not "!BUILD_EXIT!"=="0" (

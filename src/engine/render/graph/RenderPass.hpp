@@ -73,6 +73,7 @@ public:
   virtual void Execute(RenderContext &context) = 0;
   virtual const char *GetName() const = 0;
   [[nodiscard]] virtual RenderPassType Type() const = 0;
+  [[nodiscard]] virtual bool HasSideEffects() const { return false; }
   virtual void OnResize(int width, int height) {}
 };
 

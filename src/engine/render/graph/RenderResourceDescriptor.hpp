@@ -255,4 +255,76 @@ inline uint32_t MapGlBarrierBits(PipelineStage stage, PassAccessMode mode) {
   return MapGlBarrierBits(stage, mode, stage, mode, ResourceKind::Texture2D);
 }
 
+// 256-byte alignment helper for transient aliasing and uniform/SSBO buffer offset alignment.
+constexpr size_t kAliasingAlignmentBytes = 256;
+constexpr size_t Align256(size_t sizeBytes) {
+  return (sizeBytes + kAliasingAlignmentBytes - 1) & ~(kAliasingAlignmentBytes - 1);
+}
+
+// ---------------------------------------------------------------------------
+// Typed Stable Resource Handles (AD-6, T1.1)
+//
+// Typed, stable handles mapping to existing ResourceDescriptor / Tag / Name / ID.
+// Provides strong typing between Texture and Buffer graph resources.
+// ---------------------------------------------------------------------------
+struct RGTextureHandle {
+  RenderResourceTag tag = RenderResourceTag::Custom;
+  uint64_t id = 0;
+  std::string name;
+
+  constexpr RGTextureHandle() = default;
+  explicit RGTextureHandle(RenderResourceTag inTag, std::string_view inName = {})
+      : tag(inTag),
+        id(ResolveStableResourceId(0, inName.empty() ? ToResourceName(inTag) : inName)),
+        name(inName.empty() ? ToResourceName(inTag) : std::string(inName)) {}
+  explicit RGTextureHandle(uint64_t inId, std::string_view inName = {})
+      : tag(RenderResourceTag::Custom), id(inId), name(inName) {}
+  RGTextureHandle(RenderResourceTag inTag, uint64_t inId, std::string_view inName)
+      : tag(inTag), id(inId), name(inName) {}
+
+  bool IsValid() const {
+    return id != 0 || tag != RenderResourceTag::Custom || !name.empty();
+  }
+  explicit operator bool() const { return IsValid(); }
+  bool operator==(const RGTextureHandle &other) const {
+    return id == other.id && tag == other.tag && name == other.name;
+  }
+  bool operator!=(const RGTextureHandle &other) const { return !(*this == other); }
+  bool operator<(const RGTextureHandle &other) const {
+    if (id != other.id) return id < other.id;
+    if (tag != other.tag) return tag < other.tag;
+    return name < other.name;
+  }
+};
+
+struct RGBufferHandle {
+  RenderResourceTag tag = RenderResourceTag::Custom;
+  uint64_t id = 0;
+  std::string name;
+
+  constexpr RGBufferHandle() = default;
+  explicit RGBufferHandle(RenderResourceTag inTag, std::string_view inName = {})
+      : tag(inTag),
+        id(ResolveStableResourceId(0, inName.empty() ? ToResourceName(inTag) : inName)),
+        name(inName.empty() ? ToResourceName(inTag) : std::string(inName)) {}
+  explicit RGBufferHandle(uint64_t inId, std::string_view inName = {})
+      : tag(RenderResourceTag::Custom), id(inId), name(inName) {}
+  RGBufferHandle(RenderResourceTag inTag, uint64_t inId, std::string_view inName)
+      : tag(inTag), id(inId), name(inName) {}
+
+  bool IsValid() const {
+    return id != 0 || tag != RenderResourceTag::Custom || !name.empty();
+  }
+  explicit operator bool() const { return IsValid(); }
+  bool operator==(const RGBufferHandle &other) const {
+    return id == other.id && tag == other.tag && name == other.name;
+  }
+  bool operator!=(const RGBufferHandle &other) const { return !(*this == other); }
+  bool operator<(const RGBufferHandle &other) const {
+    if (id != other.id) return id < other.id;
+    if (tag != other.tag) return tag < other.tag;
+    return name < other.name;
+  }
+};
+
 } // namespace NoMoreDay::render::graph

@@ -1,6 +1,8 @@
 #include "engine/render/graph/RenderGraph.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/core/DeviceCapabilityMatrix.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
@@ -9,6 +11,7 @@
 #include "rlgl.h"
 
 #include <algorithm>
+#include <bit>
 #include <map>
 #include <optional>
 #include <queue>
@@ -22,7 +25,16 @@ namespace NoMoreDay::render::graph {
 
 bool RenderGraph::s_validationEnabled = true;
 
+// P2 AD-6 (H1): engine-level (cross-instance) compiled-plan cache. Bounded:
+// plans are keyed by the combined PlanCompilationKey; the map is cleared when
+// it grows past kMaxCachedPlans so a long session with many distinct keys
+// (resizes, feature toggles) cannot accumulate unbounded memory. Clearing only
+// costs a future miss, never correctness.
+std::unordered_map<uint64_t, RenderGraph::CachedPlanEntry>
+    RenderGraph::s_compiledPlanCache;
+
 namespace {
+constexpr size_t kMaxCachedPlans = 64;
 
 bool IsWriterAllowedForResource(RenderResourceTag resourceTag,
                                 RenderOwnerTag ownerTag) {
@@ -379,6 +391,133 @@ void RenderGraphBuilder::DeclareResource(const TypedResourceDescriptor &descript
   m_declaredDescriptors.push_back(descriptor);
 }
 
+RGTextureHandle RenderGraphBuilder::DeclareTexture(const TypedResourceDescriptor &descriptor) {
+  TypedResourceDescriptor desc = descriptor;
+  desc.kind = ResourceKind::Texture2D;
+  if (desc.stableResourceId == 0) {
+    desc.stableResourceId = ResolveStableResourceId(0, desc.name.empty() ? ToResourceName(desc.tag) : desc.name);
+  }
+  m_declaredDescriptors.push_back(desc);
+  return RGTextureHandle(desc.tag, desc.stableResourceId, desc.name);
+}
+
+RGBufferHandle RenderGraphBuilder::DeclareBuffer(const TypedResourceDescriptor &descriptor) {
+  TypedResourceDescriptor desc = descriptor;
+  if (desc.kind != ResourceKind::StorageBuffer && desc.kind != ResourceKind::UniformBuffer &&
+      desc.kind != ResourceKind::VertexBuffer && desc.kind != ResourceKind::IndexBuffer) {
+    desc.kind = ResourceKind::StorageBuffer;
+  }
+  if (desc.stableResourceId == 0) {
+    desc.stableResourceId = ResolveStableResourceId(0, desc.name.empty() ? ToResourceName(desc.tag) : desc.name);
+  }
+  m_declaredDescriptors.push_back(desc);
+  return RGBufferHandle(desc.tag, desc.stableResourceId, desc.name);
+}
+
+RGTextureHandle RenderGraphBuilder::CreateTexture(std::string_view name,
+                                                  ResourceFormat format,
+                                                  const ExtentPolicy &extentPolicy,
+                                                  uint32_t usage,
+                                                  ResourceLifetime lifetime,
+                                                  RenderOwnerTag ownerTag) {
+  TypedResourceDescriptor desc;
+  desc.name = std::string(name);
+  desc.tag = ToResourceTag(name);
+  desc.kind = ResourceKind::Texture2D;
+  desc.format = format;
+  desc.extentPolicy = extentPolicy;
+  desc.usageFlags = usage;
+  desc.lifetime = lifetime;
+  desc.ownerTag = ownerTag;
+  desc.stableResourceId = StableResourceId(desc.name);
+  return DeclareTexture(desc);
+}
+
+RGBufferHandle RenderGraphBuilder::CreateBuffer(std::string_view name,
+                                                size_t estimatedSizeBytes,
+                                                uint32_t usage,
+                                                ResourceLifetime lifetime,
+                                                RenderOwnerTag ownerTag) {
+  TypedResourceDescriptor desc;
+  desc.name = std::string(name);
+  desc.tag = ToResourceTag(name);
+  desc.kind = ResourceKind::StorageBuffer;
+  desc.format = ResourceFormat::Unknown;
+  desc.estimatedSizeBytes = estimatedSizeBytes;
+  desc.usageFlags = usage;
+  desc.lifetime = lifetime;
+  desc.ownerTag = ownerTag;
+  desc.stableResourceId = StableResourceId(desc.name);
+  return DeclareBuffer(desc);
+}
+
+RGTextureHandle RenderGraphBuilder::Read(RGTextureHandle handle, RenderOwnerTag ownerTag,
+                                         PipelineStage stage, uint32_t usageFlags) {
+  const std::string name = !handle.name.empty() ? handle.name : ToResourceName(handle.tag);
+  const uint64_t id = handle.id != 0 ? handle.id : StableResourceId(name);
+  m_accesses.push_back({name, ResourceAccess::Type::Read, handle.tag, ownerTag, id});
+  m_typedAccesses.push_back({name, handle.tag, PassAccessMode::Read, stage, usageFlags, 0, ownerTag, id});
+  return handle;
+}
+
+RGTextureHandle RenderGraphBuilder::Write(RGTextureHandle handle, RenderOwnerTag ownerTag,
+                                          PipelineStage stage, uint32_t usageFlags) {
+  const std::string name = !handle.name.empty() ? handle.name : ToResourceName(handle.tag);
+  const uint64_t id = handle.id != 0 ? handle.id : StableResourceId(name);
+  m_accesses.push_back({name, ResourceAccess::Type::Write, handle.tag, ownerTag, id});
+  m_typedAccesses.push_back({name, handle.tag, PassAccessMode::Write, stage, usageFlags, 0, ownerTag, id});
+  return handle;
+}
+
+RGBufferHandle RenderGraphBuilder::Read(RGBufferHandle handle, RenderOwnerTag ownerTag,
+                                        PipelineStage stage, uint32_t usageFlags) {
+  const std::string name = !handle.name.empty() ? handle.name : ToResourceName(handle.tag);
+  const uint64_t id = handle.id != 0 ? handle.id : StableResourceId(name);
+  m_accesses.push_back({name, ResourceAccess::Type::Read, handle.tag, ownerTag, id});
+  m_typedAccesses.push_back({name, handle.tag, PassAccessMode::Read, stage, usageFlags, 0, ownerTag, id});
+  return handle;
+}
+
+RGBufferHandle RenderGraphBuilder::Write(RGBufferHandle handle, RenderOwnerTag ownerTag,
+                                         PipelineStage stage, uint32_t usageFlags) {
+  const std::string name = !handle.name.empty() ? handle.name : ToResourceName(handle.tag);
+  const uint64_t id = handle.id != 0 ? handle.id : StableResourceId(name);
+  m_accesses.push_back({name, ResourceAccess::Type::Write, handle.tag, ownerTag, id});
+  m_typedAccesses.push_back({name, handle.tag, PassAccessMode::Write, stage, usageFlags, 0, ownerTag, id});
+  return handle;
+}
+
+void RenderGraphBuilder::ExportResource(RenderResourceTag tag) {
+  const std::string name = ToResourceName(tag);
+  if (!name.empty()) {
+    m_exportedResources.push_back(name);
+  }
+}
+
+void RenderGraphBuilder::ExportResource(RGTextureHandle handle) {
+  const std::string name = !handle.name.empty() ? handle.name : ToResourceName(handle.tag);
+  if (!name.empty()) {
+    m_exportedResources.push_back(name);
+  }
+}
+
+void RenderGraphBuilder::ExportResource(RGBufferHandle handle) {
+  const std::string name = !handle.name.empty() ? handle.name : ToResourceName(handle.tag);
+  if (!name.empty()) {
+    m_exportedResources.push_back(name);
+  }
+}
+
+void RenderGraphBuilder::ExportResource(const std::string &resourceName) {
+  if (!resourceName.empty()) {
+    m_exportedResources.push_back(resourceName);
+  }
+}
+
+void RenderGraphBuilder::SetHasSideEffects(bool hasSideEffects) {
+  m_hasSideEffects = hasSideEffects;
+}
+
 void RenderGraph::AddPass(std::shared_ptr<RenderPass> pass) {
   if (!pass) {
     return;
@@ -387,6 +526,7 @@ void RenderGraph::AddPass(std::shared_ptr<RenderPass> pass) {
   node.pass = std::move(pass);
   m_nodes.push_back(std::move(node));
   m_isBuilt = false;
+  m_hasCachedPlan = false;
 }
 
 void RenderGraph::Clear() {
@@ -395,6 +535,8 @@ void RenderGraph::Clear() {
   m_compiledPlan = {};
   m_hasValidationErrors = false;
   m_isBuilt = false;
+  m_hasCachedPlan = false;
+  m_cachedPlanKey = 0;
 }
 
 void RenderGraphBuilder::AddPassLocalBarrier(uint32_t barrierBits) {
@@ -464,7 +606,51 @@ bool RenderGraph::IsTransientAliasingEnabled() {
   return s_transientAliasingEnabled;
 }
 
+bool RenderGraph::IsPassCulled(size_t passIndex) const {
+  if (passIndex < m_compiledPlan.cullingInfo.passCulled.size()) {
+    return m_compiledPlan.cullingInfo.passCulled[passIndex];
+  }
+  return false;
+}
+
+bool RenderGraph::IsPassCulled(uint32_t stablePassId) const {
+  for (size_t i = 0; i < m_compiledPlan.passes.size(); ++i) {
+    if (m_compiledPlan.passes[i].stablePassId == stablePassId) {
+      return m_compiledPlan.passes[i].isCulled;
+    }
+  }
+  return false;
+}
+
+bool RenderGraph::IsPassCulled(std::string_view passName) const {
+  for (size_t i = 0; i < m_nodes.size(); ++i) {
+    if (m_nodes[i].pass && m_nodes[i].passName == passName) {
+      return IsPassCulled(i);
+    }
+  }
+  return false;
+}
+
+void RenderGraph::InvalidateCompilationCache() {
+  m_hasCachedPlan = false;
+  m_cachedPlanKey = 0;
+  // P2 AD-6 (H1): invalidation is a forced-recompile contract; the engine-level
+  // (cross-instance) cache must not serve the stale plan for this key either.
+  s_compiledPlanCache.clear();
+}
+
+void RenderGraph::SetDynamicResolutionScale(float scale) {
+  m_dynamicResolutionScale = scale;
+}
+
+void RenderGraph::ClearCompilationCache() {
+  s_compiledPlanCache.clear();
+}
+
 void RenderGraph::OnResize(int width, int height) {
+  m_screenWidth = width;
+  m_screenHeight = height;
+  m_hasCachedPlan = false;
   for (Node &node : m_nodes) {
     if (node.pass) {
       node.pass->OnResize(width, height);
@@ -486,10 +672,171 @@ RenderOwnerTag RenderGraph::FindLastWriterOwner(
   return lastWriterOwner;
 }
 
-void RenderGraph::Build() {
-  m_validationDiagnostics.clear();
-  m_hasValidationErrors = false;
+PlanCompilationKey RenderGraph::ComputeCompilationKey() const {
+  PlanCompilationKey key = {};
+  constexpr uint64_t kOffsetBasis = 1469598103934665603ull;
+  constexpr uint64_t kPrime = 1099511628211ull;
 
+  auto hashString = [&](uint64_t &h, std::string_view s) {
+    for (char c : s) {
+      h ^= static_cast<uint8_t>(c);
+      h *= kPrime;
+    }
+  };
+
+  auto hashU64 = [&](uint64_t &h, uint64_t v) {
+    h ^= v;
+    h *= kPrime;
+  };
+
+  // 1. Topology Hash
+  uint64_t topo = kOffsetBasis;
+  hashU64(topo, m_nodes.size());
+  for (const Node &node : m_nodes) {
+    hashU64(topo, node.stablePassId);
+    hashU64(topo, static_cast<uint64_t>(node.passType));
+    hashU64(topo, node.hasSideEffects ? 1 : 0);
+    hashString(topo, node.passName);
+    for (const ResourceAccess &access : node.accesses) {
+      hashU64(topo, access.stableResourceId);
+      hashU64(topo, static_cast<uint64_t>(access.type));
+      hashU64(topo, static_cast<uint64_t>(access.resourceTag));
+      hashU64(topo, static_cast<uint64_t>(access.ownerTag));
+    }
+  }
+  key.topoHash = topo;
+
+  // 2. Declaration Hash
+  uint64_t decl = kOffsetBasis;
+  for (const Node &node : m_nodes) {
+    for (const TypedPassAccess &access : node.typedAccesses) {
+      hashU64(decl, access.stableResourceId);
+      hashU64(decl, static_cast<uint64_t>(access.mode));
+      hashU64(decl, static_cast<uint64_t>(access.stage));
+      hashU64(decl, access.usageFlags);
+      hashU64(decl, access.bindingOrAttachmentIndex);
+      hashU64(decl, static_cast<uint64_t>(access.ownerTag));
+    }
+    for (const TypedResourceDescriptor &desc : node.declaredDescriptors) {
+      hashU64(decl, desc.stableResourceId);
+      hashU64(decl, static_cast<uint64_t>(desc.tag));
+      hashU64(decl, static_cast<uint64_t>(desc.kind));
+      hashU64(decl, static_cast<uint64_t>(desc.format));
+      hashU64(decl, static_cast<uint64_t>(desc.extentPolicy.mode));
+      hashU64(decl, desc.extentPolicy.width);
+      hashU64(decl, desc.extentPolicy.height);
+      // P2 AD-6 (M1): the extent scale (e.g. half-res GI targets) changes the
+      // resolved resource dimensions; it must invalidate the compiled plan.
+      hashU64(decl, std::bit_cast<uint32_t>(desc.extentPolicy.scale));
+      hashU64(decl, desc.mipLevels);
+      hashU64(decl, desc.arrayLayers);
+      hashU64(decl, desc.sampleCount);
+      hashU64(decl, desc.usageFlags);
+      hashU64(decl, static_cast<uint64_t>(desc.lifetime));
+      hashU64(decl, static_cast<uint64_t>(desc.historyRelation));
+      hashU64(decl, static_cast<uint64_t>(desc.ownerTag));
+      hashU64(decl, desc.estimatedSizeBytes);
+    }
+    for (const PhaseBarrierDeclaration &pb : node.phaseBarriers) {
+      hashU64(decl, static_cast<uint64_t>(pb.sourcePhase));
+      hashU64(decl, static_cast<uint64_t>(pb.targetPhase));
+      hashU64(decl, pb.barrierBits);
+    }
+    for (const ResourceBindingDeclaration &binding : node.bindings) {
+      hashU64(decl, static_cast<uint64_t>(binding.resourceTag));
+      hashU64(decl, static_cast<uint64_t>(binding.kind));
+      hashU64(decl, binding.point);
+      hashU64(decl, binding.access);
+      hashU64(decl, binding.format);
+    }
+    for (const ResourceImportInfo &import : node.imports) {
+      hashU64(decl, static_cast<uint64_t>(import.resourceTag));
+      hashU64(decl, static_cast<uint64_t>(import.kind));
+      hashU64(decl, static_cast<uint64_t>(import.format));
+      hashU64(decl, static_cast<uint64_t>(import.backingOwner));
+      hashU64(decl, import.resizeFollowsScreen ? 1 : 0);
+      hashU64(decl, import.resizeFollowsCapacity ? 1 : 0);
+      hashU64(decl, import.bindingPoint);
+      hashU64(decl, import.imageUnit);
+      hashU64(decl, import.imageAccess);
+      hashU64(decl, import.imageFormat);
+      hashU64(decl, import.colorAttachmentIndex);
+    }
+    for (const std::string &exp : node.exportedResources) {
+      hashString(decl, exp);
+    }
+  }
+  key.declHash = decl;
+
+  // 3. Extent Hash
+  uint64_t ext = kOffsetBasis;
+  hashU64(ext, static_cast<uint64_t>(m_screenWidth));
+  hashU64(ext, static_cast<uint64_t>(m_screenHeight));
+  key.extentHash = ext;
+
+  // 4. Quality & Feature Hash
+  uint64_t qf = kOffsetBasis;
+  const auto &qm = render::core::QualityTierManager::Get();
+  hashU64(qf, static_cast<uint64_t>(qm.GetTier()));
+  const auto &cfg = qm.GetConfig();
+
+  // P2 AD-6 (M1): every cfg bit that participates in graph compilation must
+  // invalidate the cache. Pass-registration toggles (mirrors RenderSystem's
+  // per-pass AddPass gating):
+  hashU64(qf, cfg.v3Enabled ? 1 : 0);
+  hashU64(qf, cfg.clusteredLightingEnabled ? 1 : 0);
+  hashU64(qf, cfg.giEnabled ? 1 : 0);
+  hashU64(qf, cfg.bloomEnabled ? 1 : 0);
+  hashU64(qf, cfg.distortionEnabled ? 1 : 0);
+  hashU64(qf, cfg.shadowEnabled ? 1 : 0);
+  hashU64(qf, cfg.dynamicLightingEnabled ? 1 : 0);
+  hashU64(qf, cfg.volumetricLightEnabled ? 1 : 0);
+  hashU64(qf, cfg.heightShadowEnabled ? 1 : 0);
+  hashU64(qf, cfg.fluidEnabled ? 1 : 0);
+  hashU64(qf, cfg.gpuTextEnabled ? 1 : 0);
+  hashU64(qf, cfg.gpuLootEnabled ? 1 : 0);
+  // Post-process routing (IsHdrPostProcessRequested) decides the HDR scene
+  // pipeline and the post-process pass itself:
+  hashU64(qf, cfg.fxaaEnabled ? 1 : 0);
+  hashU64(qf, cfg.vignetteEnabled ? 1 : 0);
+  hashU64(qf, cfg.colorGradingEnabled ? 1 : 0);
+  hashU64(qf, static_cast<uint64_t>(cfg.colorGradingLutSize));
+  hashU64(qf, cfg.linearPipeline ? 1 : 0);
+  // V4/V5 shader-behavior toggles (conservative: an invalidation is harmless,
+  // a missed one would serve a stale plan):
+  hashU64(qf, cfg.normalLightingEnabled ? 1 : 0);
+  hashU64(qf, cfg.specularEnabled ? 1 : 0);
+  hashU64(qf, cfg.clusteredLightingV4Enabled ? 1 : 0);
+  hashU64(qf, cfg.selfShadowEnabled ? 1 : 0);
+  hashU64(qf, cfg.pomEnabled ? 1 : 0);
+  hashU64(qf, cfg.giHalfResolution ? 1 : 0);
+  hashU64(qf, cfg.giHolographicEnabled ? 1 : 0);
+  // Resource-sizing parameters that change declared descriptors/extents:
+  hashU64(qf, static_cast<uint64_t>(cfg.shadowMode));
+  hashU64(qf, static_cast<uint64_t>(cfg.shadowResolution));
+  hashU64(qf, static_cast<uint64_t>(cfg.shadowAtlasSize));
+  hashU64(qf, static_cast<uint64_t>(cfg.bloomMipLevels));
+  hashU64(qf, static_cast<uint64_t>(cfg.volumetricSampleCount));
+  hashU64(qf, static_cast<uint64_t>(cfg.materialQualityLevel));
+  hashU64(qf, static_cast<uint64_t>(cfg.clusterTileSize));
+  hashU64(qf, static_cast<uint64_t>(cfg.clusterZSliceCount));
+  hashU64(qf, static_cast<uint64_t>(cfg.giCascadeLevels));
+  hashU64(qf, static_cast<uint64_t>(cfg.giSdfUpdateInterval));
+  hashU64(qf, static_cast<uint64_t>(cfg.vfxSequenceDetail));
+
+  // P2 AD-6 (M1): the live dynamic-resolution scale. Adaptive resolution can
+  // change the rendered extent at an unchanged screen size, which must
+  // invalidate the compiled plan.
+  hashU64(qf, std::bit_cast<uint32_t>(m_dynamicResolutionScale));
+
+  hashU64(qf, s_transientAliasingEnabled ? 1 : 0);
+  hashU64(qf, s_validationEnabled ? 1 : 0);
+  key.qualityAndFeatureHash = qf;
+
+  return key;
+}
+
+void RenderGraph::CollectPassDeclarations() {
   for (size_t index = 0; index < m_nodes.size(); ++index) {
     Node &node = m_nodes[index];
     RenderGraphBuilder builder;
@@ -501,13 +848,56 @@ void RenderGraph::Build() {
     node.phaseBarriers = builder.GetPhaseBarriers();
     node.bindings = builder.GetBindings();
     node.imports = builder.GetImports();
+    node.exportedResources = builder.GetExportedResources();
+    node.hasSideEffects = builder.HasSideEffects() || (node.pass != nullptr && node.pass->HasSideEffects());
     node.passName = (node.pass != nullptr && node.pass->GetName() != nullptr)
                         ? node.pass->GetName()
                         : "UnnamedPass";
+    node.canonicalPassName = CanonicalizePassName(node.passName);
+    node.stablePassId = StablePassId(node.canonicalPassName);
     node.passType = (node.pass != nullptr) ? node.pass->Type()
                                            : RenderPassType::Count;
     node.passIndex = index;
   }
+}
+
+void RenderGraph::Build() {
+  m_validationDiagnostics.clear();
+  m_hasValidationErrors = false;
+
+  CollectPassDeclarations();
+
+  const PlanCompilationKey key = ComputeCompilationKey();
+  const uint64_t combinedKey = key.GetCombinedHash();
+
+  // Instance-local fast path: the same instance compiled the same key before.
+  // m_hasCachedPlan is only set when the plan passed validation, so this hit
+  // implicitly satisfies the M3 "already validated" contract.
+  if (m_hasCachedPlan && m_cachedPlanKey == combinedKey && !m_compiledPlan.passes.empty()) {
+    m_compilationCacheHits++;
+    m_isBuilt = true;
+    return;
+  }
+
+  // P2 AD-6 (H1): engine-level (cross-instance) cache. RenderSystem builds a
+  // fresh graph every frame; an identical PlanCompilationKey means the
+  // topology, per-node declarations, extent and quality/feature inputs are
+  // bit-identical to a previously compiled plan, so the compiled plan is
+  // reused without re-running validation or plan construction. M3: a hit is
+  // only trusted when the entry was recorded as having passed validation;
+  // anything else falls through to a full rebuild.
+  auto cachedIt = s_compiledPlanCache.find(combinedKey);
+  if (cachedIt != s_compiledPlanCache.end() && cachedIt->second.validated &&
+      !cachedIt->second.plan.passes.empty()) {
+    m_compiledPlan = cachedIt->second.plan;
+    m_cachedPlanKey = combinedKey;
+    m_hasCachedPlan = true;
+    m_compilationCacheHits++;
+    m_isBuilt = true;
+    return;
+  }
+
+  m_compilationCacheMisses++;
 
   const bool identityContractFailed = ValidatePassIdentityContract();
   const bool legacyAccessRejected = RejectLegacyStringAccess();
@@ -517,6 +907,25 @@ void RenderGraph::Build() {
   }
 
   BuildCompiledPlan();
+  m_compiledPlan.compilationKey = key;
+
+  if (!m_hasValidationErrors) {
+    m_cachedPlanKey = combinedKey;
+    m_hasCachedPlan = true;
+
+    // P2 AD-6 (H1/M3): publish to the engine-level cache so later frames
+    // (fresh graph instances with the same key) hit instead of rebuilding.
+    // Only validated plans are published (validated=true).
+    if (s_compiledPlanCache.size() >= kMaxCachedPlans) {
+      s_compiledPlanCache.clear();
+    }
+    CachedPlanEntry entry;
+    entry.plan = m_compiledPlan;
+    entry.validated = true;
+    s_compiledPlanCache[combinedKey] = std::move(entry);
+  } else {
+    m_hasCachedPlan = false;
+  }
 
   if (m_hasValidationErrors) {
     for (const ValidationDiagnostic &diagnostic : m_validationDiagnostics) {
@@ -579,6 +988,16 @@ void RenderGraph::Execute(RenderContext &context) {
   debug::GPUTimerQueryRing::Get().BeginFrame();
 
   for (Node &node : m_nodes) {
+    const uint32_t stablePassId = node.stablePassId;
+
+    // Check pass culling (T1.2, T1.7)
+    if (node.passIndex < m_compiledPlan.cullingInfo.passCulled.size() &&
+        m_compiledPlan.cullingInfo.passCulled[node.passIndex]) {
+      // Culled pass: do NOT execute GPU work, but perform CPU bookkeeping
+      debug::GPUTimerQueryRing::Get().DiscardPass(stablePassId);
+      continue;
+    }
+
     for (uint32_t barrierBits : node.passLocalBarriers) {
       if (barrierBits > 0) {
         NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
@@ -595,7 +1014,6 @@ void RenderGraph::Execute(RenderContext &context) {
 
     NoMoreDay::render::core::ApplyRlglFlushTemplate();
     const NoMoreDay::render::core::ScopedGLState scopedState;
-    const uint32_t stablePassId = node.stablePassId;
     debug::GPUTimerQueryRing::Get().BeginPass(stablePassId);
 
     if (context.renderProfiler != nullptr) {
@@ -604,14 +1022,6 @@ void RenderGraph::Execute(RenderContext &context) {
 
     context.activeGraph = this;
     m_activeNodeIndex = node.passIndex;
-    // B12 graph-driven binding execution: admit this pass's compiled binding
-    // declarations against the imported backing snapshot and issue the real GL
-    // binds via the existing GPUUtils APIs, immediately before pass Execute.
-    // The graph never owns GL handles (they come from the RenderContext
-    // snapshot). Since B2-B4 convergence (2026-08-05) this is the sole binding
-    // surface for the migrated passes; passes fail closed inside their own
-    // Execute when the admission was incomplete. Denied or unsupported
-    // bindings are never bound here.
     ApplyActivePassBindings(context);
     node.pass->Execute(context);
     m_activeNodeIndex = static_cast<size_t>(-1);
@@ -1328,11 +1738,390 @@ void RenderGraph::BuildCompiledPlan() {
         "cycle detected in render graph dependency edges");
   }
 
+  PerformPassCulling(resourceMap);
+  ComputeTransientAliasing(resourceMap);
+
   for (const auto &[resourceId, state] : resourceMap) {
     m_compiledPlan.resources.push_back(state);
   }
 
   m_compiledPlan.diagnostics = m_validationDiagnostics;
+}
+
+void RenderGraph::PerformPassCulling(std::map<uint64_t, CompiledResourceState> &resourceMap) {
+  const size_t passCount = m_nodes.size();
+  m_compiledPlan.cullingInfo = {};
+  m_compiledPlan.cullingInfo.totalPassCount = passCount;
+  m_compiledPlan.cullingInfo.passCulled.assign(passCount, false);
+
+  if (passCount == 0) {
+    return;
+  }
+
+  // 1. Identify root resources (external/exported/FinalOutputColor)
+  std::unordered_set<uint64_t> rootResourceIds;
+  std::unordered_set<std::string> exportedNames;
+  for (const Node &node : m_nodes) {
+    for (const std::string &name : node.exportedResources) {
+      exportedNames.insert(name);
+    }
+  }
+
+  for (const auto &[id, res] : resourceMap) {
+    if (res.tag == RenderResourceTag::FinalOutputColor ||
+        res.isExternal ||
+        res.descriptor.lifetime == ResourceLifetime::External ||
+        exportedNames.count(res.resourceName) > 0) {
+      rootResourceIds.insert(id);
+    }
+  }
+
+  // 2. Identify root passes (side effects, writes to root resources, or writes to imported backings)
+  std::vector<bool> reachable(passCount, false);
+  std::queue<size_t> q;
+
+  for (size_t i = 0; i < passCount; ++i) {
+    const Node &node = m_nodes[i];
+    bool isRoot = false;
+
+    if (node.hasSideEffects || (node.pass != nullptr && node.pass->HasSideEffects())) {
+      isRoot = true;
+    }
+
+    // Check if pass writes to any root resource
+    for (const ResourceAccess &access : node.accesses) {
+      if (access.type == ResourceAccess::Type::Write) {
+        if (access.resourceTag == RenderResourceTag::FinalOutputColor) {
+          isRoot = true;
+          break;
+        }
+        const uint64_t resId = access.stableResourceId != 0
+                                   ? access.stableResourceId
+                                   : StableResourceId(access.resourceName);
+        if (rootResourceIds.count(resId) > 0) {
+          isRoot = true;
+          break;
+        }
+      }
+    }
+
+    // Check if pass writes to imported resources
+    if (!isRoot && !node.imports.empty()) {
+      for (const ResourceAccess &access : node.accesses) {
+        if (access.type == ResourceAccess::Type::Write) {
+          for (const ResourceImportInfo &import : node.imports) {
+            if (access.resourceTag == import.resourceTag) {
+              isRoot = true;
+              break;
+            }
+          }
+          if (isRoot) break;
+        }
+      }
+    }
+
+    if (isRoot) {
+      reachable[i] = true;
+      q.push(i);
+    }
+  }
+
+  // 3. Reverse BFS traversal from root passes
+  while (!q.empty()) {
+    const size_t u = q.front();
+    q.pop();
+
+    const Node &node = m_nodes[u];
+    for (const ResourceAccess &access : node.accesses) {
+      if (access.type == ResourceAccess::Type::Read && !access.resourceName.empty()) {
+        const uint64_t resId = access.stableResourceId != 0
+                                   ? access.stableResourceId
+                                   : StableResourceId(access.resourceName);
+        const auto it = resourceMap.find(resId);
+        if (it != resourceMap.end()) {
+          const auto &res = it->second;
+          for (const size_t writerIndex : res.writerPassIndices) {
+            if (writerIndex < passCount && !reachable[writerIndex]) {
+              reachable[writerIndex] = true;
+              q.push(writerIndex);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 4. Update culling info and CompiledPassState
+  size_t culledCount = 0;
+  for (size_t i = 0; i < passCount; ++i) {
+    const bool isCulled = !reachable[i];
+    m_compiledPlan.cullingInfo.passCulled[i] = isCulled;
+    if (i < m_compiledPlan.passes.size()) {
+      m_compiledPlan.passes[i].isCulled = isCulled;
+    }
+    if (isCulled) {
+      culledCount++;
+      m_compiledPlan.cullingInfo.culledStablePassIds.push_back(m_nodes[i].stablePassId);
+      m_compiledPlan.cullingInfo.culledPassNames.push_back(m_nodes[i].passName);
+    }
+  }
+
+  m_compiledPlan.cullingInfo.culledPassCount = culledCount;
+  m_compiledPlan.cullingInfo.cullingRate =
+      passCount > 0 ? static_cast<float>(culledCount) / static_cast<float>(passCount) : 0.0f;
+}
+
+void RenderGraph::ComputeTransientAliasing(std::map<uint64_t, CompiledResourceState> &resourceMap) {
+  m_compiledPlan.aliasingTable = {};
+  m_compiledPlan.aliasingTable.enabled = s_transientAliasingEnabled;
+
+  const size_t passCount = m_nodes.size();
+  const auto &culling = m_compiledPlan.cullingInfo;
+
+  // 1. Extract lifetime intervals [firstUse, lastUse] for all transient resources among non-culled passes
+  std::vector<ResourceLifetimeInterval> intervals;
+  for (auto &[resId, res] : resourceMap) {
+    // Exclude non-transient, persistent history, imported, and external/exported resources.
+    //
+    // M6: depth/stencil targets are excluded from aliasing candidates. The
+    // pool path (TransientResourcePool -> GPUTexturePool) only backs color
+    // targets (withDepth=false), and there is no depth-stencil barrier/reuse
+    // design; aliasing a depth target (e.g. SceneDepth) with a color target of
+    // the same size would corrupt the depth buffer of a later pass sharing the
+    // backing store. Exclusion is keyed on the descriptor (format + usage
+    // flag + tag) so any depth-stencil transient resource is covered.
+    //
+    // H3: MSAA resources (sampleCount > 1) are excluded. GPUTexturePool's
+    // TexturePoolKey carries no sampleCount (it only supports single-sample
+    // backing), the size estimate does not multiply in sampleCount, and no
+    // multisample reuse contract exists. Reusing a multisample target as a
+    // single-sample target (or vice versa) would render garbage. If a future
+    // pool gains MSAA support, remove this exclusion and multiply the size
+    // estimate by sampleCount (already done defensively below).
+    if (res.descriptor.lifetime != ResourceLifetime::Transient ||
+        res.tag == RenderResourceTag::FinalOutputColor ||
+        res.tag == RenderResourceTag::GIHistoryColor ||
+        res.tag == RenderResourceTag::DistanceField ||
+        res.tag == RenderResourceTag::ShadowAtlas ||
+        res.tag == RenderResourceTag::ShadowDistanceField ||
+        res.tag == RenderResourceTag::ShadowMask ||
+        res.tag == RenderResourceTag::SceneDepth ||
+        res.descriptor.format == ResourceFormat::Depth24Stencil8 ||
+        res.descriptor.format == ResourceFormat::Depth32F ||
+        (res.descriptor.usageFlags & ResourceUsage::DepthAttachment) != 0u ||
+        res.descriptor.sampleCount > 1 ||
+        res.isExternal) {
+      continue;
+    }
+
+    size_t firstUse = static_cast<size_t>(-1);
+    size_t lastUse = 0;
+    bool usedInActivePass = false;
+
+    // Check writers
+    for (size_t w : res.writerPassIndices) {
+      if (w < passCount && (!culling.passCulled.empty() && !culling.passCulled[w])) {
+        usedInActivePass = true;
+        firstUse = std::min(firstUse, w);
+        lastUse = std::max(lastUse, w);
+      }
+    }
+    // Check readers
+    for (size_t r : res.readerPassIndices) {
+      if (r < passCount && (!culling.passCulled.empty() && !culling.passCulled[r])) {
+        usedInActivePass = true;
+        firstUse = std::min(firstUse, r);
+        lastUse = std::max(lastUse, r);
+      }
+    }
+
+    if (!usedInActivePass) {
+      continue;
+    }
+
+    ResourceLifetimeInterval interval = {};
+    interval.stableResourceId = res.stableResourceId;
+    interval.resourceName = res.resourceName;
+    interval.tag = res.tag;
+    interval.firstUsePassIndex = firstUse;
+    interval.lastUsePassIndex = lastUse;
+    interval.isTransient = true;
+    interval.descriptor = res.descriptor;
+
+    // Estimate size
+    size_t estimatedSize = res.descriptor.estimatedSizeBytes;
+    if (estimatedSize == 0 && res.descriptor.kind == ResourceKind::Texture2D) {
+      uint32_t width = res.descriptor.extentPolicy.width > 0
+                           ? res.descriptor.extentPolicy.width
+                           : static_cast<uint32_t>(m_screenWidth);
+      uint32_t height = res.descriptor.extentPolicy.height > 0
+                            ? res.descriptor.extentPolicy.height
+                            : static_cast<uint32_t>(m_screenHeight);
+      if (res.descriptor.extentPolicy.scale > 0.0f && res.descriptor.extentPolicy.scale != 1.0f) {
+        width = static_cast<uint32_t>(width * res.descriptor.extentPolicy.scale);
+        height = static_cast<uint32_t>(height * res.descriptor.extentPolicy.scale);
+      }
+      size_t bpp = 4;
+      switch (res.descriptor.format) {
+      case ResourceFormat::R8: bpp = 1; break;
+      case ResourceFormat::R16F: bpp = 2; break;
+      case ResourceFormat::RG16F: bpp = 4; break;
+      case ResourceFormat::RGBA8: bpp = 4; break;
+      case ResourceFormat::RGBA16F: bpp = 8; break;
+      case ResourceFormat::RGBA32F: bpp = 16; break;
+      case ResourceFormat::R32F: bpp = 4; break;
+      case ResourceFormat::RG32F: bpp = 8; break;
+      case ResourceFormat::Depth24Stencil8: bpp = 4; break;
+      case ResourceFormat::Depth32F: bpp = 4; break;
+      default: bpp = 4; break;
+      }
+      // MSAA candidates are excluded above (H3), so sampleCount is 1 here;
+      // the multiplication is defensive so the estimate stays correct if a
+      // future pool gains MSAA backing.
+      estimatedSize = static_cast<size_t>(width) * height * bpp *
+                      std::max(1u, res.descriptor.mipLevels) *
+                      std::max(1u, res.descriptor.arrayLayers) *
+                      std::max(1u, res.descriptor.sampleCount);
+    }
+    interval.estimatedSizeBytes = Align256(std::max<size_t>(256, estimatedSize));
+    intervals.push_back(interval);
+  }
+
+  m_compiledPlan.aliasingTable.intervals = intervals;
+
+  // 2. Check safety valve: if aliasing is disabled, generate exact allocation path
+  if (!s_transientAliasingEnabled) {
+    m_compiledPlan.aliasingTable.exactAllocationMode = true;
+    size_t totalBytes = 0;
+    uint32_t groupIndex = 0;
+    for (const auto &inv : intervals) {
+      TransientAliasingEntry entry = {};
+      entry.originalResourceId = inv.stableResourceId;
+      entry.resourceName = inv.resourceName;
+      entry.aliasedToResourceId = inv.stableResourceId;
+      entry.aliasedToResourceName = inv.resourceName;
+      entry.aliasGroupIndex = groupIndex++;
+      entry.byteOffset = 0;
+      entry.allocatedSizeBytes = inv.estimatedSizeBytes;
+      m_compiledPlan.aliasingTable.entries.push_back(entry);
+      totalBytes += inv.estimatedSizeBytes;
+    }
+    m_compiledPlan.aliasingTable.totalVRAMEstimatedBytes = totalBytes;
+    m_compiledPlan.aliasingTable.aliasedVRAMEstimatedBytes = totalBytes;
+    m_compiledPlan.aliasingTable.memorySavingsRate = 0.0f;
+    return;
+  }
+
+  // 3. First-fit 256B alignment aliasing for compatible non-overlapping intervals
+  struct AliasGroup {
+    uint32_t groupIndex = 0;
+    uint64_t primaryResourceId = 0;
+    std::string primaryResourceName;
+    ResourceKind kind = ResourceKind::Texture2D;
+    ResourceFormat format = ResourceFormat::RGBA8;
+    // H3: the group key must cover the full descriptor compatibility: two
+    // resources may share one backing store only when kind, format, sample
+    // count, mip-chain depth AND usage flags all match. Comparing only
+    // kind+format previously merged MSAA vs linear targets, differing mip
+    // chains, and sample-vs-render-target usages into one group, which could
+    // produce corrupted rendering through erroneous reuse.
+    uint32_t sampleCount = 1;
+    uint32_t mipLevels = 1;
+    uint32_t usageFlags = ResourceUsage::ColorAttachment;
+    size_t maxSizeBytes = 0;
+    std::vector<size_t> intervalIndices;
+  };
+
+  std::vector<AliasGroup> groups;
+  size_t totalBytes = 0;
+
+  for (size_t i = 0; i < intervals.size(); ++i) {
+    const auto &inv = intervals[i];
+    totalBytes += inv.estimatedSizeBytes;
+
+    // Find compatible existing group with no interval overlap
+    bool placed = false;
+    for (AliasGroup &group : groups) {
+      // H3: full descriptor compatibility — kind, format, sample count, mip
+      // depth and usage flags must all match before sharing is allowed.
+      if (group.kind == inv.descriptor.kind && group.format == inv.descriptor.format &&
+          group.sampleCount == inv.descriptor.sampleCount &&
+          group.mipLevels == inv.descriptor.mipLevels &&
+          group.usageFlags == inv.descriptor.usageFlags) {
+        // Check non-overlapping with all intervals in this group
+        bool overlaps = false;
+        for (size_t groupInvIdx : group.intervalIndices) {
+          const auto &other = intervals[groupInvIdx];
+          if (!(inv.lastUsePassIndex < other.firstUsePassIndex || other.lastUsePassIndex < inv.firstUsePassIndex)) {
+            overlaps = true;
+            break;
+          }
+        }
+        if (!overlaps) {
+          group.intervalIndices.push_back(i);
+          group.maxSizeBytes = std::max(group.maxSizeBytes, inv.estimatedSizeBytes);
+          TransientAliasingEntry entry = {};
+          entry.originalResourceId = inv.stableResourceId;
+          entry.resourceName = inv.resourceName;
+          entry.aliasedToResourceId = group.primaryResourceId;
+          entry.aliasedToResourceName = group.primaryResourceName;
+          entry.aliasGroupIndex = group.groupIndex;
+          entry.byteOffset = 0;
+          entry.allocatedSizeBytes = inv.estimatedSizeBytes;
+          m_compiledPlan.aliasingTable.entries.push_back(entry);
+          placed = true;
+          break;
+        }
+      }
+    }
+
+    if (!placed) {
+      AliasGroup newGroup = {};
+      newGroup.groupIndex = static_cast<uint32_t>(groups.size());
+      newGroup.primaryResourceId = inv.stableResourceId;
+      newGroup.primaryResourceName = inv.resourceName;
+      newGroup.kind = inv.descriptor.kind;
+      newGroup.format = inv.descriptor.format;
+      newGroup.sampleCount = inv.descriptor.sampleCount;
+      newGroup.mipLevels = inv.descriptor.mipLevels;
+      newGroup.usageFlags = inv.descriptor.usageFlags;
+      newGroup.maxSizeBytes = inv.estimatedSizeBytes;
+      newGroup.intervalIndices.push_back(i);
+
+      TransientAliasingEntry entry = {};
+      entry.originalResourceId = inv.stableResourceId;
+      entry.resourceName = inv.resourceName;
+      entry.aliasedToResourceId = inv.stableResourceId;
+      entry.aliasedToResourceName = inv.resourceName;
+      entry.aliasGroupIndex = newGroup.groupIndex;
+      entry.byteOffset = 0;
+      entry.allocatedSizeBytes = inv.estimatedSizeBytes;
+      m_compiledPlan.aliasingTable.entries.push_back(entry);
+
+      groups.push_back(std::move(newGroup));
+    }
+  }
+
+  size_t aliasedBytes = 0;
+  for (const auto &g : groups) {
+    aliasedBytes += g.maxSizeBytes;
+  }
+
+  // H4: the interval graph above is a compile-time *potential*, not a runtime
+  // realization. TransientResourcePool holds entries at frame granularity
+  // (BeginFrame clears inUse, EndFrame retires), and Execute() has no
+  // pass-boundary Acquire/Release wiring, so two same-frame non-overlapping
+  // intervals never share backing memory in practice. The realized VRAM
+  // savings from aliasing is therefore zero; real savings come only from the
+  // pool's cross-frame exact-match entry cache (TransientResourcePool::
+  // GetAliasedReuseCount), which is outside this table's accounting scope.
+  // Report the realized rate (0) so the metric matches GetTrackedBytes() and
+  // actual VRAM accounting, and keep the estimated totals as documented
+  // potential that becomes real only if pass-granular aliasing (H4 option 1)
+  // is implemented.
+  m_compiledPlan.aliasingTable.totalVRAMEstimatedBytes = totalBytes;
+  m_compiledPlan.aliasingTable.aliasedVRAMEstimatedBytes = aliasedBytes;
+  m_compiledPlan.aliasingTable.memorySavingsRate = 0.0f;
 }
 
 void RenderGraph::AddValidationDiagnostic(
@@ -1358,13 +2147,43 @@ std::string RenderGraph::CompiledRenderPlan::DumpPlan() const {
   ss << "Pass Count: " << passOrder.size() << "\n";
   ss << "Pass Order:\n";
   for (size_t i = 0; i < passOrder.size(); ++i) {
-    ss << "  [" << i << "] " << passOrder[i] << "\n";
+    ss << "  [" << i << "] " << passOrder[i]
+       << (cullingInfo.passCulled.size() > i && cullingInfo.passCulled[i] ? " [CULLED]" : "") << "\n";
   }
 
   ss << "Stable Pass IDs:\n";
   for (const auto &pass : passes) {
     ss << "  [" << pass.passIndex << "] " << pass.passName << " id=0x"
-       << std::hex << pass.stablePassId << std::dec << "\n";
+       << std::hex << pass.stablePassId << std::dec
+       << (pass.isCulled ? " [CULLED]" : "") << "\n";
+  }
+
+  ss << "Pass Culling Info:\n";
+  ss << "  Total Passes: " << cullingInfo.totalPassCount
+     << ", Culled: " << cullingInfo.culledPassCount
+     << ", Culling Rate: " << (cullingInfo.cullingRate * 100.0f) << "%\n";
+  if (!cullingInfo.culledPassNames.empty()) {
+    ss << "  Culled Passes: ";
+    for (const auto &name : cullingInfo.culledPassNames) {
+      ss << name << " ";
+    }
+    ss << "\n";
+  }
+
+  ss << "Transient Aliasing Table:\n";
+  ss << "  Enabled: " << (aliasingTable.enabled ? "YES" : "NO")
+     << ", Exact Allocation Mode: " << (aliasingTable.exactAllocationMode ? "YES" : "NO") << "\n";
+  ss << "  Estimated Total VRAM (potential): " << aliasingTable.totalVRAMEstimatedBytes << " B"
+     << ", Aliased VRAM (potential): " << aliasingTable.aliasedVRAMEstimatedBytes << " B\n";
+  ss << "  Realized Savings: " << (aliasingTable.memorySavingsRate * 100.0f)
+     << "% (frame-interval aliasing NOT realized at runtime: pool is "
+        "frame-granular, see H4; cross-frame reuse is tracked by "
+        "TransientResourcePool::GetAliasedReuseCount)\n";
+  for (const auto &entry : aliasingTable.entries) {
+    ss << "  - Resource: " << entry.resourceName << " -> Group #" << entry.aliasGroupIndex
+       << " (AliasedTo: " << entry.aliasedToResourceName
+       << ", Offset: " << entry.byteOffset
+       << ", Size: " << entry.allocatedSizeBytes << " B)\n";
   }
 
   ss << "Resource States (" << resources.size() << "):\n";

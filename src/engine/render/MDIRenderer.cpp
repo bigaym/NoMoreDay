@@ -57,10 +57,14 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   m_scatterShader =
       rm.loadComputeShader("mdi_scatter"_hash, "assets/shaders/scatter_stats.compute");
 
-  if (m_renderShader.id == 0 || m_cullShader.id == 0 || m_scatterShader.id == 0) {
+  m_packShader =
+      rm.loadComputeShader("mdi_pack"_hash, "assets/shaders/instance_pack.compute");
+
+  if (m_renderShader.id == 0 || m_cullShader.id == 0 || m_scatterShader.id == 0 ||
+      m_packShader.id == 0) {
     LOG_ERROR(
-        "MDIRenderer: shader initialization failed (render={}, cull={}, scatter={})",
-        m_renderShader.id, m_cullShader.id, m_scatterShader.id);
+        "MDIRenderer: shader initialization failed (render={}, cull={}, scatter={}, pack={})",
+        m_renderShader.id, m_cullShader.id, m_scatterShader.id, m_packShader.id);
     return;
   }
 
@@ -69,6 +73,7 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand), 3);
   m_statsBuffer.Create(maxEntities * sizeof(components::GPUVisualStats), 3);
   m_statsStaging.Create(maxEntities * sizeof(StatUpdateCmd), 3);
+  m_packedBuffer.Create(maxEntities * sizeof(components::GPUPackedEntityInstance), 3);
 
   // 3. Create Quad VAO
   // Reordered for GL_TRIANGLE_STRIP: TL, BL, TR, BR
@@ -126,6 +131,7 @@ void MDIRenderer::Shutdown() {
   m_commandBuffer.Destroy();
   m_statsBuffer.Destroy();
   m_statsStaging.Destroy();
+  m_packedBuffer.Destroy();
 }
 
 void MDIRenderer::Update(ResourceManager &rm, const PersistentBuffer &entities,
@@ -238,12 +244,54 @@ void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Ve
   m_visibleBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
   m_commandBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
 
-  // Dispatch - No barrier here, Render() will handle it as the Consumer
+  // Dispatch - No barrier here, Pack() will handle barrier as the Consumer
   uint32_t dispatchCount = (m_maxActiveEntities > 0) ? m_maxActiveEntities : m_maxEntities;
   utils::GPUUtils::ScopedDebugGroup debugGroup("MDICull");
   constexpr uint32_t kCullLocalSize = 256;
   uint32_t groups = (dispatchCount + kCullLocalSize - 1) / kCullLocalSize;
   utils::GPUUtils::DispatchComputeNoBarrier(groups, 1, 1);
+
+  rlDisableShader();
+
+  // Execute Instance Pack compute pass (AD-7 32B compact packing)
+  Pack(rm, entities);
+}
+
+void MDIRenderer::Pack(ResourceManager &rm, const PersistentBuffer &entities) {
+  if (m_packShader.id == 0)
+    return;
+
+  NoMoreDay::utils::ScopedTimer timer("MDI Pack", 3000);
+  using namespace NoMoreDay::RenderConstants;
+
+  // Ensure cull output (visibleIndices and DrawCommand instanceCount) is visible to compute
+  utils::GPUUtils::MemoryBarrier(Barrier::SSBO | Barrier::Command);
+
+  rlEnableShader(m_packShader.id);
+
+  int locMaxEntities = rlGetLocationUniform(m_packShader.id, "maxEntities");
+  if (locMaxEntities != -1) {
+    int maxEnt = static_cast<int>(m_maxEntities);
+    rlSetUniform(locMaxEntities, &maxEnt, RL_SHADER_UNIFORM_INT, 1);
+  }
+
+  // Bind inputs. DrawCommand (instanceCount guard) is read on physical slot 4
+  // (pass-local alias of SSBO_LABEL_INSTANCE, see InstancePackCS::DRAW_COMMAND);
+  // the label pass rebinds slot 4 before UI draws, so the alias is safe.
+  entities.BindPreviousNoSync(InstancePackCS::ENTITY_DATA);
+  m_visibleBuffer.BindBase(InstancePackCS::VISIBLE_ID);
+  m_commandBuffer.BindBase(InstancePackCS::DRAW_COMMAND);
+  m_statsBuffer.BindBase(InstancePackCS::VISUAL_STATS);
+
+  // Bind output: packed 32B stream on physical slot 2 (pass-local alias of
+  // SSBO_COMMAND), matching the read side in entity_mdi.vert.
+  m_packedBuffer.BindBase(InstancePackCS::PACKED_INSTANCES);
+
+  uint32_t dispatchCount = (m_maxActiveEntities > 0) ? m_maxActiveEntities : m_maxEntities;
+  utils::GPUUtils::ScopedDebugGroup debugGroup("MDIPack");
+  constexpr uint32_t kCullLocalSize = 256;
+  uint32_t groups = (dispatchCount + kCullLocalSize - 1) / kCullLocalSize;
+  utils::GPUUtils::DispatchCompute(groups, 1, 1);
 
   rlDisableShader();
 }
@@ -367,17 +415,9 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
     rlSetUniform(locDetailArray, &detailUnit, RL_SHADER_UNIFORM_INT, 1);
   }
 
-  // 5. EXPLICITLY BIND ALL SSBOs
-  // Entities: Previous (Logic Frame)
-  entities.BindPreviousNoSync(static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA));
-  
-  // Visible & Stats: Current (Render Frame) - This was the bug (BindPrevious vs BindBase)
-  m_visibleBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
-  
-  // Stats should visually reflect logic, but if UpdateStats calculated them for this frame...
-  // Usually Stats are updated in Render Loop (interpolation)? No, Update loop.
-  // UpdateStats writes to Current. So Render should read Current.
-  m_statsBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS));
+  // 5. EXPLICITLY BIND PASS-LOCAL SSBOs
+  // Entity-MDI vertex shader consumes 32B packed instances at local slot 2
+  m_packedBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
 
   // Bind Command Buffer for Indirect Draw (Current)
   m_commandBuffer.Bind(GL::DRAW_INDIRECT_BUFFER); // Defaults to Current
@@ -406,13 +446,15 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
                                  Barrier::Buffer);
 
   // Use TRIANGLE_STRIP for 4-vertex Quad (BL, BR, TR, TL)
-  // [FIX] Use GetCurrentSlotOffset because m_commandBuffer is a PersistentBuffer and Cull wrote to current slot.
-  // Render() hasn't called Lock() yet, so Current matches Cull's slot.
   utils::GPUUtils::DrawArraysIndirect(GL::TRIANGLE_STRIP, m_commandBuffer.GetCurrentSlotOffset());
   rlDisableVertexArray();
 
   rlDisableShader();
   MaterialManager::Get().UnbindSSBO(Binding::SSBO_MATERIAL_DATA);
+
+  // RESTORE GLOBAL SSBO SLOT 2 (SSBO_COMMAND)
+  m_commandBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
+
   if (boundMaterialArrays) {
     TextureArrayManager::Get().Unbind(
         static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
@@ -426,6 +468,7 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   m_commandBuffer.Lock();
   m_visibleBuffer.Lock();
   m_statsBuffer.Lock();
+  m_packedBuffer.Lock();
 }
 
 } // namespace NoMoreDay::render

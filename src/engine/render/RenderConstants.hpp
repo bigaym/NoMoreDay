@@ -146,6 +146,23 @@ constexpr uint32_t UPDATES = 0;
 constexpr uint32_t MAIN_STATS = 1;
 } // namespace StatsScatterCS
 
+namespace InstancePackCS {
+constexpr uint32_t ENTITY_DATA = 0;
+constexpr uint32_t VISIBLE_ID = 1;
+// PACKED_INSTANCES aliases Binding::SSBO_COMMAND (physical slot 2) on a
+// pass-local basis: instance_pack.compute writes the 32B packed stream to slot 2
+// so entity_mdi.vert can read it from the same binding (AD-7 / plan §2 item 3).
+// This does not expand the global 0..15 contract — the binding is rebound inside
+// the pack pass and restored before the MDI draw.
+constexpr uint32_t PACKED_INSTANCES = 2;
+constexpr uint32_t VISUAL_STATS = 3;
+// DRAW_COMMAND temporarily aliases Binding::SSBO_LABEL_INSTANCE (physical slot 4)
+// during the pack pass only, to read the GPU-written instanceCount guard. The
+// label pass unconditionally rebinds slot 4 before UI draws (RenderSystem.cpp),
+// so the alias is safe and pass-local.
+constexpr uint32_t DRAW_COMMAND = 4;
+} // namespace InstancePackCS
+
 namespace FogOfWarCS {
 constexpr uint32_t VISIBILITY_BUFFER = 0;
 constexpr uint32_t OUTPUT_IMAGE = 0;

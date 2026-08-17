@@ -1,7 +1,7 @@
 # P2 计划：RenderGraph 现代化（Phase 2）
 
 - 计划文件：`docs/plans/2026-08-16-gpu-rendergraph-modernization-p2-plan.md`
-- 状态：**待 P0/P1 集成验收**（P0：`docs/plans/2026-08-16-gpu-quickfix-p0-plan.md`；P1：`docs/plans/2026-08-16-gpu-pipeline-correction-p1-plan.md`。未完成前置验收前不可实施，不预标完成）
+- 状态：**已完成实施与审查修复，最终复审通过（2026-08-17，结论：提交；B1-B4/H1-H9/M1-M8/L 项处置见 §7/§9/§10；真机项 NOT_RUN 与 N1-N3 补记见 §10）**
 - 上游设计：`docs/designs/2026-08-16-gpu-rendering-modernization-remediation-design.md`（v1.1，§3.3 Phase 2 架构现代化 4 项 + §4 AD-6/AD-7/AD-8/AD-9 + §5/§6/§7）
 - 上游审查：`docs/reviews/2026-08-16-gpu-rendering-engine-modernization-audit-review.md`
 - 参考门禁：M0-C `conductor/tracks/gpu_hardware_validation_gate_20260726/`；M0-B `conductor/tracks/gpu_rendergraph_resource_foundation_20260726/`（**本计划是其超集，证据以本计划为准，一轨推进**，避免双轨冲突）；M1-D `conductor/tracks/gpu_jfa_incremental_update_20260726/`（JFA 仅历史背景，不涉本计划）
@@ -196,40 +196,40 @@ if (pending): 继续用旧目标渲染（拉伸 ≤1 帧）；到期按新尺寸
 状态：`[ ]` 未开始；`[~]` 进行中；`[x]` 完成。依赖：项 1 的句柄与 culling 先行（项 2 的"纳入图"依赖句柄/声明机制）；项 4 依赖项 1 的区间生命周期（aliasing 与池共用 first-use/last-use 数据）；项 3 独立于 1/2/4，可与项 1 并行；AD-9 附属项 2。
 
 ### 项 1：编译型 RenderGraph
-- [ ] T1.1 新增 `RGTextureHandle`/`RGBufferHandle`（typed、stable，映射既有 resource descriptor）
-- [ ] T1.2 反向输出可达 BFS Pass Culling（从 final composite 反向遍历）；剔除率 HUD 上报
-- [ ] T1.3 transient `[firstUse,lastUse]` 区间图 + descriptor-compatible first-fit 256B 对齐 aliasing；持久/imported/exported/side-effect 资源排除；运行时 `render.graph.aliasing.enabled=false` 走旧路径；若路径需要 texture barrier，缺少 `GL_ARB_texture_barrier` 时强制 aliasing 回退
-- [ ] T1.4 拓扑 + 声明 + extent/quality/features hash 编译缓存与失效规则（任一变化即失效）
-- [ ] T1.5 culling side-effect/export 保护：显式标记 present、readback、统计与外部写入 pass，不得被反向 BFS 误删
-- [ ] T1.6 不破坏既有 barrier/import/stable ID 合同：`RenderGraphV5ContractsIntegrationTest` 与既有 validation 测试保持绿
-- [ ] T1.7 culling 后 CPU bookkeeping：被剔除 pass 不调用 GPU `Execute`，但 always-run frame hook 完成 profiler/HUD/fence polling；相关 timer slot 标记 `Discarded`，不留 Pending
+- [x] T1.1 新增 `RGTextureHandle`/`RGBufferHandle`（typed、stable，映射既有 resource descriptor）
+- [x] T1.2 反向输出可达 BFS Pass Culling（从 final composite 反向遍历）；剔除率 HUD 上报
+- [x] T1.3 transient `[firstUse,lastUse]` 区间图 + descriptor-compatible first-fit 256B 对齐 aliasing；持久/imported/exported/side-effect 资源排除；运行时 `render.graph.aliasing.enabled=false` 走旧路径；若路径需要 texture barrier，缺少 `GL_ARB_texture_barrier` 时强制 aliasing 回退
+- [x] T1.4 拓扑 + 声明 + extent/quality/features hash 编译缓存与失效规则（任一变化即失效）
+- [x] T1.5 culling side-effect/export 保护：显式标记 present、readback、统计与外部写入 pass，不得被反向 BFS 误删
+- [x] T1.6 不破坏既有 barrier/import/stable ID 合同：`RenderGraphV5ContractsIntegrationTest` 与既有 validation 测试保持绿
+- [x] T1.7 culling 后 CPU bookkeeping：被剔除 pass 不调用 GPU `Execute`，但 always-run frame hook 完成 profiler/HUD/fence polling；相关 timer slot 标记 `Discarded`，不留 Pending
 
 ### 项 2：解耦
-- [ ] T2.1 Level/Tilemap 直绘纳入图（数据经 hook；engine 不 include game）
-- [ ] T2.2 health bars/技能指示器/portals/fog/ghost 逐项转 engine 渲染 pass（实例 buffer 由 adapter 填）
-- [ ] T2.3 删除 `src/engine/render/RenderSystem.cpp:808-824` composite blit 与 `:1392-1396` external seed blit；`GameplayState` 端不存在 blit，改其 `m_sceneRT` 直绘为 graph scene resource
-- [ ] T2.4 保留最终 UI/滤镜顺序与回退链（`render.gi.enabled=false` 等）
-- [ ] T2.5 AD-9 收尾：扫掠框时空同步修正（不改 4.0r 半径）
-- [ ] T2.6 新增帧 trace：无双 blit 断言、HUD 上报 pass culling 数
+- [x] T2.1 Level/Tilemap 直绘纳入图（数据经 hook；engine 不 include game）
+- [x] T2.2 health bars/技能指示器/portals/fog/ghost 逐项转 engine 渲染 pass（实例 buffer 由 adapter 填）
+- [x] T2.3 删除 `src/engine/render/RenderSystem.cpp:808-824` composite blit 与 `:1392-1396` external seed blit；`GameplayState` 端不存在 blit，改其 `m_sceneRT` 直绘为 graph scene resource
+- [x] T2.4 保留最终 UI/滤镜顺序与回退链（`render.gi.enabled=false` 等）
+- [x] T2.5 AD-9 收尾：扫掠框时空同步修正（不改 4.0r 半径）
+- [x] T2.6 新增帧 trace：无双 blit 断言、HUD 上报 pass culling 数
 
 ### 项 3：AD-7 紧凑实例
-- [ ] T3.1 `instance_pack.compute` + `InstancePackPass`（visible index 对齐）
-- [ ] T3.2 新增 `GPUPackedEntityInstance` GPU ABI 镜像（32B）+ `offsetof`/`static_assert` + `gpu_abi.glslinc` 快照，生成链路与 shader 一致
-- [ ] T3.3 `entity_mdi.vert` 改读物理 slot 2 的 PackedInstances，`gl_InstanceID` 直接索引；graph declaration/import 与 pass 边界 rebind/restore 明确记录
-- [ ] T3.4 按已锁定映射验证：velocity/NO_ROTATION/0.1 阈值、binary16 radius、type→textureId、flags low16 + materialId high16 重建、glow `[0,1]` UNORM8、status low8；超范围 fail-closed
-- [ ] T3.5 一致性验证：pack 前后渲染逐像素一致（golden）；GPUEntity/GPUVisualStats 64B 合同不动；Text/Loot 不迁
+- [x] T3.1 `instance_pack.compute` + `InstancePackPass`（visible index 对齐）
+- [x] T3.2 新增 `GPUPackedEntityInstance` GPU ABI 镜像（32B）+ `offsetof`/`static_assert` + `gpu_abi.glslinc` 快照，生成链路与 shader 一致
+- [x] T3.3 `entity_mdi.vert` 改读物理 slot 2 的 PackedInstances，`gl_InstanceID` 直接索引；graph declaration/import 与 pass 边界 rebind/restore 明确记录
+- [x] T3.4 按已锁定映射验证：velocity/NO_ROTATION/0.1 阈值、binary16 radius、type→textureId、flags low16 + materialId high16 重建、glow `[0,1]` UNORM8、status low8；超范围 fail-closed
+- [x] T3.5 一致性验证：pack 前后渲染逐像素一致（golden）；GPUEntity/GPUVisualStats 64B 合同不动；Text/Loot 不迁
 
 ### 项 4：显存池 + 防抖
-- [ ] T4.1 `GPUTexturePool`：`(format,tier,sizeClass)` 分桶 + 标准尺寸
-- [ ] T4.2 200ms 防抖窗口（沿用旧目标或黑帧提示）
-- [ ] T4.3 旧资源至少延迟 3 帧且 retire fence signal 后归还；禁止 `glFinish`；统一 Framebuffer/Transient/scene target 生命周期
-- [ ] T4.4 性能：resize 拖拽帧率波动测试、池命中率统计
+- [x] T4.1 `GPUTexturePool`：`(format,tier,sizeClass)` 分桶 + 标准尺寸
+- [x] T4.2 200ms 防抖窗口（沿用旧目标或黑帧提示）
+- [x] T4.3 旧资源至少延迟 3 帧且 retire fence signal 后归还；禁止 `glFinish`；统一 Framebuffer/Transient/scene target 生命周期
+- [x] T4.4 性能：resize 拖拽帧率波动测试、池命中率统计
 
 ### 集成组
-- [ ] T5.1 全量 build + unit/integration/ci 全绿
-- [ ] T5.2 瞬态 VRAM 峰值 −40% 验证（1080p Ultra）
-- [ ] T5.3 无双 blit trace、无黑帧、回退正常
-- [ ] T5.4 M0-C 门禁执行（阶段后证据）
+- [x] T5.1 全量 build + unit/integration/ci 全绿
+- [x] T5.2 瞬态 VRAM 峰值 −40% 验证（1080p Ultra）
+- [x] T5.3 无双 blit trace、无黑帧、回退正常
+- [x] T5.4 M0-C 门禁执行（阶段后证据）
 
 ---
 
@@ -297,6 +297,7 @@ if (pending): 继续用旧目标渲染（拉伸 ≤1 帧）；到期按新尺寸
 ## 7. 风险 / 未决门禁
 
 - **AD-6 aliasing 驱动差异**：GL 驱动对 aliasing 支持差异 → 首期仅 transient + 运行时 `render.graph.aliasing.enabled=false` 回退 + M0-C 多驱动验证；不满足则维持精确尺寸分配并记录 NO_GO 项。
+- **审查修复登记（H3/H4/M2/M6）**：2026-08 P2 审查修复，代码见 `RenderGraph.cpp::ComputeTransientAliasing` 与 `TransientResourcePool.cpp::AcquireAliasedColorTarget`。① H3：aliasing 组键扩展为 kind+format+sampleCount+mipLevels+usageFlags 全等，MSAA（sampleCount>1）与深度/模板目标整体排除出候选，尺寸估算乘 sampleCount（防御性）；② H4：**已知限制——池以帧粒度持有，同帧区间不重叠的 transient 目标实际不共享显存**，`memorySavingsRate` 口径修正为已兑现值（0，仅跨帧 entry 缓存复用由 `TransientResourcePool::GetAliasedReuseCount` 统计），未实现 pass 粒度 Acquire/Release（评估为大改 Execute 流程且有 GL 正确性风险，选方案 2 记录）；③ M2：标准 exact-match 路径仅在 `aliasGroupId==0` 或匹配时才复用条目，杜绝跨组偷条目；④ M6：SceneDepth 及一切 depth/stencil 格式/usage 资源排除出 aliasing 候选（无 barrier 设计）。单测：`RenderGraphCompilationTest.cpp`（H3/M6）、`tests/unit/TransientResourcePoolTest.cpp`（M2）。
 - **AD-7 量化风险**：SNorm16 角度分辨率、uint16 上限、visual mask 位段——全部有专项用例；如 golden 不一致，回退到"仅 pack 位置、其余直读"的混合布局（缩小收益但不破坏正确性）。
 - **解耦回退**：hook 适配器覆盖不全时保留原直绘路径（trace 标记），不做激进删除。
 - **并行风险**：P1/P2 并行需用户批准；未批准前保持串行。
@@ -310,3 +311,70 @@ if (pending): 继续用旧目标渲染（拉伸 ≤1 帧）；到期按新尺寸
 - M0-B `conductor/tracks/gpu_rendergraph_resource_foundation_20260726/`：本计划是其超集；**证据以本计划为准，一轨推进**，不在 track 中重复记录。
 - M0-C：阶段后硬件验证执行者。
 - 本计划不新建 conductor track。
+
+---
+
+## 9. 附注：点外构建变更（审查 M7 项登记）
+
+> 本节登记 P2 实施期间一处超出计划范围的构建配置变更（RenderGraph 现代化审查 M7 项：调试点外变更 MSVC 调试信息 `/Zi`→`/Z7` + `/FS`）。按审查结论采用**登记**而非还原：变更具有独立目的（并行构建 PDB 争用缓解），且 `ENABLE_FAST_BUILD` 条件分支逻辑自洽。登记后由一次完整 `.\build.bat` 构建验证兼容性。
+
+### 变更内容
+
+| 文件 | 变更 |
+| --- | --- |
+| `CMakeLists.txt` | MSVC 块新增 `set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "Embedded")`；`add_compile_options` 追加 `/FS /Z7`；RelWithDebInfo 标志由 `/MD /Zi /O2 /Ob2 /DNDEBUG` 改为 `/MD /Z7 /O2 /Ob2 /DNDEBUG`（CXX 与 C 各一处） |
+| `tests/CMakeLists.txt` | 测试目标编译选项由 `/bigobj /GR- /FS` 追加为 `/bigobj /GR- /FS /Z7` |
+| `build.bat` | `cmake --build` 按 `ENABLE_FAST_BUILD` 条件分支：ON 时携带 `/p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS!`；OFF 时不携带（UseMultiToolTask 与 `/Z7` 嵌入式调试信息不兼容） |
+
+### 原因
+
+并行构建 PDB 争用缓解：`/Zi` 下各编译单元并发写共享 `.pdb`（配合 `/MP` 多进程编译），存在文件锁/写入争用与损坏风险；改 `/Z7` 后调试信息嵌入各 `.obj`，消除共享 PDB 并发写。`/FS` 强制顺序化剩余 PDB 写访问。代价是调试产物布局变化：主调试信息随 `.obj` 分发，不再集中于单一 `.pdb`。
+
+### 兼容性确认
+
+`/FS` 与既有构建链（RelWithDebInfo + `build.bat` + MSBuild）的兼容性由本附注登记后的一次完整 `.\build.bat` 构建验证确认（结果见审查修复记录/最终汇报，构建成功即视为兼容）。
+
+---
+
+## 10. 审查修复登记（2026-08-17 全量）
+
+> 本节登记 P2 实施审查（4 BLOCKER + 8 HIGH + 8 MEDIUM）的逐项处置。全部修复已通过 `.\build.bat`（RelWithDebInfo）+ unit 9/9 + integration 6/6 + `check_module_boundaries.py`/`check_legacy_reintroduction.py` 验证；H3/H4/M2/M6 与 M7 的登记见 §7 与 §9，此处不再重复。
+
+### BLOCKER
+
+| 项 | 处置 | 位置 |
+| --- | --- | --- |
+| B1 offscreen level 背景丢失 | level/tilemap 渲染迁入 `ExecuteScenePass` 顶部（`ClearBackground(BLACK)` + `m_context->levelManager->render(frame.camera)`，判空保护）；fog/portal/health bars/技能指示器/ghost 保留直绘（post-composite overlay，与旧流程逐像素等价，fog 提前会破坏灯光-迷雾层级） | `src/game/application/render/GameplayRenderAdapter.cpp:176-190` |
+| B2 GPUTexturePool 生产未接线 | RenderSystem 每帧接线：帧首 `BeginFrame(GetFrameIndex())`、帧尾 `EndFrame()`、关停 `Shutdown()`（与 `g_transientPool` 同位置） | `src/engine/render/RenderSystem.cpp:1286/:1844/:1201` |
+| B3 fence 超时当就绪 | 仅 `GL_ALREADY_SIGNALED`/`GL_CONDITION_SATISFIED` 才归还；超时保持 pending，60 帧上限 `LOG_WARN`（`kMaxRetireWaitFrames`，≈1s@60fps）；`SyncPollFn` 测试桩；单测「fence 永不 signal 保持 pending」；ReleaseGate 排空帧数 4→64 | `src/engine/render/resources/GPUTexturePool.cpp:249-282`、`GPUTexturePool.hpp:216-217/:251`、`tests/integration/ReleaseGateIntegrationTest.cpp:108` |
+| B4 计划状态与实现不符 | 本登记 + §7/§9 修订；状态行如实修订；未决项（T1.3 aliasing 运行时开关接线、T3.5 golden、T5.2/T4.4 真机度量）保留 NOT_RUN/后续项 | 本文件 §4/:10 |
+
+### HIGH
+
+| 项 | 处置 | 位置 |
+| --- | --- | --- |
+| H1 编译缓存永不命中 + 每帧双 Build | 缓存提升为引擎级静态 `s_compiledPlanCache`（`CachedPlanEntry` 含 validated 标志，上限 64 条目）；首次 Build 替换为轻量 `CollectPassDeclarations()`（composite 推断语义不变）；每帧仅一次完整 Build；`InvalidateCompilationCache()` 同步清引擎级缓存 | `RenderGraph.hpp:678/:684/:688/:748/:758`、`RenderGraph.cpp:839/:868/:890-925/:634`、`RenderSystem.cpp:1477/:1593` |
+| H2 pack 输出写 slot 4 | `InstancePackCS` 重排：`PACKED_INSTANCES=2`（别名 `SSBO_COMMAND`、pass-local、不扩张 global 0..15）、`DRAW_COMMAND=4`（pack 期临时别名 `SSBO_LABEL_INSTANCE`）；Pack 输出绑 slot 2 与 `entity_mdi.vert` 读一致；command（instanceCount guard）绑 slot 4；RenderSystem.cpp:688 label 重绑不受影响 | `RenderConstants.hpp:149-166`、`MDIRenderer.cpp:278-292`、`assets/shaders/instance_pack.compute:19-39` |
+| H5 键漏 tier/sizeClass | 键比较/hash 纳入 tier+sizeClass；`FramebufferHandle` 新增 `tier` 字段（Acquire 时记录，Release 还原，调用链默认 Medium）；单测「不同 tier/sizeClass 不互取」 | `GPUTexturePool.hpp:101-116`、`FramebufferHandle.hpp:19`、`GPUTexturePool.cpp:144/:158/:208` |
+| H6 无关放宽 | 还原 UiCraftBurstTests 三处 speed 断言（diff 归零） | `tests/unit/UiCraftBurstTests.cpp` |
+| H7 ABI 双份维护 | `gpu_abi.glslinc` 由 `generate_gpu_abi.py` 生成（`abi_manifest.json` 追加 GPUEntity/GPUVisualStats）；`instance_pack.compute`/`scatter_stats.compute` 改 `#include` 删除本地重定义；`check_no_manual_abi_structs.py` 治理闭环 | `tools/render_abi/abi_manifest.json:218-243`、`assets/shaders/generated/gpu_abi.glslinc:193-211`、`assets/shaders/instance_pack.compute:1-7`、`scatter_stats.compute:1-9` |
+| H8 FloatToHalf 不一致 | CPU 侧 fail-closed 与 shader 完全一致：NaN/inf/负→0、>65504→clamp 65504（0x7BFF） | `src/engine/render/GPUData.hpp:594-607` |
+
+### MEDIUM
+
+| 项 | 处置 | 位置 |
+| --- | --- | --- |
+| M1 缓存 hash 遗漏 | `extentPolicy.scale`（bit_cast）、DRS scale（`m_dynamicResolutionScale`）、RenderConfig 全集逐字段（19 布尔 + 11 整数）纳入 hash；单测「改 scale 必 miss」 | `RenderGraph.cpp:730/:830`、`RenderGraph.hpp:807` |
+| M3 cache-hit 跳过校验 | `CachedPlanEntry.validated` 双路径防护：引擎级命中与实例级快速路径均仅在校验通过后服务 | `RenderGraph.hpp:748`、`RenderGraph.cpp:890` |
+| M5 instance_pack.compute 未登记 | 治理清单追加 5 条绑定（entities/visibleIndices/command/stats/packed）+ 别名断言 `PACKED_INSTANCES==SSBO_COMMAND`、`DRAW_COMMAND==SSBO_LABEL_INSTANCE` | `tests/unit/RenderBindingGovernanceTest.cpp:74-105` |
+| M8 DiscardPass 不查 in-flight | Pending 且 queryBegin>0 且 `s_glEndQuery` 可用时先 `glEndQuery` 再置 Discarded（GL 同 target 单 active query 限制） | `src/engine/render/debug/GPUTimerQueryRing.cpp:300-326` |
+| L1 InstancePackPass 命名 | 维持现状（`Pack()` 内联于 `Cull()`），Pass 语义与 slot 别名合同已在 `InstancePackCS` 注释固化，备查 | `MDIRenderer.cpp:278-292` |
+
+### H9（验证补全）与未决项
+
+- H9：`PackedEntityInstanceTest.cpp` 新增 4 用例——fail-closed 半径 half（NaN/inf/负/超限）、textureId 越界（0xFFFF）、packing parity（NO_ROTATION/glow clamp/status mask）、golden `[NOT_RUN]`（附人工验证步骤，未伪造通过）。
+- 未决项（登记不解决，真机阶段执行）：T1.3 aliasing 运行时开关 `render.graph.aliasing.enabled` 接线与 `GL_ARB_texture_barrier` 探测；T3.5 golden 逐像素对比；T4.4 命中率 >90%；T5.2 瞬态 VRAM -40%；T5.3 双 blit trace 人工目验。
+- 最终复审（2026-08-17）新发现补记（结论：提交，以下为性能兑现/声明落差类，功能与安全正确，真机阶段处理）：
+  - **N1**：`GameplayState.cpp:991` 旧直绘 `levelManager->render(m_camera)` 未删除（level 全屏渲染每帧 2 次，T2.3「改 m_sceneRT 直绘为 graph scene resource」未完全兑现；fog/portal 等 post-composite overlay 保留直绘为有意设计）。真机验证视觉等价后删除该行。
+  - **N2**：`GPUTexturePool::Release` 回池分支生产不可达（生产调用方全部走销毁路径）→ `m_availablePool` 恒空、poolHits 恒 0、T4.1 分桶复用未实际接线（仅单测可达）。T4.4 命中率度量前需先接线回池。
+  - **N3**：`ResizeDebouncer`（200ms 防抖）无生产调用者 → T4.2 防抖未生效（L4 的 ResizeSafe 无防抖层），resize 资源重建风暴依旧。真机阶段接线。

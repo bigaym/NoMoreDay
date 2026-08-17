@@ -1,5 +1,6 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
+#include "engine/render/resources/GPUTexturePool.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
@@ -212,6 +213,11 @@ void FramebufferManager::Destroy(FramebufferHandle &handle) {
 
 void FramebufferManager::Resize(FramebufferHandle &handle, int newWidth,
                                 int newHeight) {
+  ResizeSafe(handle, newWidth, newHeight, nullptr);
+}
+
+void FramebufferManager::ResizeSafe(FramebufferHandle &handle, int newWidth,
+                                    int newHeight, void *retireFence) {
   if (!handle.IsValid() || (handle.width == newWidth && handle.height == newHeight) ||
       newWidth <= 0 || newHeight <= 0) {
     return;
@@ -219,8 +225,24 @@ void FramebufferManager::Resize(FramebufferHandle &handle, int newWidth,
 
   const uint32_t format = handle.internalFormat;
   const bool withDepth = handle.depthRbo != 0;
-  Destroy(handle);
-  handle = Create(newWidth, newHeight, format, withDepth);
+  if (!NoMoreDay::utils::GPUUtils::IsInitialized()) {
+    Destroy(handle);
+    handle = Create(newWidth, newHeight, format, withDepth);
+    return;
+  }
+  // Acquire the new resource first: on failure (e.g. GPU allocation failure)
+  // the old resource is kept intact instead of being retired and leaving the
+  // caller with an invalid handle.
+  FramebufferHandle next =
+      GPUTexturePool::Get().Acquire(newWidth, newHeight, format, withDepth);
+  if (!next.IsValid()) {
+    LOG_WARN("FramebufferManager::ResizeSafe: acquire failed for {}x{} format=0x{:X} "
+             "withDepth={}; keeping old framebuffer {}x{}",
+             newWidth, newHeight, format, withDepth, handle.width, handle.height);
+    return;
+  }
+  GPUTexturePool::Get().RetireOldResource(handle, retireFence);
+  handle = next;
 }
 
 uint64_t FramebufferManager::GetTrackedBytes() {

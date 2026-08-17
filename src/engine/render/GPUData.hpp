@@ -6,6 +6,7 @@
 #include <raylib.h>
 #include <stdint.h>
 #include <type_traits>
+#include <cmath>
 
 namespace NoMoreDay::render::abi {
 inline constexpr uint32_t GPU_ABI_VERSION = 5;
@@ -543,6 +544,85 @@ namespace GPUFlags {
 
   inline constexpr int UnpackMaterialId(uint32_t flags) {
     return static_cast<int>((flags & MATERIAL_ID_MASK) >> MATERIAL_ID_SHIFT);
+  }
+}
+
+/**
+ * @brief Structure for 32-byte compact GPU entity instance (Entity-MDI pipeline).
+ * STRICTLY 32 BYTES (16 * 2) std430 alignment.
+ * Bandwidth optimization (75% bandwidth reduction from legacy 128B).
+ */
+struct alignas(16) GPUPackedEntityInstance {
+  Vector2 position = {0.0f, 0.0f};     // 8B, float32 full precision (offset 0)
+  Vector2 prevPosition = {0.0f, 0.0f}; // 8B, float32 full precision (offset 8)
+  uint32_t words[4] = {0, 0, 0, 0};    // 16B, packed visual & transform data (offset 16)
+  // words[0]: rotSin (SNorm16, low 16) | rotCos (SNorm16, high 16)
+  // words[1]: radiusHalf (IEEE-754 binary16 / half-float, low 16) | textureId (uint16, high 16)
+  // words[2]: materialId (uint16, low 16) | glow (UNORM8, bits 16..23) | statusMask (low 8, bits 24..31)
+  // words[3]: flags (low 16 bits, behavior/render) | reserved (high 16 bits)
+
+  GPUPackedEntityInstance() = default;
+};
+
+static_assert(std::is_standard_layout_v<GPUPackedEntityInstance>,
+              "GPUPackedEntityInstance must be standard layout");
+static_assert(sizeof(GPUPackedEntityInstance) == 32,
+              "GPUPackedEntityInstance struct must be exactly 32 bytes");
+static_assert(alignof(GPUPackedEntityInstance) == 16,
+              "GPUPackedEntityInstance alignment must be 16 bytes");
+static_assert(offsetof(GPUPackedEntityInstance, position) == 0,
+              "GPUPackedEntityInstance::position offset mismatch");
+static_assert(offsetof(GPUPackedEntityInstance, prevPosition) == 8,
+              "GPUPackedEntityInstance::prevPosition offset mismatch");
+static_assert(offsetof(GPUPackedEntityInstance, words) == 16,
+              "GPUPackedEntityInstance::words offset mismatch");
+
+namespace GPUPackedInstanceUtils {
+  inline constexpr int16_t FloatToSNorm16(float v) {
+    if (v > 1.0f) v = 1.0f;
+    if (v < -1.0f) v = -1.0f;
+    return static_cast<int16_t>(v >= 0.0f ? (v * 32767.0f + 0.5f) : (v * 32768.0f - 0.5f));
+  }
+
+  inline constexpr float SNorm16ToFloat(int16_t v) {
+    if (v <= -32768) return -1.0f;
+    return static_cast<float>(v) / 32767.0f;
+  }
+
+  inline uint16_t FloatToHalf(float f) {
+    // Fail-closed: mirror instance_pack.compute radius clamp semantics exactly
+    // (H8). NaN/inf/negative flush to +0; values above the half-float max are
+    // clamped to 65504.0 — never emitted as an infinity half.
+    if (std::isnan(f) || std::isinf(f) || f < 0.0f) return 0;
+    if (f > 65504.0f) f = 65504.0f;
+    uint32_t x = 0;
+    std::memcpy(&x, &f, sizeof(float));
+    uint32_t sign = (x >> 31) & 0x1;
+    int32_t exp = static_cast<int32_t>((x >> 23) & 0xFF) - 127 + 15;
+    uint32_t mant = (x >> 13) & 0x3FF;
+    if (exp <= 0) return static_cast<uint16_t>(sign << 15);
+    if (exp >= 31) return static_cast<uint16_t>((sign << 15) | 0x7C00);
+    return static_cast<uint16_t>((sign << 15) | (static_cast<uint32_t>(exp) << 10) | mant);
+  }
+
+  inline float HalfToFloat(uint16_t h) {
+    uint32_t sign = (h >> 15) & 0x1;
+    uint32_t exp = (h >> 10) & 0x1F;
+    uint32_t mant = h & 0x3FF;
+    if (exp == 0) {
+      if (mant == 0) {
+        return sign ? -0.0f : 0.0f;
+      }
+      return (sign ? -1.0f : 1.0f) * (static_cast<float>(mant) / 1024.0f) * (1.0f / 16384.0f);
+    }
+    if (exp == 31) {
+      return mant ? 0.0f : (sign ? -65504.0f : 65504.0f);
+    }
+    int32_t exp32 = static_cast<int32_t>(exp) - 15 + 127;
+    uint32_t x = (sign << 31) | (static_cast<uint32_t>(exp32) << 23) | (mant << 13);
+    float f = 0.0f;
+    std::memcpy(&f, &x, sizeof(float));
+    return f;
   }
 }
 

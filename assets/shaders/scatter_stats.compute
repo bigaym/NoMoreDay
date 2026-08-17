@@ -1,18 +1,8 @@
 #version 430
-
-struct GPUVisualStats {
-    float weaponDamage;
-    float attackSpeed;
-    float critChance;
-    float critDamage;
-    float defenseRating;
-    float statusStrength;
-    float glowIntensity;
-    uint glowColorPacked;
-    uint activeStatusMask;
-    float statusTimer;
-    float padding[6];
-};
+// GPUVisualStats layout is governed by tools/render_abi/abi_manifest.json and
+// mirrored into generated/gpu_abi.glslinc. Keep the manifest and GPUData.hpp in
+// sync; do not redefine the struct here.
+#include "generated/gpu_abi.glslinc"
 
 struct UpdateCmd {
     uint index;

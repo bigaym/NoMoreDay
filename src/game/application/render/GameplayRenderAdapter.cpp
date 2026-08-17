@@ -174,6 +174,20 @@ void GameplayRenderAdapter::onEmissive(render::GameplayRenderFrame &frame) {
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {
+  // B1 (P2 RenderGraph review): the engine's scene pass no longer seeds the
+  // HDR scene buffer from the gameplay m_sceneRT (external seed blit removed),
+  // and the offscreen composite path skips ClearBackground. The level/tilemap
+  // background must therefore be rendered here — the graph scene pass binds
+  // the HDR scene buffer while this hook runs — so the composite quad no
+  // longer covers the level with stale/garbage content. ClearBackground(BLACK)
+  // reproduces the legacy m_sceneRT clear that the old seed blit carried in;
+  // fog/portals/health bars stay as post-composite direct draws in
+  // GameplayState (unchanged, equivalent to the legacy ordering).
+  ClearBackground(BLACK);
+  if (m_context->levelManager != nullptr) {
+    m_context->levelManager->render(frame.camera);
+  }
+
   static Shader trailShader = {0};
   if (trailShader.id == 0 && m_context->resources != nullptr) {
     trailShader = m_context->resources->getShader(

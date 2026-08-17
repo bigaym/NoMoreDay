@@ -94,7 +94,8 @@ endif()
 
 # --- Disable Deprecated Warnings ---
 if(MSVC)
-    add_compile_options(/wd4996 /wd4541 /Zc:__cplusplus /utf-8 /bigobj)
+    set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "Embedded")
+    add_compile_options(/wd4996 /wd4541 /Zc:__cplusplus /utf-8 /bigobj /FS /Z7)
 endif()
 
 if(MSVC AND ENABLE_FAST_BUILD)
@@ -132,8 +133,8 @@ endif()
 # --- MSVC Performance Optimizations ---
 # Note: RelWithDebInfo defaults to /Ob1. We upgrade it to /Ob2 to avoid D9025 warnings.
 if(MSVC)
-    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
-    set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Z7 /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MD /Z7 /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
 endif()
 
 # --- External Dependencies ---

@@ -57,7 +57,7 @@ TEST_CASE("[Unit] Render Binding Governance - Shader binding registry alignment"
       {"assets/shaders/cull.compute",
        static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA)},
       {"assets/shaders/entity_mdi.vert",
-       static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA)},
+       static_cast<uint32_t>(Binding::SSBO_COMMAND)},
       {"assets/shaders/sh_skill_effect.vs",
        static_cast<uint32_t>(Binding::SSBO_SKILL_EFFECTS)},
       {"assets/shaders/vfx/popup.vert",
@@ -70,6 +70,20 @@ TEST_CASE("[Unit] Render Binding Governance - Shader binding registry alignment"
        static_cast<uint32_t>(Binding::SSBO_DISTORTION_DATA)},
       {"assets/shaders/vfx/holo_blade_instanced.vs",
        static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE)},
+      // instance_pack.compute (AD-7): read side uses the global slots 0/1/3; the
+      // packed output aliases SSBO_COMMAND (2) pass-local and the DrawCommand
+      // (instanceCount guard) aliases SSBO_LABEL_INSTANCE (4) pass-local during
+      // the pack pass. See InstancePackCS + plan §2 item 3.
+      {"assets/shaders/instance_pack.compute",
+       static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA)},
+      {"assets/shaders/instance_pack.compute",
+       static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID)},
+      {"assets/shaders/instance_pack.compute",
+       static_cast<uint32_t>(Binding::SSBO_COMMAND)},
+      {"assets/shaders/instance_pack.compute",
+       static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS)},
+      {"assets/shaders/instance_pack.compute",
+       static_cast<uint32_t>(Binding::SSBO_LABEL_INSTANCE)},
   };
 
   for (const auto &[filePath, binding] : checks) {
@@ -79,5 +93,15 @@ TEST_CASE("[Unit] Render Binding Governance - Shader binding registry alignment"
     INFO("File: " << filePath << ", expected token: " << needle);
     CHECK(content.find(needle) != std::string::npos);
   }
+
+  // AD-7 pass-local aliasing contract (plan §2 item 3 / H2): the packed 32B
+  // stream is bound on slot 2 (SSBO_COMMAND) during the pack pass and read from
+  // the same slot by entity_mdi.vert; the instanceCount guard is read on slot 4
+  // (SSBO_LABEL_INSTANCE) during the pack pass only. Neither expands the global
+  // 0..15 binding contract — both aliases are rebound before/after their passes.
+  CHECK(NoMoreDay::RenderConstants::InstancePackCS::PACKED_INSTANCES ==
+        static_cast<uint32_t>(Binding::SSBO_COMMAND));
+  CHECK(NoMoreDay::RenderConstants::InstancePackCS::DRAW_COMMAND ==
+        static_cast<uint32_t>(Binding::SSBO_LABEL_INSTANCE));
 }
 

@@ -3,6 +3,7 @@
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
+#include "engine/render/resources/GPUTexturePool.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -103,6 +104,13 @@ TEST_CASE("[Integration] ReleaseGate - Framebuffer tracked bytes stable under re
 
     render::resources::FramebufferManager::Destroy(handle);
   }
+
+  // B3 (P2 AD-8): retire is now gated on the fence ACTUALLY signaling (a
+  // timeout keeps the entry pending instead of releasing it), so the drain
+  // loop must allow the real GL fences time to complete. 64 frames is a
+  // generous polling budget (~1s @ 60fps) with zero GPU work in between;
+  // the previous 4 frames only sufficed under the old timeout-as-ready bug.
+  render::resources::GPUTexturePool::Get().AdvanceFrameForTesting(64);
 
   const uint64_t endBytes = render::resources::FramebufferManager::GetTrackedBytes();
   const double delta =

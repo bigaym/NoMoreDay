@@ -64,6 +64,7 @@ public:
 
   void BeginPass(uint32_t passId);
   void EndPass(uint32_t passId);
+  void DiscardPass(uint32_t passId);
 
   GPUTimerResult GetPassResult(uint32_t passId) const;
   GPUTimerResult GetFrameResult() const { return m_latestFrameResult; }

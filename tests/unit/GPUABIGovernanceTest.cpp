@@ -271,6 +271,14 @@ TEST_CASE("[Unit] GPU ABI - Exhaustive struct layout coverage") {
   CHECK(sizeof(GPUGlyphInstance) == 48);
   CHECK(offsetof(GPUGlyphInstance, position) == 0);
   CHECK(offsetof(GPUGlyphInstance, padding) == 40);
+
+  // GPUPackedEntityInstance (32B compact entity MDI)
+  CHECK(std::is_standard_layout_v<GPUPackedEntityInstance>);
+  CHECK(sizeof(GPUPackedEntityInstance) == 32);
+  CHECK(alignof(GPUPackedEntityInstance) == 16);
+  CHECK(offsetof(GPUPackedEntityInstance, position) == 0);
+  CHECK(offsetof(GPUPackedEntityInstance, prevPosition) == 8);
+  CHECK(offsetof(GPUPackedEntityInstance, words) == 16);
 }
 
 TEST_CASE("[Unit] GPU ABI - FluidParticle shader mirrors layout match") {

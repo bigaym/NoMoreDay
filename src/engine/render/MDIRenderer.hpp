@@ -85,6 +85,9 @@ public:
   // viewBounds: x=minX, y=minY, z=maxX, w=maxY (Axis Aligned)
   void Cull(ResourceManager &rm, const PersistentBuffer &entities, Vector4 viewBounds);
 
+  // Perform GPU instance packing into 32B compact buffer (AD-7)
+  void Pack(ResourceManager &rm, const PersistentBuffer &entities);
+
   // Execute indirect draw
   /**
    * @brief Perform MDI Draw call
@@ -103,14 +106,20 @@ public:
   unsigned int GetId() const { return m_commandBuffer.GetId(); }
   size_t GetSize() const { return m_commandBuffer.GetSize(); }
 
+  const PersistentBuffer &GetPackedBuffer() const { return m_packedBuffer; }
+  const PersistentBuffer &GetVisibleBuffer() const { return m_visibleBuffer; }
+  const PersistentBuffer &GetCommandBuffer() const { return m_commandBuffer; }
+
 private:
   static MDIRenderer *s_instance;
 
-  PersistentBuffer m_visibleBuffer; // SSBO Binding 1 (Double Buffered)
+  PersistentBuffer m_visibleBuffer; // SSBO Binding 1 (Double/Triple Buffered)
   PersistentBuffer
-      m_commandBuffer; // SSBO Binding 2 & Indirect (Double Buffered)
+      m_commandBuffer; // SSBO Binding 2 & Indirect (Double/Triple Buffered)
   PersistentBuffer
-      m_statsBuffer; // SSBO Binding 3 (Double Buffered) - GPUVisualStats
+      m_statsBuffer; // SSBO Binding 3 (Double/Triple Buffered) - GPUVisualStats
+  PersistentBuffer
+      m_packedBuffer; // SSBO Pass-local Binding 2 (Triple Buffered) - GPUPackedEntityInstance (32B)
 
   // Sparse Staging
   PersistentBuffer m_statsStaging;
@@ -119,6 +128,7 @@ private:
   Shader m_cullShader = {0};
   Shader m_renderShader = {0};
   Shader m_scatterShader = {0};
+  Shader m_packShader = {0};
 
   uint32_t m_quadVAO = 0;
   uint32_t m_quadVBO = 0;

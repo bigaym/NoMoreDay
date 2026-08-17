@@ -1,0 +1,107 @@
+#version 430 core
+// GPUEntity / GPUVisualStats / GPUPackedEntityInstance layouts are governed by
+// tools/render_abi/abi_manifest.json and mirrored into generated/gpu_abi.glslinc.
+// Keep the manifest and GPUData.hpp in sync; do not redefine the structs here.
+#include "generated/gpu_abi.glslinc"
+
+layout(local_size_x = 256) in;
+
+// Binding 来源: RenderConstants::Binding::SSBO_ENTITY_DATA (0)
+layout(std430, binding = 0) readonly buffer Entities {
+    GPUEntity entities[];
+};
+
+// Binding 来源: RenderConstants::Binding::SSBO_VISIBLE_ID (1)
+layout(std430, binding = 1) readonly buffer VisibleIndices {
+    uint visibleIndices[];
+};
+
+// DrawCommand (instanceCount guard) is read on physical slot 4, a pass-local
+// alias of RenderConstants::Binding::SSBO_LABEL_INSTANCE. The label pass
+// unconditionally rebinds slot 4 before UI draws, so the alias is safe.
+layout(std430, binding = 4) readonly buffer DrawCommand {
+    uint count;
+    uint instanceCount;
+    uint first;
+    uint baseInstance;
+};
+
+// Binding 来源: RenderConstants::Binding::SSBO_VISUAL_STATS (3)
+layout(std430, binding = 3) readonly buffer StatsBuffer {
+    GPUVisualStats stats[];
+};
+
+// PackedInstances output aliases RenderConstants::Binding::SSBO_COMMAND
+// (physical slot 2) on a pass-local basis, so entity_mdi.vert reads the packed
+// stream from the same binding (AD-7 / plan §2 item 3).
+layout(std430, binding = 2) writeonly buffer PackedInstances {
+    GPUPackedEntityInstance packedInstances[];
+};
+
+uniform int maxEntities;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= instanceCount || id >= uint(maxEntities)) {
+        return;
+    }
+
+    uint entityId = visibleIndices[id];
+    if (entityId >= uint(maxEntities)) {
+        return;
+    }
+
+    GPUEntity e = entities[entityId];
+    GPUVisualStats s = stats[entityId];
+
+    GPUPackedEntityInstance outInst;
+    outInst.position = e.position;
+    outInst.prevPosition = e.prevPosition;
+
+    // Rotation calculation (Contract: bit 3 NO_ROTATION, velocity length threshold 0.1)
+    float rotation = 0.0;
+    const uint NO_ROTATION_MASK = 8u; // GPU_ENTITY_FLAG_NO_ROTATION (1 << 3)
+    if ((e.flags & NO_ROTATION_MASK) == 0u) {
+        if (length(e.velocity) > 0.1) {
+            rotation = atan(e.velocity.y, e.velocity.x);
+        }
+    }
+
+    float rotSin = sin(rotation);
+    float rotCos = cos(rotation);
+    uint w0 = packSnorm2x16(vec2(rotSin, rotCos));
+
+    // Render radius: e.radius * 4.0 (binary16 / half-float)
+    float renderRadius = e.radius * 4.0;
+    if (isnan(renderRadius) || isinf(renderRadius) || renderRadius < 0.0) {
+        renderRadius = 0.0;
+    } else if (renderRadius > 65504.0) {
+        renderRadius = 65504.0;
+    }
+    uint radiusHalf = packHalf2x16(vec2(renderRadius, 0.0)) & 0xFFFFu;
+
+    // Texture ID: [0, 65535], or 0xFFFF for SDF circle (-1) / fallback
+    uint textureId;
+    if (e.type == -1) {
+        textureId = 0xFFFFu;
+    } else if (e.type >= 0 && e.type <= 65535) {
+        textureId = uint(e.type);
+    } else {
+        textureId = 0xFFFFu;
+    }
+    uint w1 = radiusHalf | (textureId << 16u);
+
+    // Material ID (bits 16..31 of flags), Glow (UNORM8), Status Mask (low 8 bits)
+    uint materialId = (e.flags >> 16u) & 0xFFFFu;
+    float glowVal = clamp(s.glowIntensity, 0.0, 1.0);
+    uint glowU8 = uint(clamp(round(glowVal * 255.0), 0.0, 255.0)) & 0xFFu;
+    uint statusU8 = s.activeStatusMask & 0xFFu;
+    uint w2 = (materialId & 0xFFFFu) | (glowU8 << 16u) | (statusU8 << 24u);
+
+    // Flags (low 16 bits)
+    uint w3 = e.flags & 0xFFFFu;
+
+    outInst.words = uvec4(w0, w1, w2, w3);
+
+    packedInstances[id] = outInst;
+}

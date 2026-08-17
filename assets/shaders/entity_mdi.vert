@@ -1,37 +1,12 @@
 #version 430 core
+#include "generated/gpu_abi.glslinc"
+
 layout(location = 0) in vec2 aPos;
 
-struct InstanceData {
-    vec2 position;
-    vec2 prevPosition;
-    vec2 velocity;
-    float radius;
-    int type;
-    uint flags;
-    uint frameId;
-    float padding[6];
+// Binding 来源: Entity-MDI pass-local binding = 2 (PackedInstances)
+layout(std430, binding = 2) readonly buffer PackedInstanceBuffer {
+    GPUPackedEntityInstance instances[];
 };
-
-// Binding 来源: RenderConstants::Binding::SSBO_ENTITY_DATA (0)
-layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
-// Binding 来源: RenderConstants::Binding::SSBO_VISIBLE_ID (1)
-layout(std430, binding = 1) readonly buffer VisibleIndices { uint visibleIndices[]; };
-
-struct GPUVisualStats {
-    float weaponDamage;
-    float attackSpeed;
-    float critChance;
-    float critDamage;
-    float defenseRating;
-    float statusStrength;
-    float glowIntensity;
-    uint glowColorPacked;
-    uint activeStatusMask;
-    float statusTimer;
-    float padding[6];
-};
-// Binding 来源: RenderConstants::Binding::SSBO_VISUAL_STATS (3)
-layout(std430, binding = 3) readonly buffer StatsBuffer { GPUVisualStats stats[]; };
 
 uniform mat4 viewProj;
 uniform float interpolationFactor;
@@ -46,40 +21,38 @@ flat out uint vStatusMask;
 flat out float vTime;
 
 void main() {
-    // 从剔除后的索引缓冲中获取真正的实体 ID
-    uint entityId = visibleIndices[gl_InstanceID];
-    InstanceData e = entities[entityId];
-    GPUVisualStats s = stats[entityId];
-    
+    // 直接按 gl_InstanceID 读取 packed stream
+    GPUPackedEntityInstance inst = instances[gl_InstanceID];
+
     // 插值位置
-    vec2 interpolatedPos = mix(e.prevPosition, e.position, interpolationFactor);
-    
-    // 朝向计算
-    float rotation = 0.0;
-    // Check GPU_ENTITY_FLAG_NO_ROTATION (1 << 3)
-    if ((e.flags & 8u) == 0u) {
-        if (length(e.velocity) > 0.1) {
-            rotation = atan(e.velocity.y, e.velocity.x);
-        }
-    }
-    
-    float c = cos(rotation);
-    float s_rot = sin(rotation);
+    vec2 interpolatedPos = mix(inst.prevPosition, inst.position, interpolationFactor);
+
+    // 解码朝向 sin/cos
+    vec2 sc = unpackSnorm2x16(inst.words[0]);
+    float s_rot = sc.x;
+    float c = sc.y;
     mat2 rot = mat2(c, -s_rot, s_rot, c);
-    
-    // 渲染尺寸：物理半径 * 4
-    float renderRadius = e.radius * 4.0;
+
+    // 解码渲染尺寸与纹理索引
+    float renderRadius = unpackHalf2x16(inst.words[1]).x;
+    uint rawTex = (inst.words[1] >> 16u) & 0xFFFFu;
+    vTextureIndex = (rawTex == 0xFFFFu) ? -1 : int(rawTex);
+
     vec2 pos = aPos * (renderRadius * 2.0);
     pos = rot * pos;
     vec2 worldPos = interpolatedPos + pos;
-    
+
     gl_Position = viewProj * vec4(worldPos, 0.0, 1.0);
-    
+
     vTexCoord = aPos + 0.5;
     vLocalPos = aPos * 2.0;
-    vTextureIndex = e.type;
-    vFlags = e.flags;
-    vGlow = s.glowIntensity;
-    vStatusMask = s.activeStatusMask;
+
+    // 解码 Material, Glow, Status Mask, Flags
+    uint w2 = inst.words[2];
+    uint materialId = w2 & 0xFFFFu;
+    vGlow = float((w2 >> 16u) & 0xFFu) / 255.0;
+    vStatusMask = (w2 >> 24u) & 0xFFu;
+
+    vFlags = (inst.words[3] & 0xFFFFu) | (materialId << 16u);
     vTime = uTime;
 }

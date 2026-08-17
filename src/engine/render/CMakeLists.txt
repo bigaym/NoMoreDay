@@ -35,6 +35,7 @@ add_library(NoMoreDayEngineRenderCore STATIC
     ${CMAKE_SOURCE_DIR}/src/engine/render/resources/FramebufferManager.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resources/FullscreenQuad.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resources/GPUResourceRegistry.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/resources/GPUTexturePool.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/resources/TransientResourcePool.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/OccluderCollector.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/ShadowAtlasAllocator.cpp

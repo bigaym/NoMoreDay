@@ -32,7 +32,7 @@ if(WIN32)
 endif()
 
 if(MSVC)
-    target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR- /FS)
+    target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR- /FS /Z7)
 endif()
 
 if(MSVC AND ENABLE_RUNTIME_OPT)

@@ -41,6 +41,7 @@
 #include "engine/render/passes/UIWorldPass.hpp"
 #include "engine/render/passes/VFXPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
+#include "engine/render/resources/GPUTexturePool.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
@@ -800,34 +801,20 @@ void ExecuteCompositePass(
   }
 
   constexpr uint32_t kGLFramebuffer = 0x8D40;
-  constexpr uint32_t kGLReadFramebuffer = 0x8CA8;
-  constexpr uint32_t kGLDrawFramebuffer = 0x8CA9;
-  constexpr uint32_t kGLColorBufferBit = 0x00004000;
-
-  // Gameplay offscreen path renders within BeginMode2D; avoid DrawTexturePro
-  // there because camera transform can corrupt full-screen composite.
-  if (targetState.framebuffer != 0u) {
-    rlDrawRenderBatchActive();
-    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer,
-                                                hdrBuffer->fbo);
-    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,
-                                                targetState.framebuffer);
-    rlBlitFramebuffer(
-        0, 0, hdrBuffer->width, hdrBuffer->height, targetState.viewportX,
-        targetState.viewportY, targetState.viewportX + targetState.viewportWidth,
-        targetState.viewportY + targetState.viewportHeight, kGLColorBufferBit);
-    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
-                                                targetState.framebuffer);
-    NoMoreDay::utils::GPUUtils::Viewport(
-        targetState.viewportX, targetState.viewportY, targetState.viewportWidth,
-        targetState.viewportHeight);
-    return;
-  }
-
-  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0u);
+  rlDrawRenderBatchActive();
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, targetState.framebuffer);
   NoMoreDay::utils::GPUUtils::Viewport(targetState.viewportX, targetState.viewportY,
                                        targetState.viewportWidth,
                                        targetState.viewportHeight);
+
+  // Switch to default 2D projection matrix for full-screen quad drawing so camera transforms don't corrupt composite
+  rlMatrixMode(RL_PROJECTION);
+  rlPushMatrix();
+  rlLoadIdentity();
+  rlOrtho(0.0, targetState.viewportWidth, targetState.viewportHeight, 0.0, 0.0, 1.0);
+  rlMatrixMode(RL_MODELVIEW);
+  rlPushMatrix();
+  rlLoadIdentity();
 
   Texture2D hdrTexture = {};
   hdrTexture.id = hdrBuffer->colorTexture;
@@ -838,12 +825,16 @@ void ExecuteCompositePass(
 
   const Rectangle source = {0.0f, 0.0f, static_cast<float>(hdrTexture.width),
                             -static_cast<float>(hdrTexture.height)};
-  const Rectangle target = {
-      static_cast<float>(targetState.viewportX),
-      static_cast<float>(targetState.viewportY),
-      static_cast<float>(targetState.viewportWidth),
-      static_cast<float>(targetState.viewportHeight)};
+  const Rectangle target = {0.0f, 0.0f,
+                            static_cast<float>(targetState.viewportWidth),
+                            static_cast<float>(targetState.viewportHeight)};
   DrawTexturePro(hdrTexture, source, target, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+  rlDrawRenderBatchActive();
+
+  rlMatrixMode(RL_PROJECTION);
+  rlPopMatrix();
+  rlMatrixMode(RL_MODELVIEW);
+  rlPopMatrix();
 }
 
 } // namespace
@@ -1204,6 +1195,10 @@ void RenderSystem::Shutdown() {
   NoMoreDay::render::GPUTrailRenderer::Get().Shutdown();
   NoMoreDay::render::resources::FullscreenQuad::Shutdown();
   g_transientPool.Shutdown();
+  // B2 (P2 AD-8): teardown drain — releases any still-pending retire entries
+  // (fence deletion + resource destruction) and pooled resources owned by the
+  // GPUTexturePool at engine shutdown.
+  NoMoreDay::render::resources::GPUTexturePool::Get().Shutdown();
   // P0 S3: restore the pre-init GL debug callback / GL_DEBUG_OUTPUT state.
   NoMoreDay::render::debug::GLDebugCallback::Get().Shutdown();
 }
@@ -1282,6 +1277,14 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   g_transientPool.BeginFrame();
+  // B2 (P2 AD-8): drive the GPUTexturePool retire/eviction pipeline every frame.
+  // BeginFrame at frame start drains the retire queue (destroying or recycling
+  // GL resources whose retire fence has signaled, instead of leaking them);
+  // the matching EndFrame (stale-pool eviction) runs next to
+  // g_transientPool.EndFrame() at the end of render(). The frame index comes
+  // from GPUResourceRegistry, which advances once per render() call.
+  NoMoreDay::render::resources::GPUTexturePool::Get().BeginFrame(
+      NoMoreDay::render::resources::GPUResourceRegistry::Get().GetFrameIndex());
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
   NoMoreDay::render::GPULootSystem::Get().UploadInstances(s_lootInstanceBuffer);
@@ -1424,25 +1427,6 @@ void RenderSystem::render(entt::registry &registry,
     s_giPassesSized = false;
   }
 
-  // Gameplay offscreen path renders level/tilemap before RenderSystem::render().
-  // Seed HDR scene buffer from current composite target so V3 passes operate on
-  // full scene content instead of a blank background.
-  if (useHdrSceneBuffer && isOffscreenCompositeTarget && s_hdrSceneBuffer.IsValid()) {
-    constexpr uint32_t kGLReadFramebuffer = 0x8CA8;
-    constexpr uint32_t kGLDrawFramebuffer = 0x8CA9;
-    constexpr uint32_t kGLColorBufferBit = 0x00004000;
-    rlDrawRenderBatchActive();
-    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer,
-                                                compositeTarget.framebuffer);
-    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,
-                                                s_hdrSceneBuffer.fbo);
-    rlBlitFramebuffer(compositeTarget.viewportX, compositeTarget.viewportY,
-                      compositeTarget.viewportX + compositeTarget.viewportWidth,
-                      compositeTarget.viewportY + compositeTarget.viewportHeight, 0,
-                      0, s_hdrSceneBuffer.width, s_hdrSceneBuffer.height,
-                      kGLColorBufferBit);
-  }
-
   if (useHdrSceneBuffer && !offscreenV3SafeMode &&
       renderConfig.dynamicLightingEnabled && g_lightingPass) {
     // Light projection: the Game adapter projects the ECS lights into the
@@ -1487,6 +1471,10 @@ void RenderSystem::render(entt::registry &registry,
   using NoMoreDay::render::graph::RenderResourceTag;
 
   NoMoreDay::render::graph::RenderGraph graph;
+  // P2 AD-6 (M1): feed the live dynamic-resolution scale into the compilation
+  // key so adaptive-resolution changes invalidate the cached compiled plan
+  // even at an unchanged screen size.
+  graph.SetDynamicResolutionScale(RenderSystem::GetRenderScale());
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>(
       [&frame, gameplayHooks, useHdrSceneBuffer, isOffscreenCompositeTarget](
           NoMoreDay::render::graph::RenderContext &context) {
@@ -1594,10 +1582,15 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   // Phase D (D2/D3): derive the composite input from the graph instead of
-  // manual owner tracking. Build() collects every registered pass's typed
-  // accesses; the last writer of each LDR resource decides which producer feeds
-  // composite, preserving the previous distortion > postprocess > hdr priority.
-  graph.Build();
+  // manual owner tracking. CollectPassDeclarations() runs each registered
+  // pass's Setup (declaration collection) without compiling the plan; the last
+  // writer of each LDR resource decides which producer feeds composite,
+  // preserving the previous distortion > postprocess > hdr priority.
+  // P2 AD-6 (H1): this replaces the former Build() here. Building twice per
+  // frame was pure overhead -- the second Build() after AddPass(CompositePass)
+  // invalidated this result anyway -- and declaration collection is all
+  // FindLastWriterOwner needs.
+  graph.CollectPassDeclarations();
   const RenderOwnerTag sceneHdrOwner = graph.FindLastWriterOwner(
       RenderResourceTag::SceneHdrColor);
   const RenderOwnerTag postProcessOwner = graph.FindLastWriterOwner(
@@ -1855,6 +1848,9 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   g_transientPool.EndFrame();
+  // B2 (P2 AD-8): frame-end counterpart of the BeginFrame wired at the top of
+  // render(); evicts stale pooled entries (idle past m_frameRetention).
+  NoMoreDay::render::resources::GPUTexturePool::Get().EndFrame();
 }
 
 // W6 (M0-C): hardware-gate evidence accessors (see RenderSystem.hpp).

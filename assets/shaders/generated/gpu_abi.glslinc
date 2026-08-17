@@ -184,4 +184,35 @@ struct GPUMaterialDataV3 {
     vec4 reserved1;
 };
 
+struct GPUPackedEntityInstance {
+    vec2 position;
+    vec2 prevPosition;
+    uvec4 words;
+};
+
+struct GPUEntity {
+    vec2 position;
+    vec2 prevPosition;
+    vec2 velocity;
+    float radius;
+    int type;
+    uint flags;
+    uint frameId;
+    float padding[6];
+};
+
+struct GPUVisualStats {
+    float weaponDamage;
+    float attackSpeed;
+    float critChance;
+    float critDamage;
+    float defenseRating;
+    float statusStrength;
+    float glowIntensity;
+    uint glowColorPacked;
+    uint activeStatusMask;
+    float statusTimer;
+    float padding[6];
+};
+
 #endif // NOMOREDAY_GPU_ABI_GLSLINC
