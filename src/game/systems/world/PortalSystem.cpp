@@ -374,6 +374,7 @@ void PortalSystem::CancelTownPortalCast(entt::registry &registry,
 void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
   auto view = registry.view<PortalComponent, Position>();
 
+  BeginBlendMode(BLEND_ALPHA);
   BeginShaderMode(m_vortexShader);
 
   // Update Time Uniform
@@ -445,6 +446,7 @@ void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
   }
   
   EndShaderMode();
+  EndBlendMode();
 
   // Render casting progress circle (Standard rendering)
   auto castingView = registry.view<TownPortalCastingComponent, Position>();

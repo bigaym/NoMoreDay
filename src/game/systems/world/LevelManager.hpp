@@ -30,6 +30,10 @@ public:
   // 用于生成实体)
   void initialize(ResourceManager &resources, entt::registry &registry);
 
+  // 关卡尺寸
+  static constexpr int DEFAULT_MAP_WIDTH = 128;
+  static constexpr int DEFAULT_MAP_HEIGHT = 128;
+
   // 加载新关卡 (Synchronous legacy wrapper)
   void loadNewLevel(NoMoreDay::BiomeID biome = NoMoreDay::BiomeID::Cave,
                     int width = DEFAULT_MAP_WIDTH,
@@ -117,10 +121,6 @@ private:
 
   // 资源管理器引用 (GPU 初始化需要)
   ResourceManager *m_resources = nullptr;
-
-  // 关卡尺寸
-  static constexpr int DEFAULT_MAP_WIDTH = 128;
-  static constexpr int DEFAULT_MAP_HEIGHT = 128;
 
   // 生成关卡
   void generateLevel(NoMoreDay::BiomeID biome, int width, int height);

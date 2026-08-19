@@ -1,14 +1,18 @@
 #include "game/application/persistence/SaveManager.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/math/UUID.hpp"
+#include "engine/resource/AssetRegistry.hpp"
 #include "game/application/persistence/GlobalSaveData.hpp"
-#include "game/systems/item/SharedStash.hpp"
+#include "game/foundation/components/Combat.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp"
 #include "game/foundation/components/InventoryComponent.hpp"
-#include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/PlayerProfile.hpp"
+#include "game/foundation/components/PlayerState.hpp"
+#include "game/systems/item/ItemFactory.hpp"
+#include "game/systems/item/SharedStash.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/item/ItemFactory.hpp"
 #include "raylib.h"
 #include <cmath>
 #include <ctime>
@@ -181,6 +185,21 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
+  registry.emplace<IDComponent>(player, Utils::UUID::from("Player"));
+  registry.emplace<Radius>(player, 5.0f);
+  registry.emplace<GPUIndex>(player, -1);
+  registry.emplace<Velocity>(player, 0.0f, 0.0f);
+  registry.emplace<InputComponent>(player);
+  auto &pStats = registry.emplace<PlayerStats>(player);
+  pStats.level = data.header.level;
+  registry.emplace<CombatStats>(player);
+  registry.emplace<VisionComponent>(player, 600.0f);
+  registry.emplace<StatsDirty>(player);
+  registry.emplace<DashComponent>(player);
+  registry.emplace<MovementStanceComponent>(player);
+  registry.emplace<MovementAccumulator>(player);
+  registry.emplace<AttackState>(player);
+  registry.emplace<TextureIDComponent>(player, assets::textures::Player_Warrior.id);
   registry.emplace<PlayerName>(player, data.header.name.empty()
                                            ? std::string("玩家0")
                                            : data.header.name);

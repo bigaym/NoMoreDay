@@ -27,6 +27,7 @@
 #include "game/systems/world/PortalSystem.hpp" // Moved up
 #include "game/systems/world/TilemapCollisionSystem.hpp"
 #include "game/systems/world/WorldConstants.hpp"
+#include "game/application/render/GameplayRenderAdapter.hpp"
 
 // Utilities (formerly in PCH)
 #include "core/utils/ScopedTimer.hpp"
@@ -43,6 +44,7 @@
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/GPUTextSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
 #include "game/foundation/components/WorldState.hpp"
@@ -74,7 +76,9 @@
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/MonsterHealthBarSystem.hpp"
 #include "game/application/ui/UISystem.hpp"
+#include "game/foundation/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/vfx/GhostSystem.hpp"
+#include "game/systems/vfx/HoloBladeRenderSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
@@ -161,15 +165,29 @@ void GameplayState::OnEnter() {
       assets::textures::Corrupted_Beast.id,
       std::string(assets::textures::Corrupted_Beast.path));
 
-  // 2. Initialize Level
-  m_context->levelManager->initialize(resourceManager, *m_context->registry);
-  using namespace NoMoreDay::Constants::World;
-  // Start in Town by default (as per user request: "将初始地图设置为平安镇")
-  m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Town,
-                                        WORLD_WIDTH / 10, WORLD_HEIGHT / 10);
+  // 2. Initialize Level if needed
+  if (!m_context->levelManager->isInitialized()) {
+    m_context->levelManager->initialize(resourceManager, *m_context->registry);
+    using namespace NoMoreDay::Constants::World;
+    // Start in Town by default (as per user request: "将初始地图设置为平安镇")
+    m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Town,
+                                          LevelManager::DEFAULT_MAP_WIDTH,
+                                          LevelManager::DEFAULT_MAP_HEIGHT);
+  }
 
   // 3. Initialize Entities (Player)
-  InitializeEntities();
+  auto playerTagView = m_context->registry->view<PlayerTag>();
+  if (playerTagView.empty()) {
+    InitializeEntities();
+  } else {
+    auto pEntity = playerTagView.front();
+    if (!m_context->registry->any_of<SpriteComponent>(pEntity)) {
+      Texture2D pTex = resourceManager.getTexture(playerAsset.id);
+      if (pTex.id > 0) {
+        m_context->registry->emplace<SpriteComponent>(pEntity, pTex, 0.4f);
+      }
+    }
+  }
 
   // 4. Initialize Camera
   m_camera.zoom = m_context->settings ? m_context->settings->cameraZoom : 1.5f;
@@ -177,11 +195,29 @@ void GameplayState::OnEnter() {
                      (float)GetScreenHeight() / 2.0f};
   m_camera.rotation = 0.0f;
   m_camera.target = {(float)GetScreenWidth() / 2.0f,
-                     (float)GetScreenHeight() / 2.0f}; // Will be updated
+                     (float)GetScreenHeight() / 2.0f};
+  auto playerView = m_context->registry->view<PlayerTag, Position>();
+  if (playerView.begin() != playerView.end()) {
+    const auto &pos = playerView.get<Position>(playerView.front());
+    m_camera.target = {pos.x, pos.y};
+  }
+
+  // Pre-update Fog of War around player position so initial frame is clear
+  if (m_context->levelManager->isInitialized()) {
+    auto &fogSystem = m_context->levelManager->getFogSystem();
+    const Vector2 topLeft = GetScreenToWorld2D({0.0f, 0.0f}, m_camera);
+    const Vector2 bottomRight = GetScreenToWorld2D(
+        {(float)GetScreenWidth(), (float)GetScreenHeight()}, m_camera);
+    fogSystem.updateVisibility(topLeft.x, topLeft.y, bottomRight.x,
+                               bottomRight.y);
+  }
 
   // 5. Initialize Portal System
   if (m_context->sceneManager) {
     m_portalSystem = std::make_unique<PortalSystem>(*m_context->sceneManager);
+    if (auto *adapter = dynamic_cast<GameplayRenderAdapter*>(m_context->gameplayRenderHooks)) {
+      adapter->SetPortalSystem(m_portalSystem.get());
+    }
   }
 
   // 6. Borrow the UI composition root and scope the gameplay UI session.
@@ -980,18 +1016,11 @@ void GameplayState::OnRender() {
   const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(
       m_context->levelManager->getCurrentBiomeID());
 
-  // 1. Render World to Texture
+  // 1. Render World to Texture (Level, Entities, Lighting, VFX via RenderSystem)
   BeginTextureMode(m_sceneRT);
   ClearBackground(BLACK);
-  BeginMode2D(m_camera);
-  
-  // Level
-  {
-    NoMoreDay::utils::ScopedTimer timer("Render Level", 20);
-    m_context->levelManager->render(m_camera);
-  }
 
-  // Entities
+  // Entities & Level & VFX via RenderSystem
   {
     NoMoreDay::utils::ScopedTimer timer("RenderSystem Total", 50);
     RenderSystem::render(*m_context->registry,
@@ -1004,16 +1033,18 @@ void GameplayState::OnRender() {
                        m_camera, m_context->gameplayRenderHooks);
   }
 
-  // Monster Health Bars
+  // World Space Overlays (Health Bars, Indicators, Fog)
   {
-      NoMoreDay::utils::ScopedTimer timer("Render HealthBars", 10);
-      // U8 final: the hosted controller is the only path (the null-host
-      // fallback to the legacy static system is gone).
-      m_uiHost->RenderMonsterHealthBars(registry, m_camera);
-  }
+    BeginMode2D(m_camera);
 
-  // Skill Range Indicators
-  {
+    // Monster Health Bars
+    {
+      NoMoreDay::utils::ScopedTimer timer("Render HealthBars", 10);
+      m_uiHost->RenderMonsterHealthBars(registry, m_camera);
+    }
+
+    // Skill Range Indicators
+    {
       NoMoreDay::utils::ScopedTimer timer("4.4 Render Indicators", 100);
       auto view_chan = registry.view<ChannelingComponent, Position>();
       for (auto entity : view_chan) {
@@ -1025,23 +1056,19 @@ void GameplayState::OnRender() {
                           ColorAlpha(ORANGE, 0.15f)); // Thicker rim
         }
       }
-  }
+    }
 
-  // Portals
-  if (m_portalSystem) {
-    m_portalSystem->Render(registry, m_camera);
-  }
-
-  // Fog
-  {
+    // Fog
+    {
       NoMoreDay::utils::ScopedTimer timer("Render Fog", 10);
-      m_context->levelManager->getFogSystem().renderFog();
+      if (!biome.isSafeZone) {
+        m_context->levelManager->getFogSystem().renderFog();
+      }
+    }
+
+    EndMode2D();
   }
 
-  // Ghost Snapshots
-  NoMoreDay::systems::GhostSystem::Render(registry);
-
-  EndMode2D();
   EndTextureMode();
 
   // 2. Draw Scene Texture to Screen with Filter

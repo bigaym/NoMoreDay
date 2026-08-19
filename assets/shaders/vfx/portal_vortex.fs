@@ -24,13 +24,11 @@ void main()
     // 1. Center UVs: [0,1] -> [-1, 1]
     vec2 uv = fragTexCoord * 2.0 - 1.0;
     
-    // 2. Polar Coordinates
-    // Scale X to account for Aspect Ratio 3:5 (0.6) if we want circular vortex?
-    // Actually, we want the vortex to FIT the 3:5 oval.
-    // So if we render on a 3:5 quad, UVs are already stretched.
-    // We just treat UV space as -1..1 and the shader output will be stretched by quad.
-    
     float r = length(uv);
+    if (r >= 1.0) {
+        discard;
+    }
+    
     float angle = atan(uv.y, uv.x);
     
     // 3. Vortex Mechanics
@@ -49,8 +47,9 @@ void main()
     // 5. Masking
     // Soft outer edge
     float outerMask = smoothstep(1.0, 0.6, r);
-    // Soft core (bright center)
-    float coreMask = smoothstep(0.0, uCoreSize, r);
+    if (outerMask <= 0.001) {
+        discard;
+    }
     
     // 6. Composition
     // Boost brightness at center ring
@@ -60,12 +59,17 @@ void main()
     float noiseVal = noise.r;
     
     vec3 baseColor = uColor.rgb * noiseVal * brightness;
-    float alpha = uColor.a * outerMask * noise.a; // * coreMask? No, core should be bright?
+    float alpha = uColor.a * outerMask * noise.a;
     
     // Core glow (solid color in very center)
     float centerGlow = 1.0 - smoothstep(0.0, uCoreSize, r);
     baseColor += uColor.rgb * centerGlow * 2.0;
     alpha += centerGlow * uColor.a;
     
-    finalColor = vec4(baseColor, alpha * fragColor.a);
+    float finalAlpha = clamp(alpha * fragColor.a, 0.0, 1.0);
+    if (finalAlpha <= 0.005) {
+        discard;
+    }
+    
+    finalColor = vec4(baseColor, finalAlpha);
 }

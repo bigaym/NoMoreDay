@@ -56,12 +56,6 @@ LevelManager::LevelData LevelManager::prepareLevel(NoMoreDay::BiomeID biome,
   data.enemy = std::make_unique<EnemySpawnSystem>();
   data.fog = std::make_unique<FogOfWarSystem>();
 
-  // Override size for town (safe zone) to be smaller
-  if (biome == NoMoreDay::BiomeID::Town) {
-    width = 100;
-    height = 100;
-  }
-
   // 生成地图 (这里只是预生成数据结构，不涉及 GPU)
   std::string biomeKey = NoMoreDay::BiomeRegistry::Get().GetBiome(biome).id;
   data.map->generateMap(width, height, biomeKey);
@@ -166,14 +160,19 @@ void LevelManager::spawnLevelEntities() {
 
   // Spawn Stashes in Town
   if (getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
+       int cx = m_mapSystem->getWidth() / 2;
+       int cy = m_mapSystem->getHeight() / 2;
+       float spawnCenterX = cx * NoMoreDay::Constants::World::GRID_TILE_SIZE + (NoMoreDay::Constants::World::GRID_TILE_SIZE * 0.5f);
+       float spawnCenterY = cy * NoMoreDay::Constants::World::GRID_TILE_SIZE + (NoMoreDay::Constants::World::GRID_TILE_SIZE * 0.5f);
+
        auto pStash = m_registry->create();
-       m_registry->emplace<Position>(pStash, 400.0f, 400.0f);
+       m_registry->emplace<Position>(pStash, spawnCenterX - 140.0f, spawnCenterY - 80.0f);
        m_registry->emplace<NoMoreDay::StashInteractableComponent>(pStash, NoMoreDay::StashType::Personal);
        m_registry->emplace<NoMoreDay::StashPlaceholderRender>(pStash);
        m_registry->emplace<LocalLevelTag>(pStash);
 
        auto sStash = m_registry->create();
-       m_registry->emplace<Position>(sStash, 500.0f, 400.0f);
+       m_registry->emplace<Position>(sStash, spawnCenterX - 70.0f, spawnCenterY - 80.0f);
        m_registry->emplace<NoMoreDay::StashInteractableComponent>(sStash, NoMoreDay::StashType::Shared);
        m_registry->emplace<NoMoreDay::StashPlaceholderRender>(sStash);
        m_registry->emplace<LocalLevelTag>(sStash);

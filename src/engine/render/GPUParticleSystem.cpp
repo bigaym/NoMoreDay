@@ -822,24 +822,8 @@ Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
   float w = (float)GetScreenWidth();
   float h = (float)GetScreenHeight();
 
-  // View matrix: camera transform
-  Matrix view = MatrixIdentity();
-
-  // 1. Translate to camera target (negate for view)
-  view = MatrixMultiply(
-      view, MatrixTranslate(-camera.target.x, -camera.target.y, 0.0f));
-
-  // 2. Apply rotation
-  if (camera.rotation != 0.0f) {
-    view = MatrixMultiply(view, MatrixRotateZ(camera.rotation * DEG2RAD));
-  }
-
-  // 3. Apply zoom
-  view = MatrixMultiply(view, MatrixScale(camera.zoom, camera.zoom, 1.0f));
-
-  // 4. Translate by offset (screen center)
-  view = MatrixMultiply(
-      view, MatrixTranslate(camera.offset.x, camera.offset.y, 0.0f));
+  // View matrix from Raylib's camera matrix (origin -> rotate -> scale -> offset)
+  Matrix view = GetCameraMatrix2D(camera);
 
   // Projection matrix: orthographic, Y-down (Raylib convention)
   Matrix proj = MatrixOrtho(0.0f, w, h, 0.0f, -1.0f, 1.0f);

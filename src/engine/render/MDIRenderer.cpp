@@ -464,6 +464,10 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
         static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY));
   }
 
+  utils::GPUUtils::BindBuffer(GL::DRAW_INDIRECT_BUFFER, 0);
+  utils::GPUUtils::ActiveTexture(RenderConstants::GL::TEXTURE0);
+  rlActiveTextureSlot(0);
+
   // LOCK BUFFERS at end of frame usage
   m_commandBuffer.Lock();
   m_visibleBuffer.Lock();

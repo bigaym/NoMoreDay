@@ -5,6 +5,7 @@
 #include "game/application/states/GameplayState.hpp"
 #include "game/application/states/LoadingState.hpp"
 #include "game/application/ui/UISystem.hpp"
+#include "game/systems/world/WorldConstants.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "game/systems/world/PortalSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -77,10 +78,13 @@ bool MainMenuState::OnUpdate(float dt) {
     // Transition to Loading State
     m_stateManager->ChangeState<LoadingState>(
         [levelMgr, levelData]() {
-          *levelData =
-              levelMgr->prepareLevel(NoMoreDay::BiomeID::Cave, 128, 128, 1);
+          *levelData = levelMgr->prepareLevel(
+              NoMoreDay::BiomeID::Town,
+              LevelManager::DEFAULT_MAP_WIDTH,
+              LevelManager::DEFAULT_MAP_HEIGHT, 1);
         },
         [levelMgr, levelData, ctx](StateManager &mgr) {
+          ctx->registry->clear();
           levelMgr->activateLevel(std::move(*levelData));
           mgr.ChangeState<GameplayState>(*ctx->renderContext);
         });
@@ -95,14 +99,16 @@ bool MainMenuState::OnUpdate(float dt) {
     
     m_stateManager->ChangeState<LoadingState>(
         [levelMgr, levelData]() {
-          // Towns are usually smaller
-          *levelData =
-              levelMgr->prepareLevel(NoMoreDay::BiomeID::Town, 64, 64, 1);
+          *levelData = levelMgr->prepareLevel(
+              NoMoreDay::BiomeID::Town,
+              LevelManager::DEFAULT_MAP_WIDTH,
+              LevelManager::DEFAULT_MAP_HEIGHT, 1);
         },
         [ctx, levelMgr, levelData](StateManager &mgr) {
-          levelMgr->activateLevel(std::move(*levelData));
-          // Restore save data into the world
+          // 1. Restore save data into the world first
           SaveManager::Get().loadCharacter(*ctx->registry, 0);
+          // 2. Activate level (spawns level entities like portals and stashes into the registry)
+          levelMgr->activateLevel(std::move(*levelData));
           mgr.ChangeState<GameplayState>(*ctx->renderContext);
         });
   } else if (IsButtonClicked(m_exitButton)) {

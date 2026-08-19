@@ -1389,9 +1389,7 @@ void GPUSkillEffectSystem::Render(const Camera2D &camera) {
                      m_currentCount * sizeof(components::GPUSkillEffect));
 
   rlDrawRenderBatchActive();
-  Matrix mvp = rlGetMatrixModelview();
-  Matrix projection = rlGetMatrixProjection();
-  Matrix finalMvp = MatrixMultiply(mvp, projection);
+  Matrix finalMvp = NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(camera);
 
   BeginBlendMode(BLEND_ALPHA);
   rlDisableDepthTest();

@@ -156,33 +156,24 @@ Game::Game(int width, int height, const char *title)
 
   InitWindow(m_screenWidth, m_screenHeight, m_title);
 
-  // Smart Window Positioning
+  // Smart Window Positioning & Default Borderless Windowed
   int monitor = GetCurrentMonitor();
   int monitorW = GetMonitorWidth(monitor);
   int monitorH = GetMonitorHeight(monitor);
 
-  // If the requested size matches the monitor resolution, we force a borderless fullscreen-like state.
-  if (m_screenWidth == monitorW && m_screenHeight == monitorH) {
-      LOG_INFO("Window size matches monitor resolution. Switching to Borderless Fullscreen.");
-      
-      // Method 1: Remove decorations and force resize/reposition
-      // We MUST reset size because Windows might have clamped the window height (Client + Border > Screen) 
-      // during InitWindow, making the client area smaller than requested.
-      SetWindowState(FLAG_WINDOW_UNDECORATED);
-      SetWindowSize(m_screenWidth, m_screenHeight); // Force restore full client size
-      SetWindowPosition(0, 0);
-      m_isBorderlessFullscreen = true;
-  } else {
-      // Center the window manually
-      SetWindowPosition((monitorW - m_screenWidth) / 2, (monitorH - m_screenHeight) / 2);
-      m_isBorderlessFullscreen = false;
-      
-      // Save initial windowed state
-      m_windowedWidth = m_screenWidth;
-      m_windowedHeight = m_screenHeight;
-      m_windowedPosX = (monitorW - m_screenWidth) / 2;
-      m_windowedPosY = (monitorH - m_screenHeight) / 2;
-  }
+  LOG_INFO("Initializing display mode: Borderless Windowed (Monitor: {}x{})", monitorW, monitorH);
+  SetWindowState(FLAG_WINDOW_UNDECORATED);
+  SetWindowSize(monitorW, monitorH);
+  SetWindowPosition(0, 0);
+  m_screenWidth = monitorW;
+  m_screenHeight = monitorH;
+  m_isBorderlessFullscreen = true;
+
+  // Save fallback windowed state for Alt+Enter toggle
+  m_windowedWidth = (width > 0 && width < monitorW) ? width : static_cast<int>(monitorW * 0.75f);
+  m_windowedHeight = (height > 0 && height < monitorH) ? height : static_cast<int>(monitorH * 0.75f);
+  m_windowedPosX = (monitorW - m_windowedWidth) / 2;
+  m_windowedPosY = (monitorH - m_windowedHeight) / 2;
 
   InitAudioDevice();
 
@@ -206,6 +197,7 @@ Game::Game(int width, int height, const char *title)
 
   // Fill Context
   m_levelManager = std::make_unique<LevelManager>();
+  m_levelManager->initialize(m_resourceManager, m_registry);
   m_context.registry = &m_registry;
   m_context.resources = &m_resourceManager;
   m_context.levelManager = m_levelManager.get();
@@ -513,6 +505,8 @@ void Game::toggleFullScreen() {
 
         SetWindowSize(m_windowedWidth, m_windowedHeight);
         SetWindowPosition(m_windowedPosX, m_windowedPosY);
+        m_screenWidth = m_windowedWidth;
+        m_screenHeight = m_windowedHeight;
         m_isBorderlessFullscreen = false;
     } else {
         // Switch to Borderless Fullscreen
@@ -528,6 +522,8 @@ void Game::toggleFullScreen() {
         SetWindowState(FLAG_WINDOW_UNDECORATED);
         SetWindowSize(monitorW, monitorH);
         SetWindowPosition(0, 0);
+        m_screenWidth = monitorW;
+        m_screenHeight = monitorH;
         m_isBorderlessFullscreen = true;
     }
 }

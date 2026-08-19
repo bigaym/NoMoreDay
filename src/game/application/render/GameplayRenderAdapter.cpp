@@ -36,6 +36,7 @@
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/LevelManager.hpp"
+#include "game/systems/world/PortalSystem.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -174,29 +175,10 @@ void GameplayRenderAdapter::onEmissive(render::GameplayRenderFrame &frame) {
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {
-  // B1 (P2 RenderGraph review): the engine's scene pass no longer seeds the
-  // HDR scene buffer from the gameplay m_sceneRT (external seed blit removed),
-  // and the offscreen composite path skips ClearBackground. The level/tilemap
-  // background must therefore be rendered here — the graph scene pass binds
-  // the HDR scene buffer while this hook runs — so the composite quad no
-  // longer covers the level with stale/garbage content. ClearBackground(BLACK)
-  // reproduces the legacy m_sceneRT clear that the old seed blit carried in;
-  // fog/portals/health bars stay as post-composite direct draws in
-  // GameplayState (unchanged, equivalent to the legacy ordering).
-  ClearBackground(BLACK);
-  if (m_context->levelManager != nullptr) {
+  // 1. Render Map/Level Background
+  if (m_context != nullptr && m_context->levelManager != nullptr) {
     m_context->levelManager->render(frame.camera);
   }
-
-  static Shader trailShader = {0};
-  if (trailShader.id == 0 && m_context->resources != nullptr) {
-    trailShader = m_context->resources->getShader(
-        entt::hashed_string("sh_sword_trail"));
-  }
-  if (trailShader.id != 0) {
-    NoMoreDay::systems::TrailSystem::Render(frame.registry, trailShader);
-  }
-  NoMoreDay::systems::SwordIntentVisualSystem::Render(frame.registry);
 
   auto stashView =
       frame.registry
@@ -275,7 +257,9 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
                   static_cast<int>(renderY + height * 0.4f), width * 0.32f,
                   height * 0.12f, Fade(BLACK, 0.3f));
     }
-    DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
+    if (sprite.texture.id > 0) {
+      DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
+    }
   }
 
   auto pixelView = frame.registry.view<const Position, const ColorComponent>(
@@ -357,6 +341,21 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
     DrawRing({pos.x, pos.y}, radius.value * 0.8f, radius.value, 0, 360, 16,
              {255, 50, 0, static_cast<unsigned char>(100 * alpha)});
   }
+
+  // 5. Render Portal Vortex (ON TOP of ground tiles, stashes, and archway sprites)
+  if (m_portalSystem != nullptr) {
+    m_portalSystem->Render(frame.registry, frame.camera);
+  }
+
+  static Shader trailShader = {0};
+  if (trailShader.id == 0 && m_context->resources != nullptr) {
+    trailShader = m_context->resources->getShader(
+        entt::hashed_string("sh_sword_trail"));
+  }
+  if (trailShader.id != 0) {
+    NoMoreDay::systems::TrailSystem::Render(frame.registry, trailShader);
+  }
+  NoMoreDay::systems::SwordIntentVisualSystem::Render(frame.registry);
 
   NoMoreDay::systems::HoloBladeRenderSystem::Render(frame.registry, *m_context);
 }

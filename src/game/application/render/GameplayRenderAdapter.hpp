@@ -11,6 +11,8 @@ class FogOfWarSystem;
 
 namespace NoMoreDay {
 
+class PortalSystem;
+
 /**
  * @brief Game 层 gameplay 绘制适配器。
  *
@@ -25,6 +27,9 @@ class GameplayRenderAdapter : public render::GameplayRenderHooks {
 public:
   void SetContext(const NoMoreDay::SharedContext *context) {
     m_context = context;
+  }
+  void SetPortalSystem(PortalSystem *portalSystem) {
+    m_portalSystem = portalSystem;
   }
   void Init();
   void Shutdown();
@@ -73,6 +78,7 @@ private:
   bool m_hasPlayer = false;
   bool m_limitEnemyVision = false;
   const FogOfWarSystem *m_fogSystem = nullptr;
+  PortalSystem *m_portalSystem = nullptr;
   // Frame-scoped world UI bridge (U8): written by ExecuteUIWorldPass, read by
   // GameUiHost. Null until bound by the composition root.
   NoMoreDay::ui::WorldUiFrame *m_worldFrame = nullptr;

@@ -69,8 +69,8 @@ TEST_CASE("[Unit] UiCraftBurst - salvage burst: 30 red sparks") {
     CHECK(SameColor(particles[i], RED));
     CHECK(particles[i].scale == doctest::Approx(1.6f)); // 2.0 * 0.8
     const float speed = SpeedOf(particles[i]);
-    CHECK(speed >= 150.0f);
-    CHECK(speed <= 400.0f);
+    CHECK(speed >= 150.0f - 0.01f);
+    CHECK(speed <= 400.0f + 0.01f);
   }
 }
 

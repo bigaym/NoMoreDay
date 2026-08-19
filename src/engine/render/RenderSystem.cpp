@@ -571,25 +571,32 @@ Mesh &GetLabelQuadMesh() {
 
 void ExecuteScenePass(RenderFrameData &frame,
                       NoMoreDay::render::GameplayRenderHooks *gameplayHooks) {
-  // GPU entity MDI render is an Engine primitive and runs regardless of the
-  // gameplay hooks (null renderContext guard preserved from the legacy
-  // early-return path). Drawn first so the gameplay sprites/effects layered by
-  // the adapter stay above the GPU-driven entities.
+  BeginMode2D(frame.camera);
+
+  // 1. Draw Map/Level Background and Scene Content first
+  if (gameplayHooks != nullptr) {
+    NoMoreDay::render::GameplayRenderFrame hooksFrame = frame.ToHooksFrame();
+    gameplayHooks->onScene(hooksFrame);
+  }
+
+  // 2. Draw GPU entity MDI entities (monsters) on top of the map floor
   if (frame.context.renderContext != nullptr) {
     frame.context.renderContext->GPU().Render(
         {frame.context.resources, &frame.context.renderContext->MDI(),
          frame.context.renderAlpha},
         frame.camera);
   }
-  if (gameplayHooks == nullptr) {
-    return;
-  }
-  NoMoreDay::render::GameplayRenderFrame hooksFrame = frame.ToHooksFrame();
-  gameplayHooks->onScene(hooksFrame);
+  rlDisableShader();
+  rlSetBlendMode(RL_BLEND_ALPHA);
+  rlActiveTextureSlot(0);
+  NoMoreDay::utils::GPUUtils::ActiveTexture(0x84C0);
+
+  EndMode2D();
 }
 
 void ExecuteVFXPass(RenderFrameData &frame,
                     NoMoreDay::render::GameplayRenderHooks *gameplayHooks) {
+  BeginMode2D(frame.camera);
   Matrix viewProj = NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(
       frame.camera);
   // Keep VFX order stable: particles -> trails -> effect overlays.
@@ -607,6 +614,7 @@ void ExecuteVFXPass(RenderFrameData &frame,
     gameplayHooks->onVFX(hooksFrame);
   }
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Render(frame.camera);
+  EndMode2D();
 }
 
 void ExecuteGPUTextPass(RenderFrameData &frame) {
@@ -631,6 +639,7 @@ void ExecuteGPULootPass(RenderFrameData &frame) {
 
 void ExecuteUIWorldPass(RenderFrameData &frame,
                         NoMoreDay::render::GameplayRenderHooks *gameplayHooks) {
+  BeginMode2D(frame.camera);
   if (gameplayHooks != nullptr) {
     // Game content: CPU damage popups, loot label collection/sort/overlap
     // resolution, label/glyph/beam instance buffer fill.
@@ -644,6 +653,7 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
     frame.glyphMsdfPxRange = hooksFrame.glyphMsdfPxRange;
   }
   if (frame.gpuLootEnabled) {
+    EndMode2D();
     return;
   }
 
@@ -785,6 +795,7 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
 
   rlDrawRenderBatchActive();
   rlSetBlendMode(RL_BLEND_ALPHA);
+  EndMode2D();
 }
 
 void ExecuteCompositePass() {
@@ -1425,6 +1436,25 @@ void RenderSystem::render(entt::registry &registry,
   }
   if (!renderConfig.giEnabled) {
     s_giPassesSized = false;
+  }
+
+  // Gameplay offscreen path renders level/tilemap before RenderSystem::render().
+  // Seed HDR scene buffer from current composite target so V3 passes operate on
+  // full scene content instead of a blank background.
+  if (useHdrSceneBuffer && isOffscreenCompositeTarget && s_hdrSceneBuffer.IsValid()) {
+    constexpr uint32_t kGLReadFramebuffer = 0x8CA8;
+    constexpr uint32_t kGLDrawFramebuffer = 0x8CA9;
+    constexpr uint32_t kGLColorBufferBit = 0x00004000;
+    rlDrawRenderBatchActive();
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer,
+                                                compositeTarget.framebuffer);
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,
+                                                s_hdrSceneBuffer.fbo);
+    rlBlitFramebuffer(compositeTarget.viewportX, compositeTarget.viewportY,
+                      compositeTarget.viewportX + compositeTarget.viewportWidth,
+                      compositeTarget.viewportY + compositeTarget.viewportHeight, 0,
+                      0, s_hdrSceneBuffer.width, s_hdrSceneBuffer.height,
+                      kGLColorBufferBit);
   }
 
   if (useHdrSceneBuffer && !offscreenV3SafeMode &&
