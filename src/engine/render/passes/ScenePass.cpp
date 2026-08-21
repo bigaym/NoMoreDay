@@ -22,10 +22,6 @@ void ScenePass::Setup(graph::RenderGraphBuilder &builder) {
                 graph::RenderOwnerTag::Scene,
                 graph::PipelineStage::FramebufferAttachment,
                 graph::ResourceUsage::ColorAttachment);
-  builder.Write(graph::RenderResourceTag::SceneDepth,
-                graph::RenderOwnerTag::Scene,
-                graph::PipelineStage::FramebufferAttachment,
-                graph::ResourceUsage::DepthAttachment);
 }
 
 void ScenePass::Execute(graph::RenderContext &context) {

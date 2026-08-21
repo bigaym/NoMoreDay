@@ -23,10 +23,6 @@ void VFXPass::Setup(graph::RenderGraphBuilder &builder) {
                graph::RenderOwnerTag::VFX,
                graph::PipelineStage::Fragment,
                graph::ResourceUsage::ShaderRead);
-  builder.Read(graph::RenderResourceTag::SceneDepth,
-               graph::RenderOwnerTag::VFX,
-               graph::PipelineStage::Fragment,
-               graph::ResourceUsage::ShaderRead);
   builder.Write(graph::RenderResourceTag::SceneHdrColor,
                 graph::RenderOwnerTag::VFX,
                 graph::PipelineStage::FramebufferAttachment,

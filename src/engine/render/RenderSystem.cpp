@@ -812,13 +812,37 @@ void ExecuteCompositePass(
   }
 
   constexpr uint32_t kGLFramebuffer = 0x8D40;
+  constexpr uint32_t kGLReadFramebuffer = 0x8CA8;
+  constexpr uint32_t kGLDrawFramebuffer = 0x8CA9;
+  constexpr uint32_t kGLColorBufferBit = 0x00004000;
   rlDrawRenderBatchActive();
-  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, targetState.framebuffer);
+
+  // Offscreen composite: keep the exact blit path. It avoids the flipY/scissor
+  // ambiguity of DrawTexturePro and matches the previous production behavior.
+  if (targetState.framebuffer != 0u) {
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer,
+                                                hdrBuffer->fbo);
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,
+                                                targetState.framebuffer);
+    rlBlitFramebuffer(
+        0, 0, hdrBuffer->width, hdrBuffer->height, targetState.viewportX,
+        targetState.viewportY, targetState.viewportX + targetState.viewportWidth,
+        targetState.viewportY + targetState.viewportHeight, kGLColorBufferBit);
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
+                                                targetState.framebuffer);
+    NoMoreDay::utils::GPUUtils::Viewport(
+        targetState.viewportX, targetState.viewportY, targetState.viewportWidth,
+        targetState.viewportHeight);
+    return;
+  }
+
+  // Default framebuffer path: draw a full-screen quad with a clean ortho so
+  // any leftover camera transform cannot corrupt the composite.
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0u);
   NoMoreDay::utils::GPUUtils::Viewport(targetState.viewportX, targetState.viewportY,
                                        targetState.viewportWidth,
                                        targetState.viewportHeight);
 
-  // Switch to default 2D projection matrix for full-screen quad drawing so camera transforms don't corrupt composite
   rlMatrixMode(RL_PROJECTION);
   rlPushMatrix();
   rlLoadIdentity();
@@ -1505,6 +1529,9 @@ void RenderSystem::render(entt::registry &registry,
   // key so adaptive-resolution changes invalidate the cached compiled plan
   // even at an unchanged screen size.
   graph.SetDynamicResolutionScale(RenderSystem::GetRenderScale());
+  if (g_radianceCascadesPass != nullptr) {
+    g_radianceCascadesPass->SetVfxEmissionSnapshotUsed(false);
+  }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>(
       [&frame, gameplayHooks, useHdrSceneBuffer, isOffscreenCompositeTarget](
           NoMoreDay::render::graph::RenderContext &context) {
@@ -1557,6 +1584,7 @@ void RenderSystem::render(entt::registry &registry,
   if (useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.giEnabled &&
       g_occluderExtractPass != nullptr && g_jfaPass != nullptr &&
       g_radianceCascadesPass != nullptr && g_giCompositePass != nullptr) {
+    g_radianceCascadesPass->SetVfxEmissionSnapshotUsed(true);
     graph.AddPass(g_occluderExtractPass);
     graph.AddPass(g_jfaPass);
     graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXEmissionSnapshotPass>(

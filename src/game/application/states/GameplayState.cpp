@@ -1066,6 +1066,9 @@ void GameplayState::OnRender() {
       }
     }
 
+    // Ghost Snapshots
+    NoMoreDay::systems::GhostSystem::Render(registry);
+
     EndMode2D();
   }
 

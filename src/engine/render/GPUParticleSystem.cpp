@@ -819,8 +819,11 @@ void GPUParticleSystem::FinalizeFrame() {
 }
 
 Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
-  float w = (float)GetScreenWidth();
-  float h = (float)GetScreenHeight();
+  // Use the current framebuffer dimensions (render target when rendering into
+  // the DRS-scaled HDR/scene RT; default framebuffer otherwise) so GPU custom
+  // MVP passes stay in the same projection space as raylib's BeginTextureMode.
+  float w = (float)rlGetFramebufferWidth();
+  float h = (float)rlGetFramebufferHeight();
 
   // View matrix from Raylib's camera matrix (origin -> rotate -> scale -> offset)
   Matrix view = GetCameraMatrix2D(camera);

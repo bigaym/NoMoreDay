@@ -237,7 +237,9 @@ inline uint32_t MapGlBarrierBits(PipelineStage prevStage, PassAccessMode prevMod
                       nextStage == PipelineStage::Fragment)) {
       if (kind == ResourceKind::Framebuffer || kind == ResourceKind::Texture2D || kind == ResourceKind::Texture2DArray) {
         barrierBits |= 0x00000400u | 0x00000008u; // GL_FRAMEBUFFER_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT
-        if (nextStage == PipelineStage::Compute && !nextReads) {
+        if (nextStage == PipelineStage::Compute) {
+          // Compute image load/store needs the image-access barrier even when
+          // the next access is read-only; texture-fetch alone is insufficient.
           barrierBits |= 0x00000020u; // GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
         }
       }

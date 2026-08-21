@@ -40,6 +40,14 @@ public:
   void Shutdown();
   void OnResize(int width, int height);
   bool PrepareVfxEmissionSnapshot(const graph::RenderContext &context);
+  // Tells Setup whether a VFXEmissionSnapshotPass will run before this pass in
+  // the current graph. When true, Setup declares ParticleEmissive as a read so
+  // RenderGraph emits the required cross-pass barrier. Test graphs that use
+  // RadianceCascadesPass without the snapshot pass keep the declaration absent.
+  void SetVfxEmissionSnapshotUsed(bool used) { m_usesVfxEmissionSnapshot = used; }
+  [[nodiscard]] bool IsVfxEmissionSnapshotUsed() const noexcept {
+    return m_usesVfxEmissionSnapshot;
+  }
   [[nodiscard]] uint64_t GetVfxEmissionSnapshotVersion() const noexcept {
     return m_vfxEmissionSnapshotVersion;
   }
@@ -158,6 +166,7 @@ private:
   uint32_t m_lastMaterialStampCount = 0u;
   uint32_t m_lastParticleWriteCount = 0u;
   bool m_initialized = false;
+  bool m_usesVfxEmissionSnapshot = false;
   bool m_vfxEmissionSnapshotValid = false;
   uint64_t m_vfxEmissionSnapshotVersion = 0u;
   bool m_barrierAuditLogged = false;

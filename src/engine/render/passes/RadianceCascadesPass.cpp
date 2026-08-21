@@ -57,6 +57,15 @@ void RadianceCascadesPass::Setup(graph::RenderGraphBuilder &builder) {
                graph::RenderOwnerTag::RadianceCascades);
   builder.Read(graph::RenderResourceTag::DistanceField,
                graph::RenderOwnerTag::JFA);
+  if (m_usesVfxEmissionSnapshot) {
+    // Only declare the ParticleEmissive dependency when the VFX emission
+    // snapshot pass is part of this graph; test graphs without the snapshot
+    // pass must stay valid.
+    builder.Read(graph::RenderResourceTag::ParticleEmissive,
+                 graph::RenderOwnerTag::RadianceCascades,
+                 graph::PipelineStage::Compute,
+                 graph::ResourceUsage::ShaderRead);
+  }
   builder.Write(graph::RenderResourceTag::EmissiveBuffer,
                 graph::RenderOwnerTag::RadianceCascades);
   builder.Write(graph::RenderResourceTag::RadianceMap,
