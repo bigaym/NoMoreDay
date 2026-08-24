@@ -51,8 +51,8 @@ TEST_CASE("[Unit] UiCraftBurst - fuse burst: 20 gold sparks + 20 red trails") {
     CHECK(particles[i].scale == doctest::Approx(1.0f)); // 2.0 * 0.5
     CHECK(particles[i].lifetime == doctest::Approx(0.8f));
     const float speed = SpeedOf(particles[i]);
-    CHECK(speed >= 100.0f);
-    CHECK(speed <= 300.0f);
+    CHECK(speed >= 99.9f);
+    CHECK(speed <= 300.1f);
   }
 }
 

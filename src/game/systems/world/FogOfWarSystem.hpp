@@ -32,7 +32,6 @@ public:
     FogOfWarSystem& operator=(const FogOfWarSystem&) = delete;
     
     // 允许移动
-    // 允许移动
     FogOfWarSystem(FogOfWarSystem&& other) noexcept;
     FogOfWarSystem& operator=(FogOfWarSystem&& other) noexcept;
 
@@ -45,14 +44,12 @@ public:
     void initialize(ResourceManager& resources, int width, int height);
     
     /**
-     * @brief 基于屏幕可见区域更新可见性 (GPU 计算)
-     * @param viewMinX 可见区域最小世界坐标 X
-     * @param viewMinY 可见区域最小世界坐标 Y
-     * @param viewMaxX 可见区域最大世界坐标 X
-     * @param viewMaxY 可见区域最大世界坐标 Y
+     * @brief 基于玩家位置与视野半径更新可见性 (GPU 计算)
+     * @param playerPos 玩家世界坐标
+     * @param viewRadius 视野半径 (世界单位)
      */
-    void updateVisibility(float viewMinX, float viewMinY, float viewMaxX,
-                          float viewMaxY);
+    void updateVisibility(const Position& playerPos, float viewRadius);
+    void updateVisibility(float playerWorldX, float playerWorldY, float viewRadius);
     
     /**
      * @brief 渲染战争迷雾
@@ -100,5 +97,6 @@ private:
     
     // CPU 缓存 (用于 isVisible 等查询)
     mutable std::vector<uint32_t> m_cpuVisibilityCache;
-    mutable bool m_cpuCacheDirty = true;
+    mutable std::vector<std::size_t> m_lastVisibleIndices;
+    mutable bool m_cpuCacheDirty = false;
 };

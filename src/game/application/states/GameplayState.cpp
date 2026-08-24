@@ -203,13 +203,22 @@ void GameplayState::OnEnter() {
   }
 
   // Pre-update Fog of War around player position so initial frame is clear
-  if (m_context->levelManager->isInitialized()) {
+  if (m_context->levelManager->isInitialized() && playerView.begin() != playerView.end()) {
     auto &fogSystem = m_context->levelManager->getFogSystem();
-    const Vector2 topLeft = GetScreenToWorld2D({0.0f, 0.0f}, m_camera);
-    const Vector2 bottomRight = GetScreenToWorld2D(
-        {(float)GetScreenWidth(), (float)GetScreenHeight()}, m_camera);
-    fogSystem.updateVisibility(topLeft.x, topLeft.y, bottomRight.x,
-                               bottomRight.y);
+    const auto &pPos = playerView.get<Position>(playerView.front());
+    float viewRadius = 300.0f;
+    if (const auto *vis = m_context->registry->try_get<VisionComponent>(playerView.front())) {
+      if (vis->radius > 0.0f) {
+        viewRadius = vis->radius;
+      }
+    }
+    const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(
+        m_context->levelManager->getCurrentBiomeID());
+    if (biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
+        biome.visionRadius > 0.0f) {
+      viewRadius = std::min(viewRadius, biome.visionRadius);
+    }
+    fogSystem.updateVisibility(pPos, viewRadius);
   }
 
   // 5. Initialize Portal System
@@ -863,14 +872,23 @@ m_uiHost->InputCapture();
     m_camera.offset.y += roundf(shake.y);
   }
 
-  // 更新战争迷雾: 视野 = 整个屏幕可见区域 (基于当前相机)
-  if (m_context->levelManager->isInitialized()) {
+  // 更新战争迷雾 (基于玩家位置和视野半径)
+  if (m_context->levelManager->isInitialized() && playerView.begin() != playerView.end()) {
+    playerPos = registry.get<Position>(playerView.front());
     auto &fogSystem = m_context->levelManager->getFogSystem();
-    const Vector2 topLeft = GetScreenToWorld2D({0.0f, 0.0f}, m_camera);
-    const Vector2 bottomRight = GetScreenToWorld2D(
-        {(float)GetScreenWidth(), (float)GetScreenHeight()}, m_camera);
-    fogSystem.updateVisibility(topLeft.x, topLeft.y, bottomRight.x,
-                               bottomRight.y);
+    float viewRadius = 300.0f;
+    if (const auto *vis = registry.try_get<VisionComponent>(playerView.front())) {
+      if (vis->radius > 0.0f) {
+        viewRadius = vis->radius;
+      }
+    }
+    const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(
+        m_context->levelManager->getCurrentBiomeID());
+    if (biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
+        biome.visionRadius > 0.0f) {
+      viewRadius = std::min(viewRadius, biome.visionRadius);
+    }
+    fogSystem.updateVisibility(playerPos, viewRadius);
   }
 
   // 4. AI

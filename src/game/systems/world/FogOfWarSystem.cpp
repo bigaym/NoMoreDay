@@ -20,12 +20,14 @@ FogOfWarSystem::FogOfWarSystem(FogOfWarSystem &&other) noexcept
       m_visibilityBuffer(std::move(other.m_visibilityBuffer)),
       m_fogShader(other.m_fogShader), m_fogTexture(other.m_fogTexture),
       m_cpuVisibilityCache(std::move(other.m_cpuVisibilityCache)),
+      m_lastVisibleIndices(std::move(other.m_lastVisibleIndices)),
       m_cpuCacheDirty(other.m_cpuCacheDirty) {
   other.m_fogTexture.id = 0;
   other.m_fogShader.id = 0;
   other.m_initialized = false;
   other.m_width = 0;
   other.m_height = 0;
+  other.m_lastVisibleIndices.clear();
 }
 
 FogOfWarSystem &FogOfWarSystem::operator=(FogOfWarSystem &&other) noexcept {
@@ -39,6 +41,7 @@ FogOfWarSystem &FogOfWarSystem::operator=(FogOfWarSystem &&other) noexcept {
     m_fogShader = other.m_fogShader;
     m_fogTexture = other.m_fogTexture;
     m_cpuVisibilityCache = std::move(other.m_cpuVisibilityCache);
+    m_lastVisibleIndices = std::move(other.m_lastVisibleIndices);
     m_cpuCacheDirty = other.m_cpuCacheDirty;
 
     other.m_fogTexture.id = 0;
@@ -46,6 +49,7 @@ FogOfWarSystem &FogOfWarSystem::operator=(FogOfWarSystem &&other) noexcept {
     other.m_initialized = false;
     other.m_width = 0;
     other.m_height = 0;
+    other.m_lastVisibleIndices.clear();
   }
   return *this;
 }
@@ -86,31 +90,30 @@ void FogOfWarSystem::initialize(ResourceManager &resources, int width,
   // 注意: Raylib 的纹理默认就是 GL_TEXTURE_2D, 我们需要用 rlgl 绑定为 image
 
   // 4. 初始化 CPU 缓存
-  m_cpuVisibilityCache.resize(cellCount, VISIBILITY_UNEXPLORED);
-  m_cpuCacheDirty = true;
+  m_cpuVisibilityCache.assign(cellCount, VISIBILITY_UNEXPLORED);
+  m_lastVisibleIndices.clear();
+  m_cpuCacheDirty = false;
 
   m_initialized = true;
   LOG_INFO("GPU FogOfWarSystem initialized successfully.");
 }
 
-void FogOfWarSystem::updateVisibility(float viewMinX, float viewMinY,
-                                      float viewMaxX, float viewMaxY) {
+void FogOfWarSystem::updateVisibility(const Position &playerPos,
+                                      float viewRadius) {
+  updateVisibility(playerPos.x, playerPos.y, viewRadius);
+}
+
+void FogOfWarSystem::updateVisibility(float playerWorldX, float playerWorldY,
+                                      float viewRadius) {
   if (!m_initialized || m_fogShader.id == 0)
     return;
 
   // 转换世界坐标到网格坐标
   using namespace NoMoreDay::Constants::World;
   using namespace NoMoreDay::Constants::World::Fog;
-  float gridMinX = viewMinX / GRID_TILE_SIZE;
-  float gridMinY = viewMinY / GRID_TILE_SIZE;
-  float gridMaxX = viewMaxX / GRID_TILE_SIZE;
-  float gridMaxY = viewMaxY / GRID_TILE_SIZE;
-
-  // 额外缓冲，避免屏幕边缘暴露未探索迷雾
-  gridMinX -= VIEW_RADIUS_BUFFER;
-  gridMinY -= VIEW_RADIUS_BUFFER;
-  gridMaxX += VIEW_RADIUS_BUFFER;
-  gridMaxY += VIEW_RADIUS_BUFFER;
+  float playerGridX = playerWorldX / GRID_TILE_SIZE;
+  float playerGridY = playerWorldY / GRID_TILE_SIZE;
+  float gridRadius = (viewRadius / GRID_TILE_SIZE) + VIEW_RADIUS_BUFFER;
 
   // 启用 Compute Shader
   rlEnableShader(m_fogShader.id);
@@ -118,13 +121,15 @@ void FogOfWarSystem::updateVisibility(float viewMinX, float viewMinY,
   // 设置 Uniform
   int locWidth = rlGetLocationUniform(m_fogShader.id, "width");
   int locHeight = rlGetLocationUniform(m_fogShader.id, "height");
-  int locViewRect = rlGetLocationUniform(m_fogShader.id, "viewRect");
+  int locPlayerPos = rlGetLocationUniform(m_fogShader.id, "playerGridPos");
+  int locRadius = rlGetLocationUniform(m_fogShader.id, "gridRadius");
 
   rlSetUniform(locWidth, &m_width, RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(locHeight, &m_height, RL_SHADER_UNIFORM_INT, 1);
 
-  float viewRectArray[4] = {gridMinX, gridMinY, gridMaxX, gridMaxY};
-  rlSetUniform(locViewRect, viewRectArray, RL_SHADER_UNIFORM_VEC4, 1);
+  float playerPosArray[2] = {playerGridX, playerGridY};
+  rlSetUniform(locPlayerPos, playerPosArray, RL_SHADER_UNIFORM_VEC2, 1);
+  rlSetUniform(locRadius, &gridRadius, RL_SHADER_UNIFORM_FLOAT, 1);
 
   // 绑定 SSBO
   m_visibilityBuffer.BindBase(NoMoreDay::RenderConstants::FogOfWarCS::VISIBILITY_BUFFER);
@@ -150,8 +155,33 @@ void FogOfWarSystem::updateVisibility(float viewMinX, float viewMinY,
 
   rlDisableShader();
 
-  // 标记 CPU 缓存为脏
-  m_cpuCacheDirty = true;
+  // 同步更新 CPU 可见性缓存，消除 GPU 读回延迟与阻塞
+  for (std::size_t idx : m_lastVisibleIndices) {
+    if (idx < m_cpuVisibilityCache.size() &&
+        m_cpuVisibilityCache[idx] == VISIBILITY_VISIBLE) {
+      m_cpuVisibilityCache[idx] = VISIBILITY_EXPLORED;
+    }
+  }
+  m_lastVisibleIndices.clear();
+
+  const int minGx = std::max(0, static_cast<int>(playerGridX - gridRadius));
+  const int maxGx = std::min(m_width - 1, static_cast<int>(playerGridX + gridRadius + 1));
+  const int minGy = std::max(0, static_cast<int>(playerGridY - gridRadius));
+  const int maxGy = std::min(m_height - 1, static_cast<int>(playerGridY + gridRadius + 1));
+  const float r2 = gridRadius * gridRadius;
+
+  for (int gy = minGy; gy <= maxGy; ++gy) {
+    const float dy = static_cast<float>(gy) - playerGridY;
+    for (int gx = minGx; gx <= maxGx; ++gx) {
+      const float dx = static_cast<float>(gx) - playerGridX;
+      if (dx * dx + dy * dy <= r2) {
+        const std::size_t idx = static_cast<std::size_t>(gy) * m_width + gx;
+        m_cpuVisibilityCache[idx] = VISIBILITY_VISIBLE;
+        m_lastVisibleIndices.push_back(idx);
+      }
+    }
+  }
+  m_cpuCacheDirty = false;
 }
 
 void FogOfWarSystem::renderFog() const {
@@ -239,6 +269,7 @@ void FogOfWarSystem::shutdown() {
   }
 
   m_cpuVisibilityCache.clear();
+  m_lastVisibleIndices.clear();
   m_width = 0;
   m_height = 0;
   m_initialized = false;

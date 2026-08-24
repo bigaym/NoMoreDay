@@ -95,9 +95,7 @@ void GameplayRenderAdapter::BuildFrameData(render::GameplayRenderFrame &frame) {
   if (m_context->levelManager != nullptr) {
     const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(
         m_context->levelManager->getCurrentBiomeID());
-    m_limitEnemyVision =
-        biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
-        biome.visionRadius > 0.0f;
+    m_limitEnemyVision = !biome.isSafeZone;
     m_fogSystem = &m_context->levelManager->getFogSystem();
   }
 }

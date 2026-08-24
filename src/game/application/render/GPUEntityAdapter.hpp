@@ -76,8 +76,7 @@ public:
     }
     const auto biomeId = levelManager->getCurrentBiomeID();
     const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(biomeId);
-    if (!biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) ||
-        biome.visionRadius <= 0.0f) {
+    if (biome.isSafeZone) {
       return;
     }
     auto enemyView = registry.view<EnemyTag, Position, GPUIndex>();

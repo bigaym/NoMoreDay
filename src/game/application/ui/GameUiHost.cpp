@@ -758,13 +758,10 @@ void GameUiHost::DrawMinimap(const LevelManager &levelManager,
   // LevelManager — not the ECS registry) and resolves the overlay markers from
   // the frame snapshot; Paint emits the draw-list commands in PrepareRender.
   m_minimap.Update(m_snapshot, levelManager, grid, GetFrameTime());
-  // R5: keep the backend's registered handle for the controller-owned minimap
-  // texture in sync (the texture is recreated when the fog grid resizes).
+  // Always keep backend's registered texture handle in sync with current width/height/id
   const Texture2D &texture = m_minimap.Texture();
-  if (texture.id != m_registeredMinimapTextureId) {
-    m_backend.RegisterTexture(kMinimapTextureResourceId, texture);
-    m_registeredMinimapTextureId = texture.id;
-  }
+  m_backend.RegisterTexture(kMinimapTextureResourceId, texture);
+  m_registeredMinimapTextureId = texture.id;
 }
 
 void GameUiHost::DrawHud(entt::registry &registry) {

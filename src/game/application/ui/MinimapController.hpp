@@ -128,10 +128,9 @@ private:
   std::vector<Color> m_minimapPixels;
   bool m_debugRevealMap = false;
   bool m_minimapDirty = true;
-  std::vector<Color> m_partialBuffer;
   float m_refreshTimer = 0.0f;
   bool m_inGameplay = false;
-  std::uint64_t m_lastRevision = 0;
+  bool m_lastWasTown = false;
 };
 
 } // namespace NoMoreDay::ui

@@ -16,7 +16,8 @@ layout(rgba8, binding = 0) uniform writeonly image2D fogTexture;
 
 uniform int width;
 uniform int height;
-uniform vec4 viewRect;  // Visible screen rect in grid coords: (minX, minY, maxX, maxY)
+uniform vec2 playerGridPos;  // Player position in grid coordinates
+uniform float gridRadius;    // View radius in grid cells
 
 void main() {
     uint x = gl_GlobalInvocationID.x;
@@ -27,17 +28,18 @@ void main() {
     uint index = y * width + x;
     uint currentVis = visibility[index];
     
-    // Check if the tile is inside the visible screen rect
-    bool insideRect = float(x) >= viewRect.x && float(x) <= viewRect.z &&
-                      float(y) >= viewRect.y && float(y) <= viewRect.w;
+    // Calculate distance to player
+    float dx = float(x) - playerGridPos.x;
+    float dy = float(y) - playerGridPos.y;
+    float dist = sqrt(dx * dx + dy * dy);
     
-    // Update visibility based on screen rect
-    if (insideRect) {
-        // Within the visible screen area - set to VISIBLE
+    // Update visibility based on distance
+    if (dist <= gridRadius) {
+        // Within view radius - set to VISIBLE
         visibility[index] = VISIBILITY_VISIBLE;
         currentVis = VISIBILITY_VISIBLE;
     } else if (currentVis == VISIBILITY_VISIBLE) {
-        // Was visible, now out of the screen - downgrade to EXPLORED
+        // Was visible, now out of range - downgrade to EXPLORED
         visibility[index] = VISIBILITY_EXPLORED;
         currentVis = VISIBILITY_EXPLORED;
     }

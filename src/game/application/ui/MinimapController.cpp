@@ -69,15 +69,15 @@ void MinimapController::UnloadResources() {
   }
   m_minimapPixels.clear();
   m_minimapPixels.shrink_to_fit();
-  m_partialBuffer.clear();
-  m_partialBuffer.shrink_to_fit();
   m_minimapDirty = true;
+  m_lastWasTown = false;
 }
 
 void MinimapController::EnterGameplay() {
   m_inGameplay = true;
   m_refreshTimer = 0.0f;
   m_minimapDirty = true;
+  m_lastWasTown = false;
 }
 
 void MinimapController::LeaveGameplay() {
@@ -229,34 +229,52 @@ void MinimapController::Update(const GameUiSnapshot& snapshot,
     m_minimapTexture = LoadTextureFromImage(img);
     UnloadImage(img);
     SetTextureFilter(m_minimapTexture, TEXTURE_FILTER_POINT);
+    SetTextureWrap(m_minimapTexture, TEXTURE_WRAP_CLAMP);
     m_minimapDirty = true;
   }
 
   m_refreshTimer += deltaSeconds;
-  if (m_refreshTimer >= 0.166f || m_minimapDirty) {
+  if (m_refreshTimer >= 0.05f || m_minimapDirty || m_lastWasTown != m_isTown) {
     m_refreshTimer = 0.0f;
+    m_lastWasTown = m_isTown;
 
-    int minGx = std::max(0, m_playerGx - viewRadius);
-    int maxGx = std::min(gridW, m_playerGx + viewRadius + 1);
-    int minGy = std::max(0, m_playerGy - viewRadius);
-    int maxGy = std::min(gridH, m_playerGy + viewRadius + 1);
+    if (m_minimapPixels.size() != static_cast<std::size_t>(gridW * gridH)) {
+      m_minimapPixels.assign(gridW * gridH, BLACK);
+      m_minimapDirty = true;
+    }
 
-    int uWidth = maxGx - minGx;
-    int uHeight = maxGy - minGy;
-
-    if (uWidth > 0 && uHeight > 0) {
-      if (m_partialBuffer.size() < static_cast<std::size_t>(uWidth * uHeight)) {
-        m_partialBuffer.resize(uWidth * uHeight);
+    bool changed = false;
+    if (m_isTown) {
+      // In town (safezone), reveal the entire town map on the minimap
+      for (int gy = 0; gy < gridH; ++gy) {
+        for (int gx = 0; gx < gridW; ++gx) {
+          const int index = gy * gridW + gx;
+          const Color oldC = m_minimapPixels[index];
+          const Color c =
+              map.isWalkable(gx, gy) ? kFogWalkableVisible : kFogWallVisible;
+          if (c.r != oldC.r || c.g != oldC.g || c.b != oldC.b) {
+            m_minimapPixels[index] = c;
+            changed = true;
+          }
+        }
       }
+    } else {
+      // Determine update bounds around player (clamped to grid)
+      const int scanRadius = viewRadius + 10;
+      const int minGx = m_minimapDirty ? 0 : std::max(0, m_playerGx - scanRadius);
+      const int maxGx = m_minimapDirty ? gridW : std::min(gridW, m_playerGx + scanRadius + 1);
+      const int minGy = m_minimapDirty ? 0 : std::max(0, m_playerGy - scanRadius);
+      const int maxGy = m_minimapDirty ? gridH : std::min(gridH, m_playerGy + scanRadius + 1);
 
-      for (int ly = 0; ly < uHeight; ++ly) {
-        int gy = minGy + ly;
-        for (int lx = 0; lx < uWidth; ++lx) {
-          int gx = minGx + lx;
+      for (int gy = minGy; gy < maxGy; ++gy) {
+        for (int gx = minGx; gx < maxGx; ++gx) {
+          const int index = gy * gridW + gx;
+          const Color oldC = m_minimapPixels[index];
           Color c = BLACK;
-          bool isExplored = fog.isExplored(gx, gy);
+
+          const bool isExplored = fog.isExplored(gx, gy);
           if (isExplored || m_debugRevealMap) {
-            bool isVisible =
+            const bool isVisible =
                 m_debugRevealMap ? true : fog.isVisible(gx, gy);
             if (map.isWalkable(gx, gy)) {
               c = isVisible ? kFogWalkableVisible : kFogWalkableExplored;
@@ -264,14 +282,19 @@ void MinimapController::Update(const GameUiSnapshot& snapshot,
               c = isVisible ? kFogWallVisible : kFogWallExplored;
             }
           }
-          m_partialBuffer[ly * uWidth + lx] = c;
+
+          if (c.r != oldC.r || c.g != oldC.g || c.b != oldC.b) {
+            m_minimapPixels[index] = c;
+            changed = true;
+          }
         }
       }
-
-      Rectangle updateRect = {(float)minGx, (float)minGy, (float)uWidth,
-                              (float)uHeight};
-      UpdateTextureRec(m_minimapTexture, updateRect, m_partialBuffer.data());
     }
+
+    if (changed || m_minimapDirty) {
+      UpdateTexture(m_minimapTexture, m_minimapPixels.data());
+    }
+
     m_minimapDirty = false;
   }
 
@@ -335,12 +358,15 @@ void MinimapController::Paint(UiDrawList& drawList,
 
   // Fog texture (cropped around the player).
   const int viewRadius = 30;
+  const float viewSize = static_cast<float>(viewRadius * 2);
+
   drawList.Image(
       UiDrawLayer::Hud, kMinimapRootNode,
       UiRect{{x, y}, {mapSize, mapSize}}, kMinimapTextureResourceId,
       UiColor{255, 255, 255, 255},
-      UiRect{{(float)m_playerGx - viewRadius, (float)m_playerGy - viewRadius},
-             {(float)viewRadius * 2.0f, (float)viewRadius * 2.0f}});
+      UiRect{{static_cast<float>(m_playerGx - viewRadius),
+              static_cast<float>(m_playerGy - viewRadius)},
+             {viewSize, viewSize}});
 
   // Scanline / overlay effect (top-down gradient).
   drawList.FillRect(UiDrawLayer::Hud, kMinimapRootNode,
