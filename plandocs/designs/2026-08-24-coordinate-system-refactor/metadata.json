@@ -1,0 +1,27 @@
+{
+  "id": "refactor_coordinate_system_20260824",
+  "title": "Coordinate System Single Source",
+  "type": "refactor/governance",
+  "status": "in_progress",
+  "created": "2026-08-24T00:00:00+08:00",
+  "updated": "2026-08-24T00:00:00+08:00",
+  "priority": "P0",
+  "phase": "Coordinate System Refactor",
+  "master_spec": "../2026-08-24-coordinate-system-convention-design.md",
+  "depends_on": [],
+  "sub_agents": [
+    "engine-coord",
+    "ui-coord",
+    "text-msdf",
+    "qa-coord",
+    "reviewer"
+  ],
+  "phases": {
+    "total": 6,
+    "completed": 1
+  },
+  "tasks": {
+    "total": 18,
+    "completed": 0
+  }
+}

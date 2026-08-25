@@ -3,6 +3,7 @@
 #include "game/application/ui/UiResourceIds.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
+#include "engine/render/CoordSystem.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -106,18 +107,26 @@ void MonsterHealthBarController::Update(const GameUiSnapshot& snapshot,
         return;
     }
 
-    // World-space mouse position (inverse of raylib GetScreenToWorld2D).
-    const float invZoom = 1.0f / camZoom;
-    const float mouseWorldX = (mousePixelX - camOffsetX) * invZoom + camTargetX;
-    const float mouseWorldY = (mousePixelY - camOffsetY) * invZoom + camTargetY;
+    // R1: use CoordSystem instead of hand-rolling raylib camera math.
+    NoMoreDay::render::coord::Camera2DTransform cam;
+    cam.target = {camTargetX, camTargetY};
+    cam.offset = {camOffsetX, camOffsetY};
+    cam.zoom = camZoom > 0.0f ? camZoom : 1.0f;
+    const Vector2 mouseWorld = NoMoreDay::render::coord::ScenePixelToWorld(
+        cam, Vector2{mousePixelX, mousePixelY});
+    const float mouseWorldX = mouseWorld.x;
+    const float mouseWorldY = mouseWorld.y;
 
     // Viewport culling bounds in world space (+100 padding, legacy).
-    const float viewMinX = (0.0f - camOffsetX) * invZoom + camTargetX - 100.0f;
-    const float viewMinY = (0.0f - camOffsetY) * invZoom + camTargetY - 100.0f;
-    const float viewMaxX = ((float)screenPixelWidth - camOffsetX) * invZoom +
-                           camTargetX + 100.0f;
-    const float viewMaxY = ((float)screenPixelHeight - camOffsetY) * invZoom +
-                           camTargetY + 100.0f;
+    const Vector2 viewMin = NoMoreDay::render::coord::ScenePixelToWorld(
+        cam, Vector2{0.0f, 0.0f});
+    const Vector2 viewMax = NoMoreDay::render::coord::ScenePixelToWorld(
+        cam, Vector2{static_cast<float>(screenPixelWidth),
+                     static_cast<float>(screenPixelHeight)});
+    const float viewMinX = viewMin.x - 100.0f;
+    const float viewMinY = viewMin.y - 100.0f;
+    const float viewMaxX = viewMax.x + 100.0f;
+    const float viewMaxY = viewMax.y + 100.0f;
 
     float closestDistSq = 3.4028235e38f;
     for (const GameUiMonsterHealthView& monster : snapshot.monsters) {
@@ -180,16 +189,19 @@ void MonsterHealthBarController::Update(const GameUiSnapshot& snapshot,
 
 void MonsterHealthBarController::Paint(UiDrawList& drawList,
                                        const UiViewport& viewport) const {
-    const float invZoom = 1.0f / (m_camZoom > 0.0f ? m_camZoom : 1.0f);
+    // R1: world -> scene pixel via CoordSystem, then scene pixel -> logical
+    // via UiViewport. No raw camera formula on the paint path.
+    NoMoreDay::render::coord::Camera2DTransform cam;
+    cam.target = {m_camTargetX, m_camTargetY};
+    cam.offset = {m_camOffsetX, m_camOffsetY};
+    cam.zoom = m_camZoom > 0.0f ? m_camZoom : 1.0f;
 
     // Overhead bars (world -> logical via the retained camera transform).
     for (std::size_t i = 0; i < m_barCount; ++i) {
         const BarCmd& cmd = m_bars[i];
-        const float screenX = (cmd.worldX - m_camTargetX) * m_camZoom +
-                              m_camOffsetX;
-        const float screenY = (cmd.worldY - m_camTargetY) * m_camZoom +
-                              m_camOffsetY;
-        const UiVec2 origin = viewport.ToLogical(UiVec2{screenX, screenY});
+        const Vector2 screen = NoMoreDay::render::coord::WorldToScenePixel(
+            cam, Vector2{cmd.worldX, cmd.worldY});
+        const UiVec2 origin = viewport.ToLogical(UiVec2{screen.x, screen.y});
         const float scale = viewport.Scale();
         const UiRect bg{origin, {cmd.width * scale, cmd.height * scale}};
         const UiRect fg{bg.origin,

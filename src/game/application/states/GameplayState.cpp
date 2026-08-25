@@ -4,6 +4,7 @@
 #include "engine/resource/AssetRegistry.hpp"
   #include "engine/resource/ResourceManager.hpp"
   #include "engine/render/GPUUtils.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "game/application/scene/StateManager.hpp"
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/LightComponent.hpp"
@@ -1113,7 +1114,8 @@ void GameplayState::OnRender() {
         const auto &pos = pView.get<Position>(pView.front());
         Vector2 screenPlayer = GetWorldToScreen2D({pos.x, pos.y}, m_camera);
         // Flip Y for screenPlayer because GL_FRAGCOORD is y-up
-        screenPlayer.y = (float)GetScreenHeight() - screenPlayer.y;
+        screenPlayer.y = NoMoreDay::render::coord::NativeYToGl(
+            screenPlayer.y, static_cast<float>(GetScreenHeight()));
         
         if (m_filterLocPlayer != -1) SetShaderValue(m_activeFilterShader, m_filterLocPlayer, &screenPlayer, SHADER_UNIFORM_VEC2);
         

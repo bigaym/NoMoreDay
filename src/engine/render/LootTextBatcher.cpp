@@ -1,6 +1,7 @@
 #include "engine/render/LootTextBatcher.hpp"
 #include "engine/render/GlyphCache.hpp"
 #include "engine/render/resource/MSDFAtlasRegistry.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "raymath.h"
 #include <cmath>
 
@@ -198,8 +199,10 @@ void LootTextBatcher::BuildTemplatesMsdf(const std::string& text, float fontSize
 
             // Render bounds relative to the text origin (no screen coordinates).
             // Bearing is (left, bottom) in em units; scaled to pixels here.
-            tpl.offset.x = currentX + metric->bearing[0] * scale;
-            tpl.offset.y = metric->bearing[1] * scale;
+            tpl.offset.x = currentX + coord::MsdfBearingToWorldOffset(
+                metric->bearing[0], registry.GetEmSize(), fontSize);
+            tpl.offset.y = coord::MsdfBearingToWorldOffset(
+                metric->bearing[1], registry.GetEmSize(), fontSize);
 
             tpl.size.x = metric->size[0] * scale;
             tpl.size.y = metric->size[1] * scale;

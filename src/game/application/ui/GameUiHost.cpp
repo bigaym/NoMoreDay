@@ -1090,8 +1090,8 @@ void GameUiHost::PaintDragPhantom(UiDrawList& drawList) {
   // tooltip paints from), so no entity handle is ever re-resolved on the
   // paint path; the skill preview uses the skill icon asset id (registered
   // identity mapping). The logical mouse is the preview anchor.
-  const Vector2 mPos = UISystem::GetMousePositionLogic();
-  const UiVec2 logicalMouse{mPos.x, mPos.y};
+  const Vector2 mPos = GetMousePosition();
+  const UiVec2 logicalMouse = m_viewport.ToLogical(UiVec2{mPos.x, mPos.y});
 
   // 1. Item Phantom
   if (m_dragSession.draggedItemDomainId != 0) {

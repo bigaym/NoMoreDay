@@ -7,6 +7,7 @@
 #include "engine/render/particle/ParticleTextureManager.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
+#include "engine/render/CoordSystem.hpp"
 
 // RenderConstants::ParticleCS defines binding point semantics
 #include "engine/render/RenderConstants.hpp"
@@ -822,17 +823,12 @@ Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
   // Use the current framebuffer dimensions (render target when rendering into
   // the DRS-scaled HDR/scene RT; default framebuffer otherwise) so GPU custom
   // MVP passes stay in the same projection space as raylib's BeginTextureMode.
-  float w = (float)rlGetFramebufferWidth();
-  float h = (float)rlGetFramebufferHeight();
-
-  // View matrix from Raylib's camera matrix (origin -> rotate -> scale -> offset)
-  Matrix view = GetCameraMatrix2D(camera);
-
-  // Projection matrix: orthographic, Y-down (Raylib convention)
-  Matrix proj = MatrixOrtho(0.0f, w, h, 0.0f, -1.0f, 1.0f);
-
-  // MVP = View * Projection
-  return MatrixMultiply(view, proj);
+  // Delegated to coord::Build2DMvp (design 2026-08-24): one Y-down orthographic
+  // projection source for every custom GPU pass (R2).
+  const float w = (float)rlGetFramebufferWidth();
+  const float h = (float)rlGetFramebufferHeight();
+  return NoMoreDay::render::coord::Build2DMvp(
+      NoMoreDay::render::coord::Camera2DTransform::From(camera), w, h);
 }
 
 void GPUParticleSystem::Render(const Camera2D &camera) {
