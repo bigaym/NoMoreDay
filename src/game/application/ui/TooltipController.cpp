@@ -6,6 +6,7 @@
 #include "game/application/ui/UiDrawList.hpp"
 #include "game/application/ui/UiViewport.hpp"
 #include "game/application/ui/WorldUiFrame.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/ui_shared/UiShared.hpp"
@@ -81,7 +82,9 @@ void TooltipController::DetectGroundHover(const Camera2D &camera) {
     return;
   }
 
-  const Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
+  const Vector2 mouseWorldPos = NoMoreDay::render::coord::ScenePixelToWorld(
+      NoMoreDay::render::coord::Camera2DTransform::From(camera),
+      GetMousePosition());
 
   // Iterate ONLY visible items (already culled by RenderSystem). First hit is
   // the top-most item, mirroring the legacy loop. R8: the frame's proxies carry

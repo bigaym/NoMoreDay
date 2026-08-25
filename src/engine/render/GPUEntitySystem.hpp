@@ -44,7 +44,7 @@ public:
   void UploadGPU(const render::EntityRenderFrame &frame);
   void Render(const render::EntityRenderFrame &frame,
               const Camera2D &camera); // Render instanced entities
-  void RenderLegacy(float alpha);      // CPU-Instanced rendering (Fallback)
+  void RenderLegacy(float alpha, const Camera2D &camera); // CPU-Instanced rendering (Fallback)
 
   void Shutdown();
 

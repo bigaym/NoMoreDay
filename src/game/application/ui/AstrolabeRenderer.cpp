@@ -3,6 +3,7 @@
 #include "game/systems/skill/AstrolabeSystem.hpp"
 #include "game/foundation/data/TalentLayoutService.hpp"
 #include "game/foundation/data/AstrolabeConstants.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
 #include "rlgl.h"
@@ -189,9 +190,13 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
         // Pass 2: blit the cache up to the screen. EndTextureMode reset the
         // modelview matrix, so re-apply the camera before drawing.
         BeginMode2D(view.camera);
-        Vector2 tl = GetScreenToWorld2D({0, 0}, view.camera);
-        Vector2 br = GetScreenToWorld2D(view.resolution, view.camera);
-        Rectangle src = { 0, 0, cacheRes.x, -cacheRes.y };
+        Vector2 tl = NoMoreDay::render::coord::ScenePixelToWorld(
+            NoMoreDay::render::coord::Camera2DTransform::From(view.camera),
+            {0, 0});
+        Vector2 br = NoMoreDay::render::coord::ScenePixelToWorld(
+            NoMoreDay::render::coord::Camera2DTransform::From(view.camera),
+            view.resolution);
+        Rectangle src = NoMoreDay::render::coord::BlitSourceRect(false, cacheRes.x, cacheRes.y);
         Rectangle dst = { tl.x - 100, tl.y - 100, (br.x - tl.x) + 200,
                           (br.y - tl.y) + 200 };
         DrawTexturePro(m_galaxyCache.texture, src, dst, {0, 0}, 0.0f, WHITE);

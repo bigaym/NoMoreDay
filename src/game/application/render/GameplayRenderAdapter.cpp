@@ -10,6 +10,7 @@
 #include "core/logging/Logger.hpp"
 #include "core/utils/FmtBuffer.hpp"
 #include "core/utils/ScopedTimer.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/SIMDSpatialGrid.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
@@ -355,7 +356,8 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
   }
   NoMoreDay::systems::SwordIntentVisualSystem::Render(frame.registry);
 
-  NoMoreDay::systems::HoloBladeRenderSystem::Render(frame.registry, *m_context);
+  NoMoreDay::systems::HoloBladeRenderSystem::Render(frame.registry, *m_context,
+                                                    frame.camera);
 }
 
 void GameplayRenderAdapter::ExecuteVFXPass(render::GameplayRenderFrame &frame) {
@@ -685,11 +687,13 @@ void GameplayRenderAdapter::CollectVisibleItemProxies(
     render::GameplayRenderFrame &frame) {
   s_candidates.clear();
 
-  const Vector2 vTL = GetScreenToWorld2D({0, 0}, frame.camera);
-  const Vector2 vBR =
-      GetScreenToWorld2D({static_cast<float>(GetScreenWidth()),
-                          static_cast<float>(GetScreenHeight())},
-                         frame.camera);
+  const NoMoreDay::render::coord::Camera2DTransform cam =
+      NoMoreDay::render::coord::Camera2DTransform::From(frame.camera);
+  const Vector2 vTL = NoMoreDay::render::coord::ScenePixelToWorld(cam,
+                                                                  {0, 0});
+  const Vector2 vBR = NoMoreDay::render::coord::ScenePixelToWorld(
+      cam, {static_cast<float>(GetScreenWidth()),
+            static_cast<float>(GetScreenHeight())});
   const Rectangle viewRect = {vTL.x - 100, vTL.y - 100, (vBR.x - vTL.x) + 200,
                               (vBR.y - vTL.y) + 200};
 
@@ -805,12 +809,10 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
   // available (GPU-text bootstrap registered atlas + metrics) AND the
   // Engine broadcasts its MSDF glyph resources as ready
   // (glyphMsdfEngineReady: glyph_msdf.frag loaded + GPUTextSystem
-  // initialized). Otherwise the bitmap path runs, byte-for-byte the
-  // pre-B5 behaviour. This flag represents the final per-frame MSDF
-  // mode decision and doubles as the cache-template source discriminator.
-  // Hoisted before the font-size quantization so the MSDF path can skip it:
-  // the MSDF atlas scales to any font size crisply, while the bitmap path
-  // must stay on integer texel multiples to avoid resampling blur.
+  // initialized). The MSDF atlas is the only glyph source since the bitmap
+  // path was removed (2026-08-25); when unavailable the label background
+  // still draws but glyph instances are skipped. This flag doubles as the
+  // cache-template source discriminator.
   const bool msdfAvailable =
       ::NoMoreDay::render::MSDFAtlasRegistry::Get().IsAvailable() &&
       frame.glyphMsdfEngineReady;
@@ -890,19 +892,6 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
       if (fSize < 10) {
         fSize = 10;
       }
-      // Phase A: quantize scaleFactor = fSize / baseSize to an integer
-      // multiple (>= 1) so glyph quads scale by whole atlas texels; a
-      // fractional scale would resample the 24px bitmap atlas bilinearly and
-      // blur the label. The MSDF path skips quantization: the distance field
-      // scales to any font size crisply.
-      if (!msdfAvailable && IsFontValid(frame.font) &&
-          frame.font.baseSize > 0) {
-        const int integerScale =
-            std::max(1, static_cast<int>(std::round(
-                            static_cast<float>(fSize) /
-                            static_cast<float>(frame.font.baseSize))));
-        fSize = frame.font.baseSize * integerScale;
-      }
       if (!labelCache.isValid || labelCache.lastFontSize != fSize ||
           (!cand.isGold &&
            labelCache.lastRarityHash != static_cast<uint32_t>(cand.rarity))) {
@@ -914,11 +903,8 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
         const char *measureText =
             cand.isGold ? labelCache.cachedText : cand.text.c_str();
         labelCache.cachedSize =
-            IsFontValid(frame.font)
-                ? ::NoMoreDay::render::LootTextBatcher::MeasureText(
-                      frame.font, measureText, static_cast<float>(fSize))
-                : Vector2{static_cast<float>(MeasureText(measureText, fSize)),
-                          static_cast<float>(fSize)};
+            ::NoMoreDay::render::LootTextBatcher::MeasureTextMsdf(
+                measureText, static_cast<float>(fSize));
         labelCache.lastFontSize = fSize;
         if (!cand.isGold) {
           labelCache.lastRarityHash = static_cast<uint32_t>(cand.rarity);
@@ -926,7 +912,6 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
         labelCache.isValid = true;
         // Layout may have changed; invalidate cached glyph templates.
         labelCache.glyphTemplates.clear();
-        labelCache.cachedGlyphs.clear();
       }
       // Gold label text lives in the label cache; make the candidate carry it
       // for the glyph builder (the producer cannot format it read-only).
@@ -1006,55 +991,42 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
         }
         // Cached-template path: rebuild glyph layout templates only when the
         // cached size is stale (font size, text, or template source changed),
-        // then translate the origin-relative cached instances to the final
-        // rect each frame. The template source (bitmap vs MSDF) participates
-        // in the invalidation: UVs and size math differ between the two
-        // atlases and must never be reused across a mode switch.
+        // then write the origin-relative templates to the final rect each
+        // frame. The MSDF atlas is the only template source (the bitmap path
+        // was removed 2026-08-25), so a rebuild is triggered by size/text
+        // changes and by template-source availability flips.
         auto *labelCachePtr =
             frame.registry.try_get<LabelCacheComponent>(cand.entity);
         if (labelCachePtr != nullptr &&
             (labelCachePtr->glyphTemplates.size() == 0 ||
              labelCachePtr->lastUsedMsdf != msdfAvailable)) {
           labelCachePtr->glyphTemplates.clear();
-          labelCachePtr->cachedGlyphs.clear();
           if (msdfAvailable) {
             ::NoMoreDay::render::LootTextBatcher::BuildTemplatesMsdf(
                 cand.text, static_cast<float>(fSize),
                 labelCachePtr->glyphTemplates);
-          } else {
-            ::NoMoreDay::render::LootTextBatcher::BuildTemplates(
-                frame.font, cand.text, static_cast<float>(fSize),
-                labelCachePtr->glyphTemplates);
           }
-          ::NoMoreDay::render::LootTextBatcher::BatchString(
-              frame.font, cand.text, {0.0f, 0.0f},
-              static_cast<float>(fSize), RAYWHITE, labelCachePtr->cachedGlyphs);
           labelCachePtr->lastFontSize = fSize;
           labelCachePtr->lastUsedMsdf = msdfAvailable;
         }
         if (labelCachePtr != nullptr &&
             labelCachePtr->glyphTemplates.size() > 0) {
           ::NoMoreDay::render::LootTextBatcher::WriteInstances(
-              labelCachePtr->glyphTemplates, labelCachePtr->cachedGlyphs,
+              labelCachePtr->glyphTemplates,
               {cand.currentRect.x + 5, cand.currentRect.y + 2},
               ColorToInt(cand.color), frame.camera.zoom, *frame.glyphBuffer);
           // B5: record that this frame actually emitted glyphs from MSDF
-          // templates (WriteInstances returns early unless the cached layout
-          // matches the templates), and track the largest font size seen.
-          if (msdfAvailable &&
-              labelCachePtr->cachedGlyphs.size() ==
-                  labelCachePtr->glyphTemplates.size()) {
+          // templates, and track the largest font size seen.
+          if (msdfAvailable) {
             glyphMsdfUsedThisFrame = true;
             maxGlyphFSize = std::max(maxGlyphFSize, fSize);
           }
         } else if (msdfAvailable) {
           // H-02: MSDF mode is decided this frame but this label produced no
           // MSDF templates (every codepoint missed the atlas — e.g. GBK
-          // extension characters) or has no cache entry. Emitting bitmap UVs
-          // here would be sampled by the MSDF shader from the MSDF atlas
-          // (wrong texels), so skip this label's glyph instances instead; the
-          // background label still draws. One-time log keeps the skipped
-          // label visible.
+          // extension characters) or has no cache entry, so skip this label's
+          // glyph instances; the background label still draws. One-time log
+          // keeps the skipped label visible.
           if (!cand.text.empty()) {
             static bool s_loggedMsdfEmptyTemplates = false;
             if (!s_loggedMsdfEmptyTemplates) {
@@ -1063,22 +1035,14 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
               s_loggedMsdfEmptyTemplates = true;
             }
           }
-        } else {
-          // Bitmap path: bitmap UVs sampled by the bitmap glyph shader.
-          ::NoMoreDay::render::LootTextBatcher::BatchString(
-              frame.font, cand.text,
-              {cand.currentRect.x + 5, cand.currentRect.y + 2},
-              static_cast<float>(fSize), cand.color, *frame.glyphBuffer);
         }
       }
     }
   }
 
-  // B5: publish the MSDF glyph decision to the Engine glyph draw. When the
-  // MSDF atlas is unavailable the mode stays disabled and the bitmap path
-  // runs exactly as before B5. The pixel range scales the font's em size to
-  // screen pixels at the current zoom: pxRange = distanceRange *
-  // (maxFontSizePx * zoom / emSize).
+  // B5: publish the MSDF glyph decision to the Engine glyph draw. The pixel
+  // range scales the font's em size to screen pixels at the current zoom:
+  // pxRange = distanceRange * (maxFontSizePx * zoom / emSize).
   frame.glyphMsdfEnabled = glyphMsdfUsedThisFrame;
   if (glyphMsdfUsedThisFrame) {
     const auto &msdfRegistry = ::NoMoreDay::render::MSDFAtlasRegistry::Get();

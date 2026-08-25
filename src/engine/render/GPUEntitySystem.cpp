@@ -1,5 +1,6 @@
 #include "engine/render/GPUEntitySystem.hpp"
 #include "core/logging/Logger.hpp"
+#include "engine/render/CoordSystem.hpp"
   #include "engine/render/RenderConstants.hpp"
   #include "engine/render/GPUUtils.hpp"
 #include "raylib.h" // Added for GetFrameTime()
@@ -173,9 +174,12 @@ void GPUEntitySystem::Render(const render::EntityRenderFrame &frame,
                              const Camera2D &camera) {
   if (m_maxEntities > 0) {
     // Calculate View Bounds for Culling
-    Vector2 worldMin = GetScreenToWorld2D({0, 0}, camera);
-    Vector2 worldMax = GetScreenToWorld2D(
-        {(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
+    const NoMoreDay::render::coord::Camera2DTransform cam =
+        NoMoreDay::render::coord::Camera2DTransform::From(camera);
+    Vector2 worldMin = NoMoreDay::render::coord::ScenePixelToWorld(cam,
+                                                                   {0.0f, 0.0f});
+    Vector2 worldMax = NoMoreDay::render::coord::ScenePixelToWorld(
+        cam, {(float)GetScreenWidth(), (float)GetScreenHeight()});
 
     Vector4 viewBounds = {fminf(worldMin.x, worldMax.x) - 500.0f,
                           fminf(worldMin.y, worldMax.y) - 500.0f,
@@ -190,23 +194,26 @@ void GPUEntitySystem::Render(const render::EntityRenderFrame &frame,
       mdi.ResetCommand(); // Reset before culling
       mdi.Cull(*frame.resources, m_persistentEntityBuffer, viewBounds);
       mdi.Render(*frame.resources, m_persistentEntityBuffer,
-                 frame.renderAlpha);
+                 frame.renderAlpha, camera);
     } else {
       auto &mdi = NoMoreDay::render::MDIRenderer::Get();
       mdi.ResetCommand(); // Reset before culling
       mdi.Cull(*frame.resources, m_persistentEntityBuffer, viewBounds);
       mdi.Render(*frame.resources, m_persistentEntityBuffer,
-                 frame.renderAlpha);
+                 frame.renderAlpha, camera);
     }
   } else {
-    RenderLegacy(frame.renderAlpha);
+    RenderLegacy(frame.renderAlpha, camera);
   }
 }
 
-void GPUEntitySystem::RenderLegacy(float alpha) {
+void GPUEntitySystem::RenderLegacy(float alpha, const Camera2D &camera) {
   if (m_maxEntities <= 0 || m_renderShader.id == 0)
     return;
-  Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+  Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+      NoMoreDay::render::coord::Camera2DTransform::From(camera),
+      static_cast<float>(GetRenderWidth()),
+      static_cast<float>(GetRenderHeight()));
   rlEnableShader(m_renderShader.id);
   rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], mvp);
 

@@ -9,6 +9,7 @@
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/application/ui/UIRenderer.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Common.hpp"
@@ -130,7 +131,9 @@ void AstrolabeController::HandleCameraInput(const UiInputFrame& input) {
     float wheel = input.pointer.mouseWheel;
     if (wheel != 0.0f) {
         Vector2 screenPos = { mouseLogical.x * scale, mouseLogical.y * scale };
-        Vector2 mouseWorldPos = GetScreenToWorld2D(screenPos, m_view.camera);
+        Vector2 mouseWorldPos = NoMoreDay::render::coord::ScenePixelToWorld(
+            NoMoreDay::render::coord::Camera2DTransform::From(m_view.camera),
+            screenPos);
         m_view.camera.offset = screenPos;
         m_view.camera.target = mouseWorldPos;
         m_view.camera.zoom += wheel * ZOOM_SPEED * m_view.camera.zoom;
@@ -184,7 +187,9 @@ void AstrolabeController::HandleInteraction(const GameUiSnapshot& snapshot,
 
     // Hit Test (world-space mouse from the logical input + current camera).
     Vector2 mouseScreen = { mouseLogical.x * scale, mouseLogical.y * scale };
-    Vector2 mouseWorld = GetScreenToWorld2D(mouseScreen, m_view.camera);
+    Vector2 mouseWorld = NoMoreDay::render::coord::ScenePixelToWorld(
+        NoMoreDay::render::coord::Camera2DTransform::From(m_view.camera),
+        mouseScreen);
     uint32_t hoverId = 0;
     const AstrolabeTalentNode* hoveredNode = nullptr;
 

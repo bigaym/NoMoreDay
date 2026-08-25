@@ -5,6 +5,7 @@
 #include "core/utils/Branchless.hpp"
 #include "game/application/scene/SceneManager.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/foundation/components/AIComponent.hpp"
@@ -152,7 +153,9 @@ void CombatSystem::update(entt::registry &registry,
       currentCooldownTimer = maxCooldown;
 
       // 计算瞄准方向（玩家 -> 鼠标）
-      Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
+      Vector2 mouseWorld = NoMoreDay::render::coord::ScenePixelToWorld(
+        NoMoreDay::render::coord::Camera2DTransform::From(camera),
+        GetMousePosition());
       float dx = mouseWorld.x - pos.x;
       float dy = mouseWorld.y - pos.y;
       float len = std::sqrt(dx * dx + dy * dy);

@@ -743,15 +743,15 @@ static_assert(offsetof(GPUTextCommand, colorAndFlags) == 12, "GPUTextCommand::co
  * 40 bytes, tightly packed scalar payload for ABI stability.
  */
 struct GPUGlyphMetrics {
-  float uvMinX = 0.0f;             // 4
-  float uvMinY = 0.0f;             // 4
-  float uvMaxX = 0.0f;             // 4
-  float uvMaxY = 0.0f;             // 4
-  float offsetX = 0.0f;            // 4
-  float offsetY = 0.0f;            // 4
-  float sizeX = 0.0f;              // 4
-  float sizeY = 0.0f;              // 4
-  float advance = 0.0f;            // 4
+  float uvMinX = 0.0f;             // 4  - Space::FboTexel (v = 0 at top)
+  float uvMinY = 0.0f;             // 4  - Space::FboTexel
+  float uvMaxX = 0.0f;             // 4  - Space::FboTexel
+  float uvMaxY = 0.0f;             // 4  - Space::FboTexel
+  float offsetX = 0.0f;            // 4  - Space::World (baseline-origin glyph offset, see Game.cpp import)
+  float offsetY = 0.0f;            // 4  - Space::World
+  float sizeX = 0.0f;              // 4  - Space::World
+  float sizeY = 0.0f;              // 4  - Space::World
+  float advance = 0.0f;            // 4  - Space::World
   float reserved = 0.0f;           // 4
 };
 
@@ -775,14 +775,14 @@ static_assert(offsetof(GPUGlyphMetrics, reserved) == 36, "GPUGlyphMetrics::reser
  * 40 bytes.
  */
 struct GPUTextQuad {
-  float screenPosX = 0.0f;         // 4
-  float screenPosY = 0.0f;         // 4
-  float sizeX = 0.0f;              // 4
-  float sizeY = 0.0f;              // 4
-  float uvMinX = 0.0f;             // 4
-  float uvMinY = 0.0f;             // 4
-  float uvMaxX = 0.0f;             // 4
-  float uvMaxY = 0.0f;             // 4
+  float screenPosX = 0.0f;         // 4  - Space::World (legacy name; laid out by text_layout.compute, world-space y-down)
+  float screenPosY = 0.0f;         // 4  - Space::World
+  float sizeX = 0.0f;              // 4  - Space::World
+  float sizeY = 0.0f;              // 4  - Space::World
+  float uvMinX = 0.0f;             // 4  - Space::FboTexel
+  float uvMinY = 0.0f;             // 4  - Space::FboTexel
+  float uvMaxX = 0.0f;             // 4  - Space::FboTexel
+  float uvMaxY = 0.0f;             // 4  - Space::FboTexel
   uint32_t colorPacked = 0;        // 4
   float opacity = 1.0f;            // 4
 };
@@ -978,8 +978,8 @@ static_assert(offsetof(GPUVisualStats, padding) == 40, "GPUVisualStats::padding 
  * STRICTLY 64 BYTES (16 * 4) for alignment.
  */
 struct GPULabelInstance {
-  Vector2 position = {0.0f, 0.0f};      // 8  - Screen/World coords (Top-Left or Center)
-  Vector2 size = {0.0f, 0.0f};          // 8  - Width, Height
+  Vector2 position = {0.0f, 0.0f};      // 8  - Space::World (Top-Left or Center)
+  Vector2 size = {0.0f, 0.0f};          // 8  - Space::World (Width, Height)
   Vector4 bgColor = {0, 0, 0, 0};       // 16 - Background Color (RGBA)
   Vector4 borderColor = {0, 0, 0, 0};   // 16 - Border Color (RGBA)
   float borderWidth = 0.0f;             // 4  - Border width in pixels
@@ -1006,10 +1006,10 @@ static_assert(offsetof(GPULabelInstance, padding) == 56, "GPULabelInstance::padd
  * 48 Bytes (16 * 3) for alignment.
  */
 struct GPUGlyphInstance {
-  Vector2 position = {0.0f, 0.0f};      // 8  - Screen/World position
-  Vector2 size = {0.0f, 0.0f};          // 8  - Glyph size in pixels
-  Vector2 uvMin = {0.0f, 0.0f};         // 8  - Top-left UV
-  Vector2 uvMax = {0.0f, 0.0f};         // 8  - Bottom-right UV
+  Vector2 position = {0.0f, 0.0f};      // 8  - Space::World
+  Vector2 size = {0.0f, 0.0f};          // 8  - Space::World (glyph size)
+  Vector2 uvMin = {0.0f, 0.0f};         // 8  - Space::FboTexel (Top-left UV)
+  Vector2 uvMax = {0.0f, 0.0f};         // 8  - Space::FboTexel (Bottom-right UV)
   uint32_t colorPacked = 0xFFFFFFFF;    // 4  - RGBA8 packed color
   float scale = 1.0f;                   // 4  - Scale factor
   float padding[2] = {0.0f};            // 8  - Padding to 48 bytes
@@ -1037,11 +1037,11 @@ static_assert(offsetof(GPUGlyphInstance, padding) == 40, "GPUGlyphInstance::padd
  * be cached and reused across frames without re-running glyph lookup.
  */
 struct GlyphTemplate {
-  Vector2 size = {0.0f, 0.0f};    // Glyph size in pixels (scaled)
-  Vector2 uvMin = {0.0f, 0.0f};   // Top-left UV
-  Vector2 uvMax = {0.0f, 0.0f};   // Bottom-right UV
-  Vector2 offset = {0.0f, 0.0f};  // Render bounds relative to text origin (scaled)
-  float advanceX = 0.0f;          // Full cursor step after this glyph (scaled + spacing)
+  Vector2 size = {0.0f, 0.0f};    // Space::World (origin-relative, scaled)
+  Vector2 uvMin = {0.0f, 0.0f};   // Space::FboTexel (Top-left UV)
+  Vector2 uvMax = {0.0f, 0.0f};   // Space::FboTexel (Bottom-right UV)
+  Vector2 offset = {0.0f, 0.0f};  // Space::World, origin-relative (scaled)
+  float advanceX = 0.0f;          // Space::World, origin-relative (scaled + spacing)
 };
 
 /**

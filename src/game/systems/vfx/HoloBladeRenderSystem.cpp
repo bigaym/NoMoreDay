@@ -5,6 +5,7 @@
 #include "raymath.h"
 #include "rlgl.h"
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUData.hpp"
   #include "engine/render/RenderConstants.hpp"
   #include "engine/render/GPUUtils.hpp"
@@ -105,7 +106,8 @@ struct DrawBatch {
 };
 
 void HoloBladeRenderSystem::Render(entt::registry &registry,
-                                   const NoMoreDay::SharedContext &context) {
+                                   const NoMoreDay::SharedContext &context,
+                                   const Camera2D &camera) {
   GetData().Init(context);
   if (!GetData().initialized) return;
 
@@ -204,9 +206,10 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
   BeginShaderMode(GetData().holoShader);
   
   // Update MVP matrix
-  Matrix matModelView = rlGetMatrixModelview();
-  Matrix matProjection = rlGetMatrixProjection();
-  Matrix matMVP = MatrixMultiply(matModelView, matProjection);
+  Matrix matMVP = NoMoreDay::render::coord::Build2DMvp(
+      NoMoreDay::render::coord::Camera2DTransform::From(camera),
+      static_cast<float>(GetRenderWidth()),
+      static_cast<float>(GetRenderHeight()));
   
   SetShaderValueMatrix(GetData().holoShader, GetData().mvpLoc, matMVP);
   SetShaderValue(GetData().holoShader, GetData().timeLoc, &time, SHADER_UNIFORM_FLOAT);

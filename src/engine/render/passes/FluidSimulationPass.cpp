@@ -1,6 +1,7 @@
 #include "engine/render/passes/FluidSimulationPass.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
@@ -658,7 +659,9 @@ void FluidSimulationPass::RenderParticles(const graph::RenderContext &context,
     return;
   }
 
-  const Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+  const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+      NoMoreDay::render::coord::Camera2DTransform::From(*context.camera),
+      static_cast<float>(m_cachedWidth), static_cast<float>(m_cachedHeight));
   const int particleCountInt = static_cast<int>(particleCount);
   const int radianceTextureUnit = 0;
   const int useRadiance = (context.giRadianceTexture != 0u) ? 1 : 0;

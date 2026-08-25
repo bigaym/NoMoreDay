@@ -94,7 +94,7 @@ public:
    * @param entities The buffer containing entity data (Binding 0)
    */
   void Render(ResourceManager &rm, const PersistentBuffer &entities,
-              float renderAlpha);
+              float renderAlpha, const Camera2D &camera);
 
   void SetMaxActiveEntities(uint32_t count) { m_maxActiveEntities = count; }
 

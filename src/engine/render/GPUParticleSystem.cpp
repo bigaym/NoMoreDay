@@ -820,13 +820,17 @@ void GPUParticleSystem::FinalizeFrame() {
 }
 
 Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
-  // Use the current framebuffer dimensions (render target when rendering into
-  // the DRS-scaled HDR/scene RT; default framebuffer otherwise) so GPU custom
-  // MVP passes stay in the same projection space as raylib's BeginTextureMode.
+  // Use the live window render dimensions (same source as raylib's SetupViewport
+  // ortho: rlOrtho(0, GetRenderWidth(), GetRenderHeight(), ...)) so GPU custom
+  // MVP passes match raylib's default 2D projection, including runtime resize
+  // and fullscreen toggles. Not rlGetFramebufferWidth(): it is only refreshed
+  // inside BeginTextureMode (RLGL.State.framebufferWidth), i.e. the DRS-scaled
+  // scene RT size, which diverges from the window projection under DRS and
+  // after resolution changes (review 2026-08-25, High 1).
   // Delegated to coord::Build2DMvp (design 2026-08-24): one Y-down orthographic
   // projection source for every custom GPU pass (R2).
-  const float w = (float)rlGetFramebufferWidth();
-  const float h = (float)rlGetFramebufferHeight();
+  const float w = static_cast<float>(GetRenderWidth());
+  const float h = static_cast<float>(GetRenderHeight());
   return NoMoreDay::render::coord::Build2DMvp(
       NoMoreDay::render::coord::Camera2DTransform::From(camera), w, h);
 }

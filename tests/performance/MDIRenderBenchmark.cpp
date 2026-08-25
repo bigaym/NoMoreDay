@@ -73,9 +73,10 @@ BenchmarkStats MeasureMdiRender(systems::GPUEntitySystem &gpuEntitySystem,
   return CalculateStats(samples);
 }
 
-BenchmarkStats MeasureLegacyRender(systems::GPUEntitySystem &gpuEntitySystem) {
+BenchmarkStats MeasureLegacyRender(systems::GPUEntitySystem &gpuEntitySystem,
+                                    const Camera2D &camera) {
   for (int i = 0; i < kWarmupFrames; ++i) {
-    gpuEntitySystem.RenderLegacy(0.0f);
+    gpuEntitySystem.RenderLegacy(0.0f, camera);
     glFinish();
   }
 
@@ -83,7 +84,7 @@ BenchmarkStats MeasureLegacyRender(systems::GPUEntitySystem &gpuEntitySystem) {
   samples.reserve(kBenchFrames);
   for (int i = 0; i < kBenchFrames; ++i) {
     ScopedTimer timer(samples);
-    gpuEntitySystem.RenderLegacy(0.0f);
+    gpuEntitySystem.RenderLegacy(0.0f, camera);
     glFinish();
   }
   return CalculateStats(samples);
@@ -146,7 +147,8 @@ TEST_CASE("[Performance] MDIRenderer - Scenario Gate (50k)") {
       mdi_render_benchmark_detail::MeasureMdiRender(gpuEntitySystem, context,
                                                     sparseVisibilityCamera);
   const BenchmarkStats legacyReference =
-      mdi_render_benchmark_detail::MeasureLegacyRender(gpuEntitySystem);
+      mdi_render_benchmark_detail::MeasureLegacyRender(gpuEntitySystem,
+                                                       allVisibleCamera);
 
   LOG_BENCHMARK("MDI Scenario A (all-visible pipeline)", mdiAllVisible,
                 "< 1.2ms / < 2.5ms");

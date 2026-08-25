@@ -1,6 +1,7 @@
 #include "engine/render/GPULootSystem.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
@@ -632,9 +633,12 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
   const uint32_t zero = 0u;
   m_counterBuffer.Update(&zero, sizeof(zero), 0);
 
-  const Vector2 worldTL = GetScreenToWorld2D({0.0f, 0.0f}, camera);
-  const Vector2 worldBR = GetScreenToWorld2D(
-      {static_cast<float>(screenWidth), static_cast<float>(screenHeight)}, camera);
+const NoMoreDay::render::coord::Camera2DTransform cam =
+      NoMoreDay::render::coord::Camera2DTransform::From(camera);
+  const Vector2 worldTL =
+      NoMoreDay::render::coord::ScenePixelToWorld(cam, {0.0f, 0.0f});
+  const Vector2 worldBR = NoMoreDay::render::coord::ScenePixelToWorld(
+      cam, {static_cast<float>(screenWidth), static_cast<float>(screenHeight)});
   const float viewRect[4] = {
       std::min(worldTL.x, worldBR.x) - 80.0f, std::min(worldTL.y, worldBR.y) - 80.0f,
       std::max(worldTL.x, worldBR.x) + 80.0f, std::max(worldTL.y, worldBR.y) + 80.0f};

@@ -8,6 +8,7 @@
 #include "game/application/ui/WorldUiFrame.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/utils/FmtBuffer.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/foundation/components/Common.hpp"
@@ -1053,7 +1054,9 @@ void GameUiHost::DetectPickupClick(const Camera2D &camera) {
   const float playerPosX = m_snapshot.player.worldX;
   const float playerPosY = m_snapshot.player.worldY;
 
-  const Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
+  const Vector2 mouseWorldPos = NoMoreDay::render::coord::ScenePixelToWorld(
+      NoMoreDay::render::coord::Camera2DTransform::From(camera),
+      GetMousePosition());
 
   // Iterate ONLY visible items (already culled by RenderSystem).
   for (const auto &itemData : worldView.VisibleItems()) {

@@ -1,5 +1,6 @@
 #include "engine/render/RenderSystem.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/ComputeBuffer.hpp" 
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
@@ -676,7 +677,10 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
     s_beamInstanceBuffer->BindBase(static_cast<uint32_t>(
         NoMoreDay::RenderConstants::Binding::SSBO_BEAM_INSTANCE));
     BeginShaderMode(s_beamShader);
-    const Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+    const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+        NoMoreDay::render::coord::Camera2DTransform::From(frame.camera),
+        static_cast<float>(GetRenderWidth()),
+        static_cast<float>(GetRenderHeight()));
     SetShaderValueMatrix(s_beamShader, s_beamMvpLoc, mvp);
     rlEnableVertexArray(quadMesh.vaoId);
     rlDrawVertexArrayInstanced(0, 6, static_cast<int>(s_beamBuffer.size()));
@@ -699,7 +703,10 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
     frame.labelInstanceBuffer->BindBase(static_cast<uint32_t>(
         NoMoreDay::RenderConstants::Binding::SSBO_LABEL_INSTANCE));
     BeginShaderMode(*frame.labelShader);
-    const Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+    const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+        NoMoreDay::render::coord::Camera2DTransform::From(frame.camera),
+        static_cast<float>(GetRenderWidth()),
+        static_cast<float>(GetRenderHeight()));
     SetShaderValueMatrix(*frame.labelShader, frame.labelMvpLoc, mvp);
     rlEnableVertexArray(quadMesh.vaoId);
     rlDrawVertexArrayInstanced(0, 6,
@@ -740,8 +747,10 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
       // (still texture unit 3 / slot 3, unchanged), with the per-frame
       // screen-space pixel range the adapter derived from the label font size.
       BeginShaderMode(*frame.glyphMsdfShader);
-      const Matrix mvp =
-          MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+      const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+          NoMoreDay::render::coord::Camera2DTransform::From(frame.camera),
+          static_cast<float>(GetRenderWidth()),
+          static_cast<float>(GetRenderHeight()));
       SetShaderValueMatrix(*frame.glyphMsdfShader, frame.glyphMsdfMvpLoc, mvp);
 
       rlActiveTextureSlot(3);
@@ -769,10 +778,14 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
         s_loggedMsdfSkip = true;
       }
     } else {
-      // Legacy bitmap path: frame.font atlas + glyph.frag.
+      // Legacy bitmap path: frame.font atlas + glyph.frag. Unreachable in
+      // practice: the CPU label path is MSDF-only since 2026-08-25. Kept as a
+      // defensive fallback for the glyph shader pipeline.
       BeginShaderMode(*frame.glyphShader);
-      const Matrix mvp =
-          MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+      const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+          NoMoreDay::render::coord::Camera2DTransform::From(frame.camera),
+          static_cast<float>(GetRenderWidth()),
+          static_cast<float>(GetRenderHeight()));
       SetShaderValueMatrix(*frame.glyphShader, frame.glyphMvpLoc, mvp);
 
       rlActiveTextureSlot(3);
@@ -858,8 +871,11 @@ void ExecuteCompositePass(
   hdrTexture.mipmaps = 1;
   hdrTexture.format = PIXELFORMAT_UNCOMPRESSED_R16G16B16A16;
 
-  const Rectangle source = {0.0f, 0.0f, static_cast<float>(hdrTexture.width),
-                            -static_cast<float>(hdrTexture.height)};
+  // Source rect flip follows the target descriptor: the y-up texel storage of
+  // the HDR buffer must be flipped only when the target is y-down (window).
+  const Rectangle source = NoMoreDay::render::coord::BlitSourceRect(
+      targetState.flipY, static_cast<float>(hdrTexture.width),
+      static_cast<float>(hdrTexture.height));
   const Rectangle target = {0.0f, 0.0f,
                             static_cast<float>(targetState.viewportWidth),
                             static_cast<float>(targetState.viewportHeight)};

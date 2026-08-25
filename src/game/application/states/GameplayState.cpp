@@ -760,7 +760,9 @@ m_uiHost->InputCapture();
         dash.dirX = input.moveX / len;
         dash.dirY = input.moveY / len;
       } else {
-        Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), m_camera);
+        Vector2 mousePos = NoMoreDay::render::coord::ScenePixelToWorld(
+            NoMoreDay::render::coord::Camera2DTransform::From(m_camera),
+            GetMousePosition());
         float dx = mousePos.x - pos.x;
         float dy = mousePos.y - pos.y;
         float mLen = std::sqrt(dx * dx + dy * dy);
@@ -1112,7 +1114,9 @@ void GameplayState::OnRender() {
       auto pView = registry.view<PlayerTag, Position>();
       if (pView.begin() != pView.end()) {
         const auto &pos = pView.get<Position>(pView.front());
-        Vector2 screenPlayer = GetWorldToScreen2D({pos.x, pos.y}, m_camera);
+        Vector2 screenPlayer = NoMoreDay::render::coord::WorldToScenePixel(
+            NoMoreDay::render::coord::Camera2DTransform::From(m_camera),
+            {pos.x, pos.y});
         // Flip Y for screenPlayer because GL_FRAGCOORD is y-up
         screenPlayer.y = NoMoreDay::render::coord::NativeYToGl(
             screenPlayer.y, static_cast<float>(GetScreenHeight()));
@@ -1133,9 +1137,12 @@ void GameplayState::OnRender() {
     }
 
     // Keep the world target scaled while presenting it at native resolution.
-    const Rectangle sceneSource = {
-        0.0f, 0.0f, static_cast<float>(m_sceneRT.texture.width),
-        -static_cast<float>(m_sceneRT.texture.height)};
+    // The scene RT blits to the window (flipY = false): the y-up texel
+    // storage needs the negative-height source rect.
+    const Rectangle sceneSource =
+        NoMoreDay::render::coord::BlitSourceRect(
+            false, static_cast<float>(m_sceneRT.texture.width),
+            static_cast<float>(m_sceneRT.texture.height));
     const Rectangle sceneTarget = {0.0f, 0.0f,
                                    static_cast<float>(GetScreenWidth()),
                                    static_cast<float>(GetScreenHeight())};
@@ -1143,9 +1150,12 @@ void GameplayState::OnRender() {
                    0.0f, WHITE);
     EndShaderMode();
   } else {
-    const Rectangle sceneSource = {
-        0.0f, 0.0f, static_cast<float>(m_sceneRT.texture.width),
-        -static_cast<float>(m_sceneRT.texture.height)};
+    // The scene RT blits to the window (flipY = false): the y-up texel
+    // storage needs the negative-height source rect.
+    const Rectangle sceneSource =
+        NoMoreDay::render::coord::BlitSourceRect(
+            false, static_cast<float>(m_sceneRT.texture.width),
+            static_cast<float>(m_sceneRT.texture.height));
     const Rectangle sceneTarget = {0.0f, 0.0f,
                                    static_cast<float>(GetScreenWidth()),
                                    static_cast<float>(GetScreenHeight())};

@@ -8,6 +8,7 @@
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/application/ui/UIRenderer.hpp"
 #include "game/foundation/components/Buff.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include <cfloat>
 
 namespace NoMoreDay::systems {
@@ -30,12 +31,15 @@ void MonsterHealthBarSystem::RenderUI(entt::registry& registry) {
 
 void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& camera) {
     // --- 1. Setup & Mouse Detection ---
+    const NoMoreDay::render::coord::Camera2DTransform cam =
+        NoMoreDay::render::coord::Camera2DTransform::From(camera);
     Vector2 mousePosScreen = GetMousePosition();
-    Vector2 mousePosWorld = GetScreenToWorld2D(mousePosScreen, camera);
+    Vector2 mousePosWorld = NoMoreDay::render::coord::ScenePixelToWorld(cam, mousePosScreen);
     
     // Viewport Culling Bounds
-    Vector2 screenMin = GetScreenToWorld2D({ 0, 0 }, camera);
-    Vector2 screenMax = GetScreenToWorld2D({ (float)GetScreenWidth(), (float)GetScreenHeight() }, camera);
+    Vector2 screenMin = NoMoreDay::render::coord::ScenePixelToWorld(cam, { 0, 0 });
+    Vector2 screenMax = NoMoreDay::render::coord::ScenePixelToWorld(
+        cam, { (float)GetScreenWidth(), (float)GetScreenHeight() });
     float padding = 100.0f;
     Rectangle viewBounds = { 
         screenMin.x - padding, screenMin.y - padding, 

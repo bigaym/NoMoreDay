@@ -13,6 +13,7 @@
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
 #include "engine/render/resource/MSDFAtlasLoader.hpp"
 #include "engine/render/resource/MSDFAtlasRegistry.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/foundation/components/AstrolabeUIComponent.hpp"
 #include "game/foundation/components/WorldState.hpp"
@@ -95,15 +96,26 @@ void InitializeGPUTextBootstrap(ResourceManager &resourceManager) {
   for (size_t i = 0; i < atlasData.glyphs.size(); ++i) {
     const auto &src = atlasData.glyphs[i];
     GPUGlyphMetrics dst = {};
-    dst.uvMinX = src.uvRect[0];
+    dst.uvMinX = src.uvRect[0];  // Space::FboTexel (atlas UVs pass through)
     dst.uvMinY = src.uvRect[1];
     dst.uvMaxX = src.uvRect[2];
     dst.uvMaxY = src.uvRect[3];
-    dst.offsetX = src.bearing[0];
-    dst.offsetY = src.bearing[1];
-    dst.sizeX = src.size[0];
-    dst.sizeY = src.size[1];
-    dst.advance = src.advance;
+    // Space boundary: the metrics.bin payload is Space::MsdfMetric (em units,
+    // baseline-origin bearing; see MSDFAtlasRegistry::kV4AtlasEmSize). The GPU
+    // text pipeline consumes metrics as Space::World (y-down) via
+    // text_layout.compute, so the import normalizes through the same helper
+    // the MSDF label path uses. GPU text currently renders at fontSize ==
+    // emSize (1:1, i.e. the atlas em size); change kGpuTextFontSize to scale
+    // without touching the layout shader.
+    constexpr float kGpuTextFontSize = MSDFAtlasRegistry::kV4AtlasEmSize;
+    const float emSize = MSDFAtlasRegistry::kV4AtlasEmSize;
+    dst.offsetX = NoMoreDay::render::coord::MsdfBearingToWorldOffset(
+        src.bearing[0], emSize, kGpuTextFontSize);  // Space::World
+    dst.offsetY = NoMoreDay::render::coord::MsdfBearingToWorldOffset(
+        src.bearing[1], emSize, kGpuTextFontSize);  // Space::World
+    dst.sizeX = src.size[0] * (kGpuTextFontSize / emSize);  // Space::World
+    dst.sizeY = src.size[1] * (kGpuTextFontSize / emSize);  // Space::World
+    dst.advance = src.advance * (kGpuTextFontSize / emSize);  // Space::World
     gpuMetrics.push_back(dst);
     codepointToMetric.emplace(src.codepoint, static_cast<uint32_t>(i));
   }

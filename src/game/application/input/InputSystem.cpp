@@ -5,6 +5,7 @@
 #include "game/foundation/components/AstrolabeUIComponent.hpp"
 #include "raylib.h"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "engine/render/CoordSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -58,7 +59,9 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera,
                 // 在鼠标左键按下或按住时更新移动目标
                 if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
                 {
-                    s_movementTarget = GetScreenToWorld2D(GetMousePosition(), camera);
+                    s_movementTarget = NoMoreDay::render::coord::ScenePixelToWorld(
+                        NoMoreDay::render::coord::Camera2DTransform::From(camera),
+                        GetMousePosition());
                     s_hasMovementTarget = true;
                 }
             } else {
@@ -77,7 +80,9 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera,
             {
                 s_hasMovementTarget = false; // 冲刺时取消移动
             }
-            Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
+            Vector2 mouseWorld = NoMoreDay::render::coord::ScenePixelToWorld(
+                NoMoreDay::render::coord::Camera2DTransform::From(camera),
+                GetMousePosition());
 
             // 技能 - 同样会取消移动
             if (IsKeyDown(KEY_Q))

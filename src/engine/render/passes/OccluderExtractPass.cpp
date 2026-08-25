@@ -1,6 +1,7 @@
 #include "engine/render/passes/OccluderExtractPass.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
@@ -404,7 +405,9 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
     for (uint32_t index = 0u; index < context.occluderCount; ++index) {
       const auto &caster = context.occluders[index];
       if (caster.dynamicFlag != 0u) {
-        Vector2 screenPos = GetWorldToScreen2D(Vector2{caster.posX, caster.posY}, *context.camera);
+        Vector2 screenPos = NoMoreDay::render::coord::WorldToScenePixel(
+          NoMoreDay::render::coord::Camera2DTransform::From(*context.camera),
+          Vector2{caster.posX, caster.posY});
         float r = caster.radius;
         int minX = std::max(0, static_cast<int>(screenPos.x - r));
         int minY = std::max(0, static_cast<int>(screenPos.y - r));

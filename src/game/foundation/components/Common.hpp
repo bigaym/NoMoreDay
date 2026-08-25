@@ -204,15 +204,13 @@ struct LabelCacheComponent {
     int lastFontSize = 0;
     uint32_t lastRarityHash = 0;
     bool isValid = false;
-    // 模板来源判别（B5）：true 表示 glyphTemplates 由 MSDF 图集度量
-    // （BuildTemplatesMsdf）产出，false 表示位图图集（BuildTemplates）。来源
-    // 切换时必须重建模板 —— 两个图集的 UV 与字号换算不可互换。
+    // 模板来源（MSDF 图集是唯一来源，保留该标志以便未来切换时重建模板）
     bool lastUsedMsdf = false;
 
-    // 字形布局模板（相对文本原点，不含屏幕坐标），由 LootTextBatcher::BuildTemplates 产出
+    // 字形布局模板（相对文本原点，不含屏幕坐标），由
+    // LootTextBatcher::BuildTemplatesMsdf 产出（MSDF 图集是唯一字形来源，
+    // 位图路径已于 2026-08-25 删除）
     std::vector<NoMoreDay::components::GlyphTemplate> glyphTemplates;
-    // 相对 (0,0) 的绝对坐标字形实例，由 WriteInstances 平移 origin 后复用
-    std::vector<NoMoreDay::components::GPUGlyphInstance> cachedGlyphs;
 
     // Helper to force re-validation
     void Invalidate() { isValid = false; }

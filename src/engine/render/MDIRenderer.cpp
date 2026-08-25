@@ -1,5 +1,6 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "core/logging/Logger.hpp"
+#include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/RenderConstants.hpp"
@@ -297,7 +298,7 @@ void MDIRenderer::Pack(ResourceManager &rm, const PersistentBuffer &entities) {
 }
 
 void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
-                         float renderAlpha) {
+                         float renderAlpha, const Camera2D &camera) {
   NoMoreDay::utils::ScopedTimer timer("MDI Render", 50);
   using namespace NoMoreDay::RenderConstants;
 
@@ -308,7 +309,10 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   rlDrawRenderBatchActive();
 
   // 2. MVP
-  Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+  Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
+      NoMoreDay::render::coord::Camera2DTransform::From(camera),
+      static_cast<float>(GetRenderWidth()),
+      static_cast<float>(GetRenderHeight()));
 
   rlEnableShader(m_renderShader.id);
 

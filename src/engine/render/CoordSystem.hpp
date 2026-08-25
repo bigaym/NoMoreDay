@@ -55,6 +55,11 @@ inline Vector2 ScenePixelToWorld(const Camera2DTransform &cam,
 
 // R2: the single Y-down orthographic MVP builder for all custom GPU passes.
 // Matches the legacy GPUParticleSystem::BuildMVP construction bit-for-bit.
+// Dimensions must be the live window render size (GetRenderWidth/Height, the
+// same source as SetupViewport's ortho). Do NOT pass rlGetFramebufferWidth():
+// it is only refreshed inside BeginTextureMode (the DRS-scaled RT size) and
+// diverges from the window projection under DRS or after resize (review
+// 2026-08-25).
 inline Matrix Build2DMvp(const Camera2DTransform &cam,
                          float framebufferWidth,
                          float framebufferHeight) noexcept {
@@ -78,6 +83,21 @@ inline float NativeYToGl(float nativeY, float height) noexcept {
 inline float MsdfBearingToWorldOffset(float bearingMetric, float emSize,
                                       float fontSize) noexcept {
   return bearingMetric * (fontSize / emSize);
+}
+
+// R3: the single source-rect builder for blitting a render-target texture
+// into another target. A render-target texture is stored y-up (GL
+// convention); raylib's DrawTexturePro treats V=0 as the image top, so the
+// blit must flip the source Y when the destination is a y-down target
+// (window/composite pass, flipY=false) and must NOT flip when the
+// destination is a y-up framebuffer (flipY=true, e.g. rlBlitFramebuffer
+// style pass where src and dst align natively). `targetFlipY` must come
+// from the destination's RenderTargetDescriptor.flipY, the single source
+// of truth for destination orientation. Never write negative-height source
+// rects by hand.
+inline Rectangle BlitSourceRect(bool targetFlipY, float texWidth,
+                                float texHeight) noexcept {
+  return {0.0f, 0.0f, texWidth, targetFlipY ? texHeight : -texHeight};
 }
 
 // Texture V-origin contract (R3): raylib textures are sampled with V=0 at

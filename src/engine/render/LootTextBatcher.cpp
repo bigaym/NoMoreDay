@@ -1,7 +1,6 @@
 #include "engine/render/LootTextBatcher.hpp"
-#include "engine/render/GlyphCache.hpp"
-#include "engine/render/resource/MSDFAtlasRegistry.hpp"
 #include "engine/render/CoordSystem.hpp"
+#include "engine/render/resource/MSDFAtlasRegistry.hpp"
 #include "raymath.h"
 #include <cmath>
 
@@ -19,161 +18,44 @@ float SnapToPixelGrid(float value, float zoom) {
 
 } // namespace
 
-float LootTextBatcher::BatchString(const Font& font, const std::string& text, 
-                                 Vector2 position, float fontSize, Color color, 
-                                 std::vector<NoMoreDay::components::GPUGlyphInstance>& outBuffer) {
-    if (font.texture.id == 0 || text.empty()) return 0.0f;
+Vector2 LootTextBatcher::MeasureTextMsdf(const std::string& text, float fontSize) {
+    const MSDFAtlasRegistry& registry = MSDFAtlasRegistry::Get();
 
-    float scaleFactor = fontSize / (float)font.baseSize;
-    float spacing = 1.0f; // Default spacing
-    float currentX = position.x;
-    
-    uint32_t packedColor = ColorToInt(color);
-    float texWidth = (float)font.texture.width;
-    float texHeight = (float)font.texture.height;
+    int codepointCount = 0;
+    {
+        const char* ptr = text.c_str();
+        int byteSize = 0;
+        while (*ptr != '\0') {
+            GetCodepointNext(ptr, &byteSize);
+            ++codepointCount;
+            ptr += byteSize;
+        }
+    }
+    if (codepointCount == 0) return {0, 0};
+    if (!registry.IsAvailable()) {
+        // No glyphs will render anyway; estimate a background width so the
+        // label box stays visible.
+        return {fontSize * 0.5f * static_cast<float>(codepointCount), fontSize};
+    }
+
+    const float scale = fontSize / registry.GetEmSize();
+    const float spacing = 1.0f; // Default spacing, identical to BuildTemplatesMsdf
+    float currentX = 0.0f;
 
     const char* ptr = text.c_str();
     int byteSize = 0;
-    
     while (*ptr != '\0') {
         int codepoint = GetCodepointNext(ptr, &byteSize);
-        int index = GlyphIndexCache::Get(font).GetIndex(codepoint);
-        
-        if (codepoint != ' ' && index >= 0) {
-            NoMoreDay::components::GPUGlyphInstance inst;
-            
-            Rectangle rec = font.recs[index];
-            GlyphInfo glyph = font.glyphs[index];
-            
-            // Calculate render bounds
-            inst.position.x = currentX + (float)glyph.offsetX * scaleFactor;
-            inst.position.y = position.y + (float)glyph.offsetY * scaleFactor;
-            
-            inst.size.x = rec.width * scaleFactor;
-            inst.size.y = rec.height * scaleFactor;
-            
-            // Calculate UVs (with safety check for texture dimensions)
-            if (texWidth > 0 && texHeight > 0) {
-                inst.uvMin.x = rec.x / texWidth;
-                inst.uvMin.y = rec.y / texHeight;
-                inst.uvMax.x = (rec.x + rec.width) / texWidth;
-                inst.uvMax.y = (rec.y + rec.height) / texHeight;
-            }
-            
-            inst.colorPacked = packedColor;
-            inst.scale = 1.0f; 
-            
-            outBuffer.push_back(inst);
-        }
-
-        // Advance cursor
-        if (index >= 0) {
-            if (font.glyphs[index].advanceX == 0) {
-                currentX += (font.recs[index].width * scaleFactor + spacing);
-            } else {
-                currentX += (font.glyphs[index].advanceX * scaleFactor + spacing);
-            }
+        const MSDFGlyphMetric* metric = registry.Find(static_cast<uint32_t>(codepoint));
+        if (metric != nullptr) {
+            currentX += metric->advance * scale + spacing;
         } else {
             currentX += (fontSize * 0.5f + spacing); // Width estimate for unknown chars
         }
-        
         ptr += byteSize;
     }
 
-    return currentX - position.x;
-}
-
-Vector2 LootTextBatcher::MeasureText(const Font& font, const std::string& text, float fontSize) {
-    if (font.texture.id == 0 || text.empty()) return {0, 0};
-    
-    float scaleFactor = fontSize / (float)font.baseSize;
-    float spacing = 1.0f;
-    float currentX = 0.0f;
-    
-    const char* ptr = text.c_str();
-    int byteSize = 0;
-    
-    while (*ptr != '\0') {
-        int codepoint = GetCodepointNext(ptr, &byteSize);
-        int index = GlyphIndexCache::Get(font).GetIndex(codepoint);
-        
-        if (font.glyphs[index].advanceX == 0) {
-            currentX += (font.recs[index].width * scaleFactor + spacing);
-        } else {
-            currentX += (font.glyphs[index].advanceX * scaleFactor + spacing);
-        }
-        
-        ptr += byteSize;
-    }
-    
     return {currentX, fontSize};
-}
-
-void LootTextBatcher::BuildTemplates(const Font& font, const std::string& text, float fontSize,
-                                     std::vector<NoMoreDay::components::GlyphTemplate>& out) {
-    if (font.texture.id == 0 || text.empty()) return;
-
-    float scaleFactor = fontSize / (float)font.baseSize;
-    float spacing = 1.0f; // Default spacing
-    float currentX = 0.0f;
-
-    float texWidth = (float)font.texture.width;
-    float texHeight = (float)font.texture.height;
-    const GlyphIndexCache& glyphCache = GlyphIndexCache::Get(font);
-
-    const char* ptr = text.c_str();
-    int byteSize = 0;
-
-    while (*ptr != '\0') {
-        int codepoint = GetCodepointNext(ptr, &byteSize);
-        int index = glyphCache.GetIndex(codepoint);
-
-        if (codepoint != ' ' && index >= 0) {
-            NoMoreDay::components::GlyphTemplate tpl;
-
-            Rectangle rec = font.recs[index];
-            GlyphInfo glyph = font.glyphs[index];
-
-            // Render bounds relative to the text origin (no screen coordinates).
-            tpl.offset.x = currentX + (float)glyph.offsetX * scaleFactor;
-            tpl.offset.y = (float)glyph.offsetY * scaleFactor;
-
-            tpl.size.x = rec.width * scaleFactor;
-            tpl.size.y = rec.height * scaleFactor;
-
-            // Calculate UVs (with safety check for texture dimensions).
-            // Inset by half a texel so bilinear sampling never bleeds into
-            // neighbouring glyphs of the packed atlas.
-            if (texWidth > 0 && texHeight > 0) {
-                tpl.uvMin.x = rec.x / texWidth + 0.5f / texWidth;
-                tpl.uvMin.y = rec.y / texHeight + 0.5f / texHeight;
-                tpl.uvMax.x = (rec.x + rec.width) / texWidth - 0.5f / texWidth;
-                tpl.uvMax.y = (rec.y + rec.height) / texHeight - 0.5f / texHeight;
-            }
-
-            // Full cursor step, identical to BatchString's advance math.
-            if (glyph.advanceX == 0) {
-                tpl.advanceX = rec.width * scaleFactor + spacing;
-            } else {
-                tpl.advanceX = (float)glyph.advanceX * scaleFactor + spacing;
-            }
-
-            out.push_back(tpl);
-        }
-
-        // Advance cursor (identical to BatchString).
-        if (index >= 0) {
-            if (font.glyphs[index].advanceX == 0) {
-                currentX += (font.recs[index].width * scaleFactor + spacing);
-            } else {
-                currentX += (font.glyphs[index].advanceX * scaleFactor + spacing);
-            }
-        } else {
-            currentX += (fontSize * 0.5f + spacing); // Width estimate for unknown chars
-        }
-
-        ptr += byteSize;
-    }
 }
 
 void LootTextBatcher::BuildTemplatesMsdf(const std::string& text, float fontSize,
@@ -181,10 +63,10 @@ void LootTextBatcher::BuildTemplatesMsdf(const std::string& text, float fontSize
     if (text.empty()) return;
 
     const MSDFAtlasRegistry& registry = MSDFAtlasRegistry::Get();
-    if (!registry.IsAvailable()) return; // Caller falls back to the bitmap path.
+    if (!registry.IsAvailable()) return; // No glyphs; caller skips instances.
 
     const float scale = fontSize / registry.GetEmSize();
-    const float spacing = 1.0f; // Default spacing, identical to BuildTemplates
+    const float spacing = 1.0f; // Default spacing, identical to MeasureTextMsdf
     float currentX = 0.0f;
 
     const char* ptr = text.c_str();
@@ -208,20 +90,19 @@ void LootTextBatcher::BuildTemplatesMsdf(const std::string& text, float fontSize
             tpl.size.y = metric->size[1] * scale;
 
             // MSDF atlas packs each glyph with margin, so UVs are taken as-is
-            // (no half-texel inset, unlike the bitmap path in BuildTemplates).
+            // (no half-texel inset).
             tpl.uvMin.x = metric->uvRect[0];
             tpl.uvMin.y = metric->uvRect[1];
             tpl.uvMax.x = metric->uvRect[2];
             tpl.uvMax.y = metric->uvRect[3];
 
-            // Full cursor step, identical to BuildTemplates' advance math.
+            // Full cursor step, identical to MeasureTextMsdf's advance math.
             tpl.advanceX = metric->advance * scale + spacing;
 
             out.push_back(tpl);
         }
 
-        // Advance cursor (identical to BuildTemplates: hit -> advance,
-        // miss -> width estimate for unknown chars).
+        // Advance cursor (hit -> advance, miss -> width estimate for unknown chars).
         if (metric != nullptr) {
             currentX += metric->advance * scale + spacing;
         } else {
@@ -233,26 +114,21 @@ void LootTextBatcher::BuildTemplatesMsdf(const std::string& text, float fontSize
 }
 
 void LootTextBatcher::WriteInstances(const std::vector<NoMoreDay::components::GlyphTemplate>& templates,
-                                     const std::vector<NoMoreDay::components::GPUGlyphInstance>& cachedRelative,
                                      Vector2 origin, uint32_t color, float zoom,
                                      std::vector<NoMoreDay::components::GPUGlyphInstance>& outBuffer) {
-    if (templates.size() != cachedRelative.size()) return;
-
-    outBuffer.reserve(outBuffer.size() + cachedRelative.size());
-    for (size_t i = 0; i < cachedRelative.size(); ++i) {
-        const NoMoreDay::components::GPUGlyphInstance& src = cachedRelative[i];
-        const NoMoreDay::components::GlyphTemplate& tpl = templates[i];
-        NoMoreDay::components::GPUGlyphInstance inst = src;
-        inst.position.x = SnapToPixelGrid(src.position.x + origin.x, zoom);
-        inst.position.y = SnapToPixelGrid(src.position.y + origin.y, zoom);
-        inst.size.x = SnapToPixelGrid(src.size.x, zoom);
-        inst.size.y = SnapToPixelGrid(src.size.y, zoom);
-        // UVs come from the template (half-texel inset applied at build time);
-        // the cached relative instances were produced by BatchString at (0,0)
-        // and carry the un-inset UVs.
+    outBuffer.reserve(outBuffer.size() + templates.size());
+    for (const NoMoreDay::components::GlyphTemplate& tpl : templates) {
+        // The template is the single layout source: MSDF metrics drive
+        // positions, sizes and UVs alike.
+        NoMoreDay::components::GPUGlyphInstance inst;
+        inst.position.x = SnapToPixelGrid(tpl.offset.x + origin.x, zoom);
+        inst.position.y = SnapToPixelGrid(tpl.offset.y + origin.y, zoom);
+        inst.size.x = SnapToPixelGrid(tpl.size.x, zoom);
+        inst.size.y = SnapToPixelGrid(tpl.size.y, zoom);
         inst.uvMin = tpl.uvMin;
         inst.uvMax = tpl.uvMax;
         inst.colorPacked = color;
+        inst.scale = 1.0f;
         outBuffer.push_back(inst);
     }
 }
