@@ -7,6 +7,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp"
 #include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/MaterialBankComponent.hpp"
 #include "game/foundation/components/PlayerProfile.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
@@ -14,6 +15,7 @@
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "raylib.h"
+#include <tracy/Tracy.hpp>
 #include <cmath>
 #include <ctime>
 #include <filesystem>
@@ -28,7 +30,7 @@ namespace {
 
 void MigrateLegacySpecializedSlots(const uint32_t saveVersion,
                                    ActiveSkillsComponent& skills) {
-  if (saveVersion >= CURRENT_CHARACTER_SAVE_VERSION) {
+  if (saveVersion >= 3) {
     return;
   }
 
@@ -41,7 +43,18 @@ void MigrateLegacySpecializedSlots(const uint32_t saveVersion,
 
 } // namespace
 
+void SaveManager::MigrateSaveDataV3toV4(CharacterSaveData &data) {
+  if (data.header.version >= CURRENT_CHARACTER_SAVE_VERSION) {
+    return;
+  }
+  if (data.inventoryCapacity <= 0) {
+    data.inventoryCapacity = InventoryComponent::BASE_CAPACITY;
+  }
+  data.header.version = CURRENT_CHARACTER_SAVE_VERSION;
+}
+
 CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
+  ZoneScopedN("SaveManager::createSnapshot");
   CharacterSaveData data;
   data.header.version = CURRENT_CHARACTER_SAVE_VERSION;
 
@@ -63,10 +76,17 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   if (registry.all_of<InventoryComponent>(playerEntity)) {
     const auto &inv = registry.get<InventoryComponent>(playerEntity);
     data.gold = inv.gold;
+    data.inventoryCapacity = inv.capacity;
 
-    for (auto itemEntity : inv.items) {
-      if (registry.valid(itemEntity)) {
-        data.inventory.push_back(ItemFactory::serializeItem(registry, itemEntity));
+    for (size_t i = 0; i < inv.items.size(); ++i) {
+      if (registry.valid(inv.items[i])) {
+        data.inventory.push_back({static_cast<int>(i), ItemFactory::serializeItem(registry, inv.items[i])});
+      }
+    }
+
+    for (size_t i = 0; i < inv.bag_slots.size(); ++i) {
+      if (registry.valid(inv.bag_slots[i])) {
+        data.bagSlots.push_back({static_cast<uint8_t>(i), ItemFactory::serializeItem(registry, inv.bag_slots[i])});
       }
     }
   }
@@ -78,6 +98,14 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
       if (registry.valid(itemEntity)) {
         data.equipment.push_back(ItemFactory::serializeItem(registry, itemEntity));
       }
+    }
+  }
+
+  // Material Bank
+  if (registry.all_of<MaterialBankComponent>(playerEntity)) {
+    const auto &bank = registry.get<MaterialBankComponent>(playerEntity);
+    for (const auto &entry : bank.materials) {
+      data.materialBank.push_back({entry.id, entry.count});
     }
   }
 
@@ -175,6 +203,13 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
 
 void SaveManager::restoreFromSnapshot(entt::registry &registry,
                                       const CharacterSaveData &data) {
+  ZoneScopedN("SaveManager::restoreFromSnapshot");
+  CharacterSaveData snapshotData = data;
+  const uint32_t originalVersion = snapshotData.header.version;
+  if (snapshotData.header.version < CURRENT_CHARACTER_SAVE_VERSION) {
+    MigrateSaveDataV3toV4(snapshotData);
+  }
+
   // Suspend Global State (SharedStash) as its entities are about to be destroyed
   SharedStash::Get().suspend(registry);
 
@@ -191,7 +226,7 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   registry.emplace<Velocity>(player, 0.0f, 0.0f);
   registry.emplace<InputComponent>(player);
   auto &pStats = registry.emplace<PlayerStats>(player);
-  pStats.level = data.header.level;
+  pStats.level = snapshotData.header.level;
   registry.emplace<CombatStats>(player);
   registry.emplace<VisionComponent>(player, 600.0f);
   registry.emplace<StatsDirty>(player);
@@ -200,46 +235,59 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   registry.emplace<MovementAccumulator>(player);
   registry.emplace<AttackState>(player);
   registry.emplace<TextureIDComponent>(player, assets::textures::Player_Warrior.id);
-  registry.emplace<PlayerName>(player, data.header.name.empty()
+  registry.emplace<PlayerName>(player, snapshotData.header.name.empty()
                                            ? std::string("玩家0")
-                                           : data.header.name);
+                                           : snapshotData.header.name);
   registry.emplace<PlayerPlaytime>(
-      player, (std::max)(int64_t{0}, data.header.playtime),
+      player, (std::max)(int64_t{0}, snapshotData.header.playtime),
       static_cast<double>(GetTime()));
-  registry.emplace<PlayerLevel>(player, data.header.level);
-  registry.emplace<Position>(player, data.position);
-  registry.emplace<PrimaryStats>(player, data.primaryStats);
+  registry.emplace<PlayerLevel>(player, snapshotData.header.level);
+  registry.emplace<Position>(player, snapshotData.position);
+  registry.emplace<PrimaryStats>(player, snapshotData.primaryStats);
 
   // Inventory
   auto &inv = registry.emplace<InventoryComponent>(player);
-  inv.gold = data.gold;
-
-  // Clear the default null items and fill from snapshot
-  inv.items.clear();
-  for (const auto &itemDto : data.inventory) {
-    inv.items.push_back(ItemFactory::restoreItem(registry, itemDto));
+  inv.gold = snapshotData.gold;
+  inv.capacity = (snapshotData.inventoryCapacity > 0) ? snapshotData.inventoryCapacity : InventoryComponent::BASE_CAPACITY;
+  inv.items.assign(inv.capacity, entt::null);
+  for (const auto &entry : snapshotData.inventory) {
+    auto itemEntity = ItemFactory::restoreItem(registry, entry.item);
+    if (entry.slotIndex >= 0 && static_cast<size_t>(entry.slotIndex) < inv.items.size()) {
+      inv.items[entry.slotIndex] = itemEntity;
+    } else {
+      inv.items.push_back(itemEntity);
+    }
   }
-  // Pad to capacity
-  while (inv.items.size() < inv.capacity) {
-    inv.items.push_back(entt::null);
+
+  inv.bag_slots.fill(entt::null);
+  for (const auto &entry : snapshotData.bagSlots) {
+    if (entry.index < inv.bag_slots.size()) {
+      inv.bag_slots[entry.index] = ItemFactory::restoreItem(registry, entry.bag);
+    }
+  }
+
+  // Material Bank
+  auto &bank = registry.emplace<MaterialBankComponent>(player);
+  for (const auto &entry : snapshotData.materialBank) {
+    bank.Add(entry.id, entry.count);
   }
 
   // Equipment
   auto &eq = registry.emplace<EquipmentComponent>(player);
-  for (const auto &itemDto : data.equipment) {
+  for (const auto &itemDto : snapshotData.equipment) {
     auto itemEntity = ItemFactory::restoreItem(registry, itemDto);
     eq.set(itemDto.stats.slot, itemEntity);
   }
 
   // Skills & Astrolabe
-  ActiveSkillsComponent restoredSkills = data.skills;
-  MigrateLegacySpecializedSlots(data.header.version, restoredSkills);
+  ActiveSkillsComponent restoredSkills = snapshotData.skills;
+  MigrateLegacySpecializedSlots(originalVersion, restoredSkills);
   registry.emplace<ActiveSkillsComponent>(player, restoredSkills);
   auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
-  runtime.version = data.skill_contract_runtime.version;
+  runtime.version = snapshotData.skill_contract_runtime.version;
   runtime.active_transmuter_node_by_skill.clear();
   runtime.trigger_cooldowns.clear();
-  for (const auto &entry : data.skill_contract_runtime.skills) {
+  for (const auto &entry : snapshotData.skill_contract_runtime.skills) {
     if (entry.active_transmuter_node != 0) {
       runtime.active_transmuter_node_by_skill[entry.skill_id] =
           entry.active_transmuter_node;
@@ -250,13 +298,13 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
       }
     }
   }
-  registry.emplace<AstrolabeComponent>(player, data.astrolabe);
-  registry.emplace<PlayerCombatHistory>(player, data.combatHistory);
-  if (data.blade_mastery.has_value()) {
-    registry.emplace<BladeMasteryComponent>(player, data.blade_mastery.value());
+  registry.emplace<AstrolabeComponent>(player, snapshotData.astrolabe);
+  registry.emplace<PlayerCombatHistory>(player, snapshotData.combatHistory);
+  if (snapshotData.blade_mastery.has_value()) {
+    registry.emplace<BladeMasteryComponent>(player, snapshotData.blade_mastery.value());
   }
-  if (data.blade_resource.has_value()) {
-    auto resource = data.blade_resource.value();
+  if (snapshotData.blade_resource.has_value()) {
+    auto resource = snapshotData.blade_resource.value();
     resource.time_since_last_gain = 0.0f;
     resource.last_crit_bonus_time = -999.0f;
     resource.crit_bonus_feedback_timer = 0.0f;
@@ -267,19 +315,19 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
     registry.emplace<BladeResourceComponent>(player, resource);
     systems::BladeResourceService::SyncLegacySwordIntent(registry, player);
   }
-  if (data.blade_signature_skill.has_value()) {
+  if (snapshotData.blade_signature_skill.has_value()) {
     registry.emplace<BladeSignatureSkillComponent>(player,
-                                                   data.blade_signature_skill.value());
+                                                   snapshotData.blade_signature_skill.value());
   }
   systems::BladeMasteryService::RefreshPlayerState(registry, player);
 
   // Stash
-  if (data.personalStash.has_value()) {
+  if (snapshotData.personalStash.has_value()) {
       auto& stash = registry.emplace<PersonalStashComponent>(player);
-      stash.unlockedTabs = data.personalStash->unlockedTabs;
+      stash.unlockedTabs = snapshotData.personalStash->unlockedTabs;
       stash.tabs.resize(stash.unlockedTabs); 
       
-      const auto& sTabs = data.personalStash->tabs;
+      const auto& sTabs = snapshotData.personalStash->tabs;
       for (size_t i = 0; i < sTabs.size(); ++i) {
           if (i >= stash.tabs.size()) break; 
           auto& t = stash.tabs[i];

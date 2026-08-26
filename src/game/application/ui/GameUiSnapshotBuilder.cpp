@@ -1,6 +1,7 @@
 #include "game/application/ui/GameUiSnapshotBuilder.hpp"
 
 #include <entt/entt.hpp>
+#include <tracy/Tracy.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -195,6 +196,7 @@ void FillTooltipData(const entt::registry& registry, GameUiItemView& view) {
 template <typename Registry>
 GameUiSnapshot GameUiSnapshotBuilder::Build(
     const Registry& registry, const GameUiSnapshotOptions& options) {
+  ZoneScopedN("GameUiSnapshotBuilder::Build");
   GameUiSnapshot snapshot;
   snapshot.revision = ++m_revision;
 

@@ -44,6 +44,8 @@ public:
   void restoreFromSnapshot(entt::registry &registry,
                            const CharacterSaveData &data);
 
+  static void MigrateSaveDataV3toV4(CharacterSaveData &data);
+
   // Global Save
   bool loadGlobal(entt::registry& registry);
   std::future<bool> saveGlobalAsync(entt::registry& registry);

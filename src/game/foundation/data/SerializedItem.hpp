@@ -1,6 +1,8 @@
 #pragma once
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/ItemStats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include <cstdint>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
@@ -9,11 +11,19 @@
 
 namespace NoMoreDay {
 
+struct SerializedItem;
+struct SerializedSocketEntry;
+
+void to_json(nlohmann::json &j, const SerializedItem &item);
+void from_json(const nlohmann::json &j, SerializedItem &item);
+
 /**
  * @brief Data Transfer Object for Item Snapshot.
  * Decouples the ECS entity from the persistent storage.
  */
 struct SerializedItem {
+  using SerializedSocketEntry = NoMoreDay::SerializedSocketEntry;
+
   // Identity
   uint32_t itemId = 0;     // Config ID from ItemFactory
   uint64_t instanceId = 0; // Unique ID for tracking
@@ -26,6 +36,15 @@ struct SerializedItem {
   uint32_t baseId = 0; // BaseItemDef id from ItemFactory
   WeaponSubtype weaponSubtype = WeaponSubtype::None;
   CatalystKind catalystKind = CatalystKind::None;
+
+  // Lock and Runeword state
+  bool isLocked = false;
+  uint32_t activeRunewordId = 0;
+  int32_t socketCount = 0;
+
+  // Set and Bag specific attributes
+  std::string setName;
+  int bagCapacity = 0;
 
   // Stat Snapshot (The "Real" values)
   struct StatsSnapshot {
@@ -95,9 +114,40 @@ struct SerializedItem {
   std::vector<SavedAffix> affixes;
   std::vector<SavedAffix> implicits;
 
-  // Recursive Sockets
-  std::vector<SerializedItem> socketedItems;
+  // Recursive Sockets (indexed)
+  std::vector<SerializedSocketEntry> socketedItems;
+
+  // Conversions and Damage Modifiers
+  std::vector<StatConversion> conversions;
+  std::vector<DamageModifier> damageModifiers;
 };
+
+// Defined after SerializedItem is complete
+struct SerializedSocketEntry {
+  uint8_t socketIndex = 0;
+  SerializedItem item;
+
+  SerializedSocketEntry() = default;
+  SerializedSocketEntry(uint8_t idx, SerializedItem it)
+      : socketIndex(idx), item(std::move(it)) {}
+};
+
+inline void to_json(nlohmann::json &j, const SerializedSocketEntry &e) {
+  j = nlohmann::json{{"socketIndex", e.socketIndex}, {"item", e.item}};
+}
+
+inline void from_json(const nlohmann::json &j, SerializedSocketEntry &e) {
+  if (j.contains("socketIndex")) {
+    j.at("socketIndex").get_to(e.socketIndex);
+  } else {
+    e.socketIndex = 0;
+  }
+  if (j.contains("item")) {
+    from_json(j.at("item"), e.item);
+  } else {
+    from_json(j, e.item);
+  }
+}
 
 // nlohmann::json support for SerializedItem. Explicit overloads (instead of
 // the macro) so the newer enum-identity keys stay optional on read: legacy
@@ -115,7 +165,14 @@ inline void to_json(nlohmann::json& j, const SerializedItem& item) {
                      {"socketedItems", item.socketedItems},
                      {"baseId", item.baseId},
                      {"weaponSubtype", item.weaponSubtype},
-                     {"catalystKind", item.catalystKind}};
+                     {"catalystKind", item.catalystKind},
+                     {"isLocked", item.isLocked},
+                     {"activeRunewordId", item.activeRunewordId},
+                     {"socketCount", item.socketCount},
+                     {"setName", item.setName},
+                     {"bagCapacity", item.bagCapacity},
+                     {"conversions", item.conversions},
+                     {"damageModifiers", item.damageModifiers}};
 }
 
 inline void from_json(const nlohmann::json& j, SerializedItem& item) {
@@ -128,10 +185,41 @@ inline void from_json(const nlohmann::json& j, SerializedItem& item) {
   j.at("stats").get_to(item.stats);
   j.at("affixes").get_to(item.affixes);
   j.at("implicits").get_to(item.implicits);
-  j.at("socketedItems").get_to(item.socketedItems);
+
+  item.socketedItems.clear();
+  if (j.contains("socketedItems")) {
+    const auto &arr = j.at("socketedItems");
+    if (arr.is_array()) {
+      uint8_t fallbackIdx = 0;
+      for (const auto &elem : arr) {
+        SerializedItem::SerializedSocketEntry entry;
+        if (elem.is_object() && elem.contains("socketIndex") && elem.contains("item")) {
+          elem.at("socketIndex").get_to(entry.socketIndex);
+          from_json(elem.at("item"), entry.item);
+        } else {
+          entry.socketIndex = fallbackIdx;
+          from_json(elem, entry.item);
+        }
+        item.socketedItems.push_back(entry);
+        fallbackIdx++;
+      }
+    }
+  }
+
   if (j.contains("baseId")) j.at("baseId").get_to(item.baseId);
   if (j.contains("weaponSubtype")) j.at("weaponSubtype").get_to(item.weaponSubtype);
   if (j.contains("catalystKind")) j.at("catalystKind").get_to(item.catalystKind);
+  if (j.contains("isLocked")) j.at("isLocked").get_to(item.isLocked); else item.isLocked = false;
+  if (j.contains("activeRunewordId")) j.at("activeRunewordId").get_to(item.activeRunewordId); else item.activeRunewordId = 0;
+  if (j.contains("socketCount")) {
+    j.at("socketCount").get_to(item.socketCount);
+  } else {
+    item.socketCount = static_cast<int32_t>(item.socketedItems.size());
+  }
+  if (j.contains("setName")) j.at("setName").get_to(item.setName); else item.setName.clear();
+  if (j.contains("bagCapacity")) j.at("bagCapacity").get_to(item.bagCapacity); else item.bagCapacity = 0;
+  if (j.contains("conversions")) j.at("conversions").get_to(item.conversions); else item.conversions.clear();
+  if (j.contains("damageModifiers")) j.at("damageModifiers").get_to(item.damageModifiers); else item.damageModifiers.clear();
 }
 
 } // namespace NoMoreDay

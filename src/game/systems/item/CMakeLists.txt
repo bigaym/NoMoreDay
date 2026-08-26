@@ -44,6 +44,7 @@ target_link_libraries(NoMoreDayGameItem
     EnTT::EnTT
     Taskflow
     xsimd
+    Tracy
 )
 target_link_libraries(NoMoreDayGameItem PRIVATE NoMoreDayAnalyzeFlags)
 

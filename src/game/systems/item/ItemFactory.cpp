@@ -1,5 +1,6 @@
 #include "game/systems/item/ItemFactory.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/utils/HashUtils.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/EquipmentAssetRegistry.hpp"
@@ -11,6 +12,7 @@
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
 #include "game/foundation/components/WorldState.hpp"
+#include <tracy/Tracy.hpp>
 #include <algorithm>
 #include <fstream>
 #include <map>
@@ -226,6 +228,7 @@ const LootPool *ItemFactory::getLootPool(uint32_t id) {
 // now)
 SerializedItem ItemFactory::serializeItem(entt::registry &registry,
                                           entt::entity entity) {
+  ZoneScopedN("ItemFactory::serializeItem");
   SerializedItem dto;
   if (!registry.all_of<ItemComponent>(entity))
     return dto;
@@ -239,6 +242,13 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
   dto.baseId = item.baseId;
   dto.weaponSubtype = item.weaponSubtype;
   dto.catalystKind = item.catalystKind;
+  dto.isLocked = item.isLocked;
+  dto.activeRunewordId = item.activeRunewordId;
+  dto.socketCount = item.socketCount;
+  dto.setName = item.setName;
+  dto.bagCapacity = item.bagCapacity;
+  dto.conversions = item.conversions;
+  dto.damageModifiers = item.damage_modifiers;
 
   dto.stats.rarity = item.rarity;
   dto.stats.level = item.itemLevel; // [NEW] Save item level
@@ -273,9 +283,11 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
     dto.implicits.push_back(sAff);
   }
 
-  for (auto socketEntity : item.sockets) {
-    if (registry.valid(socketEntity)) {
-      dto.socketedItems.push_back(serializeItem(registry, socketEntity));
+  dto.socketedItems.clear();
+  for (size_t i = 0; i < item.sockets.size(); ++i) {
+    if (registry.valid(item.sockets[i])) {
+      dto.socketedItems.push_back(
+          {static_cast<uint8_t>(i), serializeItem(registry, item.sockets[i])});
     }
   }
 
@@ -936,6 +948,7 @@ entt::entity ItemFactory::createRandomLoot(entt::registry &registry, int level,
 
 entt::entity ItemFactory::restoreItem(entt::registry &registry,
                                       const SerializedItem &dto) {
+  ZoneScopedN("ItemFactory::restoreItem");
   auto entity = registry.create();
   ItemComponent item;
   item.id = dto.itemId;
@@ -946,9 +959,17 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
   item.baseId = dto.baseId;
   item.weaponSubtype = dto.weaponSubtype;
   item.catalystKind = dto.catalystKind;
+  item.isLocked = dto.isLocked;
+  item.activeRunewordId = dto.activeRunewordId;
+  item.socketCount = dto.socketCount;
+  item.setName = dto.setName;
+  item.bagCapacity = dto.bagCapacity;
+  item.conversions = dto.conversions;
+  item.damage_modifiers = dto.damageModifiers;
 
   // Restore stats from snapshot
   item.rarity = dto.stats.rarity;
+  item.itemLevel = dto.stats.level;
   item.slot = dto.stats.slot;
   item.attack = dto.stats.attack;
   item.defense = dto.stats.defense;
@@ -964,7 +985,6 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
     aff.value = sAff.value;
     aff.isPrefix = sAff.isPrefix;
     aff.isLegendary = sAff.isLegendary;
-    // aff.name = sAff.name; // REMOVED
     aff.required_tags = sAff.required_tags;
     aff.modifier_record_ids = sAff.modifier_record_ids;
     item.affixes.push_back(aff);
@@ -977,18 +997,29 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
     aff.value = sAff.value;
     aff.isPrefix = sAff.isPrefix;
     aff.isLegendary = sAff.isLegendary;
-    // aff.name = sAff.name; // REMOVED
     aff.required_tags = sAff.required_tags;
     aff.modifier_record_ids = sAff.modifier_record_ids;
     item.implicits.push_back(aff);
   }
 
-  // Sockets (Recursive)
-  for (const auto &sSocket : dto.socketedItems) {
-    auto socketEntity = restoreItem(registry, sSocket);
-    item.sockets.push_back(socketEntity);
+  // Sockets (Recursive with slotIndex)
+  item.sockets.assign(std::max(0, dto.socketCount), entt::null);
+  for (const auto &entry : dto.socketedItems) {
+    auto socketEntity = restoreItem(registry, entry.item);
+    if (entry.socketIndex < item.sockets.size()) {
+      item.sockets[entry.socketIndex] = socketEntity;
+    } else {
+      item.sockets.push_back(socketEntity);
+    }
   }
-  item.socketCount = (int)item.sockets.size();
+  if (item.socketCount < static_cast<int>(item.sockets.size())) {
+    item.socketCount = static_cast<int>(item.sockets.size());
+  }
+
+  // Set item setNameHash recalculation
+  if (item.rarity == Rarity::Set && !item.setName.empty() && item.setNameHash == 0) {
+    item.setNameHash = NoMoreDay::utils::Hash(item.setName);
+  }
 
   registry.emplace<ItemComponent>(entity, item);
 
