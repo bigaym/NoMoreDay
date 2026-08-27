@@ -1,12 +1,14 @@
 #include "game/systems/item/storage/ItemStorageConverter.hpp"
+#include "core/logging/Logger.hpp"
 #include "core/utils/HashUtils.hpp"
 #include "game/systems/item/storage/ItemTemplateRegistry.hpp"
 #include <algorithm>
 
 namespace NoMoreDay {
 
-bool ItemComponentToInstance(const ItemComponent &comp, ItemInstance &outInst,
-                             ItemSideTableData *outSide) {
+bool ItemComponentToInstance(
+    const ItemComponent &comp, ItemInstance &outInst, ItemSideTableData *outSide,
+    const std::unordered_map<entt::entity, ItemHandle> *socketMap) {
   outInst = ItemInstance{};
   outInst.instanceId = static_cast<uint64_t>(comp.id);
   outInst.baseId = comp.baseId;
@@ -40,6 +42,30 @@ bool ItemComponentToInstance(const ItemComponent &comp, ItemInstance &outInst,
   }
 
   outInst.sockets.fill(ItemHandle{0, 0});
+  if (outInst.socketCount > 0) {
+    const size_t srcCount =
+        std::min<size_t>(outInst.socketCount, comp.sockets.size());
+    bool hasLiveEntities = false;
+    for (size_t i = 0; i < srcCount; ++i) {
+      if (comp.sockets[i] == entt::null) {
+        continue;
+      }
+      hasLiveEntities = true;
+      if (socketMap != nullptr) {
+        const auto it = socketMap->find(comp.sockets[i]);
+        if (it != socketMap->end()) {
+          outInst.sockets[i] = it->second;
+        }
+      }
+    }
+    if (hasLiveEntities && socketMap == nullptr) {
+      LOG_WARN(
+          "ItemComponentToInstance: instance {} carries {} sockets with live "
+          "entities but no socketMap was provided; pool handles stay null and "
+          "the caller must backfill them",
+          comp.id, srcCount);
+    }
+  }
 
   if (outSide != nullptr) {
     outSide->conversions = comp.conversions;
@@ -49,15 +75,17 @@ bool ItemComponentToInstance(const ItemComponent &comp, ItemInstance &outInst,
   return true;
 }
 
-ItemInstance ItemComponentToInstance(const ItemComponent &comp,
-                                     ItemSideTableData *outSide) {
+ItemInstance ItemComponentToInstance(
+    const ItemComponent &comp, ItemSideTableData *outSide,
+    const std::unordered_map<entt::entity, ItemHandle> *socketMap) {
   ItemInstance inst;
-  ItemComponentToInstance(comp, inst, outSide);
+  ItemComponentToInstance(comp, inst, outSide, socketMap);
   return inst;
 }
 
-bool InstanceToItemComponent(const ItemInstance &inst, ItemComponent &outComp,
-                             const ItemSideTableData *side) {
+bool InstanceToItemComponent(
+    const ItemInstance &inst, ItemComponent &outComp, const ItemSideTableData *side,
+    const std::unordered_map<ItemHandle, entt::entity> *socketEntityMap) {
   outComp = ItemComponent{};
   outComp.id = static_cast<uint32_t>(inst.instanceId);
   outComp.baseId = inst.baseId;
@@ -74,7 +102,32 @@ bool InstanceToItemComponent(const ItemInstance &inst, ItemComponent &outComp,
   outComp.value = inst.value;
   outComp.activeRunewordId = inst.activeRunewordId;
 
-  outComp.sockets.assign(inst.socketCount, entt::null);
+  outComp.sockets.assign(
+      std::min<size_t>(inst.socketCount, inst.sockets.size()), entt::null);
+  if (!outComp.sockets.empty()) {
+    bool hasUnresolvedHandles = false;
+    for (size_t i = 0; i < outComp.sockets.size(); ++i) {
+      if (socketEntityMap != nullptr) {
+        const auto it = socketEntityMap->find(inst.sockets[i]);
+        if (it != socketEntityMap->end()) {
+          outComp.sockets[i] = it->second;
+          continue;
+        }
+      }
+      // 插槽保持 entt::null 直到所属迁移逻辑完成回填。
+      if (!(inst.sockets[i].index == 0 && inst.sockets[i].gen == 0)) {
+        hasUnresolvedHandles = true;
+      }
+    }
+    if (hasUnresolvedHandles) {
+      LOG_WARN(
+          "InstanceToItemComponent: instance {} carries {} socket slots with "
+          "live pool handles but{} entity mapping; scene sockets stay null "
+          "until backfilled",
+          inst.instanceId, outComp.sockets.size(),
+          socketEntityMap != nullptr ? " an incomplete" : " no");
+    }
+  }
 
   const size_t count =
       std::min<size_t>(inst.affixCount, inst.affixes.size());
@@ -123,10 +176,11 @@ bool InstanceToItemComponent(const ItemInstance &inst, ItemComponent &outComp,
   return true;
 }
 
-ItemComponent InstanceToItemComponent(const ItemInstance &inst,
-                                      const ItemSideTableData *side) {
+ItemComponent InstanceToItemComponent(
+    const ItemInstance &inst, const ItemSideTableData *side,
+    const std::unordered_map<ItemHandle, entt::entity> *socketEntityMap) {
   ItemComponent comp;
-  InstanceToItemComponent(inst, comp, side);
+  InstanceToItemComponent(inst, comp, side, socketEntityMap);
   return comp;
 }
 

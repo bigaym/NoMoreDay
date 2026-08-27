@@ -9,7 +9,7 @@
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/GPUTextSystem.hpp"
-#include "engine/render/RenderSystem.hpp" // ADDED
+#include "engine/render/RenderSystem.hpp"
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
 #include "engine/render/resource/MSDFAtlasLoader.hpp"
 #include "engine/render/resource/MSDFAtlasRegistry.hpp"
@@ -96,17 +96,15 @@ void InitializeGPUTextBootstrap(ResourceManager &resourceManager) {
   for (size_t i = 0; i < atlasData.glyphs.size(); ++i) {
     const auto &src = atlasData.glyphs[i];
     GPUGlyphMetrics dst = {};
-    dst.uvMinX = src.uvRect[0];  // Space::FboTexel (atlas UVs pass through)
+    dst.uvMinX = src.uvRect[0];  // Space::FboTexel (图集 UV 直通)
     dst.uvMinY = src.uvRect[1];
     dst.uvMaxX = src.uvRect[2];
     dst.uvMaxY = src.uvRect[3];
-    // Space boundary: the metrics.bin payload is Space::MsdfMetric (em units,
-    // baseline-origin bearing; see MSDFAtlasRegistry::kV4AtlasEmSize). The GPU
-    // text pipeline consumes metrics as Space::World (y-down) via
-    // text_layout.compute, so the import normalizes through the same helper
-    // the MSDF label path uses. GPU text currently renders at fontSize ==
-    // emSize (1:1, i.e. the atlas em size); change kGpuTextFontSize to scale
-    // without touching the layout shader.
+    // 空间边界: metrics.bin 数据为 Space::MsdfMetric (em 单位, 基线原点方位;
+    // 参见 MSDFAtlasRegistry::kV4AtlasEmSize)。GPU 文本管线通过 text_layout.compute
+    // 将度量数据作为 Space::World (y 向下) 消费，因此导入时通过 MSDF 标签路径使用的相同辅助函数进行归一化。
+    // 当前 GPU 文本在 fontSize == emSize (1:1，即图集 em 大小) 下渲染；
+    // 修改 kGpuTextFontSize 即可缩放而无需修改布局着色器。
     constexpr float kGpuTextFontSize = MSDFAtlasRegistry::kV4AtlasEmSize;
     const float emSize = MSDFAtlasRegistry::kV4AtlasEmSize;
     dst.offsetX = NoMoreDay::render::coord::MsdfBearingToWorldOffset(
@@ -143,8 +141,8 @@ void InitializeGPUTextBootstrap(ResourceManager &resourceManager) {
 
   textSystem.UploadStringTable(glyphIndices, meta);
 
-  // Publish CPU-side glyph metrics for runtime lookups (loot label system).
-  // Register() copies the metrics vector, so atlasData can be unloaded below.
+  // 发布 CPU 侧字形度量数据以供运行时查询 (掉落标签系统)。
+  // Register() 会复制度量向量，因此下面可以卸载 atlasData。
   MSDFAtlasRegistry::Get().Register(atlasData.texture, atlasData.glyphs,
                                     atlasData.distanceRange,
                                     MSDFAtlasRegistry::kV4AtlasEmSize);
@@ -158,17 +156,17 @@ void InitializeGPUTextBootstrap(ResourceManager &resourceManager) {
 Game::Game(int width, int height, const char *title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title) {
 
-  // Configure Window Flags BEFORE InitWindow
-  // FLAG_WINDOW_RESIZABLE: Allows user resizing
-  // FLAG_MSAA_4X_HINT: Anti-aliasing
-  // NOTE: HighDPI flag removed to match previous GCC behavior.
-  // Ensure VSync is disabled to allow uncapped FPS
-  // ClearConfigFlags(FLAG_VSYNC_HINT); // Not supported in this Raylib version
+  // 在 InitWindow 前配置窗口标志
+  // FLAG_WINDOW_RESIZABLE: 允许用户调整大小
+  // FLAG_MSAA_4X_HINT: 抗锯齿
+  // 注意: 已移除 HighDPI 标志以匹配先前的 GCC 行为。
+  // 确保禁用垂直同步以支持无上限帧率
+  // ClearConfigFlags(FLAG_VSYNC_HINT); // 当前 Raylib 版本不支持
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
 
   InitWindow(m_screenWidth, m_screenHeight, m_title);
 
-  // Smart Window Positioning & Default Borderless Windowed
+  // 智能窗口定位与默认无边框窗口化
   int monitor = GetCurrentMonitor();
   int monitorW = GetMonitorWidth(monitor);
   int monitorH = GetMonitorHeight(monitor);
@@ -181,7 +179,7 @@ Game::Game(int width, int height, const char *title)
   m_screenHeight = monitorH;
   m_isBorderlessFullscreen = true;
 
-  // Save fallback windowed state for Alt+Enter toggle
+  // 保存回退窗口化状态以供 Alt+Enter 切换
   m_windowedWidth = (width > 0 && width < monitorW) ? width : static_cast<int>(monitorW * 0.75f);
   m_windowedHeight = (height > 0 && height < monitorH) ? height : static_cast<int>(monitorH * 0.75f);
   m_windowedPosX = (monitorW - m_windowedWidth) / 2;
@@ -189,25 +187,25 @@ Game::Game(int width, int height, const char *title)
 
   InitAudioDevice();
 
-  // Initialize GPU Capability Detection and Load Extensions
+  // 初始化 GPU 能力检测并加载扩展
   m_gpuInfo = NoMoreDay::utils::GPUUtils::Initialize();
 
-  // Register EnTT Groups EARLY (before any components are added)
-  // This is critical to prevent registry corruption.
+  // 提前注册 EnTT Groups (在添加任何组件之前)
+  // 这对防止注册表损坏至关重要。
   NoMoreDay::groups::RegisterGroups(m_registry);
 
   SetExitKey(0);
 
-  // Load settings first so targetFPS is available
+  // 先加载设置，以确保 targetFPS 可用
   m_settings.Load();
-  SetTargetFPS(m_settings.targetFPS); // Use FPS from settings (default: 180)
+  SetTargetFPS(m_settings.targetFPS); // 使用设置中的目标 FPS (默认: 180)
   LOG_INFO("Settings loaded: tier={}, targetFPS={}, cameraZoom={:.1f}, shake={:.1f}",
            std::string(NoMoreDay::GameSettings::RenderQualityTierToStringView(
                m_settings.renderQualityTier)),
            m_settings.targetFPS, m_settings.cameraZoom, m_settings.shakeIntensity);
   LOG_INFO("Target FPS set to: {}", m_settings.targetFPS);
 
-  // Fill Context
+  // 填充上下文
   m_levelManager = std::make_unique<LevelManager>();
   m_levelManager->initialize(m_resourceManager, m_registry);
   m_context.registry = &m_registry;
@@ -216,19 +214,20 @@ Game::Game(int width, int height, const char *title)
   m_context.executor = &m_executor;
   m_context.settings = &m_settings;
   m_context.uiHost = &m_uiHost;
+  m_context.itemStorage = &m_itemStorage;
 
-  // Render Context Setup
+  // 渲染上下文设置
   m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;
   m_renderContext.mdiRenderer = &m_mdiRenderer;
   m_renderContext.resources = &m_resourceManager;
   m_context.renderContext = &m_renderContext;
 
-  // Init SceneManager
+  // 初始化 SceneManager
   m_sceneManager =
       std::make_unique<NoMoreDay::SceneManager>(*m_levelManager, m_registry);
   m_context.sceneManager = m_sceneManager.get();
 
-  // Init StateManager
+  // 初始化 StateManager
   m_stateManager = std::make_unique<NoMoreDay::StateManager>(m_context);
 
   LOG_DEBUG("Game window and core systems initialized");
@@ -247,7 +246,7 @@ void Game::init() {
   LOG_INFO("Initializing Game systems...");
   std::system("chcp 65001 >nul 2>&1");
 
-  // Global Static Inits
+  // 全局静态初始化
   NoMoreDay::CombatEventDispatcher::Init();
   NoMoreDay::AstrolabeRegistry::Get().Load();
   NoMoreDay::MaterialRegistry::Get().LoadMaterials(
@@ -267,58 +266,53 @@ void Game::init() {
     throw std::runtime_error("ModifierRuntimeV2 load failed");
   }
 
-  // Initialize Map Affix Registry
+  // 初始化地图词缀注册表
   NoMoreDay::MapAffixRegistry::Initialize();
 
-  // Initialize Persistence
+  // 初始化持久化管理器
   NoMoreDay::SaveManager::Get().Initialize(&m_executor);
   NoMoreDay::SaveManager::Get().loadGlobal(m_registry);
 
-  // Initialize ActiveDimensionalState in Context
-  // This ensures the state is available globally for all systems
+  // 在 Context 中初始化 ActiveDimensionalState
+  // 确保该状态对所有系统全局可用
   if (!m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
     m_registry.ctx().emplace<NoMoreDay::ActiveDimensionalState>();
   }
 
-  // Expose SharedContext through registry context for systems that operate on
-  // registry-only interfaces (e.g. CombatSystem static calls).
+  // 通过注册表上下文暴露 SharedContext，供仅基于注册表接口操作的系统使用（如 CombatSystem 静态调用）。
   if (!m_registry.ctx().contains<NoMoreDay::SharedContext *>()) {
     m_registry.ctx().emplace<NoMoreDay::SharedContext *>(&m_context);
   } else {
     m_registry.ctx().get<NoMoreDay::SharedContext *>() = &m_context;
   }
 
-  // Initialize Stats System (Cache cleanup)
+  // 初始化属性系统 (清理缓存)
   NoMoreDay::StatsSystem::Initialize(m_registry);
 
-  // Initialize UI System (Loads Fonts). Ownership moved to GameUiHost (U4);
-  // the legacy facade is initialized through the host.
+  // 初始化 UI 系统 (加载字体)。所有权已移至 GameUiHost (U4)；
+  // 旧版外观通过 host 进行初始化。
   m_uiHost.Initialize(m_resourceManager);
 
-  // U8: bind the world-space UI frame so the render write side and the host
-  // read side exchange visible-item/hover data through it instead of the
-  // UiShared static slots.
+  // U8: 绑定世界空间 UI 帧，以便渲染写入端与主机读取端通过它交换可见物品/悬停数据，
+  // 而不再依赖 UiShared 静态槽位。
   m_uiHost.BindWorldFrame(&m_worldFrame);
 
-  // U7 group 3: cross-layer crafting entry points route through these
-  // callbacks (see SharedContext) so systems below the UI layer never touch
-  // the static UICrafting panel.
+  // U7 第3组: 跨层锻造入口通过这些回调路由 (参见 SharedContext)，
+  // 从而使 UI 层之下的系统永远不需要触碰静态 UICrafting 面板。
   m_context.openCraftingMergePanel = [this]() { m_uiHost.CraftingOpenMergePanel(); };
-  // R10 (收尾): the craftingSetTargetItem callback is gone (no callers); the
-  // overlay context-menu Craft action calls GameUiHost::CraftingSetTargetItem
-  // directly, and InventorySystem only needs the merge-panel callback above.
-  // R8: the legacy closeAstrolabe callback is gone (the skill-tree controller
-  // routes the astrolabe close through the host channel directly).
-  // U8: gameplay-layer message box notifications (InventorySystem etc.) route
-  // through the host-owned OverlayController instead of the legacy static
-  // State.showMessageBox (see SharedContext).
+  // R10 (收尾): craftingSetTargetItem 回调已移除 (无调用方)；
+  // 覆盖层右键菜单 Craft 动作直接调用 GameUiHost::CraftingSetTargetItem，
+  // 且 InventorySystem 仅需要上述 merge-panel 回调。
+  // R8: 旧版 closeAstrolabe 回调已移除 (技能树控制器直接通过 host 通道路由星盘关闭)。
+  // U8: 游戏层消息框通知 (InventorySystem 等) 通过 host 拥有的 OverlayController 路由，
+  // 而非旧版静态 State.showMessageBox (参见 SharedContext)。
   m_context.showMessageBox = [this](const char* text) {
     m_uiHost.ShowMessageBox(text);
   };
 
-  // Initialize GPU Systems
+  // 初始化 GPU 系统
   if (m_gpuInfo.computeShaderSupported) {
-    // 1. Pre-load Entity Texture Array
+    // 1. 预加载实体纹理数组
     std::vector<std::string> entityPaths;
     static const std::vector<std::string> races = {
         "skeleton", "demon",  "warcraft", "cultist",  "elf",
@@ -331,7 +325,7 @@ void Game::init() {
     }
     m_resourceManager.loadTextureArray(entityPaths);
 
-    // 2. GPU Particle System (Indirect Drawing)
+    // 2. GPU 粒子系统 (间接绘制)
     NoMoreDay::systems::GPUParticleSystem::Get().Init(
         NoMoreDay::RenderConstants::GPU::MAX_PARTICLES);
 
@@ -339,38 +333,36 @@ void Game::init() {
     m_gpuEntityAdapter.Init(30000, &m_registry, m_gpuEntitySystem);
     m_gpuEntityAdapter.SetLevelManager(m_context.levelManager);
 
-    // Gameplay render adapter: receives RenderSystem gameplay hooks. The
-    // context pointer is latched here so the hooks can reach Game state.
+    // Gameplay 渲染适配器：接收 RenderSystem gameplay 钩子。
+    // 在此处锁存上下文指针以便钩子能够访问 Game 状态。
     m_gameplayRenderAdapter.SetContext(&m_context);
     m_gameplayRenderAdapter.Init();
-    // U8: route the UI world pass into the frame object owned by Game.
+    // U8: 将 UI world pass 路由至 Game 拥有的帧对象中。
   m_gameplayRenderAdapter.BindWorldUiFrame(&m_worldFrame);
   m_context.gameplayRenderHooks = &m_gameplayRenderAdapter;
 
-  // U8 final: the render adapter no longer reads the UiShared global font
-  // (removed); the composition root injects the font loaded during
-  // GameUiHost::Initialize (UISystem private static) after both the host and
-  // the adapter are ready.
+  // U8 最终版: 渲染适配器不再读取 UiShared 全局字体 (已移除)；
+  // 组合根在 host 和 adapter 就绪后注入 GameUiHost::Initialize 期间加载的字体 (UISystem 私有静态)。
   m_gameplayRenderAdapter.SetFont(UISystem::GetFont());
 
     m_mdiRenderer.Init(m_resourceManager, 30000);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
-    // Initialize GPU Skill Effect System (Global)
+    // 初始化 GPU 技能特效系统 (全局)
     NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(
         m_resourceManager, NoMoreDay::RenderConstants::GPU::MAX_SKILL_EFFECTS);
 
-    // Initialize GPU Damage Popup System
+    // 初始化 GPU 伤害跳字系统
     NoMoreDay::render::PopupRenderer::Get().Init();
     InitializeGPUTextBootstrap(m_resourceManager);
 
-    // Initialize Instanced Label Renderer
+    // 初始化实例化标签渲染器
     if (!RenderSystem::Initialize()) {
       LOG_CRITICAL("Game::Init: RenderSystem initialization failed. Aborting game startup.");
       throw std::runtime_error("Game::init: RenderSystem initialization failed. Aborting game startup.");
     }
 
-    // Link context
+    // 关联上下文
     m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;
     m_renderContext.mdiRenderer = &m_mdiRenderer;
     m_renderContext.gpuFlowFieldSystem =
@@ -379,7 +371,7 @@ void Game::init() {
     m_context.renderContext = &m_renderContext;
   }
 
-  // Push Initial State
+  // 压入初始状态
   LOG_INFO("Pushing MainMenuState...");
   m_stateManager->PushState<NoMoreDay::MainMenuState>();
 
@@ -401,21 +393,21 @@ void Game::run() {
               frameTime = 0.25f;
       
             {
-              // 1. Update Game State based on Frame Rate (Variable DT)
-              // This ensures input responsiveness (ESC, Clicks) at high refresh rates.
-              NoMoreDay::utils::ScopedTimer timer("1. Update State", 2000); // 2ms threshold
+              // 1. 基于帧率更新游戏状态 (可变 DT)
+              // 确保在高刷新率下的输入响应性 (ESC, 点击)。
+              NoMoreDay::utils::ScopedTimer timer("1. Update State", 2000); // 2ms 阈值
               m_stateManager->Update(frameTime);
             }        if (m_stateManager->IsEmpty()) {
           LOG_INFO("State stack empty, exiting game loop");
           break;
         }
   
-            // 2. Continuous Simulation & Physics (Fixed DT)
+            // 2. 连续模拟与物理 (固定 DT)
             accumulator += frameTime;
             bool logicRan = false;
             while (accumulator >= fixedDt) {
               if (m_gpuInfo.computeShaderSupported) {
-                // 1. CPU -> Shadow Sync (Logic update only, no GPU mapping here)
+                // 1. CPU -> Shadow 同步 (仅逻辑更新，此处无 GPU 映射)
                 m_gpuEntityAdapter.Update(m_registry, m_gpuEntitySystem,
                                           fixedDt, (float)GetTime());
               }
@@ -425,24 +417,24 @@ void Game::run() {
             }
         
             if (logicRan && m_gpuInfo.computeShaderSupported) {
-              // Submit new pulse to GPU
+              // 提交新脉冲至 GPU
               m_gpuEntitySystem.UploadGPU(
                   {m_context.resources, &m_context.renderContext->MDI(),
                    m_context.renderAlpha});
             }  
 
-            // Update particle system (Always run to process menu particles and emissions)
+            // 更新粒子系统 (始终运行以处理菜单粒子和发射器)
             if (m_gpuInfo.computeShaderSupported) {
                 NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
             }
-        // Update Interpolation Alpha for Rendering
-        // alpha = accumulator / fixedDt, range [0, 1)
-        // This allows smooth interpolation between physics frames
+        // 更新用于渲染的插值 Alpha
+        // alpha = accumulator / fixedDt, 范围 [0, 1)
+        // 允许物理帧之间的平滑插值
         m_context.renderAlpha = accumulator / fixedDt;
   
         static float fpsLogTimer = 0.0f;
         fpsLogTimer += frameTime;
-        // Log FPS every 1.0 second at INFO level
+        // 每 1.0 秒以 INFO 级别记录 FPS
             LOG_LIMITED_INFO(1.0f, ">>> [PERF] FPS: {} | FrameTime: {:.3f} ms", GetFPS(),
                               frameTime * 1000.0f);
         
@@ -454,7 +446,7 @@ void Game::run() {
               EndDrawing();
             }
             
-            // Check for Fullscreen Toggle (Alt + Enter)
+            // 检查全屏切换按键 (Alt + Enter)
             if ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && IsKeyPressed(KEY_ENTER)) {
                 toggleFullScreen();
             }
@@ -467,9 +459,9 @@ int Game::runGpuGate(const std::string &revision, int sampleFramesPerFixture,
            "stress={}, toggle_loops={})",
            revision, sampleFramesPerFixture, stressTest1Min, toggleLoops);
 
-  // W6 (M0-C): the driver borrows the real game members - real registry,
-  // real SharedContext/render context and the real gameplay render hooks
-  // installed by Game::init() - and owns the RGBA16F composite target.
+  // W6 (M0-C): 驱动程序借用真实游戏成员 - 真实 registry、
+  // 真实 SharedContext/render context 以及由 Game::init() 安装的真实 gameplay 渲染钩子 -
+  // 并持有 RGBA16F 复合目标。
   GpuGateDriver driver(&m_registry, &m_context);
   const GateReport report =
       GPUHardwareValidationGate::RunGate(revision, sampleFramesPerFixture,
@@ -480,18 +472,16 @@ int Game::runGpuGate(const std::string &revision, int sampleFramesPerFixture,
           ? "GO"
           : (report.status == GateStatus::NoGo) ? "NO_GO" : "NOT_RUN";
 
-  // W6.4 (M0-C): exactly one status marker and exactly one versioned JSON
-  // artifact between the BEGIN/END markers. Missing required fields are
-  // NOT_RUN at the runner (never filled with defaults - fail-closed).
+  // W6.4 (M0-C): 在 BEGIN/END 标记之间输出唯一的 status 标记和唯一的版本化 JSON 工件。
+  // 缺失必填字段在运行器处判定为 NOT_RUN (从不填充默认值 - 故障闭锁)。
   std::cout << "GPU_HARDWARE_GATE_RESULT status=" << statusStr << "\n";
   std::cout << "GPU_HARDWARE_GATE_REPORT_BEGIN\n";
   std::cout << report.ToJsonString() << "\n";
   std::cout << "GPU_HARDWARE_GATE_REPORT_END\n" << std::flush;
 
   LOG_INFO("GPU hardware validation gate completed: status={}", statusStr);
-  // Process exit code is decoupled from the verdict: the runner decides
-  // pass/fail from the artifact (return_code==0 AND schema valid AND
-  // status=="GO"); NO_GO/NOT_RUN are failures regardless of exit code.
+  // 进程退出码与裁决结果解耦: 运行器根据工件决定通过/失败
+  // (return_code==0 且 schema 有效且 status=="GO")；NO_GO/NOT_RUN 无论退出码如何均视为失败。
   return 0;
 }
 
@@ -501,14 +491,14 @@ void Game::toggleFullScreen() {
     int monitorH = GetMonitorHeight(monitor);
 
     if (m_isBorderlessFullscreen) {
-        // Switch to Windowed
+        // 切换到窗口化模式
         LOG_INFO("Switching to Windowed Mode...");
-        SetWindowState(FLAG_WINDOW_UNDECORATED); // Temporarily ensure state for cleaner transition
-        ClearWindowState(FLAG_WINDOW_UNDECORATED); // Add decorations back
+        SetWindowState(FLAG_WINDOW_UNDECORATED); // 临时确保状态以便平滑过渡
+        ClearWindowState(FLAG_WINDOW_UNDECORATED); // 恢复窗口边框装饰
         
-        // Restore saved windowed size or default to safe size
+        // 恢复保存的窗口大小或默认为安全大小
         if (m_windowedWidth == 0 || m_windowedHeight == 0) {
-            // Default to 75% of monitor size if no saved state
+            // 无保存状态时默认为显示器尺寸的 75%
             m_windowedWidth = (int)(monitorW * 0.75f);
             m_windowedHeight = (int)(monitorH * 0.75f);
             m_windowedPosX = (monitorW - m_windowedWidth) / 2;
@@ -521,10 +511,10 @@ void Game::toggleFullScreen() {
         m_screenHeight = m_windowedHeight;
         m_isBorderlessFullscreen = false;
     } else {
-        // Switch to Borderless Fullscreen
+        // 切换到无边框全屏模式
         LOG_INFO("Switching to Borderless Fullscreen...");
         
-        // Save current windowed state
+        // 保存当前窗口化状态
         m_windowedWidth = GetScreenWidth();
         m_windowedHeight = GetScreenHeight();
         Vector2 pos = GetWindowPosition();
@@ -543,7 +533,7 @@ void Game::toggleFullScreen() {
 void Game::cleanup() {
   LOG_INFO("Cleaning up game systems...");
 
-  // Save Global State (Shared Stash)
+  // 保存全局状态 (共享仓库)
   NoMoreDay::SaveManager::Get().saveGlobalAsync(m_registry);
 
   m_executor.wait_for_all();
@@ -560,11 +550,12 @@ void Game::cleanup() {
   m_registry.on_destroy<NoMoreDay::AstrolabeUIComponent>().disconnect();
   m_registry.clear();
 
-  RenderSystem::Shutdown(); // ADDED
+  RenderSystem::Shutdown();
   m_gameplayRenderAdapter.Shutdown();
   m_context.gameplayRenderHooks = nullptr;
-  // UI host shutdown precedes resource unload / window close so the backend
-  // releases registered raylib resources while the GL context is still alive.
+  // 在持有的服务超出作用域之前释放上下文借用。
+  m_context.itemStorage = nullptr;
+  // UI host 关闭先于资源卸载 / 窗口关闭，以便后端在 GL 上下文依然有效时释放已注册的 raylib 资源。
   m_uiHost.Shutdown();
   NoMoreDay::render::GPUTextSystem::Get().Shutdown();
   NoMoreDay::render::PopupRenderer::Get().Shutdown();

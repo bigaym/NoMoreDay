@@ -42,7 +42,7 @@ TEST_CASE("[Performance] ItemStore - Move and Swap (10k items, 1M ops)") {
   slotsA.reserve(kItemCount);
   slotsB.reserve(kItemCount);
 
-  // Seed 10k items across personal stash
+  // 在个人仓库中播种 10k 物品
   service.setUnlockedPages(ContainerKind::PersonalStash, 10);
   for (uint32_t i = 0; i < kItemCount; ++i) {
     const uint16_t page = static_cast<uint16_t>((i / ItemStorageService::kStashPageCapacity) % 10);
@@ -54,7 +54,7 @@ TEST_CASE("[Performance] ItemStore - Move and Swap (10k items, 1M ops)") {
     slotsA.push_back(slot);
   }
 
-  // Generate target slots in shared stash
+  // 在共享仓库中生成目标槽位
   service.setUnlockedPages(ContainerKind::SharedStash, 10);
   for (uint32_t i = 0; i < kItemCount; ++i) {
     const uint16_t page = static_cast<uint16_t>((i / ItemStorageService::kStashPageCapacity) % 10);
@@ -65,7 +65,7 @@ TEST_CASE("[Performance] ItemStore - Move and Swap (10k items, 1M ops)") {
   std::vector<double> samples;
   samples.reserve(20);
 
-  constexpr int kIterations = 100000; // 100k swaps per sample
+  constexpr int kIterations = 100000; // 每采样 100k 次交换
   for (int iter = 0; iter < 20; ++iter) {
     ScopedTimer timer(samples);
     for (int op = 0; op < kIterations; ++op) {
@@ -77,7 +77,67 @@ TEST_CASE("[Performance] ItemStore - Move and Swap (10k items, 1M ops)") {
 
   const BenchmarkStats stats = CalculateStats(samples);
   LOG_BENCHMARK("ItemStore - Swap 100k ops", stats, "< 1.5ms per 100k (< 15ns/swap)");
-  CHECK(stats.mean_ms >= 0.0);
+  // 软性预算: 基准测试仅供参考，CI 门禁保持非性能阻断 (docs/workflows/performance.md)；性能回退作为警告暴露。
+  constexpr double kBudgetMs = 1.5;
+  if (stats.mean_ms > kBudgetMs) {
+    LOG_WARN("[Perf] ItemStore swap over budget: mean {:.4f}ms > {:.3f}ms",
+             stats.mean_ms, kBudgetMs);
+  }
+}
+
+TEST_CASE("[Performance] ItemStore - Move 100k ops") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  ItemStorageService service;
+  constexpr size_t kItemCount = 10000;
+  std::vector<SlotRef> slotsA;
+  std::vector<SlotRef> slotsB;
+  slotsA.reserve(kItemCount);
+  slotsB.reserve(kItemCount);
+
+  // 在个人仓库中播种 10k 物品 (镜像 swap 基准测试)
+  service.setUnlockedPages(ContainerKind::PersonalStash, 10);
+  for (uint32_t i = 0; i < kItemCount; ++i) {
+    const uint16_t page = static_cast<uint16_t>((i / ItemStorageService::kStashPageCapacity) % 10);
+    const uint16_t index = static_cast<uint16_t>(i % ItemStorageService::kStashPageCapacity);
+    const SlotRef slot{ContainerKind::PersonalStash, 0, page, index};
+    const ItemInstance proto = MakeBenchmarkItemProto(i + 1, 1001 + (i % 10));
+    const ItemHandle h = service.getStoreMutable().create(proto);
+    service.setSlotHandle(slot, h);
+    slotsA.push_back(slot);
+  }
+
+  // 在共享仓库中生成空目标槽位
+  service.setUnlockedPages(ContainerKind::SharedStash, 10);
+  for (uint32_t i = 0; i < kItemCount; ++i) {
+    const uint16_t page = static_cast<uint16_t>((i / ItemStorageService::kStashPageCapacity) % 10);
+    const uint16_t index = static_cast<uint16_t>(i % ItemStorageService::kStashPageCapacity);
+    slotsB.push_back(SlotRef{ContainerKind::SharedStash, 0, page, index});
+  }
+
+  std::vector<double> samples;
+  samples.reserve(20);
+
+  constexpr int kIterations = 100000; // 每采样 200k 次移动 (往返)
+  for (int iter = 0; iter < 20; ++iter) {
+    ScopedTimer timer(samples);
+    for (int op = 0; op < kIterations; ++op) {
+      const size_t idxA = static_cast<size_t>(op % kItemCount);
+      const size_t idxB = static_cast<size_t>((op + 37) % kItemCount);
+      // 成对往返: A->B 然后 B->A 保证每个源槽位均被填充，使所有测量的移动均走成功路径。
+      service.moveItem(slotsA[idxA], slotsB[idxB]);
+      service.moveItem(slotsB[idxB], slotsA[idxA]);
+    }
+  }
+
+  const BenchmarkStats stats = CalculateStats(samples);
+  LOG_BENCHMARK("ItemStore - Move 200k ops", stats, "< 2.0ms per 200k (< 10ns/move)");
+  constexpr double kBudgetMs = 2.0;
+  if (stats.mean_ms > kBudgetMs) {
+    LOG_WARN("[Perf] ItemStore move over budget: mean {:.4f}ms > {:.3f}ms",
+             stats.mean_ms, kBudgetMs);
+  }
 }
 
 TEST_CASE("[Performance] ItemStore - Visit 10k Items") {
@@ -108,7 +168,11 @@ TEST_CASE("[Performance] ItemStore - Visit 10k Items") {
   (void)checksum;
   const BenchmarkStats stats = CalculateStats(samples);
   LOG_BENCHMARK("ItemStore - Visit 10k items", stats, "< 0.100ms (100us)");
-  CHECK(stats.mean_ms >= 0.0);
+  constexpr double kBudgetMs = 0.100;
+  if (stats.mean_ms > kBudgetMs) {
+    LOG_WARN("[Perf] ItemStore visit over budget: mean {:.4f}ms > {:.3f}ms",
+             stats.mean_ms, kBudgetMs);
+  }
 }
 
 TEST_CASE("[Performance] ItemStore - Freeze Snapshot (10k items memcpy)") {
@@ -128,13 +192,17 @@ TEST_CASE("[Performance] ItemStore - Freeze Snapshot (10k items memcpy)") {
 
   for (int iter = 0; iter < 50; ++iter) {
     ScopedTimer timer(samples);
-    ItemStore snapshot = store; // Copy constructor / freeze
+    ItemStore snapshot = store; // 拷贝构造 / freeze 快照
     (void)snapshot.activeCount();
   }
 
   const BenchmarkStats stats = CalculateStats(samples);
   LOG_BENCHMARK("ItemStore - Freeze Snapshot 10k", stats, "< 0.200ms (200us)");
-  CHECK(stats.mean_ms >= 0.0);
+  constexpr double kBudgetMs = 0.200;
+  if (stats.mean_ms > kBudgetMs) {
+    LOG_WARN("[Perf] ItemStore freeze over budget: mean {:.4f}ms > {:.3f}ms",
+             stats.mean_ms, kBudgetMs);
+  }
 }
 
 TEST_CASE("[Performance] ItemStore - Create and Destroy Batch (10k items)") {
@@ -163,7 +231,11 @@ TEST_CASE("[Performance] ItemStore - Create and Destroy Batch (10k items)") {
 
   const BenchmarkStats stats = CalculateStats(samples);
   LOG_BENCHMARK("ItemStore - Create 10k & Destroy 5k", stats, "< 1.000ms");
-  CHECK(stats.mean_ms >= 0.0);
+  constexpr double kBudgetMs = 1.000;
+  if (stats.mean_ms > kBudgetMs) {
+    LOG_WARN("[Perf] ItemStore create/destroy over budget: mean {:.4f}ms > {:.3f}ms",
+             stats.mean_ms, kBudgetMs);
+  }
 }
 
 } // namespace NoMoreDay::tests

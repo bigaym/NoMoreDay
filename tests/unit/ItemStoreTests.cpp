@@ -3,6 +3,7 @@
 #include "game/systems/item/storage/ItemStore.hpp"
 #include "game/systems/item/storage/ItemTemplateRegistry.hpp"
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 using namespace NoMoreDay;
@@ -90,7 +91,7 @@ TEST_CASE("[Unit] ItemStore - Create, Get, and IsValid") {
   mutView->quantity = 8;
   CHECK(store.get(h1)->quantity == 8);
 
-  // Invalid handle tests
+  // 无效句柄测试
   CHECK_FALSE(store.isValid(ItemHandle{0, 0}));
   CHECK(store.get(ItemHandle{0, 0}) == nullptr);
 
@@ -128,13 +129,13 @@ TEST_CASE("[Unit] ItemStore - Destroy and Generation Invalidation") {
   CHECK(store.get(h2) == nullptr);
   CHECK(store.getMutable(h2) == nullptr);
 
-  // Remaining handles are unaffected
+  // 剩余句柄不受影响
   CHECK(store.isValid(h1));
   CHECK(store.isValid(h3));
   CHECK(store.get(h1)->instanceId == 1);
   CHECK(store.get(h3)->instanceId == 3);
 
-  // Re-allocating should reuse slot h2.index with gen incremented
+  // 重新分配应复用槽位 h2.index 且代际自增
   ItemInstance p4;
   p4.instanceId = 4;
   ItemHandle h4 = store.create(p4);
@@ -144,11 +145,11 @@ TEST_CASE("[Unit] ItemStore - Destroy and Generation Invalidation") {
   CHECK(store.isValid(h4));
   CHECK(store.get(h4)->instanceId == 4);
 
-  // Stale handle h2 is still invalid
+  // 过期的句柄 h2 依然无效
   CHECK_FALSE(store.isValid(h2));
   CHECK(store.get(h2) == nullptr);
 
-  // Destroying invalid handle is a safe no-op
+  // 销毁无效句柄是安全的空操作
   const size_t cnt = store.activeCount();
   store.destroy(h2);
   CHECK(store.activeCount() == cnt);
@@ -175,7 +176,7 @@ TEST_CASE("[Unit] ItemStore - Mutate and Version Tracking") {
   CHECK(store.get(h)->value == 550.0f);
   CHECK(store.version() > v0);
 
-  // Mutating invalid handle fails and does not throw
+  // 修改无效句柄失败且不抛出异常
   const uint64_t v1 = store.version();
   bool mutatedBad =
       store.mutate(ItemHandle{999, 1}, [](ItemInstance &inst) { inst.quantity = 0; });
@@ -216,7 +217,7 @@ TEST_CASE("[Unit] ItemStore - Side-Table Sparse Storage") {
   REQUIRE(fetched->damage_modifiers.size() == 1);
   CHECK(fetched->damage_modifiers[0].value == 30.0f);
 
-  // Destroying item cleans up side table
+  // 销毁物品会清理旁表
   store.destroy(h);
   CHECK(store.getSideTable(h) == nullptr);
 }
@@ -231,7 +232,7 @@ TEST_CASE("[Unit] ItemStore - Visit Iteration") {
     created.push_back(store.create(p));
   }
 
-  // Destroy items at index 1 (id=200) and index 4 (id=500)
+  // 销毁索引 1 (id=200) 和索引 4 (id=500) 处的物品
   store.destroy(created[1]);
   store.destroy(created[4]);
   CHECK(store.activeCount() == 8);
@@ -273,7 +274,7 @@ TEST_CASE("[Unit] ItemStorageConverter - Component to Instance and Back (Round-T
 
   ItemComponent comp;
   comp.id = 5566;
-  comp.baseId = 1001; // Iron Shortsword
+  comp.baseId = 1001; // 铁质短剑
   comp.itemLevel = 45;
   comp.quantity = 1;
   comp.rarity = Rarity::Rare;
@@ -318,7 +319,7 @@ TEST_CASE("[Unit] ItemStorageConverter - Component to Instance and Back (Round-T
   dmgMod.type = ModifierType::Increased;
   comp.damage_modifiers.push_back(dmgMod);
 
-  // Convert to ItemInstance
+  // 转换为 ItemInstance
   ItemInstance inst;
   ItemSideTableData side;
   REQUIRE(ItemComponentToInstance(comp, inst, &side));
@@ -344,17 +345,23 @@ TEST_CASE("[Unit] ItemStorageConverter - Component to Instance and Back (Round-T
   CHECK(side.conversions.size() == 1);
   CHECK(side.damage_modifiers.size() == 1);
 
-  // Convert back to ItemComponent
+  // 未提供 socketMap: 槽位退化为显式空句柄，同时保留 socketCount 以便后续回填。
+  CHECK(inst.socketCount == 3);
+  for (const auto &h : inst.sockets) {
+    CHECK_FALSE(static_cast<bool>(h));
+  }
+
+  // 转换回 ItemComponent
   ItemComponent restored;
   REQUIRE(InstanceToItemComponent(inst, restored, &side));
 
-  // Verify static properties populated from template registry
+  // 验证从模板注册表填充的静态属性
   CHECK(restored.name == "锈蚀铁剑");
   CHECK(restored.type == ItemType::Weapon);
   CHECK(restored.slot == EquipmentSlot::MainHand);
   CHECK(restored.weaponSubtype == WeaponSubtype::Sword);
 
-  // Verify dynamic fields
+  // 验证动态字段
   CHECK(restored.id == 5566);
   CHECK(restored.baseId == 1001);
   CHECK(restored.itemLevel == 45);
@@ -366,6 +373,10 @@ TEST_CASE("[Unit] ItemStorageConverter - Component to Instance and Back (Round-T
   CHECK(restored.legendaryPotential == 2);
   CHECK(restored.socketCount == 3);
   CHECK(restored.sockets.size() == 3);
+  for (const auto e : restored.sockets) {
+    const bool isNullPlaceholder = (e == entt::null);
+    CHECK(isNullPlaceholder);
+  }
   CHECK(restored.attack == 22.5f);
   CHECK(restored.value == 350.0f);
   CHECK(restored.activeRunewordId == 12);
@@ -408,7 +419,7 @@ TEST_CASE("[Unit] ItemStorageConverter - Max Affixes and Sockets Bounds") {
   ItemInstance inst;
   ItemComponentToInstance(comp, inst);
 
-  // Clamped to 12
+  // 截断至上限 12
   CHECK(inst.affixCount == 12);
   CHECK(inst.socketCount == 6);
 
@@ -417,4 +428,58 @@ TEST_CASE("[Unit] ItemStorageConverter - Max Affixes and Sockets Bounds") {
   CHECK(restored.affixes.size() == 12);
   CHECK(restored.socketCount == 6);
   CHECK(restored.sockets.size() == 6);
+}
+
+TEST_CASE("[Unit] ItemStorageConverter - Socket Handle Mapping Round Trip") {
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  ItemComponent comp;
+  comp.id = 7777;
+  comp.baseId = 1001;
+  comp.socketCount = 2;
+
+  const entt::entity socketEntityA{11};
+  const entt::entity socketEntityB{22};
+  comp.sockets = {socketEntityA, socketEntityB};
+
+  // 带有显式场景实体 -> 池化句柄映射的正向转换
+  std::unordered_map<entt::entity, ItemHandle> socketMap{
+      {socketEntityA, ItemHandle{7, 1}}, {socketEntityB, ItemHandle{8, 2}}};
+
+  ItemInstance inst;
+  REQUIRE(ItemComponentToInstance(comp, inst, nullptr, &socketMap));
+  CHECK(inst.socketCount == 2);
+  CHECK(inst.sockets[0] == (ItemHandle{7, 1}));
+  CHECK(inst.sockets[1] == (ItemHandle{8, 2}));
+
+  // 反向转换将池化句柄映射回场景实体；未知或空句柄必须保持 entt::null 占位符。
+  std::unordered_map<ItemHandle, entt::entity> socketEntityMap{
+      {ItemHandle{7, 1}, socketEntityA}, {ItemHandle{8, 2}, socketEntityB}};
+
+  ItemComponent restored;
+  REQUIRE(InstanceToItemComponent(inst, restored, nullptr, &socketEntityMap));
+  REQUIRE(restored.sockets.size() == 2);
+  CHECK(restored.sockets[0] == socketEntityA);
+  CHECK(restored.sockets[1] == socketEntityB);
+
+  // 部分映射: 未解析的句柄保持空占位符，而不是被静默丢弃。
+  std::unordered_map<ItemHandle, entt::entity> partialMap{
+      {ItemHandle{8, 2}, socketEntityB}};
+
+  ItemComponent partiallyRestored;
+  REQUIRE(InstanceToItemComponent(inst, partiallyRestored, nullptr, &partialMap));
+  REQUIRE(partiallyRestored.sockets.size() == 2);
+  const bool partialAIsNull = (partiallyRestored.sockets[0] == entt::null);
+  const bool partialBIsEntityB = (partiallyRestored.sockets[1] == socketEntityB);
+  CHECK(partialAIsNull);
+  CHECK(partialBIsEntityB);
+
+  // 完全无映射: 结构得以保留，内容保持为 null。
+  ItemComponent unmapped;
+  REQUIRE(InstanceToItemComponent(inst, unmapped));
+  REQUIRE(unmapped.sockets.size() == 2);
+  const bool unmappedAIsNull = (unmapped.sockets[0] == entt::null);
+  const bool unmappedBIsNull = (unmapped.sockets[1] == entt::null);
+  CHECK(unmappedAIsNull);
+  CHECK(unmappedBIsNull);
 }

@@ -19,35 +19,36 @@ public:
 
     bool unlockNextTab(int& playerGold);
     
-    // Returns true if slot was empty and item placed, false otherwise
+    // 若槽位为空且物品成功放置返回 true，否则返回 false
     bool putItem(int tabIndex, int slotIndex, entt::entity item);
     
-    // Returns the entity at slot and clears the slot (does not destroy entity)
+    // 返回槽位中的实体并清空槽位 (不销毁实体)
     entt::entity takeItem(int tabIndex, int slotIndex);
     
-    // Returns the entity at slot without removing it
+    // 返回槽位中的实体且不移除它
     entt::entity getItem(int tabIndex, int slotIndex) const;
 
     StashTab* getTab(int tabIndex);
     const StashTab* getTab(int tabIndex) const;
     
     int getUnlockedTabCount() const { return m_unlockedTabs; }
-    int getMaxTabs() const { return 10; } // Could use StashConfig
+    int getMaxTabs() const { return 10; } // 可使用 StashConfig
 
     nlohmann::json toJson(entt::registry& registry) const;
     void fromJson(const nlohmann::json& j, entt::registry& registry);
 
-    // Lifecycle Management: Obsolete suspend/resume across registry clears.
-    // In ItemStore and ItemMigration architecture, container items are decoupled from
-    // the scene entt::registry lifecycle. These methods are no-ops with zero JSON overhead.
-    void suspend(entt::registry& registry) noexcept;
-    void resume(entt::registry& registry) noexcept;
+    // 生命周期: 双轨过渡垫片。旧版 SaveManager 轨道 (itemStoreEnabled=false)
+    // 在加载时仍会清空场景注册表，因此存放在此处的物品必须在 registry.clear() 之前序列化并在之后恢复。
+    // 一旦 T-P3-3 将 SaveManager 迁移至 ItemStorageService 单轨，这对方法即可移除。
+    void suspend(entt::registry& registry);
+    void resume(entt::registry& registry);
 
 private:
     SharedStash();
     
     int m_unlockedTabs = 0;
     std::vector<StashTab> m_tabs;
+    nlohmann::json m_suspendedData; // suspend/resume 窗口期间序列化的仓库数据
 };
 
 } // namespace NoMoreDay

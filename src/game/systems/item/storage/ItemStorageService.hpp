@@ -1,5 +1,6 @@
 #pragma once
 
+#include "game/foundation/components/InventoryComponent.hpp"
 #include "game/systems/item/storage/ItemStorageTypes.hpp"
 #include "game/systems/item/storage/ItemStore.hpp"
 #include <array>
@@ -11,15 +12,20 @@
 namespace NoMoreDay {
 
 /**
- * @brief Central service managing runtime item instances and storage containers.
- * Owns ItemStore and container slot arrays across Inventory, Equipment, BagSlots,
- * PersonalStash, SharedStash, HeirloomVault, MaterialBank, and GroundPending.
+ * @brief 管理运行时物品实例与存储容器的核心服务。
+ * 持有 ItemStore 以及覆盖 Inventory、Equipment、BagSlots、
+ * PersonalStash、SharedStash、HeirloomVault、MaterialBank 与 GroundPending 的容器槽位数组。
  */
 class ItemStorageService {
 public:
-  static constexpr size_t kInventoryCapacity = 56;
+  // 玩家背包容量的单一真实来源为 InventoryComponent::BASE_CAPACITY（传统 ECS 轨道权威；
+  // SaveManager 快照同样读取该值）。下方 store-track 常量镜像该值而非自行声明，
+  // 静态断言防止两个轨道在 T-P3-3 统一步伐前产生偏差。
+  static constexpr size_t kInventoryCapacity =
+      static_cast<size_t>(InventoryComponent::BASE_CAPACITY);
   static constexpr size_t kEquipmentCapacity = 13;
-  static constexpr size_t kBagSlotsCapacity = 4;
+  static constexpr size_t kBagSlotsCapacity =
+      static_cast<size_t>(InventoryComponent::MAX_BAG_SLOTS);
   static constexpr size_t kPersonalStashMaxPages = 10;
   static constexpr size_t kSharedStashMaxPages = 10;
   static constexpr size_t kStashPageCapacity = 144;
@@ -33,7 +39,7 @@ public:
   ItemStorageService(ItemStorageService &&) noexcept = default;
   ItemStorageService &operator=(ItemStorageService &&) noexcept = default;
 
-  // --- Transactional Container Operations ---
+  // --- 事务性容器操作 ---
   StorageError moveItem(const SlotRef &from, const SlotRef &to);
   StorageError swapItem(const SlotRef &a, const SlotRef &b);
   StorageError splitStack(const SlotRef &from, const SlotRef &to,
@@ -48,7 +54,7 @@ public:
   [[nodiscard]] bool canStoreItem(ContainerKind kind, uint8_t container,
                                   uint16_t page, ItemHandle handle) const;
 
-  // --- Slot Accessors ---
+  // --- 槽位访问器 ---
   [[nodiscard]] ItemHandle getSlotHandle(const SlotRef &slot) const;
   bool setSlotHandle(const SlotRef &slot, ItemHandle handle);
   [[nodiscard]] std::vector<ItemHandle>
@@ -79,7 +85,7 @@ public:
     return m_heirloomVault;
   }
 
-  // --- Material Bank Account Operations ---
+  // --- 材料银行账户操作 ---
   int32_t addMaterial(uint32_t id, int32_t amount);
   bool removeMaterial(uint32_t id, int32_t amount);
   [[nodiscard]] int32_t getMaterialCount(uint32_t id) const;
@@ -90,7 +96,7 @@ public:
   }
   void setMaterials(std::vector<std::pair<uint32_t, int32_t>> materials);
 
-  // --- Currency Operations ---
+  // --- 货币操作 ---
   [[nodiscard]] int32_t getGold() const noexcept { return m_gold; }
   void setGold(int32_t gold) noexcept { m_gold = gold; }
   void addGold(int32_t amount) noexcept { m_gold += amount; }
@@ -104,12 +110,12 @@ public:
     return false;
   }
 
-  // --- Stash Page Management ---
+  // --- 仓库分页管理 ---
   [[nodiscard]] uint16_t getUnlockedPages(ContainerKind kind) const noexcept;
   bool unlockPage(ContainerKind kind);
   void setUnlockedPages(ContainerKind kind, uint16_t pages) noexcept;
 
-  // --- Ground Pending Management ---
+  // --- 地面待决物品管理 ---
   void addGroundPending(ItemHandle h);
   bool removeGroundPending(ItemHandle h);
   [[nodiscard]] const std::vector<ItemHandle> &
@@ -118,7 +124,7 @@ public:
   }
   void clearGroundPending(bool destroyHandles = true);
 
-  // --- Store Management & Snapshots ---
+  // --- Store 管理与快照 ---
   [[nodiscard]] const ItemStore &getStore() const noexcept { return m_store; }
   [[nodiscard]] ItemStore &getStoreMutable() noexcept { return m_store; }
   [[nodiscard]] uint64_t version() const noexcept { return m_store.version(); }

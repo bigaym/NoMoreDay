@@ -172,15 +172,19 @@ bool FilterRule::matches(const ItemComponent& item, int itemLevel) const {
     if (condition.minLevel.has_value() && itemLevel < condition.minLevel.value()) return false;
     if (condition.maxLevel.has_value() && itemLevel > condition.maxLevel.value()) return false;
 
-    // Type & Name resolution (supports template-based resolution)
+    // 类型与名称解析 (支持基于模板的解析)。
+    // 热点路径 (每个掉落物品均执行): 严格只解析模板一次并通过 string_view 进行比较 — 无单次掉落堆分配 (§7.2)。
     ItemType itemType = item.type;
-    std::string baseNameStr = item.name;
+    const ItemTemplate* tmpl = nullptr;
     if (item.baseId > 0) {
-        if (const auto* tmpl = ItemTemplateRegistry::Instance().find(item.baseId)) {
-            itemType = tmpl->type;
-            if (baseNameStr.empty()) baseNameStr = tmpl->name;
-        }
+        tmpl = ItemTemplateRegistry::Instance().find(item.baseId);
     }
+    if (tmpl) {
+        itemType = tmpl->type;
+    }
+    const std::string_view baseName = (item.name.empty() && tmpl)
+                                          ? std::string_view(tmpl->name)
+                                          : std::string_view(item.name);
 
     // Type
     if (condition.itemType.has_value() && itemType != condition.itemType.value()) return false;
@@ -188,13 +192,10 @@ bool FilterRule::matches(const ItemComponent& item, int itemLevel) const {
     // Base Name (Substr match)
     if (condition.baseName.has_value()) {
         const std::string& target = condition.baseName.value();
-        bool nameMatches = (baseNameStr.find(target) != std::string::npos);
-        if (!nameMatches && item.baseId > 0) {
-            if (const auto* tmpl = ItemTemplateRegistry::Instance().find(item.baseId)) {
-                if (tmpl->name.find(target) != std::string::npos) {
-                    nameMatches = true;
-                }
-            }
+        bool nameMatches = (baseName.find(target) != std::string_view::npos);
+        if (!nameMatches && tmpl) {
+            nameMatches =
+                (std::string_view(tmpl->name).find(target) != std::string_view::npos);
         }
         if (!nameMatches) return false;
     }

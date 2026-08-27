@@ -5,6 +5,11 @@
 
 namespace NoMoreDay {
 
+namespace {
+// 缺少 maxStack 模板的物品的回退堆叠上限；镜像旧版 MaterialRegistry JSON 默认值 ("max_stack")。
+constexpr uint32_t kDefaultMaxStack = 9999;
+} // namespace
+
 ItemStorageService::ItemStorageService() {
   m_inventorySlots.assign(kInventoryCapacity, ItemHandle{0, 0});
   m_equipmentSlots.assign(kEquipmentCapacity, ItemHandle{0, 0});
@@ -39,18 +44,20 @@ ItemHandle *ItemStorageService::getSlotPointer(const SlotRef &slot) {
     }
     return nullptr;
   case ContainerKind::Equipment: {
-    const size_t idx = (slot.index < m_equipmentSlots.size())
-                           ? static_cast<size_t>(slot.index)
-                           : static_cast<size_t>(slot.container);
+    // 约定: Equipment 通过 SlotRef::container (EquipmentSlot 值) 寻址；index 必须为 0。参见 SlotRef::isWellFormed()。
+    assert(slot.isWellFormed() &&
+           "Equipment slots are addressed via SlotRef::container; index must be 0");
+    const size_t idx = static_cast<size_t>(slot.container);
     if (idx < m_equipmentSlots.size()) {
       return &m_equipmentSlots[idx];
     }
     return nullptr;
   }
   case ContainerKind::BagSlots: {
-    const size_t idx = (slot.index < m_bagSlots.size())
-                           ? static_cast<size_t>(slot.index)
-                           : static_cast<size_t>(slot.container);
+    // 约定: BagSlots 通过 SlotRef::container (背包索引) 寻址。
+    assert(slot.isWellFormed() &&
+           "BagSlots are addressed via SlotRef::container; index must be 0");
+    const size_t idx = static_cast<size_t>(slot.container);
     if (idx < m_bagSlots.size()) {
       return &m_bagSlots[idx];
     }
@@ -92,18 +99,20 @@ const ItemHandle *ItemStorageService::getSlotPointer(const SlotRef &slot) const 
     }
     return nullptr;
   case ContainerKind::Equipment: {
-    const size_t idx = (slot.index < m_equipmentSlots.size())
-                           ? static_cast<size_t>(slot.index)
-                           : static_cast<size_t>(slot.container);
+    // 约定: Equipment 通过 SlotRef::container (EquipmentSlot 值) 寻址；index 必须为 0。参见 SlotRef::isWellFormed()。
+    assert(slot.isWellFormed() &&
+           "Equipment slots are addressed via SlotRef::container; index must be 0");
+    const size_t idx = static_cast<size_t>(slot.container);
     if (idx < m_equipmentSlots.size()) {
       return &m_equipmentSlots[idx];
     }
     return nullptr;
   }
   case ContainerKind::BagSlots: {
-    const size_t idx = (slot.index < m_bagSlots.size())
-                           ? static_cast<size_t>(slot.index)
-                           : static_cast<size_t>(slot.container);
+    // 约定: BagSlots 通过 SlotRef::container (背包索引) 寻址。
+    assert(slot.isWellFormed() &&
+           "BagSlots are addressed via SlotRef::container; index must be 0");
+    const size_t idx = static_cast<size_t>(slot.container);
     if (idx < m_bagSlots.size()) {
       return &m_bagSlots[idx];
     }
@@ -139,8 +148,10 @@ const ItemHandle *ItemStorageService::getSlotPointer(const SlotRef &slot) const 
 
 bool ItemStorageService::canStoreItem(ContainerKind kind, uint8_t container,
                                       uint16_t page, ItemHandle handle) const {
+  // 防御性契约: 调用者在询问是否能放入之前必须先解析出有效句柄；
+  // 对无效句柄返回 "true" 会掩盖 bug。
   if (!handle || !m_store.isValid(handle)) {
-    return true;
+    return false;
   }
 
   const ItemInstance *inst = m_store.get(handle);
@@ -295,6 +306,11 @@ StorageError ItemStorageService::splitStack(const SlotRef &from,
     return StorageError::NotFound;
   }
 
+  // 锁定的堆叠无法拆分 (镜像 destroyItem)。
+  if (instFrom->isLocked()) {
+    return StorageError::Locked;
+  }
+
   if (instFrom->quantity <= splitCount) {
     return StorageError::CapacityExceeded;
   }
@@ -346,7 +362,12 @@ StorageError ItemStorageService::mergeStack(const SlotRef &from,
     return StorageError::TypeMismatch;
   }
 
-  uint32_t maxStack = 9999;
+  // 保持锁定物品规则与 destroyItem/splitStack 的对称性。
+  if (instFrom->isLocked() || instTo->isLocked()) {
+    return StorageError::Locked;
+  }
+
+  uint32_t maxStack = kDefaultMaxStack;
   if (const auto *tpl = ItemTemplateRegistry::Instance().find(instTo->baseId)) {
     if (tpl->maxStack > 0) {
       maxStack = tpl->maxStack;
@@ -415,7 +436,7 @@ StorageError ItemStorageService::autoDeposit(const SlotRef &from,
     return StorageError::NotFound;
   }
 
-  // 1. Try stack merge
+  // 1. 尝试堆叠合并
   const uint16_t pages = getUnlockedPages(targetKind);
   for (uint16_t p = 0; p < pages; ++p) {
     const size_t cap =
@@ -439,7 +460,7 @@ StorageError ItemStorageService::autoDeposit(const SlotRef &from,
     }
   }
 
-  // 2. Find empty slot
+  // 2. 寻找空槽位
   for (uint16_t p = 0; p < pages; ++p) {
     const size_t cap =
         (targetKind == ContainerKind::PersonalStash ||

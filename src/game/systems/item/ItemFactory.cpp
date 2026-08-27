@@ -752,9 +752,54 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
   item.legendaryPotential = dto.stats.legendaryPotential;
   item.value = dto.stats.value;
 
-  // Populate / validate static template properties if baseId is present
+  // 若存在 baseId 则填充 / 校验静态模板属性
   if (dto.baseId > 0) {
     if (const auto *tmpl = ItemTemplateRegistry::Instance().find(dto.baseId)) {
+      // 差异审计: 下方的回填为单向 (仅空字段)，因此这里的任何不匹配都是原本会被默默接受的脏存档数据。
+      // 将其暴露；序列化值始终优先。
+      {
+        std::string diffs;
+        auto addDiff = [&diffs](std::string_view field) {
+          if (!diffs.empty()) {
+            diffs += ", ";
+          }
+          diffs += field;
+        };
+        if (!item.name.empty() && item.name != tmpl->name) {
+          addDiff("name");
+        }
+        if (!item.description.empty() &&
+            item.description != tmpl->description) {
+          addDiff("description");
+        }
+        if (item.slot != EquipmentSlot::None &&
+            tmpl->slot != EquipmentSlot::None && item.slot != tmpl->slot) {
+          addDiff("slot");
+        }
+        if (item.weaponSubtype != WeaponSubtype::None &&
+            tmpl->weaponSubtype != WeaponSubtype::None &&
+            item.weaponSubtype != tmpl->weaponSubtype) {
+          addDiff("weaponSubtype");
+        }
+        if (item.catalystKind != CatalystKind::None &&
+            tmpl->catalystKind != CatalystKind::None &&
+            item.catalystKind != tmpl->catalystKind) {
+          addDiff("catalystKind");
+        }
+        if (item.maxStack > 1 && tmpl->maxStack > 1 &&
+            item.maxStack != tmpl->maxStack) {
+          addDiff("maxStack");
+        }
+        if (item.bagCapacity != 0 && tmpl->bagCapacity != 0 &&
+            item.bagCapacity != tmpl->bagCapacity) {
+          addDiff("bagCapacity");
+        }
+        if (!diffs.empty()) {
+          LOG_WARN("restoreItem: baseId {} diverges from template for "
+                   "field(s) [{}]; keeping serialized values",
+                   dto.baseId, diffs);
+        }
+      }
       if (item.name.empty()) {
         item.name = tmpl->name;
       }
@@ -897,6 +942,15 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   const ItemTemplate *tmpl = selectBaseTemplate(candidates, level);
   if (!tmpl) {
     tmpl = ItemTemplateRegistry::Instance().find(1001);
+    if (tmpl) {
+      LOG_WARN("createWeapon: no candidate template for weapon subtype {} at "
+               "level {}; falling back to baseId 1001",
+               static_cast<int>(chosenSubtype), level);
+    } else {
+      LOG_WARN("createWeapon: default baseId 1001 missing; producing weapon "
+               "without base stats (subtype {}, level {})",
+               static_cast<int>(chosenSubtype), level);
+    }
   }
 
   if (tmpl) {
@@ -1033,6 +1087,15 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
   const ItemTemplate *tmpl = selectBaseTemplate(candidates, level);
   if (!tmpl) {
     tmpl = ItemTemplateRegistry::Instance().find(2011);
+    if (tmpl) {
+      LOG_WARN("createArmor: no candidate template for slot {} at level {}; "
+               "falling back to baseId 2011",
+               static_cast<int>(querySlot), level);
+    } else {
+      LOG_WARN("createArmor: default baseId 2011 missing; producing armor "
+               "without base stats (slot {}, level {})",
+               static_cast<int>(querySlot), level);
+    }
   }
 
   if (tmpl) {

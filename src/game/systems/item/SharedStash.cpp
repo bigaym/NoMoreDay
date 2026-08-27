@@ -15,7 +15,7 @@ SharedStash::SharedStash() {
 
 void SharedStash::initialize() {
     if (m_tabs.empty()) {
-        m_tabs.resize(1); // Start with 1 tab
+        m_tabs.resize(1); // 从 1 个分页开始
         m_unlockedTabs = 1;
         m_tabs[0].name = "Shared 1";
         m_tabs[0].type = StashTabType::Normal;
@@ -25,7 +25,7 @@ void SharedStash::initialize() {
 bool SharedStash::unlockNextTab(int& playerGold) {
     if (m_unlockedTabs >= StashConfig::MAX_TABS) return false;
     
-    int cost = StashConfig::getUnlockCost(m_unlockedTabs); // Cost for next tab (current count is next index)
+    int cost = StashConfig::getUnlockCost(m_unlockedTabs); // 下一个分页的花费 (当前数量即为下一个索引)
     if (playerGold < cost) return false;
     
     playerGold -= cost;
@@ -126,15 +126,20 @@ void SharedStash::fromJson(const nlohmann::json& j, entt::registry& registry) {
     }
 }
 
-void SharedStash::suspend(entt::registry& registry) noexcept {
-    // No-op: In ItemStore and ItemMigration architecture, container items are decoupled
-    // from scene entt::registry clears. Zero JSON conversion occurs during scene transitions.
-    (void)registry;
+void SharedStash::suspend(entt::registry& registry) {
+    m_suspendedData = toJson(registry);
+    // 物品即将被 SaveManager 的 registry.clear() 销毁。
+    // 清除我们的引用，以防在 tabs 中遗留悬空句柄。
+    for (auto& tab : m_tabs) {
+        tab.items.fill(entt::null);
+    }
 }
 
-void SharedStash::resume(entt::registry& registry) noexcept {
-    // No-op: Storage container items remain valid in memory across scene switches.
-    (void)registry;
+void SharedStash::resume(entt::registry& registry) {
+    if (!m_suspendedData.empty()) {
+        fromJson(m_suspendedData, registry);
+        m_suspendedData.clear();
+    }
 }
 
 } // namespace NoMoreDay

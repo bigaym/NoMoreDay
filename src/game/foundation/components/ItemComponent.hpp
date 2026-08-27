@@ -3,7 +3,6 @@
 #include "game/foundation/components/ItemStats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/item/LootTable.hpp"
-#include "game/systems/item/storage/ItemStorageTypes.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -65,7 +64,7 @@ enum class EquipmentSlot {
   Ring1,
   Ring2,
   Ring, // 通用戒指槽位 (用于物品属性，不用于装备栏索引)
-  Count // For array sizing
+  Count // 用于数组大小计数
 };
 
 // 为枚举提供简单的序列化支持 (转为底层整数)
@@ -197,13 +196,13 @@ struct ItemComponent {
   // 资源ID (用于图标)
   entt::id_type textureId = 0;
 
-  // Runeword ID (if active)
+  // 符文之语 ID (若激活)
   uint32_t activeRunewordId = 0;
 
   std::string description;
-  int itemLevel = 1; // [NEW] 物品等级
+  int itemLevel = 1; // 物品等级
 
-  bool isLocked = false; // Prevents accidental salvage/sell
+  bool isLocked = false; // 防止意外分解/出售
 };
 
 // 避免在 JSON 中存储哈希值，反序列化时自动计算
@@ -214,7 +213,7 @@ inline void to_json(nlohmann::json &j, const ItemComponent &i) {
                      {"type", i.type},
                      {"slot", i.slot},
                      {"rarity", i.rarity},
-                     {"itemLevel", i.itemLevel}, // Added itemLevel
+                     {"itemLevel", i.itemLevel}, // 物品等级
                      {"quantity", i.quantity},
                      {"maxStack", i.maxStack},
                      {"value", i.value},
@@ -306,14 +305,6 @@ inline bool IsLegendaryCoreCatalyst(const ItemComponent& item) {
   return item.catalystKind == CatalystKind::None &&
          (item.name == "Legendary Core" || item.name == "传奇核心");
 }
-
-/**
- * @brief Lightweight component attached to dropped items in the world referencing ItemStore.
- */
-struct GroundItemComponent {
-  ItemHandle handle{0, 0};
-  uint32_t baseId = 0;
-};
 
 /**
  * @brief 附加到敌人实体上，定义其掉落物的组件。

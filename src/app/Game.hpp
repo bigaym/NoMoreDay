@@ -10,6 +10,7 @@
 #include "game/application/scene/StateManager.hpp"
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/WorldUiFrame.hpp"
+#include "game/systems/item/storage/ItemStorageService.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
@@ -25,12 +26,10 @@ public:
 
   void run();
 
-  // MS-8 W6 (M0-C): production game-binary hardware gate entry. Runs after
-  // normal Game/App initialization; drives GPUHardwareValidationGate through
-  // the real registry/SharedContext/render hooks and emits exactly one
-  // GPU_HARDWARE_GATE_RESULT marker plus a versioned JSON report to stdout.
-  // Returns the process exit code; the verdict (GO/NO_GO/NOT_RUN) is decoupled
-  // from it - the Python runner decides pass/fail from the artifact.
+  // MS-8 W6 (M0-C): 生产环境游戏二进制硬件门禁入口。在常规 Game/App 初始化后运行；
+  // 通过真实 registry/SharedContext/render 钩子驱动 GPUHardwareValidationGate，
+  // 并向 stdout 输出唯一的 GPU_HARDWARE_GATE_RESULT 标记和带版本的 JSON 报告。
+  // 返回进程退出码；裁决结果 (GO/NO_GO/NOT_RUN) 与退出码解耦 - 由 Python 运行器根据工件决定通过/失败。
   int runGpuGate(const std::string &revision, int sampleFramesPerFixture,
                  bool stressTest1Min, int toggleLoops);
 
@@ -38,12 +37,12 @@ private:
   void init();
   void cleanup();
 
-  // Window settings
+  // 窗口设置
   int m_screenWidth;
   int m_screenHeight;
   const char *m_title;
   
-  // Window State Handling
+  // 窗口状态处理
   bool m_isBorderlessFullscreen = false;
   int m_windowedWidth = 0;
   int m_windowedHeight = 0;
@@ -52,7 +51,7 @@ private:
 
   void toggleFullScreen();
 
-  // GPU Support info
+  // GPU 支持信息
   NoMoreDay::utils::GPUSupportInfo m_gpuInfo;
 
   // 1. 基础资源 (最后析构)
@@ -60,7 +59,7 @@ private:
   ResourceManager m_resourceManager;
   tf::Executor m_executor;
 
-  // Rendering Systems (Explicit management)
+  // 渲染系统 (显式管理)
   NoMoreDay::systems::GPUEntitySystem m_gpuEntitySystem;
   NoMoreDay::render::MDIRenderer m_mdiRenderer;
   NoMoreDay::RenderContext m_renderContext;
@@ -75,14 +74,16 @@ private:
   NoMoreDay::SharedContext m_context;
   NoMoreDay::GameSettings m_settings;
 
-  // UI composition root: owns the retained runtime core and forwards to the
-  // legacy facade during migration. Destroyed after the shared context that
-  // references it (cleanup() also shuts it down explicitly).
+  // 物品存储单轨服务 (T-P2)。归组合根所有，并通过 SharedContext::itemStorage 引用；
+  // 传统 ECS 轨道在 T-P3-3 切换迁移标志前保持权威性。
+  NoMoreDay::ItemStorageService m_itemStorage;
+
+  // UI 组合根：持有常驻运行时核心，并在迁移期间转发给旧版外观。
+  // 在引用它的共享上下文之后析构 (cleanup() 也会显式关闭它)。
   NoMoreDay::ui::GameUiHost m_uiHost;
 
-  // U8: world-space UI bridge owned by the composition root. The render write
-  // side (GameplayRenderAdapter) fills it per frame; the host read side
-  // (pickup hit-testing, ground hover, render highlight) consumes it.
+  // U8: 组合根拥有的世界空间 UI 桥接器。渲染写入端 (GameplayRenderAdapter) 逐帧填充；
+  // 主机读取端 (拾取命中测试、地面悬停、渲染高亮) 负责消费。
   NoMoreDay::ui::WorldUiFrame m_worldFrame;
 
   // 3. 逻辑管理器 (最先析构)
