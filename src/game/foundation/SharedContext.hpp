@@ -10,6 +10,7 @@ class ResourceManager;
 class LevelManager;
 namespace NoMoreDay {
 class SceneManager;
+class ItemStorageService;
 }
 
 namespace NoMoreDay {
@@ -31,6 +32,7 @@ struct SharedContext {
   SceneManager *sceneManager = nullptr;
   tf::Executor *executor = nullptr;
   GameSettings *settings = nullptr;
+  ItemStorageService *itemStorage = nullptr;
   systems::SpatialHashGrid *spatialGrid = nullptr;
   float renderAlpha = 0.0f; // Interpolation factor [0, 1) for smooth rendering
                             // between physics frames

@@ -29,6 +29,7 @@ namespace NoMoreDay {
         float shakeIntensity = 1.0f;
         int targetFPS = 0;  // 0 for Unlimited FPS
         RenderQualityTier renderQualityTier = RenderQualityTier::Medium;
+        bool useItemStore = false;
 
         static constexpr size_t RenderQualityTierToIndex(RenderQualityTier tier) {
             return static_cast<size_t>(tier);
@@ -84,6 +85,7 @@ namespace NoMoreDay {
             j["targetFPS"] = targetFPS;
             j["renderQualityTier"] =
                 std::string(RenderQualityTierToStringView(renderQualityTier));
+            j["useItemStore"] = useItemStore;
             
             std::ofstream file(filePath);
             if (file.is_open()) {
@@ -105,6 +107,7 @@ namespace NoMoreDay {
                 if (j.contains("cameraZoom")) cameraZoom = j["cameraZoom"].get<float>();
                 if (j.contains("shakeIntensity")) shakeIntensity = j["shakeIntensity"].get<float>();
                 if (j.contains("targetFPS")) targetFPS = j["targetFPS"].get<int>();
+                if (j.contains("useItemStore")) useItemStore = j["useItemStore"].get<bool>();
                 if (j.contains("renderQualityTier")) {
                     const auto& tierValue = j["renderQualityTier"];
                     if (tierValue.is_string()) {

@@ -2,7 +2,7 @@
 
 # Find all test source files
 file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
-    "*.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
 )
 list(FILTER TEST_SOURCES EXCLUDE REGEX "check_header.cpp$")
 

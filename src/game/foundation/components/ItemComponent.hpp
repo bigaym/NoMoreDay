@@ -3,6 +3,7 @@
 #include "game/foundation/components/ItemStats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/item/LootTable.hpp"
+#include "game/systems/item/storage/ItemStorageTypes.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -305,6 +306,14 @@ inline bool IsLegendaryCoreCatalyst(const ItemComponent& item) {
   return item.catalystKind == CatalystKind::None &&
          (item.name == "Legendary Core" || item.name == "传奇核心");
 }
+
+/**
+ * @brief Lightweight component attached to dropped items in the world referencing ItemStore.
+ */
+struct GroundItemComponent {
+  ItemHandle handle{0, 0};
+  uint32_t baseId = 0;
+};
 
 /**
  * @brief 附加到敌人实体上，定义其掉落物的组件。

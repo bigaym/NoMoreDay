@@ -37,18 +37,17 @@ public:
     nlohmann::json toJson(entt::registry& registry) const;
     void fromJson(const nlohmann::json& j, entt::registry& registry);
 
-    // Lifecycle Management (Suspend/Resume across registry clears)
-    void suspend(entt::registry& registry);
-    void resume(entt::registry& registry);
+    // Lifecycle Management: Obsolete suspend/resume across registry clears.
+    // In ItemStore and ItemMigration architecture, container items are decoupled from
+    // the scene entt::registry lifecycle. These methods are no-ops with zero JSON overhead.
+    void suspend(entt::registry& registry) noexcept;
+    void resume(entt::registry& registry) noexcept;
 
 private:
     SharedStash();
     
     int m_unlockedTabs = 0;
     std::vector<StashTab> m_tabs;
-    
-    // Temp storage for suspension
-    nlohmann::json m_suspendedData;
 };
 
 } // namespace NoMoreDay

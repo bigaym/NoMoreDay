@@ -126,21 +126,15 @@ void SharedStash::fromJson(const nlohmann::json& j, entt::registry& registry) {
     }
 }
 
-void SharedStash::suspend(entt::registry& registry) {
-    m_suspendedData = toJson(registry);
-    // Clearing m_tabs entities logic? 
-    // They are about to be destroyed by registry.clear().
-    // We should clear our references to them.
-    for (auto& tab : m_tabs) {
-        tab.items.fill(entt::null);
-    }
+void SharedStash::suspend(entt::registry& registry) noexcept {
+    // No-op: In ItemStore and ItemMigration architecture, container items are decoupled
+    // from scene entt::registry clears. Zero JSON conversion occurs during scene transitions.
+    (void)registry;
 }
 
-void SharedStash::resume(entt::registry& registry) {
-    if (!m_suspendedData.empty()) {
-        fromJson(m_suspendedData, registry);
-        m_suspendedData.clear();
-    }
+void SharedStash::resume(entt::registry& registry) noexcept {
+    // No-op: Storage container items remain valid in memory across scene switches.
+    (void)registry;
 }
 
 } // namespace NoMoreDay

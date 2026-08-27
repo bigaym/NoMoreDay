@@ -1,5 +1,6 @@
 #include "game/systems/item/LootFilter.hpp"
 #include "game/foundation/components/ItemStats.hpp"
+#include "game/systems/item/storage/ItemTemplateRegistry.hpp"
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -171,12 +172,31 @@ bool FilterRule::matches(const ItemComponent& item, int itemLevel) const {
     if (condition.minLevel.has_value() && itemLevel < condition.minLevel.value()) return false;
     if (condition.maxLevel.has_value() && itemLevel > condition.maxLevel.value()) return false;
 
+    // Type & Name resolution (supports template-based resolution)
+    ItemType itemType = item.type;
+    std::string baseNameStr = item.name;
+    if (item.baseId > 0) {
+        if (const auto* tmpl = ItemTemplateRegistry::Instance().find(item.baseId)) {
+            itemType = tmpl->type;
+            if (baseNameStr.empty()) baseNameStr = tmpl->name;
+        }
+    }
+
     // Type
-    if (condition.itemType.has_value() && item.type != condition.itemType.value()) return false;
+    if (condition.itemType.has_value() && itemType != condition.itemType.value()) return false;
 
     // Base Name (Substr match)
     if (condition.baseName.has_value()) {
-        if (item.name.find(condition.baseName.value()) == std::string::npos) return false;
+        const std::string& target = condition.baseName.value();
+        bool nameMatches = (baseNameStr.find(target) != std::string::npos);
+        if (!nameMatches && item.baseId > 0) {
+            if (const auto* tmpl = ItemTemplateRegistry::Instance().find(item.baseId)) {
+                if (tmpl->name.find(target) != std::string::npos) {
+                    nameMatches = true;
+                }
+            }
+        }
+        if (!nameMatches) return false;
     }
 
     // Affixes

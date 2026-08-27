@@ -21,6 +21,12 @@ add_library(NoMoreDayGameItem STATIC
     SalvageSystem.cpp
     SharedStash.cpp
     StashSystem.cpp
+    storage/ItemTemplateRegistry.cpp
+    storage/ItemStore.cpp
+    storage/ItemStorageConverter.cpp
+    storage/ItemStorageService.cpp
+    storage/ItemStorageAdapter.cpp
+    storage/ItemMigration.cpp
 )
 
 target_include_directories(NoMoreDayGameItem PUBLIC ${CMAKE_SOURCE_DIR}/src)

@@ -1,0 +1,311 @@
+#include "TestCommon.hpp"
+#include "game/foundation/Settings.hpp"
+#include "game/foundation/SharedContext.hpp"
+#include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/components/InventoryComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/MaterialBankComponent.hpp"
+#include "game/foundation/components/StashComponent.hpp"
+#include "game/systems/item/storage/IItemStorageAdapter.hpp"
+#include "game/systems/item/storage/ItemStorageAdapter.hpp"
+#include "game/systems/item/storage/ItemStorageService.hpp"
+#include "game/systems/item/storage/ItemTemplateRegistry.hpp"
+
+using namespace NoMoreDay;
+
+static ItemInstance MakeTestItem(uint32_t id, uint32_t baseId, uint32_t qty = 1,
+                                 uint8_t rarity = 0) {
+  ItemInstance inst;
+  inst.instanceId = id;
+  inst.baseId = baseId;
+  inst.quantity = qty;
+  inst.rarity = rarity;
+  inst.itemLevel = 10;
+  inst.attack = 25.0f;
+  inst.defense = 0.0f;
+  inst.value = 100.0f;
+  return inst;
+}
+
+TEST_CASE("[Unit] ItemStorageService - Initialization and Capacities") {
+  ItemStorageService service;
+
+  CHECK(service.getContainerSlots(ContainerKind::Inventory).size() ==
+        ItemStorageService::kInventoryCapacity);
+  CHECK(service.getContainerSlots(ContainerKind::Equipment).size() ==
+        ItemStorageService::kEquipmentCapacity);
+  CHECK(service.getContainerSlots(ContainerKind::BagSlots).size() ==
+        ItemStorageService::kBagSlotsCapacity);
+  CHECK(service.getContainerSlots(ContainerKind::HeirloomVault).size() ==
+        ItemStorageService::kHeirloomVaultCapacity);
+  CHECK(service.getUnlockedPages(ContainerKind::PersonalStash) == 1);
+  CHECK(service.getUnlockedPages(ContainerKind::SharedStash) == 1);
+  CHECK(service.getStore().empty());
+}
+
+TEST_CASE("[Unit] ItemStorageService - Move and Swap Operations") {
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+
+  const ItemHandle h1 =
+      service.getStoreMutable().create(MakeTestItem(101, 1001));
+  const ItemHandle h2 =
+      service.getStoreMutable().create(MakeTestItem(102, 1002));
+
+  const SlotRef slotA{ContainerKind::Inventory, 0, 0, 0};
+  const SlotRef slotB{ContainerKind::Inventory, 0, 0, 1};
+  const SlotRef slotC{ContainerKind::Inventory, 0, 0, 2};
+
+  service.setSlotHandle(slotA, h1);
+  service.setSlotHandle(slotB, h2);
+
+  // Move from A to empty C
+  StorageError err = service.moveItem(slotA, slotC);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getSlotHandle(slotA) == ItemHandle{0, 0});
+  CHECK(service.getSlotHandle(slotC) == h1);
+
+  // Move into already occupied B fails with ContainerFull
+  err = service.moveItem(slotC, slotB);
+  CHECK(err == StorageError::ContainerFull);
+  CHECK(service.getSlotHandle(slotC) == h1);
+  CHECK(service.getSlotHandle(slotB) == h2);
+
+  // Swap B and C
+  err = service.swapItem(slotB, slotC);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getSlotHandle(slotB) == h1);
+  CHECK(service.getSlotHandle(slotC) == h2);
+}
+
+TEST_CASE("[Unit] ItemStorageService - Split and Merge Stack") {
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+
+  // Stackable potion item with stack of 50
+  const ItemHandle hStack =
+      service.getStoreMutable().create(MakeTestItem(201, 101, 50));
+  const SlotRef slotFrom{ContainerKind::Inventory, 0, 0, 0};
+  const SlotRef slotTo{ContainerKind::Inventory, 0, 0, 1};
+  service.setSlotHandle(slotFrom, hStack);
+
+  // Split 20 items to slotTo
+  StorageError err = service.splitStack(slotFrom, slotTo, 20);
+  CHECK(err == StorageError::Ok);
+
+  const ItemHandle hNew = service.getSlotHandle(slotTo);
+  CHECK(hNew);
+  CHECK(service.getStore().get(hStack)->quantity == 30);
+  CHECK(service.getStore().get(hNew)->quantity == 20);
+
+  // Merge back
+  err = service.mergeStack(slotTo, slotFrom);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getStore().get(hStack)->quantity == 50);
+  CHECK(service.getSlotHandle(slotTo) == ItemHandle{0, 0});
+  CHECK_FALSE(service.getStore().isValid(hNew));
+}
+
+TEST_CASE("[Unit] ItemStorageService - Transfer and AutoDeposit") {
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+  service.setUnlockedPages(ContainerKind::PersonalStash, 2);
+
+  const ItemHandle h1 =
+      service.getStoreMutable().create(MakeTestItem(301, 1001, 1));
+  const SlotRef invSlot{ContainerKind::Inventory, 0, 0, 5};
+  const SlotRef stashSlot{ContainerKind::PersonalStash, 0, 0, 10};
+  service.setSlotHandle(invSlot, h1);
+
+  // Transfer moves to empty slot
+  StorageError err = service.transferItem(invSlot, stashSlot);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getSlotHandle(invSlot) == ItemHandle{0, 0});
+  CHECK(service.getSlotHandle(stashSlot) == h1);
+
+  // Auto-deposit another item into PersonalStash
+  const ItemHandle h2 =
+      service.getStoreMutable().create(MakeTestItem(302, 1002, 1));
+  const SlotRef invSlot2{ContainerKind::Inventory, 0, 0, 0};
+  service.setSlotHandle(invSlot2, h2);
+
+  err = service.autoDeposit(invSlot2, ContainerKind::PersonalStash);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getSlotHandle(invSlot2) == ItemHandle{0, 0});
+  // Item should be deposited in first empty slot (page 0, index 0)
+  CHECK(service.getSlotHandle(SlotRef{ContainerKind::PersonalStash, 0, 0, 0}) ==
+        h2);
+}
+
+TEST_CASE("[Unit] ItemStorageService - Container Sorting") {
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+
+  // Insert items with varying rarities: Common, Rare, Mythic, Magic
+  const ItemHandle hCommon = service.getStoreMutable().create(
+      MakeTestItem(401, 1001, 1, static_cast<uint8_t>(Rarity::Common)));
+  const ItemHandle hRare = service.getStoreMutable().create(
+      MakeTestItem(402, 1002, 1, static_cast<uint8_t>(Rarity::Rare)));
+  const ItemHandle hMythic = service.getStoreMutable().create(
+      MakeTestItem(403, 1003, 1, static_cast<uint8_t>(Rarity::Mythic)));
+  const ItemHandle hMagic = service.getStoreMutable().create(
+      MakeTestItem(404, 1004, 1, static_cast<uint8_t>(Rarity::Magic)));
+
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 3}, hCommon);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 10}, hRare);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 15}, hMythic);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 20}, hMagic);
+
+  service.sortContainer(ContainerKind::Inventory);
+
+  // Sorted order: Mythic, Rare, Magic, Common at slots 0, 1, 2, 3
+  CHECK(service.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}) ==
+        hMythic);
+  CHECK(service.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 1}) ==
+        hRare);
+  CHECK(service.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 2}) ==
+        hMagic);
+  CHECK(service.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 3}) ==
+        hCommon);
+  CHECK(service.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 4}) ==
+        ItemHandle{0, 0});
+}
+
+TEST_CASE("[Unit] ItemStorageService - Destroy and Locked Protection") {
+  ItemStorageService service;
+
+  ItemInstance inst = MakeTestItem(501, 1001, 10);
+  inst.setLocked(true);
+  const ItemHandle hLocked = service.getStoreMutable().create(inst);
+  const SlotRef slot{ContainerKind::Inventory, 0, 0, 0};
+  service.setSlotHandle(slot, hLocked);
+
+  // Locked item cannot be destroyed
+  StorageError err = service.destroyItem(slot);
+  CHECK(err == StorageError::Locked);
+  CHECK(service.getSlotHandle(slot) == hLocked);
+  CHECK(service.getStore().isValid(hLocked));
+
+  // Unlock and destroy partially
+  service.getStoreMutable().mutate(
+      hLocked, [](ItemInstance &i) { i.setLocked(false); });
+  err = service.destroyItem(slot, 4);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getStore().get(hLocked)->quantity == 6);
+
+  // Destroy remaining
+  err = service.destroyItem(slot, 6);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getSlotHandle(slot) == ItemHandle{0, 0});
+  CHECK_FALSE(service.getStore().isValid(hLocked));
+}
+
+TEST_CASE("[Unit] ItemStorageService - Material Bank Accounting") {
+  ItemStorageService service;
+
+  CHECK(service.getMaterialCount(5001) == 0);
+  CHECK_FALSE(service.hasMaterial(5001, 10));
+
+  int32_t total = service.addMaterial(5001, 25);
+  CHECK(total == 25);
+  CHECK(service.getMaterialCount(5001) == 25);
+  CHECK(service.hasMaterial(5001, 20));
+  CHECK_FALSE(service.hasMaterial(5001, 30));
+
+  total = service.addMaterial(5001, 15);
+  CHECK(total == 40);
+
+  bool removed = service.removeMaterial(5001, 10);
+  CHECK(removed);
+  CHECK(service.getMaterialCount(5001) == 30);
+
+  bool overRemove = service.removeMaterial(5001, 50);
+  CHECK_FALSE(overRemove);
+  CHECK(service.getMaterialCount(5001) == 30);
+}
+
+TEST_CASE("[Unit] ItemStorageService - Currency Gold Transactions") {
+  ItemStorageService service;
+
+  CHECK(service.getGold() == 0);
+  service.addGold(500);
+  CHECK(service.getGold() == 500);
+
+  CHECK(service.spendGold(200));
+  CHECK(service.getGold() == 300);
+
+  CHECK_FALSE(service.spendGold(1000));
+  CHECK(service.getGold() == 300);
+}
+
+TEST_CASE("[Unit] ItemStorageService - Ground Pending and Freeze") {
+  ItemStorageService service;
+
+  const ItemHandle h1 =
+      service.getStoreMutable().create(MakeTestItem(601, 1001));
+  const ItemHandle h2 =
+      service.getStoreMutable().create(MakeTestItem(602, 1002));
+
+  service.addGroundPending(h1);
+  service.addGroundPending(h2);
+  CHECK(service.getGroundPending().size() == 2);
+
+  service.removeGroundPending(h1);
+  CHECK(service.getGroundPending().size() == 1);
+  CHECK(service.getGroundPending()[0] == h2);
+
+  // Freeze snapshot creates independent copy
+  ItemStore snapshot = service.freeze();
+  CHECK(snapshot.activeCount() == service.getStore().activeCount());
+  CHECK(snapshot.version() == service.version());
+
+  service.clearGroundPending(true);
+  CHECK(service.getGroundPending().empty());
+  CHECK_FALSE(service.getStore().isValid(h2));
+  // Snapshot still holds h2 valid
+  CHECK(snapshot.isValid(h2));
+}
+
+TEST_CASE("[Unit] ItemStorageAdapter - Routing via ItemStore vs Legacy ECS") {
+  TestSetupScope scope;
+  entt::registry reg;
+
+  auto player = reg.create();
+  reg.emplace<PlayerTag>(player);
+  auto &inv = reg.emplace<InventoryComponent>(player);
+  auto &stash = reg.emplace<PersonalStashComponent>(player);
+
+  ItemComponent compA;
+  compA.id = 701;
+  compA.quantity = 1;
+  auto entityA = reg.create();
+  reg.emplace<ItemComponent>(entityA, compA);
+  inv.items[0] = entityA;
+
+  GameSettings settings;
+  settings.useItemStore = false; // Legacy track
+
+  ItemStorageService service;
+  ItemStorageAdapter adapter(&service, &settings);
+
+  const SlotRef slot0{ContainerKind::Inventory, 0, 0, 0};
+  const SlotRef slot1{ContainerKind::Inventory, 0, 0, 1};
+
+  // Move in legacy track
+  StorageError err = adapter.moveItem(reg, slot0, slot1);
+  CHECK(err == StorageError::Ok);
+  CHECK(inv.items[0] == entt::entity{entt::null});
+  CHECK(inv.items[1] == entityA);
+
+  // Now switch to ItemStore track
+  settings.useItemStore = true;
+  const ItemHandle h =
+      service.getStoreMutable().create(MakeTestItem(702, 1001));
+  service.setSlotHandle(slot0, h);
+
+  err = adapter.moveItem(reg, slot0, slot1);
+  CHECK(err == StorageError::Ok);
+  CHECK(service.getSlotHandle(slot0) == ItemHandle{0, 0});
+  CHECK(service.getSlotHandle(slot1) == h);
+}
