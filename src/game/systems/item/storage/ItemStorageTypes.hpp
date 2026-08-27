@@ -173,6 +173,19 @@ struct ItemSideTableData {
   }
 };
 
+/**
+ * @brief 仓库分页元数据（名称、类型、图标、颜色）。
+ */
+struct StashTabMeta {
+  std::string name = "Stash";
+  uint8_t type = 0;
+  uint32_t iconId = 0;
+  uint32_t color = 0xFFFFFFFF;
+
+  bool operator==(const StashTabMeta &other) const noexcept = default;
+  bool operator!=(const StashTabMeta &other) const noexcept = default;
+};
+
 } // namespace NoMoreDay
 
 namespace std {

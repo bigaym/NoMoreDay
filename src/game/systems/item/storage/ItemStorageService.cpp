@@ -19,10 +19,18 @@ ItemStorageService::ItemStorageService() {
   for (auto &page : m_personalStash) {
     page.assign(kStashPageCapacity, ItemHandle{0, 0});
   }
+  m_personalStashMeta.resize(kPersonalStashMaxPages);
+  for (size_t i = 0; i < kPersonalStashMaxPages; ++i) {
+    m_personalStashMeta[i].name = "Stash " + std::to_string(i + 1);
+  }
 
   m_sharedStash.resize(kSharedStashMaxPages);
   for (auto &page : m_sharedStash) {
     page.assign(kStashPageCapacity, ItemHandle{0, 0});
+  }
+  m_sharedStashMeta.resize(kSharedStashMaxPages);
+  for (size_t i = 0; i < kSharedStashMaxPages; ++i) {
+    m_sharedStashMeta[i].name = "Shared " + std::to_string(i + 1);
   }
 
   m_heirloomVault.assign(kHeirloomVaultCapacity, ItemHandle{0, 0});

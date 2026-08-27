@@ -10,7 +10,11 @@
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/StashComponent.hpp"
 #include "game/foundation/data/PlayerCombatHistory.hpp"
+#include "game/systems/item/storage/ItemPersistenceCodec.hpp"
+#include "game/systems/item/storage/ItemStorageService.hpp"
+#include "game/systems/item/storage/ItemTemplateRegistry.hpp"
 #include <array>
+#include <sstream>
 #include <vector>
 
 namespace NoMoreDay::tests {
@@ -114,10 +118,58 @@ void SetupPlayerSnapshotFixture(entt::registry &registry, int totalItems) {
   }
 }
 
+void SetupService1000Items(ItemStorageService &service) {
+  service.setGold(999999);
+  service.setUnlockedPages(ContainerKind::PersonalStash, 10);
+  service.setUnlockedPages(ContainerKind::SharedStash, 5);
+
+  uint32_t id = 10000;
+  // Fill Inventory (40 slots)
+  for (uint16_t i = 0; i < 40; ++i) {
+    ItemInstance inst;
+    inst.instanceId = id++;
+    inst.baseId = (i % 2 == 0) ? 1001 : 2011;
+    inst.itemLevel = 70;
+    inst.rarity = 3;
+    inst.attack = 50.0f;
+    ItemHandle h = service.getStoreMutable().create(inst);
+    service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, i}, h);
+  }
+
+  // Fill Equipment (11 slots)
+  for (uint8_t s = 0; s < 11; ++s) {
+    ItemInstance inst;
+    inst.instanceId = id++;
+    inst.baseId = 1001;
+    inst.itemLevel = 75;
+    inst.rarity = 4;
+    ItemHandle h = service.getStoreMutable().create(inst);
+    service.setSlotHandle(SlotRef{ContainerKind::Equipment, s, 0, 0}, h);
+  }
+
+  // Fill Personal Stash (7 pages x 140 = 980 items)
+  for (uint16_t p = 0; p < 7; ++p) {
+    for (uint16_t s = 0; s < 140; ++s) {
+      ItemInstance inst;
+      inst.instanceId = id++;
+      inst.baseId = (s % 3 == 0) ? 1001 : 2011;
+      inst.itemLevel = 60;
+      inst.rarity = 2;
+      ItemHandle h = service.getStoreMutable().create(inst);
+      service.setSlotHandle(SlotRef{ContainerKind::PersonalStash, 0, p, s}, h);
+    }
+  }
+}
+
 } // namespace save_manager_benchmark_detail
 
 TEST_CASE("[Performance] SaveManager - createSnapshot (1000 items)") {
   TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+  save_manager_benchmark_detail::SetupService1000Items(service);
+  SaveManager::Get().SetItemStorageService(&service);
+
   entt::registry registry;
   save_manager_benchmark_detail::SetupPlayerSnapshotFixture(registry, 1000);
 
@@ -142,14 +194,16 @@ TEST_CASE("[Performance] SaveManager - createSnapshot (1000 items)") {
 
   CHECK(sink > 0);
   const BenchmarkStats stats = CalculateStats(samples);
-  LOG_BENCHMARK("SaveManager createSnapshot 1000", stats, "< 10.0ms");
+  // 新预算目标 < 1.0ms（P4 冻结快照）
+  LOG_BENCHMARK("SaveManager createSnapshot 1000", stats, "< 1.0ms");
   save_manager_benchmark_detail::LogThresholdWarn(
-      "SaveManager createSnapshot 1000", stats, 10.0, 20.0);
+      "SaveManager createSnapshot 1000", stats, 1.0, 3.0);
   CHECK(!samples.empty());
 }
 
-TEST_CASE("[Performance] SaveManager - restoreFromSnapshot") {
+TEST_CASE("[Performance] SaveManager - restoreFromSnapshot (1000 items)") {
   TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
   entt::registry sourceRegistry;
   save_manager_benchmark_detail::SetupPlayerSnapshotFixture(sourceRegistry, 1000);
 
@@ -179,10 +233,56 @@ TEST_CASE("[Performance] SaveManager - restoreFromSnapshot") {
 
   CHECK(playerCountSink > 0);
   const BenchmarkStats stats = CalculateStats(samples);
-  LOG_BENCHMARK("SaveManager restoreFromSnapshot 1000", stats, "< 15.0ms");
+  // 新预算目标 < 2.0ms
+  LOG_BENCHMARK("SaveManager restoreFromSnapshot 1000", stats, "< 2.0ms");
   save_manager_benchmark_detail::LogThresholdWarn(
-      "SaveManager restoreFromSnapshot 1000", stats, 15.0, 25.0);
+      "SaveManager restoreFromSnapshot 1000", stats, 2.0, 5.0);
   CHECK(!samples.empty());
+}
+
+TEST_CASE("[Performance] ItemPersistenceCodec - Binary Encode/Decode (1000 items)") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+  save_manager_benchmark_detail::SetupService1000Items(service);
+
+  const std::string mockProgression = "{\"level\":70,\"gold\":999999,\"astrolabe\":[1,2,3,4,5]}";
+
+  // 1. Encode 性能采样 (1000 items binary encode)
+  std::vector<double> encodeSamples;
+  encodeSamples.reserve(50);
+  std::string encodedBinary;
+  for (int i = 0; i < 50; ++i) {
+    std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+    ScopedTimer timer(encodeSamples);
+    bool ok = ItemPersistenceCodec::encode(service, ss, nullptr, ContainerDirtyFlags::All, mockProgression);
+    if (i == 0) {
+      CHECK(ok);
+      encodedBinary = ss.str();
+    }
+  }
+
+  const BenchmarkStats encStats = CalculateStats(encodeSamples);
+  LOG_BENCHMARK("ItemPersistenceCodec encode 1000", encStats, "< 1.0ms");
+  save_manager_benchmark_detail::LogThresholdWarn(
+      "ItemPersistenceCodec encode 1000", encStats, 1.0, 2.5);
+
+  // 2. Decode 性能采样 (1000 items binary decode)
+  std::vector<double> decodeSamples;
+  decodeSamples.reserve(50);
+  for (int i = 0; i < 50; ++i) {
+    std::stringstream ss(encodedBinary, std::ios::in | std::ios::binary);
+    ItemStorageService dstService;
+    std::string outProg;
+    ScopedTimer timer(decodeSamples);
+    bool ok = ItemPersistenceCodec::decode(ss, dstService, &outProg);
+    (void)ok;
+  }
+
+  const BenchmarkStats decStats = CalculateStats(decodeSamples);
+  LOG_BENCHMARK("ItemPersistenceCodec decode 1000", decStats, "< 2.0ms");
+  save_manager_benchmark_detail::LogThresholdWarn(
+      "ItemPersistenceCodec decode 1000", decStats, 2.0, 5.0);
 }
 
 } // namespace NoMoreDay::tests

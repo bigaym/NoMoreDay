@@ -16,6 +16,7 @@ struct LoggerScope {
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/contracts/impl/ProcBudgetManager.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
+#include "game/application/persistence/SaveManager.hpp"
 
 // RAII Helper for Logger and ItemFactory
 struct TestSetupScope {
@@ -27,8 +28,10 @@ struct TestSetupScope {
     CombatTelemetry::Get().ResetForTests();
     CombatTelemetry::Get().SetRuntimeEnabled(false);
     StatsSystem::Reset(); // Clear static cache from previous tests
+    SaveManager::Get().SetItemStorageService(nullptr);
   }
   ~TestSetupScope() {
+    SaveManager::Get().SetItemStorageService(nullptr);
     ProcBudgetManager::Get().ResetForTests();
     CombatTelemetry::Get().ResetForTests();
     CombatTelemetry::Get().SetRuntimeEnabled(false);

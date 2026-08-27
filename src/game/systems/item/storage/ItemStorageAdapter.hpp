@@ -10,8 +10,7 @@ namespace NoMoreDay {
 
 /**
  * @brief Default adapter implementing IItemStorageAdapter.
- * Encapsulates settings->useItemStore decision to route operations either to
- * ItemStorageService (ItemStore track) or legacy ECS container entities.
+ * 直接将所有容器操作委托给 ItemStorageService (T-P4-7 双轨期结束，恒定启用 ItemStore)。
  */
 class ItemStorageAdapter : public IItemStorageAdapter {
 public:
@@ -40,7 +39,7 @@ public:
                            uint16_t page, uint16_t index) const override;
 
   [[nodiscard]] bool isItemStoreEnabled() const noexcept {
-    return m_settings && m_settings->useItemStore && m_service;
+    return true; // T-P4-7: 恒定启用 ItemStore 轨道
   }
 
   void setService(ItemStorageService *service) noexcept { m_service = service; }
@@ -52,10 +51,6 @@ public:
   static void SetDefaultAdapter(std::unique_ptr<IItemStorageAdapter> adapter);
 
 private:
-  entt::entity *getEntitySlot(entt::registry &reg, const SlotRef &slot);
-  const entt::entity *getEntitySlot(const entt::registry &reg,
-                                    const SlotRef &slot) const;
-
   ItemStorageService *m_service = nullptr;
   const GameSettings *m_settings = nullptr;
 };

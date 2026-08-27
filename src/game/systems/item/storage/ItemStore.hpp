@@ -141,6 +141,30 @@ public:
   }
 
   /**
+   * @brief 用于底层批量还原的原始实例条目。
+   */
+  struct RawInstanceEntry {
+    uint32_t index = 0;
+    uint32_t gen = 0;
+    ItemInstance instance{};
+  };
+
+  /**
+   * @brief 批量恢复/灌入底层实例池状态，自动重构空闲链表与活跃计数。
+   */
+  void restoreRawEntries(
+      const std::vector<RawInstanceEntry> &entries,
+      const std::unordered_map<uint32_t, ItemSideTableData> &sideTables = {});
+
+  /**
+   * @brief 获取所有稀疏旁表数据的不可变引用。
+   */
+  [[nodiscard]] const std::unordered_map<uint32_t, ItemSideTableData> &
+  getAllSideTables() const noexcept {
+    return m_sideTables;
+  }
+
+  /**
    * @brief Clear all instances and side tables, resetting active count and incrementing version.
    */
   void clear() noexcept;

@@ -27,6 +27,7 @@ add_library(NoMoreDayGameItem STATIC
     storage/ItemStorageService.cpp
     storage/ItemStorageAdapter.cpp
     storage/ItemMigration.cpp
+    storage/ItemPersistenceCodec.cpp
 )
 
 target_include_directories(NoMoreDayGameItem PUBLIC ${CMAKE_SOURCE_DIR}/src)

@@ -6,6 +6,8 @@
   #include "engine/render/GPUUtils.hpp"
 #include "engine/render/CoordSystem.hpp"
 #include "game/application/scene/StateManager.hpp"
+#include "core/math/UUID.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/LightComponent.hpp"
 #include "game/foundation/components/MaterialBankComponent.hpp" // Added
@@ -87,7 +89,7 @@
 #include "game/systems/world/MapAffixRegistry.hpp"
 #include "game/systems/combat/MovementStanceSystem.hpp"
 #include "game/systems/vfx/VFXSequencerSystem.hpp"
-#include "game/systems/SerializationSystem.hpp"
+#include "game/application/persistence/SaveManager.hpp"
 
 #include <filesystem>
 
@@ -699,14 +701,19 @@ m_uiHost->InputCapture();
   // is removed — the inventory panel is a hosted overlay now, toggled by
   // GameUiHost on KEY_I/ESC/TAB.
 
-  // Serialization
-  if (SerializationSystem::Update(registry)) {
-    // Reload sprites logic
-    auto view = registry.view<TextureIDComponent>();
-    for (auto entity : view) {
-      const auto &texComp = view.get<TextureIDComponent>(entity);
-      Texture2D tex = m_context->resources->loadTexture(texComp.id, "");
-      registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.4f);
+  // Serialization (F5/F8 快捷键重定向到 SaveManager)
+  if (IsKeyPressed(KEY_F5)) {
+    SaveManager::Get().saveCharacterAsync(registry, 0);
+  }
+  if (IsKeyPressed(KEY_F8)) {
+    if (SaveManager::Get().loadCharacter(registry, 0)) {
+      // Reload sprites logic
+      auto view = registry.view<TextureIDComponent>();
+      for (auto entity : view) {
+        const auto &texComp = view.get<TextureIDComponent>(entity);
+        Texture2D tex = m_context->resources->loadTexture(texComp.id, "");
+        registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.4f);
+      }
     }
   }
 

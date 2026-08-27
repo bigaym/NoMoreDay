@@ -29,7 +29,7 @@ namespace NoMoreDay {
         float shakeIntensity = 1.0f;
         int targetFPS = 0;  // 0 for Unlimited FPS
         RenderQualityTier renderQualityTier = RenderQualityTier::Medium;
-        bool useItemStore = false;
+        bool useItemStore = true; // [已废弃 / Deprecated: P4 阶段起恒定启用 ItemStore 单轨]
 
         static constexpr size_t RenderQualityTierToIndex(RenderQualityTier tier) {
             return static_cast<size_t>(tier);

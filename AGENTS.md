@@ -44,14 +44,18 @@
 - New features follow design -> planning -> implementation -> testing. Bugs follow debugging -> implementation -> testing. Documentation changes use the design or planning workflow as appropriate and check links and indexes.
 - See `conductor/code_standard.md` and `conductor/code_styleguides/` for detailed code standards.
 - Use `RelWithDebInfo` with `build.bat` for build config, never `debug`.
+- Use Chinese for comments. Comments must based on the context, rather than details regarding the process of task execution.
 
 ## Tools
 
-- Must use `codebase-memory-mcp` graph tools for ALL code retrieval — definitions, search, call chains, data flow, impact analysis, and architecture understanding first. Only fall back to `grep`, `glob`, or `Read` when graph tools can not provide enough info.
-- Use the terminal only when no specialized tool fits. For compilation, testing, or other high-output commands, do not emit full output to context; filter it or redirect it to a text file.
+- Must use `codebase-memory-mcp` graph tools for ALL code retrieval — definitions, search, call chains, data flow, impact analysis, and architecture understanding first. 
+- Use `rg` cmd for search. Use `Read` when graph tools and `rg` can not provide enough info.
+- Use other cmd only when no specialized tool fits. For compilation, testing, or other high-output commands, do not emit full output to context; filter it or redirect it to a text file.
 
 ### Memory, Context, And Evidence
 
-- If `memory_*` tools are unavailable, report the limitation and stop work that requires memory guarantees. Query relevant memory before planning, editing, deciding, or debugging; on resumed work, query first and treat a miss as new work.
-- Record key decisions, direction changes, implementation checkpoints, verification, and commits with the change, verification result, and current risk or blocker. Never store secrets, credentials, raw logs, or unverified speculation; update memory for new defect types.
+- If `memory_*` tools are unavailable, report the limitation and stop work that requires memory guarantees. 
+- Query relevant memory before planning, editing, deciding, or debugging; on resumed work, query first and treat a miss as new work.
+- Record key decisions, direction changes, implementation checkpoints, verification, and commits with the change, verification result, and current risk or blocker. 
+- Never store secrets, credentials, raw logs, or unverified speculation; update memory for new defect types.
 - Load only task-relevant references. Support conclusions with command output, tests, specifications, or manual checks; identify anything unverified as a risk or follow-up.

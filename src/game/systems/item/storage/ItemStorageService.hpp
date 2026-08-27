@@ -109,11 +109,32 @@ public:
     }
     return false;
   }
+  [[nodiscard]] uint64_t getNextInstanceId() const noexcept {
+    return m_nextInstanceId;
+  }
+  void setNextInstanceId(uint64_t nextId) noexcept {
+    m_nextInstanceId = nextId;
+  }
 
-  // --- 仓库分页管理 ---
+  // --- 仓库分页管理与元数据 ---
   [[nodiscard]] uint16_t getUnlockedPages(ContainerKind kind) const noexcept;
   bool unlockPage(ContainerKind kind);
   void setUnlockedPages(ContainerKind kind, uint16_t pages) noexcept;
+
+  [[nodiscard]] const std::vector<StashTabMeta> &
+  getPersonalStashMeta() const noexcept {
+    return m_personalStashMeta;
+  }
+  void setPersonalStashMeta(std::vector<StashTabMeta> meta) {
+    m_personalStashMeta = std::move(meta);
+  }
+  [[nodiscard]] const std::vector<StashTabMeta> &
+  getSharedStashMeta() const noexcept {
+    return m_sharedStashMeta;
+  }
+  void setSharedStashMeta(std::vector<StashTabMeta> meta) {
+    m_sharedStashMeta = std::move(meta);
+  }
 
   // --- 地面待决物品管理 ---
   void addGroundPending(ItemHandle h);
@@ -146,6 +167,8 @@ private:
   std::vector<ItemHandle> m_bagSlots;
   std::vector<std::vector<ItemHandle>> m_personalStash;
   std::vector<std::vector<ItemHandle>> m_sharedStash;
+  std::vector<StashTabMeta> m_personalStashMeta;
+  std::vector<StashTabMeta> m_sharedStashMeta;
   std::vector<ItemHandle> m_heirloomVault;
   std::vector<std::pair<uint32_t, int32_t>> m_materialBank;
   std::vector<ItemHandle> m_groundPending;

@@ -267,45 +267,73 @@ TEST_CASE("[Unit] ItemStorageService - Ground Pending and Freeze") {
   CHECK(snapshot.isValid(h2));
 }
 
-TEST_CASE("[Unit] ItemStorageAdapter - Routing via ItemStore vs Legacy ECS") {
+TEST_CASE("[Unit] ItemStorageAdapter - Direct Delegation to ItemStorageService") {
   TestSetupScope scope;
   entt::registry reg;
 
-  auto player = reg.create();
-  reg.emplace<PlayerTag>(player);
-  auto &inv = reg.emplace<InventoryComponent>(player);
-  auto &stash = reg.emplace<PersonalStashComponent>(player);
-
-  ItemComponent compA;
-  compA.id = 701;
-  compA.quantity = 1;
-  auto entityA = reg.create();
-  reg.emplace<ItemComponent>(entityA, compA);
-  inv.items[0] = entityA;
-
   GameSettings settings;
-  settings.useItemStore = false; // Legacy track
-
   ItemStorageService service;
   ItemStorageAdapter adapter(&service, &settings);
+  CHECK(adapter.isItemStoreEnabled());
 
   const SlotRef slot0{ContainerKind::Inventory, 0, 0, 0};
   const SlotRef slot1{ContainerKind::Inventory, 0, 0, 1};
 
-  // Move in legacy track
-  StorageError err = adapter.moveItem(reg, slot0, slot1);
-  CHECK(err == StorageError::Ok);
-  CHECK(inv.items[0] == entt::entity{entt::null});
-  CHECK(inv.items[1] == entityA);
-
-  // Now switch to ItemStore track
-  settings.useItemStore = true;
   const ItemHandle h =
       service.getStoreMutable().create(MakeTestItem(702, 1001));
   service.setSlotHandle(slot0, h);
 
-  err = adapter.moveItem(reg, slot0, slot1);
+  StorageError err = adapter.moveItem(reg, slot0, slot1);
   CHECK(err == StorageError::Ok);
   CHECK(service.getSlotHandle(slot0) == ItemHandle{0, 0});
   CHECK(service.getSlotHandle(slot1) == h);
+}
+
+TEST_CASE("[Unit] ItemStorageService - Deep Copy and Move Semantics") {
+  ItemStorageService src;
+  src.setGold(5000);
+  src.addMaterial(101, 20);
+  src.setUnlockedPages(ContainerKind::PersonalStash, 3);
+  src.setPersonalStashMeta({
+      StashTabMeta{"Tab1", 0, 10, 0xFF0000FF},
+      StashTabMeta{"Tab2", 1, 20, 0x00FF00FF},
+      StashTabMeta{"Tab3", 2, 30, 0x0000FFFF}
+  });
+
+  const ItemHandle h1 = src.getStoreMutable().create(MakeTestItem(801, 1001));
+  src.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, h1);
+
+  // 1. 测试拷贝构造（快照深拷贝语义）
+  ItemStorageService copyConstructed(src);
+  CHECK(copyConstructed.getGold() == 5000);
+  CHECK(copyConstructed.getMaterialCount(101) == 20);
+  CHECK(copyConstructed.getUnlockedPages(ContainerKind::PersonalStash) == 3);
+  CHECK(copyConstructed.getPersonalStashMeta().size() == 3);
+  CHECK(copyConstructed.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}) == h1);
+  CHECK(copyConstructed.getStore().isValid(h1));
+
+  // 修改原对象，副本不受任何影响
+  src.setGold(9999);
+  src.getStoreMutable().destroy(h1);
+  CHECK(src.getGold() == 9999);
+  CHECK_FALSE(src.getStore().isValid(h1));
+  CHECK(copyConstructed.getGold() == 5000);
+  CHECK(copyConstructed.getStore().isValid(h1));
+
+  // 2. 测试拷贝赋值
+  ItemStorageService copyAssigned;
+  copyAssigned = copyConstructed;
+  CHECK(copyAssigned.getGold() == 5000);
+  CHECK(copyAssigned.getStore().isValid(h1));
+
+  // 3. 测试移动构造
+  ItemStorageService moveConstructed(std::move(copyAssigned));
+  CHECK(moveConstructed.getGold() == 5000);
+  CHECK(moveConstructed.getStore().isValid(h1));
+
+  // 4. 测试移动赋值
+  ItemStorageService moveAssigned;
+  moveAssigned = std::move(moveConstructed);
+  CHECK(moveAssigned.getGold() == 5000);
+  CHECK(moveAssigned.getStore().isValid(h1));
 }

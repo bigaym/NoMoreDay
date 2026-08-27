@@ -175,6 +175,47 @@ ItemSideTableData *ItemStore::getSideTableMutable(ItemHandle h) noexcept {
   return nullptr;
 }
 
+void ItemStore::restoreRawEntries(
+    const std::vector<RawInstanceEntry> &entries,
+    const std::unordered_map<uint32_t, ItemSideTableData> &sideTables) {
+  clear();
+  if (entries.empty()) {
+    m_sideTables = sideTables;
+    return;
+  }
+  uint32_t maxIdx = 0;
+  for (const auto &e : entries) {
+    if (e.index > maxIdx) {
+      maxIdx = e.index;
+    }
+  }
+  if (maxIdx == 0) {
+    m_sideTables = sideTables;
+    return;
+  }
+  m_instances.assign(maxIdx + 1, ItemInstance{});
+  m_generations.assign(maxIdx + 1, 1);
+  m_occupied.assign(maxIdx + 1, 0);
+  m_freeList.clear();
+  m_sideTables = sideTables;
+  m_activeCount = entries.size();
+
+  for (const auto &e : entries) {
+    if (e.index > 0 && e.index <= maxIdx) {
+      m_instances[e.index] = e.instance;
+      m_generations[e.index] = e.gen;
+      m_occupied[e.index] = 1;
+    }
+  }
+
+  for (uint32_t i = 1; i <= maxIdx; ++i) {
+    if (m_occupied[i] == 0) {
+      m_freeList.push_back(i);
+    }
+  }
+  m_version.fetch_add(1, std::memory_order_relaxed);
+}
+
 void ItemStore::clear() noexcept {
   m_instances.clear();
   m_generations.clear();

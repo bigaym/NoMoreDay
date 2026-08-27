@@ -294,14 +294,14 @@ bool decode(std::istream& inStream, ItemStore& outStore);  // 失败返回 false
 ```
 
 **原子任务**：
-- [ ] T-P4-0 Q5/Q7 定稿：冻结快照方案（不可变快照值传递/双缓冲）定案；存档文件命名（`saves/slot_N.nmd`）与 temp 目录约定固化
-- [ ] T-P4-1 `ItemPersistenceCodec` 二进制编码/解码 + 往返属性测试（随机 N 件含孔/套装/锁/符文之语，save→load 深比较）+ 损坏注入（截断/翻转 → 失败 + .bak 回退）
-- [ ] T-P4-2 内存 Section 增量编码缓存 + 全量写 temp + 原子 rename（测试：单容器改动仅重计算该 Section 缓存，全量写盘 CRC 校验通过）
-- [ ] T-P4-3 SaveManager 接入 codec；旧 JSON 导入路径（v3/v4 → ItemStore）
-- [ ] T-P4-4 `SerializationSystem` 退役：删除全量世界序列化实现，F5/F8 重定向；保留 quicksave 兼容导入（Q3 定案）
-- [ ] T-P4-5 对拍测试：同一存档数据旧代码 JSON 输出 vs 新二进制解码结果字段级一致
-- [ ] T-P4-6 性能验收：SaveManagerBenchmark 新预算（createSnapshot 1000 <1ms、restore 1000 <2ms）达标
-- [ ] T-P4-7 删除 feature flag `useItemStore` 与适配器旧路径分支（双写期结束）
+- [x] T-P4-0 Q5/Q7 定稿：冻结快照方案（不可变快照值传递/双缓冲）定案；存档文件命名（`saves/slot_N.nmd`）与 temp 目录约定固化
+- [x] T-P4-1 `ItemPersistenceCodec` 二进制编码/解码 + 往返属性测试（随机 N 件含孔/套装/锁/符文之语，save→load 深比较）+ 损坏注入（截断/翻转 → 失败 + .bak 回退）
+- [x] T-P4-2 内存 Section 增量编码缓存 + 全量写 temp + 原子 rename（测试：单容器改动仅重计算该 Section 缓存，全量写盘 CRC 校验通过）
+- [x] T-P4-3 SaveManager 接入 codec；旧 JSON 导入路径（v3/v4 → ItemStore）
+- [x] T-P4-4 `SerializationSystem` 退役：删除全量世界序列化实现，F5/F8 重定向；保留 quicksave 兼容导入（Q3 定案）
+- [x] T-P4-5 对拍测试：同一存档数据旧代码 JSON 输出 vs 新二进制解码结果字段级一致
+- [x] T-P4-6 性能验收：SaveManagerBenchmark 新预算（createSnapshot 1000 <1ms、restore 1000 <2ms）达标
+- [x] T-P4-7 删除 feature flag `useItemStore` 与适配器旧路径分支（双写期结束）
 
 **测试**：unit（往返/损坏）+ integration（对拍）+ performance（新预算）。
 命令：`ctest --test-dir build -C RelWithDebInfo -R "nmd.tests.item" --output-on-failure`、`ctest --test-dir build -C Release -L performance --output-on-failure`、`ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure`。
