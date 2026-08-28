@@ -3,7 +3,7 @@
 - 日期：2026-08-26（v2.1 审查修订版）
 - 关联设计：`docs/designs/2026-08-26-item-storage-lifecycle-refactor-design.md`（v2 综合修订版）
 - 关联审查：`docs/reviews/2026-08-26-item-storage-lifecycle-refactor-plan-review.md`（首次审查结论：已针对发现项完成全量修订）
-- 状态：待实施（Ready for Implementation）
+- 状态：已完成实施（Completed & Verified）
 - 范围：设计 §7 全部阶段 P0a–P6；本计划是实施引导，不含完整代码
 
 ---
@@ -67,10 +67,10 @@ TEST_CASE("[Performance] ItemStore - move/swap/visit (10k)") {
 ```
 
 **原子任务**：
-- [ ] T-P0a-1 新增 `tests/performance/ItemStoreBenchmark.cpp` 骨架（P2 落地 ItemStore 后填充；本阶段先占位并记录「待 P2 启用」）
-- [ ] T-P0a-2 新增 `tests/performance/UiSnapshotBenchmark.cpp`：现状 `GameUiSnapshotBuilder::Build` 全量构建基线（背包 40 + 装备 + 仓库 3×144 + 地面 20 负载，采样 ≥50 帧取均值/p95）
-- [ ] T-P0a-3 在 `GameUiSnapshotBuilder::Build`、`SaveManager::createSnapshot/restoreFromSnapshot`、`ItemFactory::serializeItem/restoreItem` 加 Tracy 区段（`ZoneScoped`，不改变行为）
-- [ ] T-P0a-4 记录基线：`ctest -C Release -L performance` 输出 + Tracy 一次采集报告 → 归档 `docs/reviews/2026-08-26-item-storage-baseline.md`（含表格：createSnapshot 1000 件实测、restore 实测、UI 快照实测、StashBenchmark 现有数字）
+- [x] T-P0a-1 新增 `tests/performance/ItemStoreBenchmark.cpp` 骨架（P2 落地 ItemStore 后填充；本阶段先占位并记录「待 P2 启用」）
+- [x] T-P0a-2 新增 `tests/performance/UiSnapshotBenchmark.cpp`：现状 `GameUiSnapshotBuilder::Build` 全量构建基线（背包 40 + 装备 + 仓库 3×144 + 地面 20 负载，采样 ≥50 帧取均值/p95）
+- [x] T-P0a-3 在 `GameUiSnapshotBuilder::Build`、`SaveManager::createSnapshot/restoreFromSnapshot`、`ItemFactory::serializeItem/restoreItem` 加 Tracy 区段（`ZoneScoped`，不改变行为）
+- [x] T-P0a-4 记录基线：`ctest -C Release -L performance` 输出 + Tracy 一次采集报告 → 归档 `docs/reviews/2026-08-26-item-storage-baseline.md`（含表格：createSnapshot 1000 件实测、restore 实测、UI 快照实测、StashBenchmark 现有数字）
 
 **测试**：仅性能层。命令：`build.bat` → `ctest --test-dir build -C Release -L performance --output-on-failure`。
 **完成定义**：基线文档存在且数字齐备；Tracy 区段可采集；无行为改动（`git diff` 仅限区段与 benchmark 文件）。
@@ -138,13 +138,13 @@ if (item.rarity == Rarity::Set && item.setName.empty()) {
 ```
 
 **原子任务**：
-- [ ] T-P0b-1 DTO 扩展：`SerializedItem` 补 `isLocked/activeRunewordId/conversions/damageModifiers/socketCount`，将 `socketedItems` 改造为带 `socketIndex` 的 `vector<SerializedSocketEntry>`（含 JSON 缺省兼容）
-- [ ] T-P0b-2 DTO 扩展：`CharacterSaveData` 补 `inventoryCapacity/inventory(带index)/bagSlots/materialBank`
-- [ ] T-P0b-3 `ItemFactory::serializeItem/restoreItem` 字段对称补齐 + 模板派生字段校验日志 + 空孔与插槽索引复原 + 套装 `setNameHash` 重算
-- [ ] T-P0b-4 `SaveManager::createSnapshot/restoreFromSnapshot` 填充/读取新字段；恢复按索引落位保布局
-- [ ] T-P0b-5 版本 3→4 + `MigrateSaveDataV3toV4` 迁移分支
-- [ ] T-P0b-6 回归测试 `tests/unit/ItemSaveRoundTripTests.cpp`（`[Unit]*Item*Save*`）：构造「锁定物品 + 天然 3 空孔装备 + 符文之语武器（孔0空、孔1/2镶嵌）+ 扩展背包（含包内物品）+ 材料银行 + 套装装备 + 空槽散布布局」→ createSnapshot → 写 JSON → 读 → restore → 字段级断言（isLocked/activeRunewordId/socketCount/conversions/setNameHash 全等、孔位顺序严格不移位、capacity 等值、bag_slots 逐索引等值、银行账户全等、非空槽 index 序列与布局全等）
-- [ ] T-P0b-7 对拍测试：v3 档迁移后字段默认值断言（不 crash、不丢已有字段、空孔安全降级）
+- [x] T-P0b-1 DTO 扩展：`SerializedItem` 补 `isLocked/activeRunewordId/conversions/damageModifiers/socketCount`，将 `socketedItems` 改造为带 `socketIndex` 的 `vector<SerializedSocketEntry>`（含 JSON 缺省兼容）
+- [x] T-P0b-2 DTO 扩展：`CharacterSaveData` 补 `inventoryCapacity/inventory(带index)/bagSlots/materialBank`
+- [x] T-P0b-3 `ItemFactory::serializeItem/restoreItem` 字段对称补齐 + 模板派生字段校验日志 + 空孔与插槽索引复原 + 套装 `setNameHash` 重算
+- [x] T-P0b-4 `SaveManager::createSnapshot/restoreFromSnapshot` 填充/读取新字段；恢复按索引落位保布局
+- [x] T-P0b-5 版本 3→4 + `MigrateSaveDataV3toV4` 迁移分支
+- [x] T-P0b-6 回归测试 `tests/unit/ItemSaveRoundTripTests.cpp`（`[Unit]*Item*Save*`）：构造「锁定物品 + 天然 3 空孔装备 + 符文之语武器（孔0空、孔1/2镶嵌）+ 扩展背包（含包内物品）+ 材料银行 + 套装装备 + 空槽散布布局」→ createSnapshot → 写 JSON → 读 → restore → 字段级断言（isLocked/activeRunewordId/socketCount/conversions/setNameHash 全等、孔位顺序严格不移位、capacity 等值、bag_slots 逐索引等值、银行账户全等、非空槽 index 序列与布局全等）
+- [x] T-P0b-7 对拍测试：v3 档迁移后字段默认值断言（不 crash、不丢已有字段、空孔安全降级）
 
 **测试**：unit 为主（T-P0b-6/7）；性能无要求（此阶段不优化，只修正确性）。
 命令：`build.bat` → `ctest --test-dir build -C RelWithDebInfo -R "nmd.tests.item" --output-on-failure` → `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure`。
@@ -170,12 +170,12 @@ class ItemTemplateRegistry {
 ```
 
 **原子任务**：
-- [ ] T-P1-1 定义 `ItemTemplate`（设计 D1 字段集：baseId/kind/textureId/maxStack/minLevel/baseRanges/implicits 引用/setId/nameId）
-- [ ] T-P1-2 实现 `ItemTemplateRegistry` + 单元测试（注册/查找/未命中）
-- [ ] T-P1-3 `ItemFactory` 基底表迁移：现有 `BaseItemDef` 数据转为模板注册；createWeapon/createArmor/... 创建路径改「模板 + 滚动动态字段」
-- [ ] T-P1-4 序列化层对齐：serializeItem 的模板派生字段改为「存 baseId，读时校验」并打日志（衔接 T-P0b-3 的校验逻辑）
-- [ ] T-P1-5 读点替换（第一批低风险）：`GameUiSnapshotBuilder::ToItemView`、`ItemEquipValidationService`、`LootFilter` 改模板解析静态属性
-- [ ] T-P1-6 回归：`[Unit]*Item*` 全量 + `ItemFactoryBenchmark`（1000 件创建 <5ms 保持）
+- [x] T-P1-1 定义 `ItemTemplate`（设计 D1 字段集：baseId/kind/textureId/maxStack/minLevel/baseRanges/implicits 引用/setId/nameId）
+- [x] T-P1-2 实现 `ItemTemplateRegistry` + 单元测试（注册/查找/未命中）
+- [x] T-P1-3 `ItemFactory` 基底表迁移：现有 `BaseItemDef` 数据转为模板注册；createWeapon/createArmor/... 创建路径改「模板 + 滚动动态字段」
+- [x] T-P1-4 序列化层对齐：serializeItem 的模板派生字段改为「存 baseId，读时校验」并打日志（衔接 T-P0b-3 的校验逻辑）
+- [x] T-P1-5 读点替换（第一批低风险）：`GameUiSnapshotBuilder::ToItemView`、`ItemEquipValidationService`、`LootFilter` 改模板解析静态属性
+- [x] T-P1-6 回归：`[Unit]*Item*` 全量 + `ItemFactoryBenchmark`（1000 件创建 <5ms 保持）
 
 **测试**：unit（T-P1-2）+ 既有 item 套件回归 + 性能（ItemFactoryBenchmark 不劣化）。
 命令：`bin/NoMoreDayTests.exe --test-case="[Unit]*Item*"`、`ctest --test-dir build -C Release -L performance --output-on-failure`。
@@ -226,14 +226,14 @@ bool InventorySystem::moveItem(entt::registry& reg, int fromSlot, int toSlot) {
 ```
 
 **原子任务**（依赖顺序 T-P2-0 → T-P2-0b → 1 → 2 → 3/4 并行 → 5 → 6）：
-- [ ] T-P2-0 设计定稿：Q1/Q9 结论固化（词缀内联上限 12、插槽上限 6、side-table 字段清单）；`ItemStorageTypes.hpp` 常量与 `static_assert` 落盘
-- [ ] T-P2-0b **基础设施前移**：`ItemStorageService` 组装到 `Game` 组合根 + `SharedContext.itemStorage` 字段注入；定义 `IItemStorageAdapter` 适配接口封装双轨 flag
-- [ ] T-P2-1 `ItemStore` 实现 + 单元测试（create/destroy/代际复用/get 失配/mutate 版本号/visit 遍历 10k）
-- [ ] T-P2-2 `ItemInstance` POD 与 `ItemComponent` 双向转换器（含 side-table 处理）+ 往返测试
-- [ ] T-P2-3 适配层（并行小组）：InventorySystem、StashSystem、SharedStash、CraftingSystem、SalvageSystem、RunewordSystem、LootFilter、ItemEquipValidationService 逐个切换到适配接口（每系统切换 = 独立原子任务，见附录任务表；签名不变）
-- [ ] T-P2-4 地面物品：`GroundItemComponent` + DropSystem/FragmentDropSystem/GPULootAdapter/GPUEntitySync 切换；过图丢弃策略显式声明
-- [ ] T-P2-5 容器组件瘦身：InventoryComponent/EquipmentComponent/StashTab 槽位换 handle 数组（由适配器内部隔离）
-- [ ] T-P2-6 全量回归 + ItemStoreBenchmark 启用（move <10ns/次、visit 10k <0.1ms）
+- [x] T-P2-0 设计定稿：Q1/Q9 结论固化（词缀内联上限 12、插槽上限 6、side-table 字段清单）；`ItemStorageTypes.hpp` 常量与 `static_assert` 落盘
+- [x] T-P2-0b **基础设施前移**：`ItemStorageService` 组装到 `Game` 组合根 + `SharedContext.itemStorage` 字段注入；定义 `IItemStorageAdapter` 适配接口封装双轨 flag
+- [x] T-P2-1 `ItemStore` 实现 + 单元测试（create/destroy/代际复用/get 失配/mutate 版本号/visit 遍历 10k）
+- [x] T-P2-2 `ItemInstance` POD 与 `ItemComponent` 双向转换器（含 side-table 处理）+ 往返测试
+- [x] T-P2-3 适配层（并行小组）：InventorySystem、StashSystem、SharedStash、CraftingSystem、SalvageSystem、RunewordSystem、LootFilter、ItemEquipValidationService 逐个切换到适配接口（每系统切换 = 独立原子任务，见附录任务表；签名不变）
+- [x] T-P2-4 地面物品：`GroundItemComponent` + DropSystem/FragmentDropSystem/GPULootAdapter/GPUEntitySync 切换；过图丢弃策略显式声明
+- [x] T-P2-5 容器组件瘦身：InventoryComponent/EquipmentComponent/StashTab 槽位换 handle 数组（由适配器内部隔离）
+- [x] T-P2-6 全量回归 + ItemStoreBenchmark 启用（move <10ns/次、visit 10k <0.1ms）
 
 **测试**：unit（T-P2-1/2 新套件）+ 既有全部 item/stash/inventory 套件不回归（`[Unit]*Item*`、`[Unit]*Stash*`、InventoryDragSwapTests、UIInventoryControllerTests、UIStashControllerTests）+ 性能（ItemStoreBenchmark 新预算）。
 命令：`ctest --test-dir build -C RelWithDebInfo -R "nmd.tests.item" --output-on-failure`、`ctest --test-dir build -C Release -L performance --output-on-failure`。
@@ -253,11 +253,11 @@ bool InventorySystem::moveItem(entt::registry& reg, int fromSlot, int toSlot) {
 ```
 
 **原子任务**：
-- [ ] T-P3-1 新增 `ItemMigration.hpp`：`beginSceneSwitch(GroundPolicy)/endSceneSwitch(token)`，显式执行 `GroundPending` 句柄全量回收（`store.destroy(h)`）与清空，单元测试增加池活跃实例计数断言
-- [ ] T-P3-2 删除 `SharedStash::suspend/resume` 与 `m_suspendedData`（保留 toJson/fromJson 仅供 P4 迁移导入使用）
-- [ ] T-P3-3 `SaveManager::restoreFromSnapshot` 去 suspend/clear/resume，改为直接恢复容器槽位表（依赖 P2 的恢复路径）
-- [ ] T-P3-4 断言测试：过图路径上 nlohmann::json 构造计数为 0（测试内计数器/桩）；读档路径 ItemFactory::serializeItem 调用为 0
-- [ ] T-P3-5 手动冒烟：城镇→副本→过图往返，仓库/背包/装备/地面物品状态正确，句柄池计数不单调递增
+- [x] T-P3-1 新增 `ItemMigration.hpp`：`beginSceneSwitch(GroundPolicy)/endSceneSwitch(token)`，显式执行 `GroundPending` 句柄全量回收（`store.destroy(h)`）与清空，单元测试增加池活跃实例计数断言
+- [x] T-P3-2 删除 `SharedStash::suspend/resume` 与 `m_suspendedData`（保留 toJson/fromJson 仅供 P4 迁移导入使用）
+- [x] T-P3-3 `SaveManager::restoreFromSnapshot` 去 suspend/clear/resume，改为直接恢复容器槽位表（依赖 P2 的恢复路径）
+- [x] T-P3-4 断言测试：过图路径上 nlohmann::json 构造计数为 0（测试内计数器/桩）；读档路径 ItemFactory::serializeItem 调用为 0
+- [x] T-P3-5 手动冒烟：城镇→副本→过图往返，仓库/背包/装备/地面物品状态正确，句柄池计数不单调递增
 
 **测试**：unit（T-P3-4 断言）+ integration（场景切换流转，复用 GameUiHostLifecycleTests 模式）+ 手动。
 **完成定义**：T-P3-4 绿；代码审查确认 SharedStash 无 suspend/resume 残留；过图后 GroundPending 句柄全量回收；冒烟证据归档。
@@ -326,11 +326,11 @@ GameplayState::Update（GameplayState.cpp:675-677）
 ```
 
 **原子任务**：
-- [ ] T-P5-1 `GameUiSnapshotBuilder` 门控补全：stash/materials/ground 视图按面板开关构建（对齐 options 现状）
-- [ ] T-P5-2 version 复用：`Build` 增加缓存命中路径；snapshot 对象由 GameUiHost 持有复用（向量 capacity 跨帧保留）
-- [ ] T-P5-3 按需详情：列表视图去 affix 拷贝，移除 `inventoryById`/`equipmentById`/`groundById` 临时哈希表；`displayedItems` 直接通过 `ItemHandle` 查池填充；Stash 搜索改基于模板名称匹配
-- [ ] T-P5-4 UiSnapshotBenchmark 启用新预算：净帧（version 未变）物品构建成本 = 0（断言跳过计数）
-- [ ] T-P5-5 回归：GameUiSnapshotBuilderTests、UIInventoryControllerTests、UIStashControllerTests、UICraftingControllerTests、OverlayControllerTests 全绿（合同不变验证）
+- [x] T-P5-1 `GameUiSnapshotBuilder` 门控补全：stash/materials/ground 视图按面板开关构建（对齐 options 现状）
+- [x] T-P5-2 version 复用：`Build` 增加缓存命中路径；snapshot 对象由 GameUiHost 持有复用（向量 capacity 跨帧保留）
+- [x] T-P5-3 按需详情：列表视图去 affix 拷贝，移除 `inventoryById`/`equipmentById`/`groundById` 临时哈希表；`displayedItems` 直接通过 `ItemHandle` 查池填充；Stash 搜索改基于模板名称匹配
+- [x] T-P5-4 UiSnapshotBenchmark 启用新预算：净帧（version 未变）物品构建成本 = 0（断言跳过计数）
+- [x] T-P5-5 回归：GameUiSnapshotBuilderTests、UIInventoryControllerTests、UIStashControllerTests、UICraftingControllerTests、OverlayControllerTests 全绿（合同不变验证）
 
 **测试**：unit（快照构建/复用命中）+ 既有 UI 套件 + performance（UiSnapshotBenchmark）。
 命令：`ctest --test-dir build -C RelWithDebInfo -L ui --output-on-failure`、`ctest --test-dir build -C Release -L performance --output-on-failure`。
@@ -343,11 +343,11 @@ GameplayState::Update（GameplayState.cpp:675-677）
 **原理**：完成单例彻底清理与架构合规固化——删除 `SharedStash`/`HeirloomVault` 过渡门面；PortalSystem 不再直呼 SaveManager 单例（PortalSystem.cpp:139-143 分层破坏修复，改经 SharedContext 发存档请求）。
 
 **原子任务**：
-- [ ] T-P6-1 清理旧单例门面：彻底删除 `SharedStash::Get()`/`HeirloomVault::Get()` 历史单例实现与头文件残留
-- [ ] T-P6-2 PortalSystem 分层修复 + 分层测试（world 不依赖 application/persistence 的编译级断言或脚本检查）
-- [ ] T-P6-3 `SaveManager` 单例治理（跟随 service 注入后降级为常规服务）
-- [ ] T-P6-4 文档收尾：术语表、`conductor/tracks.md`（若立项）、设计/计划状态更新、`docs/reviews/` 汇总报告
-- [ ] T-P6-5 全量验证：`ctest -C RelWithDebInfo -L ci` + `-L performance` 全绿 + 手动冒烟全流程
+- [x] T-P6-1 清理旧单例门面：彻底删除 `SharedStash::Get()`/`HeirloomVault::Get()` 历史单例实现与头文件残留
+- [x] T-P6-2 PortalSystem 分层修复 + 分层测试（world 不依赖 application/persistence 的编译级断言或脚本检查）
+- [x] T-P6-3 `SaveManager` 单例治理（跟随 service 注入后降级为常规服务）
+- [x] T-P6-4 文档收尾：术语表、`conductor/tracks.md`（若立项）、设计/计划状态更新、`docs/reviews/` 汇总报告
+- [x] T-P6-5 全量验证：`ctest -C RelWithDebInfo -L ci` + `-L performance` 全绿 + 手动冒烟全流程
 
 **测试**：integration + 手动 + 分层检查脚本。
 **完成定义**：单例删除（grep 无 Get() 残留）；全量 ctest 绿；冒烟证据归档；文档更新完成。
@@ -412,13 +412,13 @@ GameplayState::Update（GameplayState.cpp:675-677）
 
 每个任务 = 适配接口切换 + 该系统既有测试回归 + 代码审查。通用模板：
 
-- [ ] T-P2-3a InventorySystem（move/swap/equip/unequip/pickUp/drop/destroy/organize）
-- [ ] T-P2-3b StashSystem（transfer/deposit/withdraw/sort/search/autoDeposit + 页解锁经济不变）
-- [ ] T-P2-3c SharedStash（putItem/takeItem/toJson/fromJson——toJson 仅供 P4 导入）
-- [ ] T-P2-3d CraftingSystem（目标/材料句柄化，符文镶嵌路径 CraftingSystem.cpp:258-299 保语义）
-- [ ] T-P2-3e SalvageSystem（excludeLocked 依赖 isLocked 字段——P0b 已保）
-- [ ] T-P2-3f RunewordSystem（checkForRuneword 读孔内句柄）
-- [ ] T-P2-3g LootFilter / ItemEquipValidationService
-- [ ] T-P2-3h stats 面：AttributePipeline / EquipmentModifierAdapter / StatsSystem（读 ItemInstance 或经视图，保持平坦遍历合同）
-- [ ] T-P2-3i HeirloomVault（HeirloomData 改 ItemHandle + 元数据）
-- [ ] T-P2-3j MaterialBank（账户模型并入统一容器，Add/Remove/GetCount 语义不变）
+- [x] T-P2-3a InventorySystem（move/swap/equip/unequip/pickUp/drop/destroy/organize）
+- [x] T-P2-3b StashSystem（transfer/deposit/withdraw/sort/search/autoDeposit + 页解锁经济不变）
+- [x] T-P2-3c SharedStash（putItem/takeItem/toJson/fromJson——toJson 仅供 P4 导入）
+- [x] T-P2-3d CraftingSystem（目标/材料句柄化，符文镶嵌路径 CraftingSystem.cpp:258-299 保语义）
+- [x] T-P2-3e SalvageSystem（excludeLocked 依赖 isLocked 字段——P0b 已保）
+- [x] T-P2-3f RunewordSystem（checkForRuneword 读孔内句柄）
+- [x] T-P2-3g LootFilter / ItemEquipValidationService
+- [x] T-P2-3h stats 面：AttributePipeline / EquipmentModifierAdapter / StatsSystem（读 ItemInstance 或经视图，保持平坦遍历合同）
+- [x] T-P2-3i HeirloomVault（HeirloomData 改 ItemHandle + 元数据）
+- [x] T-P2-3j MaterialBank（账户模型并入统一容器，Add/Remove/GetCount 语义不变）

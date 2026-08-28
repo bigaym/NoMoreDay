@@ -1,8 +1,8 @@
 #include "game/systems/world/PortalSystem.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
 #include "core/logging/Logger.hpp"
-#include "game/application/persistence/SaveManager.hpp"
-  #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
   #include "engine/render/GPUUtils.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/MapComponent.hpp"
@@ -139,8 +139,11 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
           }
 
           LOG_INFO("Entering Town - triggering auto-save");
-          if (NoMoreDay::SaveManager::Get().IsInitialized()) {
-            NoMoreDay::SaveManager::Get().saveCharacterAsync(registry, 0);
+          if (registry.ctx().contains<NoMoreDay::SharedContext*>()) {
+            auto* ctx = registry.ctx().get<NoMoreDay::SharedContext*>();
+            if (ctx && ctx->requestSave) {
+              ctx->requestSave(0);
+            }
           }
         }
 

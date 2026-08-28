@@ -144,7 +144,8 @@ TEST_CASE("[Unit][Item][Persistence] - Parity Test: Legacy JSON Output vs New Bi
   stash.tabs[0].items[3] = stashItem1;
 
   // 2. 路径 A: 生成旧版 JSON 快照并序列化为 JSON 文本
-  CharacterSaveData legacyDto = SaveManager::Get().createSnapshot(sourceRegistry);
+  SaveManager smA;
+  CharacterSaveData legacyDto = smA.createSnapshot(sourceRegistry);
   nlohmann::json legacyJson = legacyDto;
   std::string legacyJsonStr = legacyJson.dump();
 
@@ -208,7 +209,7 @@ TEST_CASE("[Unit][Item][Persistence] - Parity Test: Legacy JSON Output vs New Bi
   nlohmann::json parsedJson = nlohmann::json::parse(legacyJsonStr);
   CharacterSaveData fromJsonData = parsedJson.get<CharacterSaveData>();
   entt::registry registryA;
-  SaveManager::Get().restoreFromSnapshot(registryA, fromJsonData, /*restoreItems=*/true);
+  smA.restoreFromSnapshot(registryA, fromJsonData, /*restoreItems=*/true);
 
   // 5. 将 storageService 编码为二进制并解码到 decodedStorage
   std::stringstream binaryStream;
@@ -224,8 +225,9 @@ TEST_CASE("[Unit][Item][Persistence] - Parity Test: Legacy JSON Output vs New Bi
   CharacterSaveData fromBinData = SaveManager::ParseProgressionJson(nlohmann::json::parse(decodedProgPayload));
 
   entt::registry registryB;
-  SaveManager::Get().SetItemStorageService(&decodedStorage);
-  SaveManager::Get().restoreFromSnapshot(registryB, fromBinData, /*restoreItems=*/false);
+  SaveManager smB;
+  smB.SetItemStorageService(&decodedStorage);
+  smB.restoreFromSnapshot(registryB, fromBinData, /*restoreItems=*/false);
 
   // 6. 对拍断言：JSON 恢复结果与二进制解码结果在字段级、槽位级和数据内容上完全对齐
   auto viewA = registryA.view<PlayerTag>();

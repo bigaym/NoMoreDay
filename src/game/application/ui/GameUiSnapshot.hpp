@@ -18,6 +18,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -535,10 +536,42 @@ struct GameUiSnapshotOptions {
   // R7: active stash container type (NoMoreDay::StashType value) so the
   // builder snapshots the correct Personal/Shared tab set.
   std::uint32_t stashType = 0;
-  // R7: stash search query (borrowed controller buffer, valid for the build
-  // call only; empty/null = no search filter). The builder computes the
-  // per-slot matchesSearch flags from it.
-  const char* stashSearchQuery = nullptr;
+  // R7/P5: 拥有固定缓冲的仓库搜索词，消除裸指针借用与 stale 隐患 (High-2)
+  std::array<char, 64> stashSearchQuery{};
+  // P5: 面板可见性指示（门控）：未开启时跳过耗时的遍历与构建 (T-P5-1)
+  bool isStashOpen = false;
+  bool isCraftingOpen = false;
+
+  void SetStashSearchQuery(const char* query) noexcept {
+    stashSearchQuery.fill('\0');
+    if (query != nullptr) {
+      std::strncpy(stashSearchQuery.data(), query, stashSearchQuery.size() - 1);
+    }
+  }
+
+  const char* GetStashSearchQuery() const noexcept {
+    return stashSearchQuery[0] != '\0' ? stashSearchQuery.data() : nullptr;
+  }
+
+  bool operator==(const GameUiSnapshotOptions& other) const noexcept {
+    return hoveredItem == other.hoveredItem &&
+           draggedItem == other.draggedItem &&
+           contextMenuItem == other.contextMenuItem &&
+           forgeTarget == other.forgeTarget &&
+           mergeBase == other.mergeBase &&
+           mergeFodder == other.mergeFodder &&
+           mergeCatalyst == other.mergeCatalyst &&
+           salvageItem == other.salvageItem &&
+           stashActiveTab == other.stashActiveTab &&
+           stashType == other.stashType &&
+           isStashOpen == other.isStashOpen &&
+           isCraftingOpen == other.isCraftingOpen &&
+           stashSearchQuery == other.stashSearchQuery;
+  }
+
+  bool operator!=(const GameUiSnapshotOptions& other) const noexcept {
+    return !(*this == other);
+  }
 };
 
 } // namespace NoMoreDay::ui

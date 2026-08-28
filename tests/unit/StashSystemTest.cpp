@@ -5,6 +5,7 @@
 #include "game/foundation/components/InventoryComponent.hpp"
 #include "game/foundation/components/StashComponent.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/systems/item/SharedStash.hpp"
 
 using namespace NoMoreDay;
@@ -37,7 +38,11 @@ TEST_CASE("[Unit] StashSystem - Basic Transfer") {
 
 TEST_CASE("[Unit] StashSystem - Cross Stash Transfer") {
     entt::registry registry;
-    SharedStash::Get().initialize();
+    SharedStash sharedStash;
+    sharedStash.initialize();
+    SharedContext context;
+    context.sharedStash = &sharedStash;
+    registry.ctx().emplace<SharedContext*>(&context);
     
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
@@ -56,7 +61,7 @@ TEST_CASE("[Unit] StashSystem - Cross Stash Transfer") {
         
     CHECK(result == true);
     CHECK(pStash.tabs[0].items[0] == entt::entity{entt::null});
-    CHECK(SharedStash::Get().getItem(0, 0) == item);
+    CHECK(sharedStash.getItem(0, 0) == item);
 }
 
 TEST_CASE("[Unit] StashSystem - Material Acceptance") {

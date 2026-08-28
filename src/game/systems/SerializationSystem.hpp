@@ -1,6 +1,8 @@
 #pragma once
 
+#include "core/logging/Logger.hpp"
 #include "game/application/persistence/SaveManager.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
@@ -20,18 +22,31 @@ namespace NoMoreDay {
 class SerializationSystem {
 public:
   static bool Update(entt::registry &registry) {
+    auto *ctx = GetSharedContext(registry);
+    SaveManager *sm = ctx ? ctx->saveManager : nullptr;
+    if (!sm) {
+      LOG_ERROR("SerializationSystem: SaveManager instance is missing in SharedContext");
+      return false;
+    }
+
     if (IsKeyPressed(KEY_F5)) {
-      SaveManager::Get().saveCharacterAsync(registry, 0);
+      sm->saveCharacterAsync(registry, 0);
     }
     if (IsKeyPressed(KEY_F8)) {
-      return SaveManager::Get().loadCharacter(registry, 0);
+      return sm->loadCharacter(registry, 0);
     }
     return false;
   }
 
   static void Save(entt::registry &registry, const std::filesystem::path &filepath) {
     (void)filepath;
-    SaveManager::Get().saveCharacterAsync(registry, 0);
+    auto *ctx = GetSharedContext(registry);
+    SaveManager *sm = ctx ? ctx->saveManager : nullptr;
+    if (sm) {
+      sm->saveCharacterAsync(registry, 0);
+    } else {
+      LOG_ERROR("SerializationSystem::Save: SaveManager not found in SharedContext!");
+    }
   }
 
   static void Load(entt::registry &registry, const std::filesystem::path &filepath) {
@@ -66,7 +81,13 @@ public:
     }
 
     // 2. 回退通过 SaveManager 还原
-    SaveManager::Get().loadCharacter(registry, 0);
+    auto *ctx = GetSharedContext(registry);
+    SaveManager *sm = ctx ? ctx->saveManager : nullptr;
+    if (sm) {
+      sm->loadCharacter(registry, 0);
+    } else {
+      LOG_ERROR("SerializationSystem::Load: SaveManager not found in SharedContext!");
+    }
   }
 
   static void DrawUI() {

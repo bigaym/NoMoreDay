@@ -10,11 +10,25 @@
 
 namespace NoMoreDay {
 
+namespace {
+HeirloomVault* GetVaultFromContext(SharedContext* ctx) {
+  if (ctx && ctx->heirloomVault) {
+    return ctx->heirloomVault;
+  }
+  LOG_ERROR("[HeirloomVaultState] SharedContext::heirloomVault is null! Heirloom vault not initialized.");
+  static HeirloomVault s_emptyVault;
+  return &s_emptyVault;
+}
+}
+
 void HeirloomVaultState::OnEnter() {
   LOG_INFO("[HeirloomVaultState] Entering Heirloom Vault...");
 
   // 加载宝库数据
-  HeirloomVault::Get().load();
+  auto* vault = GetVaultFromContext(m_context);
+  if (vault) {
+    vault->load();
+  }
 
   // 重置 UI 状态
   m_hoveredIndex = -1;
@@ -44,15 +58,16 @@ void HeirloomVaultState::handleInput() {
     return;
   }
 
+  auto* vault = GetVaultFromContext(m_context);
+
   // 滚轮滚动
   float wheel = GetMouseWheelMove();
   if (std::abs(wheel) > 0.01f) {
     m_scrollOffset -= wheel * 40.0f;
 
     // 限制滚动范围
-    const auto &vault = HeirloomVault::Get();
     float maxScroll = std::max(
-        0.0f, static_cast<float>(vault.size()) * (kSlotHeight + kSlotPadding) -
+        0.0f, static_cast<float>(vault->size()) * (kSlotHeight + kSlotPadding) -
                   (static_cast<float>(GetScreenHeight()) - kPanelMargin * 2 -
                    100.0f));
 
@@ -64,8 +79,7 @@ void HeirloomVaultState::handleInput() {
     m_selectedIndex--;
   }
   if (IsKeyPressed(KEY_DOWN)) {
-    const auto &vault = HeirloomVault::Get();
-    if (m_selectedIndex < static_cast<int>(vault.size()) - 1) {
+    if (m_selectedIndex < static_cast<int>(vault->size()) - 1) {
       m_selectedIndex++;
     }
   }
@@ -97,7 +111,8 @@ void HeirloomVaultState::handleInput() {
 }
 
 void HeirloomVaultState::OnRender() {
-  const auto &vault = HeirloomVault::Get();
+  auto* vaultPtr = GetVaultFromContext(m_context);
+  const auto &vault = *vaultPtr;
   const float screenW = static_cast<float>(GetScreenWidth());
   const float screenH = static_cast<float>(GetScreenHeight());
 

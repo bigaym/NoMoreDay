@@ -231,23 +231,27 @@ TEST_CASE("[Performance] UiSnapshot - Baseline Build") {
 
   NoMoreDay::ui::GameUiSnapshotBuilder builder;
   NoMoreDay::ui::GameUiSnapshotOptions options;
+  options.isStashOpen = true;
+  options.isCraftingOpen = true;
   if (!sampleItems.empty()) {
     options.hoveredItem = entt::to_integral(sampleItems.front());
   }
 
-  // Warmup runs
+  // Warmup runs (强制 InvalidateCache 以度量全量构建性能)
   for (int i = 0; i < 5; ++i) {
+    builder.InvalidateCache();
     const NoMoreDay::ui::GameUiSnapshot warmSnap =
         builder.Build(registry, options);
     (void)warmSnap;
   }
 
-  // Sampled benchmark runs (100 iterations)
+  // Sampled benchmark runs (100 iterations, 每次冷构建以度量基准开销)
   std::vector<double> samples;
   samples.reserve(100);
 
   std::size_t checksum = 0;
   for (int iter = 0; iter < 100; ++iter) {
+    builder.InvalidateCache();
     ScopedTimer timer(samples);
     const NoMoreDay::ui::GameUiSnapshot snapshot =
         builder.Build(registry, options);
@@ -270,6 +274,67 @@ TEST_CASE("[Performance] UiSnapshot - Baseline Build") {
 
   CHECK(samples.size() == 100);
   CHECK(stats.mean_ms > 0.0);
+  CHECK(stats.mean_ms < 2.0); // 硬断言：全量基线构建平均耗时必须低于 2.0ms 预算
+}
+
+/**
+ * @brief Benchmark for GameUiSnapshotBuilder::Build with version/state unchanged (T-P5-2 cache hit).
+ *
+ * Measures cached container views reuse performance:
+ * - When ItemStore version and options are unchanged, builder reuses cached container views.
+ * - Target overhead: < 0.05ms (near zero per-frame cost).
+ */
+TEST_CASE("[Performance] UiSnapshot - Version Unchanged Cached Build") {
+  TestSetupScope scope;
+  entt::registry registry;
+  entt::entity player = entt::null;
+  std::vector<entt::entity> sampleItems;
+  ui_snapshot_benchmark_detail::SetupUiBenchmarkFixture(registry, player,
+                                                        sampleItems);
+
+  NoMoreDay::ui::GameUiSnapshotBuilder builder;
+  NoMoreDay::ui::GameUiSnapshotOptions options;
+  options.isStashOpen = true;
+  options.isCraftingOpen = true;
+  if (!sampleItems.empty()) {
+    options.hoveredItem = entt::to_integral(sampleItems.front());
+  }
+
+  // Initial build to populate cache
+  const NoMoreDay::ui::GameUiSnapshot initialSnap =
+      builder.Build(registry, options);
+  const std::uint64_t initialRevision = initialSnap.revision;
+
+  // Sampled benchmark runs (100 iterations with state/version unchanged)
+  std::vector<double> samples;
+  samples.reserve(100);
+
+  std::size_t checksum = 0;
+  std::uint64_t lastRev = initialRevision;
+  for (int iter = 0; iter < 100; ++iter) {
+    ScopedTimer timer(samples);
+    const NoMoreDay::ui::GameUiSnapshot snapshot =
+        builder.Build(registry, options);
+    checksum += snapshot.inventory.items.size();
+    checksum += snapshot.equipment.size();
+    checksum += snapshot.stash.tabs.size();
+    checksum += snapshot.pickups.size();
+    checksum += snapshot.displayedItems.size();
+    CHECK(snapshot.revision > lastRev);
+    lastRev = snapshot.revision;
+  }
+
+  CHECK(checksum > 0);
+  const BenchmarkStats stats = CalculateStats(samples);
+  LOG_BENCHMARK("UiSnapshot - Version Unchanged Cached Build (Cache Hit)",
+                stats, "< 0.05ms");
+  LOG_WARN("UiSnapshot Cached Stats: Min={:.4f}ms, Max={:.4f}ms, "
+           "Mean={:.4f}ms, Median={:.4f}ms, P99={:.4f}ms (Samples: {})",
+           stats.min_ms, stats.max_ms, stats.mean_ms, stats.median_ms,
+           stats.p99_ms, samples.size());
+
+  CHECK(samples.size() == 100);
+  CHECK(stats.mean_ms < 0.05); // 硬断言：缓存命中构建平均耗时必须低于 0.05ms 预算
 }
 
 } // namespace NoMoreDay::tests

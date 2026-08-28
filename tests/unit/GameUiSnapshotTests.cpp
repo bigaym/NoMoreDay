@@ -206,9 +206,9 @@ TEST_CASE("[Unit] GameUiSnapshot - inventory view carries indices and bags") {
         static_cast<std::uint8_t>(Rarity::Rare));
   CHECK(snapshot.inventory.items[0].itemLevel == 7);
   CHECK(snapshot.inventory.items[0].textureId == 555);
-  REQUIRE(snapshot.inventory.items[0].affixes.size() == 1);
-  CHECK(snapshot.inventory.items[0].affixes[0].tier == 2);
-  CHECK(snapshot.inventory.items[0].affixes[0].isPrefix);
+  // R6/P5: affixes/implicits moved to on-demand displayedItems (T-P5-3)
+  CHECK(snapshot.inventory.items[0].affixes.empty());
+  CHECK(snapshot.inventory.items[0].implicits.empty());
 
   CHECK(snapshot.inventory.items[1].domainId == entt::to_integral(itemB));
   CHECK(snapshot.inventory.items[1].inventoryIndex == 5);
@@ -247,8 +247,10 @@ TEST_CASE("[Unit] GameUiSnapshot - stash view carries slots and unlock cost") {
   stashItemComp.quantity = 3;
   stash.tabs[0].items[4] = stashItem;
   ui::GameUiSnapshotBuilder builder;
+  ui::GameUiSnapshotOptions options;
+  options.isStashOpen = true;
 
-  const ui::GameUiSnapshot snapshot = builder.Build(registry);
+  const ui::GameUiSnapshot snapshot = builder.Build(registry, options);
 
   REQUIRE(snapshot.stash.tabs.size() == 1);
   const auto& tab = snapshot.stash.tabs[0];
@@ -273,6 +275,7 @@ TEST_CASE("[Unit] GameUiSnapshot - crafting view merges bank and options") {
 
   const entt::entity forgeTarget = AddItemToInventory(registry, player, 9, 0);
   ui::GameUiSnapshotOptions options;
+  options.isCraftingOpen = true;
   options.forgeTarget = entt::to_integral(forgeTarget);
   options.salvageItem = 0xDEAD; // Not resolvable: omitted from displayed items.
   ui::GameUiSnapshotBuilder builder;
@@ -287,10 +290,10 @@ TEST_CASE("[Unit] GameUiSnapshot - crafting view merges bank and options") {
 
   CHECK(snapshot.crafting.forgeTarget == entt::to_integral(forgeTarget));
   CHECK(snapshot.crafting.salvageItem == 0xDEAD);
-  // The forge target resolves through the inventory cache...
+  // The forge target resolves directly via domain ID in O(1)...
   REQUIRE(snapshot.displayedItems.size() == 1);
   CHECK(snapshot.displayedItems[0].domainId == entt::to_integral(forgeTarget));
-  CHECK(snapshot.displayedItems[0].inventoryIndex == 0);
+  CHECK(snapshot.displayedItems[0].itemId == 9);
   // ...while the unresolvable salvage id contributes nothing.
 }
 

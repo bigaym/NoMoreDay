@@ -106,7 +106,11 @@ bool MainMenuState::OnUpdate(float dt) {
         },
         [ctx, levelMgr, levelData](StateManager &mgr) {
           // 1. Restore save data into the world first
-          SaveManager::Get().loadCharacter(*ctx->registry, 0);
+          if (ctx && ctx->saveManager) {
+            ctx->saveManager->loadCharacter(*ctx->registry, 0);
+          } else {
+            LOG_ERROR("MainMenuState: SaveManager not available in SharedContext!");
+          }
           // 2. Activate level (spawns level entities like portals and stashes into the registry)
           levelMgr->activateLevel(std::move(*levelData));
           mgr.ChangeState<GameplayState>(*ctx->renderContext);

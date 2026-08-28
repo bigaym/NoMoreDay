@@ -29,10 +29,35 @@ public:
   GameUiSnapshot Build(const Registry& registry,
                        const GameUiSnapshotOptions& options = {});
 
+  // 重置内部容器与版本缓存（用于场景切换或测试重置）
+  void InvalidateCache() noexcept {
+    m_hasContainerCache = false;
+    m_lastItemStoreVersion = 0;
+    m_lastPlayerDomainId = 0;
+    m_lastPlayerGold = 0;
+    m_lastInventoryUsed = 0;
+    m_lastUnlockedTabs = 0;
+    m_lastOptions = {};
+  }
+
 private:
   // Monotonically increasing frame revision; bumped on every Build. The UI
   // uses it to detect "this frame produced no gameplay change".
   std::uint64_t m_revision = 0;
+
+  // 容器视图增量缓存 (T-P5-2: 纯容器轨道增量缓存，绝不阻塞每帧动态 HUD/冷却/Buff 更新)
+  bool m_hasContainerCache = false;
+  std::uint64_t m_lastItemStoreVersion = 0;
+  std::uint64_t m_lastPlayerDomainId = 0;
+  std::int32_t m_lastPlayerGold = 0;
+  std::int32_t m_lastInventoryUsed = 0;
+  int m_lastUnlockedTabs = 0;
+  GameUiSnapshotOptions m_lastOptions{};
+
+  GameUiInventoryView m_cachedInventory{};
+  std::vector<GameUiEquippedSlotView> m_cachedEquipment{};
+  GameUiStashView m_cachedStash{};
+  std::vector<GameUiMaterialView> m_cachedMaterials{};
 };
 
 } // namespace NoMoreDay::ui

@@ -168,14 +168,15 @@ TEST_CASE("[Performance] SaveManager - createSnapshot (1000 items)") {
   ItemTemplateRegistry::Instance().initializeDefaults();
   ItemStorageService service;
   save_manager_benchmark_detail::SetupService1000Items(service);
-  SaveManager::Get().SetItemStorageService(&service);
+  SaveManager sm;
+  sm.SetItemStorageService(&service);
 
   entt::registry registry;
   save_manager_benchmark_detail::SetupPlayerSnapshotFixture(registry, 1000);
 
   // Warmup
   for (int i = 0; i < 5; ++i) {
-    auto warmData = SaveManager::Get().createSnapshot(registry);
+    auto warmData = sm.createSnapshot(registry);
     (void)warmData;
   }
 
@@ -184,7 +185,7 @@ TEST_CASE("[Performance] SaveManager - createSnapshot (1000 items)") {
   size_t sink = 0;
   for (int i = 0; i < 50; ++i) {
     ScopedTimer timer(samples);
-    CharacterSaveData data = SaveManager::Get().createSnapshot(registry);
+    CharacterSaveData data = sm.createSnapshot(registry);
     sink += data.inventory.size();
     sink += data.equipment.size();
     if (data.personalStash.has_value()) {
@@ -207,12 +208,13 @@ TEST_CASE("[Performance] SaveManager - restoreFromSnapshot (1000 items)") {
   entt::registry sourceRegistry;
   save_manager_benchmark_detail::SetupPlayerSnapshotFixture(sourceRegistry, 1000);
 
-  const CharacterSaveData snapshot = SaveManager::Get().createSnapshot(sourceRegistry);
+  SaveManager sm;
+  const CharacterSaveData snapshot = sm.createSnapshot(sourceRegistry);
 
   // Warmup
   for (int i = 0; i < 3; ++i) {
     entt::registry warmRegistry;
-    SaveManager::Get().restoreFromSnapshot(warmRegistry, snapshot);
+    sm.restoreFromSnapshot(warmRegistry, snapshot);
   }
 
   std::vector<double> samples;
@@ -221,7 +223,7 @@ TEST_CASE("[Performance] SaveManager - restoreFromSnapshot (1000 items)") {
   for (int i = 0; i < 40; ++i) {
     entt::registry restoreRegistry;
     ScopedTimer timer(samples);
-    SaveManager::Get().restoreFromSnapshot(restoreRegistry, snapshot);
+    sm.restoreFromSnapshot(restoreRegistry, snapshot);
     size_t localPlayers = 0;
     auto players = restoreRegistry.view<PlayerTag>();
     for (entt::entity e : players) {

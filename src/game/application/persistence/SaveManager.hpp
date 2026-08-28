@@ -15,10 +15,7 @@ namespace NoMoreDay {
  */
 class SaveManager {
 public:
-  static SaveManager &Get() {
-    static SaveManager instance;
-    return instance;
-  }
+  SaveManager() = default;
 
   void Initialize(tf::Executor *executor, ItemStorageService *itemStorage = nullptr) {
     m_executor = executor;
@@ -69,7 +66,6 @@ public:
   std::future<bool> saveGlobalAsync(entt::registry &registry);
 
 private:
-  SaveManager() = default;
   tf::Executor *m_executor = nullptr;
   ItemStorageService *m_itemStorage = nullptr;
   std::atomic<bool> m_isSaving{false};

@@ -280,15 +280,11 @@ TEST_CASE("[Unit] ItemMigration - Token Validation and Failure Detection") {
 
 TEST_CASE("[Unit] SharedStash - Suspend Preserves Items Across Registry Clear") {
   entt::registry reg;
-  auto &stash = SharedStash::Get();
+  SharedStash stash;
   stash.initialize();
   REQUIRE(stash.getUnlockedTabCount() >= 1);
 
   constexpr int kLastSlot = StashTab::CAPACITY - 1;
-
-  // 单例状态可能在测试用例间泄漏: 先清理目标槽位
-  (void)stash.takeItem(0, 0);
-  (void)stash.takeItem(0, kLastSlot);
 
   // 真实的物品实体，以便 suspend/resume 路径演练完整的
   // 序列化 -> registry.clear() -> 恢复往返过程。
@@ -343,8 +339,4 @@ TEST_CASE("[Unit] SharedStash - Suspend Preserves Items Across Registry Clear") 
   CHECK(restoredPotion.name == "SuspendTest Potion");
   CHECK(restoredPotion.type == ItemType::Consumable);
   CHECK(restoredPotion.quantity == 25);
-
-  // 清理单例以使后续测试用例从空槽位开始
-  (void)stash.takeItem(0, 0);
-  (void)stash.takeItem(0, kLastSlot);
 }

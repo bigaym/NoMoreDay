@@ -11,6 +11,9 @@ class LevelManager;
 namespace NoMoreDay {
 class SceneManager;
 class ItemStorageService;
+class SaveManager;
+class HeirloomVault;
+class SharedStash;
 }
 
 namespace NoMoreDay {
@@ -33,6 +36,9 @@ struct SharedContext {
   tf::Executor *executor = nullptr;
   GameSettings *settings = nullptr;
   ItemStorageService *itemStorage = nullptr;
+  SaveManager *saveManager = nullptr;
+  SharedStash *sharedStash = nullptr;
+  HeirloomVault *heirloomVault = nullptr;
   systems::SpatialHashGrid *spatialGrid = nullptr;
   float renderAlpha = 0.0f; // Interpolation factor [0, 1) for smooth rendering
                             // between physics frames
@@ -43,6 +49,8 @@ struct SharedContext {
   // UI composition root owned by the application. Injected by Game so states
   // (e.g. GameplayState) can borrow it without constructing their own host.
   ui::GameUiHost *uiHost = nullptr;
+  // 切图或触发自动存档的回调请求 (slotIndex 默认为 0)
+  std::function<void(int slot)> requestSave;
   // U7 group 3: cross-layer crafting entry points. InventorySystem (Legendary
   // Core use) and UIRenderer (context-menu craft) live below the UI layer, so
   // they route through these callbacks instead of the legacy static
@@ -64,5 +72,22 @@ struct SharedContext {
   std::function<void(const char* text)> showMessageBox;
   // Window* window; // Raylib uses global state mostly, add if wrapper exists
 };
+
+/**
+ * @brief 从 ECS 注册表上下文中获取 SharedContext 指针的统一访问器。
+ */
+inline SharedContext* GetSharedContext(entt::registry& registry) noexcept {
+  if (registry.ctx().contains<SharedContext*>()) {
+    return registry.ctx().get<SharedContext*>();
+  }
+  return nullptr;
+}
+
+inline const SharedContext* GetSharedContext(const entt::registry& registry) noexcept {
+  if (registry.ctx().contains<SharedContext*>()) {
+    return registry.ctx().get<SharedContext*>();
+  }
+  return nullptr;
+}
 
 } // namespace NoMoreDay

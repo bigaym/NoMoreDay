@@ -28,10 +28,8 @@ struct TestSetupScope {
     CombatTelemetry::Get().ResetForTests();
     CombatTelemetry::Get().SetRuntimeEnabled(false);
     StatsSystem::Reset(); // Clear static cache from previous tests
-    SaveManager::Get().SetItemStorageService(nullptr);
   }
   ~TestSetupScope() {
-    SaveManager::Get().SetItemStorageService(nullptr);
     ProcBudgetManager::Get().ResetForTests();
     CombatTelemetry::Get().ResetForTests();
     CombatTelemetry::Get().SetRuntimeEnabled(false);

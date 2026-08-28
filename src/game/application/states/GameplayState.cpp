@@ -703,10 +703,20 @@ m_uiHost->InputCapture();
 
   // Serialization (F5/F8 快捷键重定向到 SaveManager)
   if (IsKeyPressed(KEY_F5)) {
-    SaveManager::Get().saveCharacterAsync(registry, 0);
+    if (m_context && m_context->saveManager) {
+      m_context->saveManager->saveCharacterAsync(registry, 0);
+    } else {
+      LOG_ERROR("GameplayState: SaveManager not available in SharedContext!");
+    }
   }
   if (IsKeyPressed(KEY_F8)) {
-    if (SaveManager::Get().loadCharacter(registry, 0)) {
+    bool loaded = false;
+    if (m_context && m_context->saveManager) {
+      loaded = m_context->saveManager->loadCharacter(registry, 0);
+    } else {
+      LOG_ERROR("GameplayState: SaveManager not available in SharedContext!");
+    }
+    if (loaded) {
       // Reload sprites logic
       auto view = registry.view<TextureIDComponent>();
       for (auto entity : view) {

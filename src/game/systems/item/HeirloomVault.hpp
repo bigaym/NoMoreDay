@@ -60,15 +60,11 @@ inline void from_json(const nlohmann::json &j, HeirloomData &h) {
           50, h.heirloom.original_level_requirement);
 }
 
-/// @brief 传家宝宝库管理器 (Singleton)
+/// @brief 传家宝宝库管理器
 /// @details 管理跨存档的传家宝持久化存储
 class HeirloomVault {
 public:
-  /// 获取单例实例
-  [[nodiscard]] static HeirloomVault &Get() {
-    static HeirloomVault instance;
-    return instance;
-  }
+  HeirloomVault() = default;
 
   /// 最大传家宝数量
   static constexpr size_t kMaxHeirlooms = 20;
@@ -224,8 +220,6 @@ public:
   }
 
 private:
-  HeirloomVault() = default;
-
   /// 根据稀有度计算传家宝等级
   [[nodiscard]] static uint8_t calculateTier(Rarity rarity) noexcept {
     switch (rarity) {

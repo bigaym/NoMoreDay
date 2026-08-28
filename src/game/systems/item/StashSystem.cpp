@@ -1,4 +1,5 @@
 #include "StashSystem.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/systems/item/SharedStash.hpp"
 #include "game/systems/item/StashConfig.hpp"
 #include "game/foundation/components/Common.hpp"
@@ -10,6 +11,27 @@
 namespace NoMoreDay {
 
 using namespace Constants;
+
+namespace {
+SharedStash* GetSharedStashFromRegistry(entt::registry& registry) {
+    if (auto* ctx = GetSharedContext(registry)) {
+        if (ctx->sharedStash) {
+            return ctx->sharedStash;
+        }
+    }
+    LOG_WARN("StashSystem: SharedContext::sharedStash not found in registry!");
+    return nullptr;
+}
+
+const SharedStash* GetSharedStashFromRegistry(const entt::registry& registry) {
+    if (const auto* ctx = GetSharedContext(registry)) {
+        if (ctx->sharedStash) {
+            return ctx->sharedStash;
+        }
+    }
+    return nullptr;
+}
+}
 
 void StashSystem::Update(entt::registry& registry) {
     // Phase 4: Handle input? Or just logic?
@@ -26,7 +48,8 @@ PersonalStashComponent* StashSystem::getPersonalStash(entt::registry& registry) 
 
 StashTab* StashSystem::getTab(entt::registry& registry, StashType type, int tabIndex) {
     if (type == StashType::Shared) {
-        return SharedStash::Get().getTab(tabIndex);
+        auto* stash = GetSharedStashFromRegistry(registry);
+        return stash ? stash->getTab(tabIndex) : nullptr;
     } else {
         auto* stash = getPersonalStash(registry);
         if (!stash || tabIndex < 0 || tabIndex >= stash->unlockedTabs) return nullptr;
@@ -36,7 +59,8 @@ StashTab* StashSystem::getTab(entt::registry& registry, StashType type, int tabI
 
 int StashSystem::getUnlockedTabCount(entt::registry& registry, StashType type) {
     if (type == StashType::Shared) {
-        return SharedStash::Get().getUnlockedTabCount();
+        auto* stash = GetSharedStashFromRegistry(registry);
+        return stash ? stash->getUnlockedTabCount() : 0;
     } else {
         auto* stash = getPersonalStash(registry);
         return stash ? stash->unlockedTabs : 0;
@@ -49,11 +73,12 @@ int StashSystem::getNextUnlockCost(entt::registry& registry, StashType type) {
 }
 
 // Const-correct query overloads (R7: the snapshot builder reads the registry
-// read-only through these; SharedStash is a singleton, the personal stash is
+// read-only through these; SharedStash is accessed via SharedContext, the personal stash is
 // resolved via a const view).
 int StashSystem::getUnlockedTabCount(const entt::registry& registry, StashType type) {
     if (type == StashType::Shared) {
-        return SharedStash::Get().getUnlockedTabCount();
+        const auto* stash = GetSharedStashFromRegistry(registry);
+        return stash ? stash->getUnlockedTabCount() : 0;
     } else {
         const auto view =
             registry.template view<const PersonalStashComponent, const PlayerTag>();
@@ -283,11 +308,10 @@ bool StashSystem::unlockTab(entt::registry& registry, StashType type) {
     
     bool success = false;
     if (type == StashType::Shared) {
-        success = SharedStash::Get().unlockNextTab(inv.gold);
-        // SharedStash deducts gold inside if we pass ref, but wait.
-        // SharedStash::unlockNextTab(int& playerGold) implementation:
-        // if (playerGold < cost) return false; playerGold -= cost;
-        // Yes, it updates inv.gold.
+        auto* stash = GetSharedStashFromRegistry(registry);
+        if (stash) {
+            success = stash->unlockNextTab(inv.gold);
+        }
     } else {
         auto* stash = getPersonalStash(registry);
         if (!stash) return false;

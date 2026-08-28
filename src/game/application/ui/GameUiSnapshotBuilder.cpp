@@ -12,6 +12,7 @@
 #include <unordered_set>
 #include <utility>
 
+#include "game/foundation/SharedContext.hpp"
 #include "game/foundation/components/AIComponent.hpp" // EnemyTag
 #include "game/foundation/components/Buff.hpp"         // ActiveEffectsComponent
 #include "game/foundation/components/Common.hpp"       // PlayerTag, HealthComponent, Position
@@ -35,6 +36,7 @@
 #include "game/foundation/data/SkillRegistry.hpp"    // read-side skill table
 #include "game/systems/item/SharedStash.hpp" // Shared stash tab source (R7)
 #include "game/systems/item/StashSystem.hpp" // nextUnlockCost authority (R7)
+#include "game/systems/item/storage/ItemStorageService.hpp" // ItemStore version authority (P5)
 #include "game/systems/skill/BladeMasteryService.hpp" // mastery unlock state (R8)
 #include "game/systems/skill/SkillSystem.hpp" // mutual-keystone exclusions (R8)
 #include "game/systems/world/EnemyConstants.hpp" // NEXT_LEVEL_PORTAL_KILL_REQUIREMENT
@@ -111,6 +113,8 @@ GameUiAffixView ToAffixView(const NoMoreDay::Affix& affix) {
 
 // Read-only item display data. inventoryIndex/bagSlotIndex describe the
 // placement inside the player inventory (-1 when not in it).
+// P5 (T-P5-3): 常规列表去 affix 拷贝，affixes 与 implicits 保持为空，
+// 仅填充标量与 sockets 数组，避免每帧产生 vector 内存分配。
 GameUiItemView ToItemView(const entt::registry& registry,
                           entt::entity entity, int inventoryIndex,
                           int bagSlotIndex) {
@@ -146,22 +150,14 @@ GameUiItemView ToItemView(const entt::registry& registry,
   view.legendaryPotential = item->legendaryPotential;
   view.isLocked = item->isLocked;
   view.isTwoHanded = item->isTwoHanded;
-  view.affixes.reserve(item->affixes.size());
-  for (const auto& affix : item->affixes) {
-    view.affixes.push_back(ToAffixView(affix));
-  }
-  view.implicits.reserve(item->implicits.size());
-  for (const auto& affix : item->implicits) {
-    view.implicits.push_back(ToAffixView(affix));
-  }
+  // affixes 和 implicits 保持为空，按需由 FillTooltipData 填充
   return view;
 }
 
-// R8: fills the tooltip payload of a displayed-items view (name, description,
-// stat rows and filled-socket rune names). Only invoked for the bounded
-// displayed-items cache (hover/drag/context/crafting targets), never for the
-// per-frame inventory/stash item lists (design §3.2: names are not
-// duplicated per item).
+// R8 & P5: fills the tooltip payload of a displayed-items view (name, description,
+// stat rows, filled-socket rune names, affixes, implicits). Only invoked for
+// the bounded displayed-items cache (hover/drag/context/crafting targets),
+// never for the per-frame inventory/stash item lists (design §3.2).
 void FillTooltipData(const entt::registry& registry, GameUiItemView& view) {
   const auto* item = registry.try_get<const NoMoreDay::ItemComponent>(
       ToEntity(view.domainId));
@@ -189,6 +185,17 @@ void FillTooltipData(const entt::registry& registry, GameUiItemView& view) {
     std::memcpy(name.data(), runeComp->name.data(), n);
     name[n] = '\0';
   }
+  // P5: 按需为 displayedItems 填充词缀列表
+  view.affixes.clear();
+  view.affixes.reserve(item->affixes.size());
+  for (const auto& affix : item->affixes) {
+    view.affixes.push_back(ToAffixView(affix));
+  }
+  view.implicits.clear();
+  view.implicits.reserve(item->implicits.size());
+  for (const auto& affix : item->implicits) {
+    view.implicits.push_back(ToAffixView(affix));
+  }
 }
 
 } // namespace
@@ -197,16 +204,18 @@ template <typename Registry>
 GameUiSnapshot GameUiSnapshotBuilder::Build(
     const Registry& registry, const GameUiSnapshotOptions& options) {
   ZoneScopedN("GameUiSnapshotBuilder::Build");
+
   GameUiSnapshot snapshot;
   snapshot.revision = ++m_revision;
+
+  const auto playerView = registry.template view<const PlayerTag>();
+  const bool hasPlayer = playerView.begin() != playerView.end();
 
   float playerX = 0.0f;
   float playerY = 0.0f;
   bool hasPlayerPosition = false;
 
   // --- Player + character stats ------------------------------------------
-  const auto playerView = registry.template view<const PlayerTag>();
-  const bool hasPlayer = playerView.begin() != playerView.end();
   if (hasPlayer) {
     const entt::entity player = playerView.front();
     GameUiPlayerSnapshot& playerSnap = snapshot.player;
@@ -411,162 +420,242 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
     }
   }
 
-  // --- Inventory / equipment / stash / crafting / skill / astrolabe views --
-  std::unordered_map<std::uint64_t, GameUiItemView> inventoryById;
-  std::unordered_map<std::uint64_t, GameUiItemView> equipmentById;
+  // --- Inventory / equipment / stash / crafting views (T-P5-2: 容器视图缓存复用) --
   if (hasPlayer) {
     const entt::entity player = playerView.front();
+    const std::uint64_t playerDomainId = ToDomainId(player);
+
+    std::uint64_t currentItemVersion = 0;
+    bool hasItemStore = false;
+    if constexpr (requires { registry.ctx(); }) {
+      if (const auto* ctx = GetSharedContext(registry)) {
+        if (ctx->itemStorage) {
+          currentItemVersion = ctx->itemStorage->version();
+          hasItemStore = true;
+        }
+      }
+    }
+
+    std::int32_t currentGold = 0;
+    std::int32_t currentInventoryUsed = 0;
     if (const auto* inventory =
-            registry.template try_get<const NoMoreDay::InventoryComponent>(
-                player)) {
-      GameUiInventoryView& inv = snapshot.inventory;
-      inv.capacity = inventory->capacity;
-      inv.used = CountUsedSlots(*inventory);
-      inv.gold = inventory->gold;
-      for (std::size_t i = 0; i < inventory->items.size(); ++i) {
-        if (inventory->items[i] == entt::null) {
-          continue;
-        }
-        GameUiItemView view =
-            ToItemView(registry, inventory->items[i], static_cast<int>(i), -1);
-        inv.items.push_back(view);
-        inventoryById.emplace(view.domainId, std::move(view));
-      }
-      for (std::size_t i = 0; i < inventory->bag_slots.size(); ++i) {
-        GameUiBagSlotView slotView;
-        slotView.domainId = ToDomainId(inventory->bag_slots[i]);
-        if (inventory->bag_slots[i] != entt::null) {
-          if (const auto* item = registry.template try_get<
-                  const NoMoreDay::ItemComponent>(inventory->bag_slots[i])) {
-            slotView.itemId = item->id;
-            slotView.textureId = static_cast<std::uint32_t>(item->textureId);
-            slotView.rarity = static_cast<std::uint8_t>(item->rarity);
-            slotView.quantity = static_cast<std::uint32_t>(
-                std::max(0, item->quantity));
-          }
-        }
-        inv.bagSlots[i] = slotView;
-      }
+            registry.template try_get<const NoMoreDay::InventoryComponent>(player)) {
+      currentGold = inventory->gold;
+      currentInventoryUsed = CountUsedSlots(*inventory);
     }
 
-    if (const auto* equipment =
-            registry.template try_get<const NoMoreDay::EquipmentComponent>(
-                player)) {
-      snapshot.equipment.reserve(equipment->slots.size());
-      for (std::size_t i = 0; i < equipment->slots.size(); ++i) {
-        if (equipment->slots[i] == entt::null) {
-          continue;
-        }
-        GameUiEquippedSlotView slotView;
-        slotView.slotIndex = static_cast<std::uint8_t>(i);
-        slotView.domainId = ToDomainId(equipment->slots[i]);
-        // R6: display data for the snapshot-driven paint path.
-        if (const auto* item = registry.template try_get<
-                const NoMoreDay::ItemComponent>(equipment->slots[i])) {
-          slotView.itemId = item->id;
-          slotView.textureId = static_cast<std::uint32_t>(item->textureId);
-          slotView.rarity = static_cast<std::uint8_t>(item->rarity);
-          slotView.quantity =
-              static_cast<std::uint32_t>(std::max(0, item->quantity));
-          slotView.itemType = static_cast<std::uint8_t>(item->type);
-          slotView.isLocked = item->isLocked;
-          slotView.socketCount = static_cast<std::uint8_t>(
-              std::max(0, std::min(255, item->socketCount)));
-          // R6: socket contents for the SocketRune intent (mirrors
-          // GameUiItemView::sockets; 0 = free socket).
-          for (std::size_t s = 0;
-               s < slotView.sockets.size() && s < item->sockets.size(); ++s) {
-            slotView.sockets[s] = static_cast<std::uint32_t>(
-                entt::to_integral(item->sockets[s]));
-          }
-        }
-        snapshot.equipment.push_back(slotView);
-
-        GameUiItemView view = ToItemView(registry, equipment->slots[i], -1, -1);
-        equipmentById.emplace(view.domainId, std::move(view));
-      }
-    }
-
-    // --- Stash view (R7: Personal/Shared type-aware; nextUnlockCost unified
-    // through StashSystem; per-slot matchesSearch from the UI search query).
-    {
+    int currentUnlockedTabs = 0;
+    if (options.isStashOpen) {
       const NoMoreDay::StashType stashType =
           static_cast<NoMoreDay::StashType>(options.stashType);
-      GameUiStashView& stashView = snapshot.stash;
-      const auto fillTab = [&](const NoMoreDay::StashTab& tab,
-                               std::size_t tabIndex) {
-        (void)tabIndex;
-        GameUiStashTabView tabView;
-        tabView.tabType = static_cast<std::uint8_t>(tab.type);
-        tabView.iconId = tab.iconId;
-        tabView.color = tab.color;
-        // R7: bounded name cache (design §3.2: no std::string in the snapshot).
-        const std::size_t nameLen = std::min<std::size_t>(
-            tab.name.size(), tabView.name.size() - 1);
-        std::memcpy(tabView.name.data(), tab.name.data(), nameLen);
-        tabView.name[static_cast<std::size_t>(nameLen)] = '\0';
-        for (std::size_t i = 0; i < tab.items.size(); ++i) {
-          if (tab.items[i] == entt::null) {
+      if (stashType == NoMoreDay::StashType::Shared) {
+        if constexpr (requires { registry.ctx(); }) {
+          if (const auto* ctx = GetSharedContext(registry)) {
+            if (ctx->sharedStash) {
+              currentUnlockedTabs = ctx->sharedStash->getUnlockedTabCount();
+            }
+          }
+        }
+      } else if (const auto* stash = registry.template try_get<
+                     const PersonalStashComponent>(player)) {
+        currentUnlockedTabs = stash->unlockedTabs;
+      }
+    }
+
+    bool isContainerCacheValid = m_hasContainerCache &&
+        (playerDomainId == m_lastPlayerDomainId) &&
+        (currentGold == m_lastPlayerGold) &&
+        (currentUnlockedTabs == m_lastUnlockedTabs) &&
+        (options.isStashOpen == m_lastOptions.isStashOpen) &&
+        (options.isCraftingOpen == m_lastOptions.isCraftingOpen) &&
+        (options.stashActiveTab == m_lastOptions.stashActiveTab) &&
+        (options.stashType == m_lastOptions.stashType) &&
+        (options.stashSearchQuery == m_lastOptions.stashSearchQuery);
+
+    if (isContainerCacheValid) {
+      if (hasItemStore) {
+        if (currentItemVersion != m_lastItemStoreVersion) {
+          isContainerCacheValid = false;
+        }
+      } else {
+        if (currentInventoryUsed != m_lastInventoryUsed) {
+          isContainerCacheValid = false;
+        }
+      }
+    }
+
+    if (isContainerCacheValid) {
+      snapshot.inventory = m_cachedInventory;
+      snapshot.equipment = m_cachedEquipment;
+      snapshot.stash = m_cachedStash;
+      snapshot.crafting.materials = m_cachedMaterials;
+    } else {
+      // Rebuild inventory
+      if (const auto* inventory =
+              registry.template try_get<const NoMoreDay::InventoryComponent>(player)) {
+        GameUiInventoryView& inv = snapshot.inventory;
+        inv.capacity = inventory->capacity;
+        inv.used = CountUsedSlots(*inventory);
+        inv.gold = inventory->gold;
+        for (std::size_t i = 0; i < inventory->items.size(); ++i) {
+          if (inventory->items[i] == entt::null) {
             continue;
           }
-          GameUiStashSlotView slotView;
-          slotView.slotIndex = static_cast<int>(i);
-          slotView.domainId = ToDomainId(tab.items[i]);
-          if (const auto* item =
-                  registry.template try_get<const NoMoreDay::ItemComponent>(
-                      tab.items[i])) {
+          GameUiItemView view =
+              ToItemView(registry, inventory->items[i], static_cast<int>(i), -1);
+          inv.items.push_back(std::move(view));
+        }
+        for (std::size_t i = 0; i < inventory->bag_slots.size(); ++i) {
+          GameUiBagSlotView slotView;
+          slotView.domainId = ToDomainId(inventory->bag_slots[i]);
+          if (inventory->bag_slots[i] != entt::null) {
+            if (const auto* item = registry.template try_get<
+                    const NoMoreDay::ItemComponent>(inventory->bag_slots[i])) {
+              slotView.itemId = item->id;
+              slotView.textureId = static_cast<std::uint32_t>(item->textureId);
+              slotView.rarity = static_cast<std::uint8_t>(item->rarity);
+              slotView.quantity = static_cast<std::uint32_t>(
+                  std::max(0, item->quantity));
+            }
+          }
+          inv.bagSlots[i] = slotView;
+        }
+      }
+
+      // Rebuild equipment
+      if (const auto* equipment =
+              registry.template try_get<const NoMoreDay::EquipmentComponent>(player)) {
+        snapshot.equipment.reserve(equipment->slots.size());
+        for (std::size_t i = 0; i < equipment->slots.size(); ++i) {
+          if (equipment->slots[i] == entt::null) {
+            continue;
+          }
+          GameUiEquippedSlotView slotView;
+          slotView.slotIndex = static_cast<std::uint8_t>(i);
+          slotView.domainId = ToDomainId(equipment->slots[i]);
+          if (const auto* item = registry.template try_get<
+                  const NoMoreDay::ItemComponent>(equipment->slots[i])) {
+            slotView.itemId = item->id;
             slotView.textureId = static_cast<std::uint32_t>(item->textureId);
             slotView.rarity = static_cast<std::uint8_t>(item->rarity);
             slotView.quantity =
                 static_cast<std::uint32_t>(std::max(0, item->quantity));
-            // R7: search dimming computed here (builder-owned; the controller
-            // keeps only the query buffer, never the registry/name data).
-            slotView.matchesSearch =
-                options.stashSearchQuery == nullptr ||
-                options.stashSearchQuery[0] == '\0' ||
-                ContainsIgnoreCase(item->name.c_str(),
-                                   options.stashSearchQuery);
+            slotView.itemType = static_cast<std::uint8_t>(item->type);
+            slotView.isLocked = item->isLocked;
+            slotView.socketCount = static_cast<std::uint8_t>(
+                std::max(0, std::min(255, item->socketCount)));
+            for (std::size_t s = 0;
+                 s < slotView.sockets.size() && s < item->sockets.size(); ++s) {
+              slotView.sockets[s] = static_cast<std::uint32_t>(
+                  entt::to_integral(item->sockets[s]));
+            }
           }
-          tabView.slots.push_back(slotView);
+          snapshot.equipment.push_back(slotView);
         }
-        stashView.tabs.push_back(std::move(tabView));
-      };
-
-      if (stashType == NoMoreDay::StashType::Shared) {
-        NoMoreDay::SharedStash& shared = NoMoreDay::SharedStash::Get();
-        const int unlocked = shared.getUnlockedTabCount();
-        stashView.tabs.reserve(static_cast<std::size_t>(unlocked));
-        for (int i = 0; i < unlocked; ++i) {
-          if (const NoMoreDay::StashTab* tab = shared.getTab(i)) {
-            fillTab(*tab, static_cast<std::size_t>(i));
-          }
-        }
-        stashView.unlockedTabs = unlocked;
-      } else if (const auto* stash = registry.template try_get<
-                     const PersonalStashComponent>(player)) {
-        stashView.tabs.reserve(stash->tabs.size());
-        for (std::size_t i = 0; i < stash->tabs.size(); ++i) {
-          fillTab(stash->tabs[i], i);
-        }
-        stashView.unlockedTabs = stash->unlockedTabs;
       }
-      // R7: single unlock-cost authority (StashSystem::getNextUnlockCost
-      // delegates to the StashConfig table internally; the builder no longer
-      // reads the constant table directly).
-      stashView.nextUnlockCost =
-          NoMoreDay::StashSystem::getNextUnlockCost(registry, stashType);
+
+      // Rebuild stash (if isStashOpen)
+      if (options.isStashOpen) {
+        const NoMoreDay::StashType stashType =
+            static_cast<NoMoreDay::StashType>(options.stashType);
+        GameUiStashView& stashView = snapshot.stash;
+        const char* queryStr = options.GetStashSearchQuery();
+        const auto fillTab = [&](const NoMoreDay::StashTab& tab,
+                                 std::size_t tabIndex) {
+          (void)tabIndex;
+          GameUiStashTabView tabView;
+          tabView.tabType = static_cast<std::uint8_t>(tab.type);
+          tabView.iconId = tab.iconId;
+          tabView.color = tab.color;
+          const std::size_t nameLen = std::min<std::size_t>(
+              tab.name.size(), tabView.name.size() - 1);
+          std::memcpy(tabView.name.data(), tab.name.data(), nameLen);
+          tabView.name[static_cast<std::size_t>(nameLen)] = '\0';
+          for (std::size_t i = 0; i < tab.items.size(); ++i) {
+            if (tab.items[i] == entt::null) {
+              continue;
+            }
+            GameUiStashSlotView slotView;
+            slotView.slotIndex = static_cast<int>(i);
+            slotView.domainId = ToDomainId(tab.items[i]);
+            if (const auto* item =
+                    registry.template try_get<const NoMoreDay::ItemComponent>(
+                        tab.items[i])) {
+              slotView.textureId = static_cast<std::uint32_t>(item->textureId);
+              slotView.rarity = static_cast<std::uint8_t>(item->rarity);
+              slotView.quantity =
+                  static_cast<std::uint32_t>(std::max(0, item->quantity));
+              slotView.matchesSearch =
+                  queryStr == nullptr ||
+                  queryStr[0] == '\0' ||
+                  ContainsIgnoreCase(item->name.c_str(), queryStr);
+            }
+            tabView.slots.push_back(slotView);
+          }
+          stashView.tabs.push_back(std::move(tabView));
+        };
+
+        if (stashType == NoMoreDay::StashType::Shared) {
+          const NoMoreDay::SharedStash* shared = nullptr;
+          if constexpr (requires { registry.ctx(); }) {
+            if (const auto* ctx = GetSharedContext(registry)) {
+              shared = ctx->sharedStash;
+            }
+          }
+          if (shared != nullptr) {
+            const int unlocked = shared->getUnlockedTabCount();
+            stashView.tabs.reserve(static_cast<std::size_t>(unlocked));
+            for (int i = 0; i < unlocked; ++i) {
+              if (const NoMoreDay::StashTab* tab = shared->getTab(i)) {
+                fillTab(*tab, static_cast<std::size_t>(i));
+              }
+            }
+            stashView.unlockedTabs = unlocked;
+          }
+        } else if (const auto* stash = registry.template try_get<
+                       const PersonalStashComponent>(player)) {
+          const std::size_t unlocked = std::min<std::size_t>(
+              static_cast<std::size_t>(std::max(0, stash->unlockedTabs)),
+              stash->tabs.size());
+          stashView.tabs.reserve(unlocked);
+          for (std::size_t i = 0; i < unlocked; ++i) {
+            fillTab(stash->tabs[i], i);
+          }
+          stashView.unlockedTabs = stash->unlockedTabs;
+        }
+        stashView.nextUnlockCost =
+            NoMoreDay::StashSystem::getNextUnlockCost(registry, stashType);
+      }
+
+      // Rebuild materials bank (if isCraftingOpen)
+      if (options.isCraftingOpen) {
+        if (const auto* materials =
+                registry.template try_get<const MaterialBankComponent>(player)) {
+          snapshot.crafting.materials.reserve(materials->materials.size());
+          for (const auto& entry : materials->materials) {
+            GameUiMaterialView view;
+            view.materialId = entry.id;
+            view.count = static_cast<std::uint32_t>(std::max(0, entry.count));
+            snapshot.crafting.materials.push_back(view);
+          }
+        }
+      }
+
+      // 存入缓存
+      m_cachedInventory = snapshot.inventory;
+      m_cachedEquipment = snapshot.equipment;
+      m_cachedStash = snapshot.stash;
+      m_cachedMaterials = snapshot.crafting.materials;
+
+      m_hasContainerCache = true;
+      m_lastPlayerDomainId = playerDomainId;
+      m_lastItemStoreVersion = currentItemVersion;
+      m_lastPlayerGold = currentGold;
+      m_lastInventoryUsed = currentInventoryUsed;
+      m_lastUnlockedTabs = currentUnlockedTabs;
+      m_lastOptions = options;
     }
 
-    if (const auto* materials =
-            registry.template try_get<const MaterialBankComponent>(player)) {
-      snapshot.crafting.materials.reserve(materials->materials.size());
-      for (const auto& entry : materials->materials) {
-        GameUiMaterialView view;
-        view.materialId = entry.id;
-        view.count = static_cast<std::uint32_t>(std::max(0, entry.count));
-        snapshot.crafting.materials.push_back(view);
-      }
-    }
     // Crafting session targets are UI-local state fed through the options.
     snapshot.crafting.forgeTarget = options.forgeTarget;
     snapshot.crafting.mergeBase = options.mergeBase;
@@ -890,8 +979,7 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
     }
   }
 
-  // --- Pickup targets + ground item display cache -------------------------
-  std::unordered_map<std::uint64_t, GameUiItemView> groundById;
+  // --- Pickup targets (P5: 废弃 groundById 临时哈希表) --------------------
   if (hasPlayerPosition) {
     const auto itemView =
         registry.template view<const NoMoreDay::ItemComponent, const Position>();
@@ -912,9 +1000,6 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
       pickup.distance = std::sqrt(distSq);
       pickup.source = GameUiPickupSource::World;
       snapshot.pickups.push_back(pickup);
-
-      GameUiItemView view = ToItemView(registry, item, -1, -1);
-      groundById.emplace(view.domainId, std::move(view));
     }
 
     // Deterministic order: nearest first.
@@ -925,10 +1010,10 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
               });
   }
 
-  // --- Displayed items: UI session targets resolved through the item maps --
+  // --- Displayed items: UI session targets resolved directly (T-P5-3) -----
   // The hover/drag/crafting targets are UI session state (design §3.2: not
-  // stored in the snapshot); their display data is resolved here, once, from
-  // the read-only item caches above.
+  // stored in the snapshot); their display data is resolved here directly
+  // from the registry via ToEntity in O(1) time without temporary hash tables.
   snapshot.tooltip.hoveredItem = options.hoveredItem;
   snapshot.tooltip.hoveredSkillId = kInvalidSkillId;
   {
@@ -943,30 +1028,19 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
       if (domainId == kInvalidDomainId || !seen.insert(domainId).second) {
         continue;
       }
-      const GameUiItemView* resolved = nullptr;
-      auto invIt = inventoryById.find(domainId);
-      if (invIt != inventoryById.end()) {
-        resolved = &invIt->second;
+      const entt::entity entity = ToEntity(domainId);
+      if (!registry.valid(entity)) {
+        continue;
       }
-      if (resolved == nullptr) {
-        auto groundIt = groundById.find(domainId);
-        if (groundIt != groundById.end()) {
-          resolved = &groundIt->second;
-        }
+      const auto* itemComp =
+          registry.template try_get<const NoMoreDay::ItemComponent>(entity);
+      if (itemComp == nullptr) {
+        continue;
       }
-      if (resolved == nullptr) {
-        auto equipIt = equipmentById.find(domainId);
-        if (equipIt != equipmentById.end()) {
-          resolved = &equipIt->second;
-        }
-      }
-      if (resolved != nullptr) {
-        snapshot.displayedItems.push_back(*resolved);
-        // R8: fill the tooltip payload for the bounded displayed-items cache
-        // only (names/descriptions/stat rows + rune names; the tooltip paint
-        // path then renders entirely from the snapshot).
-        FillTooltipData(registry, snapshot.displayedItems.back());
-      }
+      // P5: 直接构建标量并填充完整 tooltip/词缀详情
+      GameUiItemView view = ToItemView(registry, entity, -1, -1);
+      FillTooltipData(registry, view);
+      snapshot.displayedItems.push_back(std::move(view));
     }
   }
 

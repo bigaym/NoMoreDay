@@ -10,11 +10,7 @@ namespace NoMoreDay {
 
 class SharedStash {
 public:
-    static SharedStash& Get() {
-        static SharedStash instance;
-        return instance;
-    }
-
+    SharedStash();
     void initialize(); 
 
     bool unlockNextTab(int& playerGold);
@@ -44,8 +40,6 @@ public:
     void resume(entt::registry& registry);
 
 private:
-    SharedStash();
-    
     int m_unlockedTabs = 0;
     std::vector<StashTab> m_tabs;
     nlohmann::json m_suspendedData; // suspend/resume 窗口期间序列化的仓库数据

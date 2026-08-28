@@ -1,7 +1,7 @@
 # 物品与存储数据生命周期重构设计（Item Storage & Persistence Refactor）
 
 - 日期：2026-08-26（v2 综合修订）
-- 状态：待评审（Review 结论：待定）
+- 状态：已完成实施（Completed & Verified）
 - 范围：物品/背包/仓库数据生命周期、存储与持久化组件化
 - 前置文档：`docs/workflows/design.md`；关联审计问题：Item/SharedStash 实体生命周期不匹配（High，2026-08-25 记忆审计）
 - 输入方案：本文件 v1 + 两份候选提案——方案A「Universal Storage & Item Engine」（值语义、定长 POD 实例直存槽位）与方案B「Storage Core」（句柄、中央存储池、现状丢数据热修清单）。提案原文已删除，其要点、对比与裁决完整固化于本文 §1A，本文自包含可独立评审

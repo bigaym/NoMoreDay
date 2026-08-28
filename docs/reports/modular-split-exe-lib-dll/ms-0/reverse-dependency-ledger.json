@@ -22,6 +22,16 @@
         ]
       },
       {
+        "path": "src/game/systems/world",
+        "candidate_target": "NoMoreDayGameWorld",
+        "candidate_layer": "World",
+        "forbidden_include_prefixes": [
+          "app/",
+          "game/application/persistence/",
+          "application/persistence/"
+        ]
+      },
+      {
         "path": "src/game",
         "candidate_target": "NoMoreDayGame",
         "candidate_layer": "Game",

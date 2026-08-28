@@ -39,6 +39,92 @@ namespace {
 // measurements).
 constexpr std::size_t kUiCommandCapacity = 1024;
 constexpr std::size_t kUiTextArenaBytes = 16384;
+
+// P5 (T-P5-2): 复用 m_snapshot 实例与各 vector 的内部 capacity，跨帧避免堆分配
+void CopySnapshotPreservingCapacity(GameUiSnapshot& dst, const GameUiSnapshot& src) {
+  dst.revision = src.revision;
+  dst.player = src.player;
+  dst.player.summonGroups.assign(src.player.summonGroups.begin(),
+                                 src.player.summonGroups.end());
+
+  dst.characterStats = src.characterStats;
+  dst.monsters.assign(src.monsters.begin(), src.monsters.end());
+  dst.buffs.assign(src.buffs.begin(), src.buffs.end());
+
+  dst.inventory.capacity = src.inventory.capacity;
+  dst.inventory.used = src.inventory.used;
+  dst.inventory.gold = src.inventory.gold;
+  dst.inventory.bagSlots = src.inventory.bagSlots;
+  dst.inventory.items.assign(src.inventory.items.begin(),
+                             src.inventory.items.end());
+
+  dst.equipment.assign(src.equipment.begin(), src.equipment.end());
+
+  dst.stash.unlockedTabs = src.stash.unlockedTabs;
+  dst.stash.nextUnlockCost = src.stash.nextUnlockCost;
+  if (dst.stash.tabs.size() < src.stash.tabs.size()) {
+    dst.stash.tabs.resize(src.stash.tabs.size());
+  }
+  for (std::size_t i = 0; i < src.stash.tabs.size(); ++i) {
+    dst.stash.tabs[i].tabType = src.stash.tabs[i].tabType;
+    dst.stash.tabs[i].iconId = src.stash.tabs[i].iconId;
+    dst.stash.tabs[i].color = src.stash.tabs[i].color;
+    dst.stash.tabs[i].name = src.stash.tabs[i].name;
+    dst.stash.tabs[i].slots.assign(src.stash.tabs[i].slots.begin(),
+                                   src.stash.tabs[i].slots.end());
+  }
+  dst.stash.tabs.resize(src.stash.tabs.size());
+
+  dst.crafting.forgeTarget = src.crafting.forgeTarget;
+  dst.crafting.mergeBase = src.crafting.mergeBase;
+  dst.crafting.mergeFodder = src.crafting.mergeFodder;
+  dst.crafting.mergeCatalyst = src.crafting.mergeCatalyst;
+  dst.crafting.salvageItem = src.crafting.salvageItem;
+  dst.crafting.materials.assign(src.crafting.materials.begin(),
+                                src.crafting.materials.end());
+  dst.crafting.salvageYield.assign(src.crafting.salvageYield.begin(),
+                                  src.crafting.salvageYield.end());
+
+  dst.skillBar.availableTalentPoints = src.skillBar.availableTalentPoints;
+  dst.skillBar.slots.assign(src.skillBar.slots.begin(),
+                            src.skillBar.slots.end());
+
+  dst.skillTree.availableSkillPoints = src.skillTree.availableSkillPoints;
+  dst.skillTree.availableTalentPoints = src.skillTree.availableTalentPoints;
+  dst.skillTree.specializedSlots = src.skillTree.specializedSlots;
+  dst.skillTree.selectedMastery = src.skillTree.selectedMastery;
+  dst.skillTree.heavenlyAttunement = src.skillTree.heavenlyAttunement;
+  dst.skillTree.hasBladeProfession = src.skillTree.hasBladeProfession;
+  dst.skillTree.debugUnlockEnabled = src.skillTree.debugUnlockEnabled;
+  dst.skillTree.skills.assign(src.skillTree.skills.begin(),
+                             src.skillTree.skills.end());
+  dst.skillTree.masteryCards.assign(src.skillTree.masteryCards.begin(),
+                                   src.skillTree.masteryCards.end());
+  dst.skillTree.lockedSignatureSkills.assign(
+      src.skillTree.lockedSignatureSkills.begin(),
+      src.skillTree.lockedSignatureSkills.end());
+  dst.skillTree.excludedBySkill.assign(src.skillTree.excludedBySkill.begin(),
+                                      src.skillTree.excludedBySkill.end());
+
+  dst.astrolabe.present = src.astrolabe.present;
+  dst.astrolabe.availablePoints = src.astrolabe.availablePoints;
+  dst.astrolabe.mainProfession = src.astrolabe.mainProfession;
+  dst.astrolabe.professionAffinity = src.astrolabe.professionAffinity;
+  dst.astrolabe.hasVow = src.astrolabe.hasVow;
+  dst.astrolabe.activatedNodes.assign(src.astrolabe.activatedNodes.begin(),
+                                     src.astrolabe.activatedNodes.end());
+  dst.astrolabe.nodePoints.assign(src.astrolabe.nodePoints.begin(),
+                                 src.astrolabe.nodePoints.end());
+
+  dst.tooltip = src.tooltip;
+  dst.minimap = src.minimap;
+
+  dst.displayedItems.assign(src.displayedItems.begin(),
+                            src.displayedItems.end());
+  dst.pickups.assign(src.pickups.begin(), src.pickups.end());
+  dst.notifications.assign(src.notifications.begin(),
+                           src.notifications.end());
+}
 } // namespace
 
 GameUiHost::GameUiHost()
@@ -205,7 +291,7 @@ void GameUiHost::Update(entt::registry &registry,
   if (!m_initialized) {
     return;
   }
-  m_snapshot = snapshot;
+  CopySnapshotPreservingCapacity(m_snapshot, snapshot);
 
   // U6b: consume results published by the gameplay Update phase. Failed
   // intents surface their user-facing message through the hosted message box
@@ -525,6 +611,7 @@ void GameUiHost::Update(entt::registry &registry,
     }
   }
 }
+
 
 bool GameUiHost::HandleEscape() {
   // R3 (remediation, design §3.6): UI Escape close policy — closes exactly ONE
@@ -923,7 +1010,10 @@ GameUiSnapshotOptions GameUiHost::SnapshotOptions() const {
   // the builder can compute the per-slot matchesSearch flags and pick the
   // right stash authority (Personal vs Shared) without touching the panel.
   options.stashType = static_cast<std::uint32_t>(m_stash.GetActiveType());
-  options.stashSearchQuery = m_stash.SearchQuery();
+  options.SetStashSearchQuery(m_stash.SearchQuery());
+  // P5 (T-P5-1): 面板门控可见性指示，未开启时跳过耗时的遍历与构建
+  options.isStashOpen = m_stash.IsVisible();
+  options.isCraftingOpen = m_crafting.IsVisible();
   return options;
 }
 

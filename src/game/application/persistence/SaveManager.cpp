@@ -173,9 +173,8 @@ ItemStorageService *SaveManager::GetItemStorageService(entt::registry *registry)
     return m_itemStorage;
   }
   if (registry) {
-    if (registry->ctx().contains<SharedContext *>()) {
-      auto *ctx = registry->ctx().get<SharedContext *>();
-      if (ctx && ctx->itemStorage) {
+    if (auto *ctx = GetSharedContext(*registry)) {
+      if (ctx->itemStorage) {
         return ctx->itemStorage;
       }
     }
@@ -946,6 +945,9 @@ bool SaveManager::loadGlobal(entt::registry &registry) {
     }
   }
 
+  auto *ctx = GetSharedContext(registry);
+  SharedStash *sharedStash = ctx ? ctx->sharedStash : nullptr;
+
   // 2. 兼容回退旧版 saves/global.json
   if (fs::exists(jsonPath)) {
     try {
@@ -955,7 +957,9 @@ bool SaveManager::loadGlobal(entt::registry &registry) {
         file >> j;
         GlobalSaveData data = j.get<GlobalSaveData>();
         nlohmann::json jStash = data.sharedStash;
-        SharedStash::Get().fromJson(jStash, registry);
+        if (sharedStash) {
+          sharedStash->fromJson(jStash, registry);
+        }
 
         if (storage) {
           storage->setUnlockedPages(ContainerKind::SharedStash, data.sharedStash.unlockedTabs);
@@ -981,7 +985,9 @@ bool SaveManager::loadGlobal(entt::registry &registry) {
     }
   }
 
-  SharedStash::Get().initialize();
+  if (sharedStash) {
+    sharedStash->initialize();
+  }
   return true;
 }
 
@@ -991,6 +997,9 @@ std::future<bool> SaveManager::saveGlobalAsync(entt::registry &registry) {
     p.set_value(false);
     return p.get_future();
   }
+
+  auto *ctx = GetSharedContext(registry);
+  SharedStash *sharedStash = ctx ? ctx->sharedStash : nullptr;
 
   ItemStorageService *storage = GetItemStorageService(&registry);
   ItemStorageService snapshot;
@@ -1009,8 +1018,8 @@ std::future<bool> SaveManager::saveGlobalAsync(entt::registry &registry) {
       }
     }
     snapshot.setSharedStashMeta(storage->getSharedStashMeta());
-  } else {
-    nlohmann::json jStash = SharedStash::Get().toJson(registry);
+  } else if (sharedStash) {
+    nlohmann::json jStash = sharedStash->toJson(registry);
     SerializedStash sStash = jStash.get<SerializedStash>();
     snapshot.setUnlockedPages(ContainerKind::SharedStash, sStash.unlockedTabs);
     std::vector<StashTabMeta> metas;

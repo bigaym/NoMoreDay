@@ -4,12 +4,15 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/RenderContext.hpp"
 #include "engine/resource/ResourceManager.hpp"
+#include "game/application/persistence/SaveManager.hpp"
 #include "game/application/render/GameplayRenderAdapter.hpp"
 #include "game/application/render/GPUEntityAdapter.hpp"
 #include "game/application/scene/SceneManager.hpp"
 #include "game/application/scene/StateManager.hpp"
 #include "game/application/ui/GameUiHost.hpp"
 #include "game/application/ui/WorldUiFrame.hpp"
+#include "game/systems/item/HeirloomVault.hpp"
+#include "game/systems/item/SharedStash.hpp"
 #include "game/systems/item/storage/ItemStorageService.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "raylib.h"
@@ -77,6 +80,11 @@ private:
   // 物品存储单轨服务 (T-P2)。归组合根所有，并通过 SharedContext::itemStorage 引用；
   // 传统 ECS 轨道在 T-P3-3 切换迁移标志前保持权威性。
   NoMoreDay::ItemStorageService m_itemStorage;
+
+  // 持久化管理器与跨存档存储实例 (T-P6 收尾：单例治理)
+  NoMoreDay::SaveManager m_saveManager;
+  NoMoreDay::SharedStash m_sharedStash;
+  NoMoreDay::HeirloomVault m_heirloomVault;
 
   // UI 组合根：持有常驻运行时核心，并在迁移期间转发给旧版外观。
   // 在引用它的共享上下文之后析构 (cleanup() 也会显式关闭它)。

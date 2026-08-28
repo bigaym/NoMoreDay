@@ -101,7 +101,7 @@ TEST_CASE("[Unit] HeirloomVault - Core Rules") {
     auto player = registry.create();
     
     SUBCASE("Vault Management") {
-        auto& vault = HeirloomVault::Get();
+        HeirloomVault vault;
         size_t initialSize = vault.size();
         
         auto itemEnt = registry.create();
@@ -173,8 +173,8 @@ TEST_CASE("[Unit] ResonanceCalculator - biomeOverride Takes Priority") {
 
 
 TEST_CASE("[Unit] PersistenceSystem - Basic Check") {
-    auto& sm = SaveManager::Get();
-    CHECK(&sm != nullptr);
+    SaveManager sm;
+    CHECK(sm.IsInitialized() == false);
 }
 
 TEST_CASE("[Unit] SaveManager - Header Name And Playtime Snapshot") {
@@ -187,13 +187,14 @@ TEST_CASE("[Unit] SaveManager - Header Name And Playtime Snapshot") {
     registry.emplace<PlayerPlaytime>(
         player, 120, static_cast<double>(GetTime()) - 5.2);
 
-    auto data = SaveManager::Get().createSnapshot(registry);
+    SaveManager sm;
+    auto data = sm.createSnapshot(registry);
     CHECK(data.header.name == "玩家0");
     CHECK(data.header.playtime >= 125);
 
     data.header.playtime = 200;
     entt::registry restoredRegistry;
-    SaveManager::Get().restoreFromSnapshot(restoredRegistry, data);
+    sm.restoreFromSnapshot(restoredRegistry, data);
 
     auto restoredView = restoredRegistry.view<PlayerTag, PlayerPlaytime>();
     REQUIRE(restoredView.begin() != restoredView.end());
@@ -201,7 +202,7 @@ TEST_CASE("[Unit] SaveManager - Header Name And Playtime Snapshot") {
     auto &playtime = restoredRegistry.get<PlayerPlaytime>(restoredPlayer);
     playtime.session_start_time -= 3.1;
 
-    auto data2 = SaveManager::Get().createSnapshot(restoredRegistry);
+    auto data2 = sm.createSnapshot(restoredRegistry);
     CHECK(data2.header.playtime >= 203);
 }
 
@@ -219,12 +220,13 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
     runtime.trigger_cooldowns[114] = 1.25f;
     runtime.trigger_cooldowns[971] = 0.5f;
 
-    const auto snapshot = SaveManager::Get().createSnapshot(registry);
+    SaveManager sm;
+    const auto snapshot = sm.createSnapshot(registry);
     CHECK(snapshot.skill_contract_runtime.version == kSkillContractRuntimeVersion);
     CHECK(snapshot.skill_contract_runtime.skills.size() >= 1);
 
     entt::registry restored;
-    SaveManager::Get().restoreFromSnapshot(restored, snapshot);
+    sm.restoreFromSnapshot(restored, snapshot);
     auto view = restored.view<PlayerTag, SkillContractRuntimeComponent>();
     REQUIRE(view.begin() != view.end());
     auto restoredPlayer = *view.begin();
@@ -270,7 +272,8 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
     signature.skill_id = 11;
     signature.unlocked = true;
 
-    const auto snapshot = SaveManager::Get().createSnapshot(registry);
+    SaveManager sm;
+    const auto snapshot = sm.createSnapshot(registry);
     CHECK(snapshot.header.version == CURRENT_CHARACTER_SAVE_VERSION);
     CHECK(snapshot.header.level == 50);
     REQUIRE(snapshot.blade_mastery.has_value());
@@ -286,7 +289,7 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
     CHECK(snapshot.blade_signature_skill->unlocked);
 
     entt::registry restored;
-    SaveManager::Get().restoreFromSnapshot(restored, snapshot);
+    sm.restoreFromSnapshot(restored, snapshot);
     auto view = restored.view<PlayerTag, BladeMasteryComponent,
                               BladeResourceComponent,
                               BladeSignatureSkillComponent>();
@@ -337,7 +340,8 @@ TEST_CASE("[Unit] SaveManager - normalizes transient blade resource restore stat
     data.blade_resource = resource;
 
     entt::registry restored;
-    SaveManager::Get().restoreFromSnapshot(restored, data);
+    SaveManager sm;
+    sm.restoreFromSnapshot(restored, data);
 
     auto view = restored.view<PlayerTag, BladeMasteryComponent, BladeResourceComponent>();
     REQUIRE(view.begin() != view.end());
@@ -391,7 +395,8 @@ TEST_CASE("[Unit] SaveManager - normalizes incompatible blade mastery runtime st
     data.blade_signature_skill = signature;
 
     entt::registry restored;
-    SaveManager::Get().restoreFromSnapshot(restored, data);
+    SaveManager sm;
+    sm.restoreFromSnapshot(restored, data);
 
     auto view = restored.view<PlayerTag, BladeMasteryComponent,
                               BladeResourceComponent,
@@ -434,7 +439,8 @@ TEST_CASE("[Unit] SaveManager - Migrates legacy empty specialization slots") {
     data.skills.specialized_slots[1].skill_id = 7;
 
     entt::registry restored;
-    SaveManager::Get().restoreFromSnapshot(restored, data);
+    SaveManager sm;
+    sm.restoreFromSnapshot(restored, data);
 
     auto view = restored.view<PlayerTag, ActiveSkillsComponent>();
     REQUIRE(view.begin() != view.end());
@@ -452,7 +458,8 @@ TEST_CASE("[Unit] SaveManager - Preserves skill zero specialization in current s
     data.skills.specialized_slots[0].skill_id = 0;
 
     entt::registry restored;
-    SaveManager::Get().restoreFromSnapshot(restored, data);
+    SaveManager sm;
+    sm.restoreFromSnapshot(restored, data);
 
     auto view = restored.view<PlayerTag, ActiveSkillsComponent>();
     REQUIRE(view.begin() != view.end());
@@ -473,7 +480,8 @@ TEST_CASE("[Unit] SaveManager - Legacy Blade Ascendant save rehydrates blade run
     data.combatHistory = PlayerCombatHistory{};
 
     entt::registry registry;
-    SaveManager::Get().restoreFromSnapshot(registry, data);
+    SaveManager sm;
+    sm.restoreFromSnapshot(registry, data);
 
     auto view = registry.view<PlayerTag, BladeResourceComponent>();
     REQUIRE(view.begin() != view.end());

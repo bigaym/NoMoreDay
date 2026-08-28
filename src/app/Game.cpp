@@ -215,6 +215,9 @@ Game::Game(int width, int height, const char *title)
   m_context.settings = &m_settings;
   m_context.uiHost = &m_uiHost;
   m_context.itemStorage = &m_itemStorage;
+  m_context.saveManager = &m_saveManager;
+  m_context.sharedStash = &m_sharedStash;
+  m_context.heirloomVault = &m_heirloomVault;
 
   // 渲染上下文设置
   m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;
@@ -269,9 +272,10 @@ void Game::init() {
   // 初始化地图词缀注册表
   NoMoreDay::MapAffixRegistry::Initialize();
 
-  // 初始化持久化管理器
-  NoMoreDay::SaveManager::Get().Initialize(&m_executor);
-  NoMoreDay::SaveManager::Get().loadGlobal(m_registry);
+  // 初始化持久化管理器与共享存储
+  m_sharedStash.initialize();
+  m_saveManager.Initialize(&m_executor, &m_itemStorage);
+  m_saveManager.loadGlobal(m_registry);
 
   // 在 Context 中初始化 ActiveDimensionalState
   // 确保该状态对所有系统全局可用
@@ -285,6 +289,11 @@ void Game::init() {
   } else {
     m_registry.ctx().get<NoMoreDay::SharedContext *>() = &m_context;
   }
+
+  // 绑定自动存档请求回调 (切图等世界系统触发)
+  m_context.requestSave = [this](int slot) {
+    m_saveManager.saveCharacterAsync(m_registry, slot);
+  };
 
   // 初始化属性系统 (清理缓存)
   NoMoreDay::StatsSystem::Initialize(m_registry);
@@ -534,7 +543,7 @@ void Game::cleanup() {
   LOG_INFO("Cleaning up game systems...");
 
   // 保存全局状态 (共享仓库)
-  NoMoreDay::SaveManager::Get().saveGlobalAsync(m_registry);
+  m_saveManager.saveGlobalAsync(m_registry);
 
   m_executor.wait_for_all();
 
@@ -555,6 +564,10 @@ void Game::cleanup() {
   m_context.gameplayRenderHooks = nullptr;
   // 在持有的服务超出作用域之前释放上下文借用。
   m_context.itemStorage = nullptr;
+  m_context.saveManager = nullptr;
+  m_context.sharedStash = nullptr;
+  m_context.heirloomVault = nullptr;
+  m_context.requestSave = nullptr;
   // UI host 关闭先于资源卸载 / 窗口关闭，以便后端在 GL 上下文依然有效时释放已注册的 raylib 资源。
   m_uiHost.Shutdown();
   NoMoreDay::render::GPUTextSystem::Get().Shutdown();

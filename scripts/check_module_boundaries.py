@@ -51,6 +51,10 @@ EXPECTED_CANDIDATE_ROOTS = (
         ("game/", "app/"),
     ),
     CandidatePolicy(
+        "src/game/systems/world", "NoMoreDayGameWorld", "World", "world_subsystem",
+        ("app/", "game/application/persistence/", "application/persistence/"),
+    ),
+    CandidatePolicy(
         "src/game", "NoMoreDayGame", "Game", "game_layer",
         ("app/",),
     ),
