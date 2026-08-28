@@ -77,12 +77,12 @@ TEST_CASE("[Performance] ItemStore - Move and Swap (10k items, 1M ops)") {
 
   const BenchmarkStats stats = CalculateStats(samples);
   LOG_BENCHMARK("ItemStore - Swap 100k ops", stats, "< 1.5ms per 100k (< 15ns/swap)");
-  // 软性预算: 基准测试仅供参考，CI 门禁保持非性能阻断 (docs/workflows/performance.md)；性能回退作为警告暴露。
   constexpr double kBudgetMs = 1.5;
   if (stats.mean_ms > kBudgetMs) {
     LOG_WARN("[Perf] ItemStore swap over budget: mean {:.4f}ms > {:.3f}ms",
              stats.mean_ms, kBudgetMs);
   }
+  CHECK(stats.mean_ms < 5.0);
 }
 
 TEST_CASE("[Performance] ItemStore - Move 100k ops") {
@@ -138,6 +138,7 @@ TEST_CASE("[Performance] ItemStore - Move 100k ops") {
     LOG_WARN("[Perf] ItemStore move over budget: mean {:.4f}ms > {:.3f}ms",
              stats.mean_ms, kBudgetMs);
   }
+  CHECK(stats.mean_ms < 6.0);
 }
 
 TEST_CASE("[Performance] ItemStore - Visit 10k Items") {
@@ -173,6 +174,7 @@ TEST_CASE("[Performance] ItemStore - Visit 10k Items") {
     LOG_WARN("[Perf] ItemStore visit over budget: mean {:.4f}ms > {:.3f}ms",
              stats.mean_ms, kBudgetMs);
   }
+  CHECK(stats.mean_ms < 0.5);
 }
 
 TEST_CASE("[Performance] ItemStore - Freeze Snapshot (10k items memcpy)") {
@@ -203,6 +205,7 @@ TEST_CASE("[Performance] ItemStore - Freeze Snapshot (10k items memcpy)") {
     LOG_WARN("[Perf] ItemStore freeze over budget: mean {:.4f}ms > {:.3f}ms",
              stats.mean_ms, kBudgetMs);
   }
+  CHECK(stats.mean_ms < 1.0);
 }
 
 TEST_CASE("[Performance] ItemStore - Create and Destroy Batch (10k items)") {
@@ -236,6 +239,7 @@ TEST_CASE("[Performance] ItemStore - Create and Destroy Batch (10k items)") {
     LOG_WARN("[Perf] ItemStore create/destroy over budget: mean {:.4f}ms > {:.3f}ms",
              stats.mean_ms, kBudgetMs);
   }
+  CHECK(stats.mean_ms < 3.0);
 }
 
 } // namespace NoMoreDay::tests

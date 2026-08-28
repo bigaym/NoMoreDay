@@ -39,6 +39,8 @@ public:
   ItemStorageService(ItemStorageService &&) noexcept = default;
   ItemStorageService &operator=(ItemStorageService &&) noexcept = default;
 
+  using SlotFilterPredicate = std::function<bool(const SlotRef &, ItemHandle)>;
+
   // --- 事务性容器操作 ---
   StorageError moveItem(const SlotRef &from, const SlotRef &to);
   StorageError swapItem(const SlotRef &a, const SlotRef &b);
@@ -49,7 +51,8 @@ public:
   StorageError autoDeposit(const SlotRef &from, ContainerKind targetKind,
                            uint8_t targetContainer = 0);
   void sortContainer(ContainerKind kind, uint8_t container = 0,
-                     uint16_t page = 0);
+                     uint16_t page = 0,
+                     SlotFilterPredicate filter = nullptr);
   StorageError destroyItem(const SlotRef &slot, int quantity = -1);
   [[nodiscard]] bool canStoreItem(ContainerKind kind, uint8_t container,
                                   uint16_t page, ItemHandle handle) const;

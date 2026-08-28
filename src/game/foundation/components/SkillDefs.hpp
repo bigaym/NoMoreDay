@@ -101,6 +101,8 @@ struct DamageModifier {
   Tag target_tag = Tag::None; // Tag the output has (used for Convert/GainExtra)
   float value = 0.0f;
   ModifierType type = ModifierType::Flat;
+
+  bool operator==(const DamageModifier &) const = default;
 };
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DamageModifier, source_tag, target_tag,

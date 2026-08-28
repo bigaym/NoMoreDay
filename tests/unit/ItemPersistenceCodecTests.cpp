@@ -459,3 +459,26 @@ TEST_CASE("[Unit] ItemPersistenceCodec - SaveFileAtomic") {
   // 清理测试产物
   fs::remove_all(testDir, ec);
 }
+
+TEST_CASE("[Unit] ItemPersistenceCodec - MaterialBank Dedicated Round-Trip (H5)") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  ItemStorageService srcService;
+  srcService.addMaterial(1, 999);
+  srcService.addMaterial(101, 50);
+  srcService.addMaterial(5002, 10);
+  srcService.addMaterial(99999, 1);
+
+  std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+  REQUIRE(ItemPersistenceCodec::encode(srcService, ss, nullptr, ContainerDirtyFlags::MaterialBank));
+
+  ItemStorageService dstService;
+  REQUIRE(ItemPersistenceCodec::decode(ss, dstService));
+
+  CHECK(dstService.getMaterialCount(1) == 999);
+  CHECK(dstService.getMaterialCount(101) == 50);
+  CHECK(dstService.getMaterialCount(5002) == 10);
+  CHECK(dstService.getMaterialCount(99999) == 1);
+  CHECK(dstService.getMaterialCount(999) == 0);
+}

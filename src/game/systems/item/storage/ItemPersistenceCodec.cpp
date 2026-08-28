@@ -6,7 +6,9 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <sstream>
+#include <unordered_set>
 
 namespace fs = std::filesystem;
 
@@ -50,12 +52,67 @@ template <typename T>
   return true;
 }
 
-// 序列化 Section 1: TemplateFingerprint
+// 收集当前编码容器所引用的全部可达实例索引（含嵌套插槽物品）(N2)
+std::unordered_set<uint32_t> collectReachableIndices(const ItemStorageService &service, uint32_t dirtyMask) {
+  std::unordered_set<uint32_t> reachable;
+  auto addHandle = [&](ItemHandle h) {
+    if (!h || !service.getStore().isValid(h)) return;
+    std::vector<ItemHandle> stack;
+    stack.push_back(h);
+    while (!stack.empty()) {
+      ItemHandle curr = stack.back();
+      stack.pop_back();
+      if (reachable.insert(curr.index).second) {
+        if (const auto *inst = service.getStore().get(curr)) {
+          for (ItemHandle sockH : inst->sockets) {
+            if (sockH && service.getStore().isValid(sockH)) {
+              stack.push_back(sockH);
+            }
+          }
+        }
+      }
+    }
+  };
+
+  if (dirtyMask & ContainerDirtyFlags::Inventory) {
+    for (ItemHandle h : service.getInventorySlots()) addHandle(h);
+  }
+  if (dirtyMask & ContainerDirtyFlags::Equipment) {
+    for (ItemHandle h : service.getEquipmentSlots()) addHandle(h);
+  }
+  if (dirtyMask & ContainerDirtyFlags::BagSlots) {
+    for (ItemHandle h : service.getBagSlots()) addHandle(h);
+  }
+  if (dirtyMask & ContainerDirtyFlags::PersonalStash) {
+    for (const auto &page : service.getPersonalStashPages()) {
+      for (ItemHandle h : page) addHandle(h);
+    }
+  }
+  if (dirtyMask & ContainerDirtyFlags::SharedStash) {
+    for (const auto &page : service.getSharedStashPages()) {
+      for (ItemHandle h : page) addHandle(h);
+    }
+  }
+  if (dirtyMask & ContainerDirtyFlags::HeirloomVault) {
+    for (ItemHandle h : service.getHeirloomVaultSlots()) addHandle(h);
+  }
+  return reachable;
+}
+
+// 序列化 Section 1: TemplateFingerprint (L3: 纳入模板关键属性哈希)
 uint64_t calculateTemplateFingerprint() {
   uint64_t fingerprint = 0x1469598103934665ULL; // FNV offset basis
-  for (const auto &[baseId, tmpl] : ItemTemplateRegistry::Get().getAllTemplates()) {
+  const auto &templates = ItemTemplateRegistry::Get().getAllTemplates();
+  if (templates.empty()) {
+    LOG_WARN("calculateTemplateFingerprint: ItemTemplateRegistry is empty!");
+  }
+  for (const auto &[baseId, tmpl] : templates) {
     fingerprint ^= static_cast<uint64_t>(baseId);
     fingerprint *= 1099511628211ULL; // FNV prime
+    fingerprint ^= (static_cast<uint64_t>(tmpl.type) << 16) ^ static_cast<uint64_t>(tmpl.slot);
+    fingerprint *= 1099511628211ULL;
+    fingerprint ^= (static_cast<uint64_t>(tmpl.minLevel) << 8) ^ static_cast<uint64_t>(tmpl.maxStack);
+    fingerprint *= 1099511628211ULL;
   }
   return fingerprint;
 }
@@ -67,30 +124,53 @@ std::vector<uint8_t> buildTemplateFingerprintSection() {
   return payload;
 }
 
-// 序列化 Section 2: ItemInstances
-std::vector<uint8_t> buildItemInstancesSection(const ItemStorageService &service) {
+// 序列化 Section 2: ItemInstances (N2: 按需过滤可达实例)
+std::vector<uint8_t> buildItemInstancesSection(const ItemStorageService &service,
+                                              const std::unordered_set<uint32_t> *allowedIndices) {
   std::vector<uint8_t> payload;
   const auto &store = service.getStore();
-  const uint32_t activeCount = static_cast<uint32_t>(store.activeCount());
-  appendBytes(payload, activeCount);
 
-  store.visit([&payload](ItemHandle h, const ItemInstance &inst) {
+  std::vector<std::pair<ItemHandle, const ItemInstance *>> itemsToEncode;
+  itemsToEncode.reserve(store.activeCount());
+
+  store.visit([&](ItemHandle h, const ItemInstance &inst) {
+    if (!allowedIndices || allowedIndices->contains(h.index)) {
+      itemsToEncode.emplace_back(h, &inst);
+    }
+  });
+
+  const uint32_t count = static_cast<uint32_t>(itemsToEncode.size());
+  appendBytes(payload, count);
+
+  for (const auto &[h, inst] : itemsToEncode) {
     appendBytes(payload, h.index);
     appendBytes(payload, h.gen);
-    appendBytes(payload, inst);
-  });
+    appendBytes(payload, *inst);
+  }
 
   return payload;
 }
 
-// 序列化 Section 3: ItemSideTables
-std::vector<uint8_t> buildItemSideTablesSection(const ItemStorageService &service) {
+// 序列化 Section 3: ItemSideTables (N2: 按需过滤可达旁表)
+std::vector<uint8_t> buildItemSideTablesSection(const ItemStorageService &service,
+                                               const std::unordered_set<uint32_t> *allowedIndices) {
   std::vector<uint8_t> payload;
   const auto &sideTables = service.getStore().getAllSideTables();
-  const uint32_t count = static_cast<uint32_t>(sideTables.size());
-  appendBytes(payload, count);
+
+  std::vector<std::pair<uint32_t, const ItemSideTableData *>> sidesToEncode;
+  sidesToEncode.reserve(sideTables.size());
 
   for (const auto &[idx, data] : sideTables) {
+    if (!allowedIndices || allowedIndices->contains(idx)) {
+      sidesToEncode.emplace_back(idx, &data);
+    }
+  }
+
+  const uint32_t count = static_cast<uint32_t>(sidesToEncode.size());
+  appendBytes(payload, count);
+
+  for (const auto &[idx, pData] : sidesToEncode) {
+    const auto &data = *pData;
     appendBytes(payload, idx);
     
     // conversions
@@ -353,7 +433,7 @@ bool ItemPersistenceCodec::encode(const ItemStorageService &service,
     if (!isDirty && cache && cache->contains(type)) {
       const auto *cached = cache->get(type);
       sections.push_back({type, cached->payload, cached->crc32});
-    } else {
+    } else if (isDirty) {
       std::vector<uint8_t> payload = builderFn();
       uint32_t crc = calculateCrc32(payload.data(), payload.size());
       if (cache) {
@@ -363,12 +443,24 @@ bool ItemPersistenceCodec::encode(const ItemStorageService &service,
     }
   };
 
+  constexpr uint32_t kAnyContainerMask = ContainerDirtyFlags::Inventory |
+                                         ContainerDirtyFlags::Equipment |
+                                         ContainerDirtyFlags::BagSlots |
+                                         ContainerDirtyFlags::PersonalStash |
+                                         ContainerDirtyFlags::SharedStash |
+                                         ContainerDirtyFlags::HeirloomVault;
+  std::optional<std::unordered_set<uint32_t>> reachableIndices;
+  if ((dirtyMask & kAnyContainerMask) != 0) {
+    reachableIndices = collectReachableIndices(service, dirtyMask);
+  }
+  const std::unordered_set<uint32_t> *allowedPtr = reachableIndices ? &*reachableIndices : nullptr;
+
   processSection(SectionType::TemplateFingerprint, ContainerDirtyFlags::TemplateFingerprint,
                  [&]() { return buildTemplateFingerprintSection(); });
   processSection(SectionType::ItemInstances, ContainerDirtyFlags::ItemInstances,
-                 [&]() { return buildItemInstancesSection(service); });
+                 [&]() { return buildItemInstancesSection(service, allowedPtr); });
   processSection(SectionType::ItemSideTables, ContainerDirtyFlags::ItemSideTables,
-                 [&]() { return buildItemSideTablesSection(service); });
+                 [&]() { return buildItemSideTablesSection(service, allowedPtr); });
   processSection(SectionType::Inventory, ContainerDirtyFlags::Inventory,
                  [&]() { return buildInventorySection(service); });
   processSection(SectionType::Equipment, ContainerDirtyFlags::Equipment,
@@ -433,7 +525,17 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
     return false;
   }
 
-  // 1. 读取并校验 FileHeader
+  // 0. 流尺寸预检，防止非法空流或过小流 (H1)
+  inStream.seekg(0, std::ios::end);
+  const std::streampos endPos = inStream.tellg();
+  inStream.seekg(0, std::ios::beg);
+  if (endPos < static_cast<std::streampos>(sizeof(FileHeader))) {
+    LOG_ERROR("ItemPersistenceCodec: Stream size {} below minimum FileHeader size", endPos);
+    return false;
+  }
+  const uint64_t totalStreamBytes = static_cast<uint64_t>(endPos);
+
+  // 1. 读取并校验 FileHeader (§6.1: FileHeader 为 16 字节 pack(1) POD)
   FileHeader fileHeader;
   inStream.read(reinterpret_cast<char *>(&fileHeader), sizeof(FileHeader));
   if (!inStream.good()) {
@@ -455,7 +557,13 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
     return false;
   }
 
-  // 2. 读取并校验 SectionHeader 表
+  const uint64_t headersByteSize = sizeof(SectionHeader) * fileHeader.sectionCount;
+  if (sizeof(FileHeader) + headersByteSize > totalStreamBytes) {
+    LOG_ERROR("ItemPersistenceCodec: Section headers table exceeds total file stream size");
+    return false;
+  }
+
+  // 2. 读取并校验 SectionHeader 表 (§6.1: SectionHeader 表为紧凑 POD 数组)
   std::vector<SectionHeader> headers(fileHeader.sectionCount);
   inStream.read(reinterpret_cast<char *>(headers.data()),
                 headers.size() * sizeof(SectionHeader));
@@ -471,12 +579,21 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
     return false;
   }
 
-  // 阶段 1: 读取所有 Section 数据并进行 CRC32 事务性预校验
+  // 阶段 1: 读取所有 Section 数据并进行 CRC32 事务性预校验 (H1: 分配前检查 length 上界)
   std::vector<std::vector<uint8_t>> sectionData(headers.size());
   for (size_t i = 0; i < headers.size(); ++i) {
+    if (headers[i].offset > totalStreamBytes ||
+        headers[i].length > totalStreamBytes ||
+        headers[i].offset + headers[i].length > totalStreamBytes) {
+      LOG_ERROR("ItemPersistenceCodec: Section {} bounds [offset {}, len {}] exceed file stream size {}",
+                headers[i].type, headers[i].offset, headers[i].length, totalStreamBytes);
+      return false;
+    }
+
     sectionData[i].resize(headers[i].length);
     if (headers[i].length > 0) {
       inStream.seekg(headers[i].offset, std::ios::beg);
+      // §6.1: 直接将二进制 Payload 流读入 vector 字节缓冲区
       inStream.read(reinterpret_cast<char *>(sectionData[i].data()), headers[i].length);
       if (!inStream.good()) {
         LOG_ERROR("ItemPersistenceCodec: Failed reading section {}", headers[i].type);
@@ -537,6 +654,12 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, activeCount)) {
         return false;
       }
+      // H1: activeCount 预算检查，防止构造畸形大数字触发 OOM
+      constexpr size_t kMinEntrySize = sizeof(uint32_t) + sizeof(uint32_t) + sizeof(ItemInstance);
+      if (activeCount > (bytes.size() / kMinEntrySize) + 1 || activeCount > 1000000) {
+        LOG_ERROR("ItemPersistenceCodec: Declared activeCount {} exceeds section payload budget", activeCount);
+        return false;
+      }
       rawEntries.reserve(activeCount);
       for (uint32_t k = 0; k < activeCount; ++k) {
         ItemStore::RawInstanceEntry entry;
@@ -555,6 +678,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, count)) {
         return false;
       }
+      if (count > (bytes.size() / 8) + 1 || count > 1000000) {
+        LOG_ERROR("ItemPersistenceCodec: Declared sideTables count {} exceeds section budget", count);
+        return false;
+      }
       for (uint32_t k = 0; k < count; ++k) {
         uint32_t idx = 0;
         if (!readBytes(ptr, end, idx)) return false;
@@ -562,6 +689,7 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
 
         uint32_t convCount = 0;
         if (!readBytes(ptr, end, convCount)) return false;
+        if (convCount > 100) return false;
         for (uint32_t c = 0; c < convCount; ++c) {
           uint32_t src = 0, tgt = 0;
           float ratio = 0.0f;
@@ -577,6 +705,7 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
 
         uint32_t dmgCount = 0;
         if (!readBytes(ptr, end, dmgCount)) return false;
+        if (dmgCount > 100) return false;
         for (uint32_t d = 0; d < dmgCount; ++d) {
           uint64_t srcTag = 0, tgtTag = 0;
           float val = 0.0f;
@@ -598,6 +727,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, capacity) || !readBytes(ptr, end, occupied)) {
         return false;
       }
+      if (capacity > 1000 || occupied > capacity || occupied > (bytes.size() / 6) + 1) {
+        LOG_ERROR("ItemPersistenceCodec: Inventory occupied {} exceeds capacity {}", occupied, capacity);
+        return false;
+      }
       for (uint32_t k = 0; k < occupied; ++k) {
         uint16_t slot = 0;
         ItemHandle h;
@@ -611,6 +744,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
     case SectionType::Equipment: {
       uint32_t occupied = 0;
       if (!readBytes(ptr, end, occupied)) {
+        return false;
+      }
+      if (occupied > ItemStorageService::kEquipmentCapacity) {
+        LOG_ERROR("ItemPersistenceCodec: Equipment occupied {} exceeds limit", occupied);
         return false;
       }
       for (uint32_t k = 0; k < occupied; ++k) {
@@ -628,6 +765,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, occupied)) {
         return false;
       }
+      if (occupied > ItemStorageService::kBagSlotsCapacity) {
+        LOG_ERROR("ItemPersistenceCodec: BagSlots occupied {} exceeds limit", occupied);
+        return false;
+      }
       for (uint32_t k = 0; k < occupied; ++k) {
         uint8_t slot = 0;
         ItemHandle h;
@@ -643,10 +784,15 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, personalUnlocked)) {
         return false;
       }
+      if (personalUnlocked > ItemStorageService::kPersonalStashMaxPages) {
+        LOG_ERROR("ItemPersistenceCodec: PersonalStash unlocked pages {} exceeds max", personalUnlocked);
+        return false;
+      }
       personalMeta.resize(personalUnlocked);
       for (uint16_t p = 0; p < personalUnlocked; ++p) {
         uint16_t nameLen = 0;
         if (!readBytes(ptr, end, nameLen)) return false;
+        if (nameLen > 256) return false;
         std::string name(nameLen, '\0');
         if (nameLen > 0 && !readRaw(ptr, end, name.data(), nameLen)) return false;
         uint8_t t = 0;
@@ -655,6 +801,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
         personalMeta[p] = StashTabMeta{std::move(name), t, icon, col};
       }
       if (!readBytes(ptr, end, occupied)) {
+        return false;
+      }
+      if (occupied > personalUnlocked * ItemStorageService::kStashPageCapacity) {
+        LOG_ERROR("ItemPersistenceCodec: PersonalStash occupied {} exceeds capacity", occupied);
         return false;
       }
       for (uint32_t k = 0; k < occupied; ++k) {
@@ -673,10 +823,15 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, sharedUnlocked)) {
         return false;
       }
+      if (sharedUnlocked > ItemStorageService::kSharedStashMaxPages) {
+        LOG_ERROR("ItemPersistenceCodec: SharedStash unlocked pages {} exceeds max", sharedUnlocked);
+        return false;
+      }
       sharedMeta.resize(sharedUnlocked);
       for (uint16_t p = 0; p < sharedUnlocked; ++p) {
         uint16_t nameLen = 0;
         if (!readBytes(ptr, end, nameLen)) return false;
+        if (nameLen > 256) return false;
         std::string name(nameLen, '\0');
         if (nameLen > 0 && !readRaw(ptr, end, name.data(), nameLen)) return false;
         uint8_t t = 0;
@@ -685,6 +840,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
         sharedMeta[p] = StashTabMeta{std::move(name), t, icon, col};
       }
       if (!readBytes(ptr, end, occupied)) {
+        return false;
+      }
+      if (occupied > sharedUnlocked * ItemStorageService::kStashPageCapacity) {
+        LOG_ERROR("ItemPersistenceCodec: SharedStash occupied {} exceeds capacity", occupied);
         return false;
       }
       for (uint32_t k = 0; k < occupied; ++k) {
@@ -703,6 +862,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       if (!readBytes(ptr, end, occupied)) {
         return false;
       }
+      if (occupied > ItemStorageService::kHeirloomVaultCapacity) {
+        LOG_ERROR("ItemPersistenceCodec: HeirloomVault occupied {} exceeds limit", occupied);
+        return false;
+      }
       for (uint32_t k = 0; k < occupied; ++k) {
         uint16_t slot = 0;
         ItemHandle h;
@@ -716,6 +879,10 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
     case SectionType::MaterialBank: {
       uint32_t count = 0;
       if (!readBytes(ptr, end, count)) {
+        return false;
+      }
+      if (count > (bytes.size() / 8) + 1 || count > 10000) {
+        LOG_ERROR("ItemPersistenceCodec: MaterialBank count {} exceeds budget", count);
         return false;
       }
       for (uint32_t k = 0; k < count; ++k) {
@@ -757,23 +924,56 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
     }
   }
 
-  // 阶段 3: 将所有解析结果灌入目标 service
+  // 阶段 3: 将所有解析结果灌入目标 service (H2: 句柄与插槽全面有效性校验 Pass)
   service.clearAll();
   service.getStoreMutable().restoreRawEntries(rawEntries, sideTables);
 
+  // 校验嵌套 sockets 存在性与有效性
+  service.getStoreMutable().visit([&](ItemHandle h, const ItemInstance &inst) {
+    (void)h;
+    for (size_t s = 0; s < inst.sockets.size(); ++s) {
+      ItemHandle sockH = inst.sockets[s];
+      if (sockH && !service.getStore().isValid(sockH)) {
+        LOG_WARN("ItemPersistenceCodec: Item instance index {} contains invalid socket handle {{{}, {}}}, clearing",
+                 h.index, sockH.index, sockH.gen);
+        service.getStoreMutable().mutate(h, [s](ItemInstance &i) {
+          i.sockets[s] = ItemHandle{0, 0};
+        });
+      }
+    }
+  });
+
+  auto sanitizeHandle = [&](ItemHandle h) -> ItemHandle {
+    if (!h) return ItemHandle{0, 0};
+    if (!service.getStore().isValid(h)) {
+      LOG_WARN("ItemPersistenceCodec: Dangling/invalid item handle {{{}, {}}} in save container slot, resetting to empty",
+               h.index, h.gen);
+      return ItemHandle{0, 0};
+    }
+    return h;
+  };
+
   for (const auto &[slot, h] : invSlots) {
-    service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, slot}, h);
+    if (slot < ItemStorageService::kInventoryCapacity) {
+      service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, slot}, sanitizeHandle(h));
+    }
   }
   for (const auto &[slot, h] : eqSlots) {
-    service.setSlotHandle(SlotRef{ContainerKind::Equipment, slot, 0, 0}, h);
+    if (slot < ItemStorageService::kEquipmentCapacity) {
+      service.setSlotHandle(SlotRef{ContainerKind::Equipment, slot, 0, 0}, sanitizeHandle(h));
+    }
   }
   for (const auto &[slot, h] : bagSlots) {
-    service.setSlotHandle(SlotRef{ContainerKind::BagSlots, slot, 0, 0}, h);
+    if (slot < ItemStorageService::kBagSlotsCapacity) {
+      service.setSlotHandle(SlotRef{ContainerKind::BagSlots, slot, 0, 0}, sanitizeHandle(h));
+    }
   }
 
   service.setUnlockedPages(ContainerKind::PersonalStash, personalUnlocked);
   for (const auto &[page, slot, h] : personalSlots) {
-    service.setSlotHandle(SlotRef{ContainerKind::PersonalStash, 0, page, slot}, h);
+    if (page < personalUnlocked && slot < ItemStorageService::kStashPageCapacity) {
+      service.setSlotHandle(SlotRef{ContainerKind::PersonalStash, 0, page, slot}, sanitizeHandle(h));
+    }
   }
   if (!personalMeta.empty()) {
     service.setPersonalStashMeta(personalMeta);
@@ -781,14 +981,18 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
 
   service.setUnlockedPages(ContainerKind::SharedStash, sharedUnlocked);
   for (const auto &[page, slot, h] : sharedSlots) {
-    service.setSlotHandle(SlotRef{ContainerKind::SharedStash, 0, page, slot}, h);
+    if (page < sharedUnlocked && slot < ItemStorageService::kStashPageCapacity) {
+      service.setSlotHandle(SlotRef{ContainerKind::SharedStash, 0, page, slot}, sanitizeHandle(h));
+    }
   }
   if (!sharedMeta.empty()) {
     service.setSharedStashMeta(sharedMeta);
   }
 
   for (const auto &[slot, h] : heirloomSlots) {
-    service.setSlotHandle(SlotRef{ContainerKind::HeirloomVault, 0, 0, slot}, h);
+    if (slot < ItemStorageService::kHeirloomVaultCapacity) {
+      service.setSlotHandle(SlotRef{ContainerKind::HeirloomVault, 0, 0, slot}, sanitizeHandle(h));
+    }
   }
 
   service.setMaterials(materials);
@@ -870,12 +1074,15 @@ bool ItemPersistenceCodec::SaveFileAtomic(const std::string &targetPath,
       return false;
     }
 
-    // 3. 覆盖前将已有目标文件备份为 .bak
+    // 3. 覆盖前将已有目标文件备份为 .bak (M6: 备份失败中止本次保存，保留已有原档)
     if (createBackup && fs::exists(target, ec)) {
       std::string backupPath = targetPath + ".bak";
       fs::copy_file(target, backupPath, fs::copy_options::overwrite_existing, ec);
       if (ec) {
-        LOG_WARN("SaveFileAtomic: Failed to create backup {}: {}", backupPath, ec.message());
+        LOG_ERROR("SaveFileAtomic: Failed to create backup {}, aborting save to protect original: {}",
+                  backupPath, ec.message());
+        fs::remove(temp, ec);
+        return false;
       }
     }
 

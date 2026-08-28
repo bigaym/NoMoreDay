@@ -290,6 +290,70 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   LOG_INFO("SaveManager: Character restored from snapshot.");
 }
 
+namespace {
+ItemHandle CloneItemDeep(const ItemStore &srcStore, ItemHandle srcHandle, ItemStore &dstStore, bool &outSuccess) {
+  if (!srcHandle || !srcStore.isValid(srcHandle)) {
+    return ItemHandle{0, 0};
+  }
+  const ItemInstance *srcInst = srcStore.get(srcHandle);
+  if (!srcInst) {
+    outSuccess = false;
+    LOG_ERROR("CloneItemDeep: Source handle is valid but instance is null");
+    return ItemHandle{0, 0};
+  }
+  ItemInstance cloned = *srcInst;
+  for (size_t i = 0; i < cloned.sockets.size(); ++i) {
+    if (cloned.sockets[i]) {
+      cloned.sockets[i] = CloneItemDeep(srcStore, cloned.sockets[i], dstStore, outSuccess);
+      if (!cloned.sockets[i]) {
+        LOG_WARN("CloneItemDeep: Failed to clone nested socket item at index {}", i);
+      }
+    }
+  }
+  ItemHandle dstHandle = dstStore.create(cloned);
+  if (!dstHandle) {
+    outSuccess = false;
+    LOG_ERROR("CloneItemDeep: Failed to create cloned item in dstStore (pool full)");
+    return ItemHandle{0, 0};
+  }
+  if (const auto *side = srcStore.getSideTable(srcHandle)) {
+    if (!side->empty()) {
+      dstStore.setSideTable(dstHandle, *side);
+    }
+  }
+  return dstHandle;
+}
+} // namespace
+
+bool SaveManager::restoreSharedStashFrom(ItemStorageService &target,
+                                         const ItemStorageService &source) {
+  target.clearContainer(ContainerKind::SharedStash);
+  target.setUnlockedPages(ContainerKind::SharedStash,
+                          source.getUnlockedPages(ContainerKind::SharedStash));
+  const auto &pages = source.getSharedStashPages();
+  bool allCloned = true;
+  for (size_t p = 0; p < pages.size(); ++p) {
+    for (size_t s = 0; s < pages[p].size(); ++s) {
+      ItemHandle h = pages[p][s];
+      if (h) {
+        bool cloneOk = true;
+        ItemHandle newH = CloneItemDeep(source.getStore(), h, target.getStoreMutable(), cloneOk);
+        if (newH && cloneOk) {
+          target.setSlotHandle(
+              SlotRef{ContainerKind::SharedStash, 0, static_cast<uint16_t>(p),
+                      static_cast<uint16_t>(s)},
+              newH);
+        } else {
+          allCloned = false;
+          LOG_ERROR("restoreSharedStashFrom: Failed to clone item at page {}, slot {}", p, s);
+        }
+      }
+    }
+  }
+  target.setSharedStashMeta(source.getSharedStashMeta());
+  return allCloned;
+}
+
 std::future<bool> SaveManager::saveCharacterAsync(entt::registry &registry,
                                                   int slotIndex) {
   if (!m_executor) {
@@ -337,9 +401,10 @@ std::future<bool> SaveManager::saveCharacterAsync(entt::registry &registry,
 
     try {
       std::stringstream ss;
-      // 传递 nullptr 禁用全局裸缓存，消除跨线程无锁并发写竞争 (High 17)
+      // 角色档编码显式排除 SharedStash 容器段，角色与共享仓库持久化彻底解耦 (Blocker B1)
+      uint32_t charDirtyMask = ContainerDirtyFlags::All & ~ContainerDirtyFlags::SharedStash;
       if (!ItemPersistenceCodec::encode(storageSnapshot, ss, nullptr,
-                                        ContainerDirtyFlags::All, progressionPayload)) {
+                                        charDirtyMask, progressionPayload)) {
         LOG_ERROR("SaveManager: Failed to encode binary save for {}", savePath);
         return false;
       }
@@ -373,56 +438,70 @@ bool SaveManager::loadCharacter(entt::registry &registry, int slotIndex) {
 
   // 1. 优先读取主档 saves/slot_N.nmd
   if (fs::exists(binaryPath)) {
-    std::ifstream file(binaryPath, std::ios::binary);
-    std::string progressionPayload;
-    ItemStorageService loadedStorage;
-    if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage, &progressionPayload)) {
-      try {
+    try {
+      std::ifstream file(binaryPath, std::ios::binary);
+      std::string progressionPayload;
+      ItemStorageService loadedStorage;
+      if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage, &progressionPayload)) {
         nlohmann::json progJson = nlohmann::json::parse(progressionPayload);
         CharacterSaveData charData = ParseProgressionJson(progJson);
         if (charData.header.version != CURRENT_CHARACTER_SAVE_VERSION) {
           LOG_ERROR("SaveManager: Save version {} does not match current version {}, rejecting save.",
                     charData.header.version, CURRENT_CHARACTER_SAVE_VERSION);
         } else {
+          // 保护并保留当前活体中的共享仓库状态，防止角色档快照覆盖 global.nmd (Blocker B1)
+          ItemStorageService preservedSharedStash;
+          restoreSharedStashFrom(preservedSharedStash, *storage);
+
           *storage = std::move(loadedStorage);
+
+          // 重新灌入共享仓库数据
+          restoreSharedStashFrom(*storage, preservedSharedStash);
+
           restoreFromSnapshot(registry, charData);
           LOG_INFO("SaveManager: Successfully loaded character from binary {}", binaryPath);
           return true;
         }
-      } catch (const std::exception &e) {
-        LOG_ERROR("SaveManager: Failed to parse progression from {}: {}", binaryPath, e.what());
+      } else {
+        LOG_WARN("SaveManager: Failed to decode binary save {}, attempting backup...", binaryPath);
       }
-    } else {
-      LOG_WARN("SaveManager: Failed to decode binary save {}, attempting backup...", binaryPath);
+    } catch (const std::exception &e) {
+      LOG_ERROR("SaveManager: Exception during loading character save {}: {}", binaryPath, e.what());
     }
   }
 
   // 1b. 若主档损坏或读取失败，尝试读取备份档 saves/slot_N.nmd.bak
   if (fs::exists(backupPath)) {
-    std::ifstream file(backupPath, std::ios::binary);
-    std::string progressionPayload;
-    ItemStorageService loadedStorage;
-    if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage, &progressionPayload)) {
-      try {
+    try {
+      std::ifstream file(backupPath, std::ios::binary);
+      std::string progressionPayload;
+      ItemStorageService loadedStorage;
+      if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage, &progressionPayload)) {
         nlohmann::json progJson = nlohmann::json::parse(progressionPayload);
         CharacterSaveData charData = ParseProgressionJson(progJson);
         if (charData.header.version != CURRENT_CHARACTER_SAVE_VERSION) {
           LOG_ERROR("SaveManager: Backup save version {} does not match current version {}, rejecting save.",
                     charData.header.version, CURRENT_CHARACTER_SAVE_VERSION);
         } else {
+          ItemStorageService preservedSharedStash;
+          restoreSharedStashFrom(preservedSharedStash, *storage);
+
           *storage = std::move(loadedStorage);
+
+          restoreSharedStashFrom(*storage, preservedSharedStash);
+
           restoreFromSnapshot(registry, charData);
           LOG_INFO("SaveManager: Successfully recovered character from backup {}", backupPath);
           return true;
         }
-      } catch (const std::exception &e) {
-        LOG_ERROR("SaveManager: Failed to parse progression from backup {}: {}", backupPath, e.what());
       }
+    } catch (const std::exception &e) {
+      LOG_ERROR("SaveManager: Exception during loading backup save {}: {}", backupPath, e.what());
     }
   }
 
   // 2. 检测旧版 JSON 存档并提示，不再执行兼容导入
-  std::string oldJsonPath = (slotIndex == -1) ? "saves/quicksave.json" : "saves/slot_" + std::to_string(slotIndex) + ".json";
+  std::string oldJsonPath = (slotIndex == -1) ? m_saveDirectory + "/quicksave.json" : m_saveDirectory + "/slot_" + std::to_string(slotIndex) + ".json";
   if (fs::exists(oldJsonPath)) {
     LOG_WARN("SaveManager: Detected old JSON save {}, JSON import is removed. Starting new game.", oldJsonPath);
   }
@@ -433,109 +512,103 @@ bool SaveManager::loadCharacter(entt::registry &registry, int slotIndex) {
 
 std::string SaveManager::getSavePath(int slotIndex) const {
   if (slotIndex == -1) {
-    return "saves/quicksave.nmd";
+    return m_saveDirectory + "/quicksave.nmd";
   }
-  return "saves/slot_" + std::to_string(slotIndex) + ".nmd";
+  return m_saveDirectory + "/slot_" + std::to_string(slotIndex) + ".nmd";
 }
 
 std::string SaveManager::getTempPath(int slotIndex) const {
   if (slotIndex == -1) {
-    return "saves/temp/quicksave.tmp";
+    return m_saveDirectory + "/temp/quicksave.tmp";
   }
-  return "saves/temp/slot_" + std::to_string(slotIndex) + ".tmp";
+  return m_saveDirectory + "/temp/slot_" + std::to_string(slotIndex) + ".tmp";
 }
 
 std::string SaveManager::getBackupPath(int slotIndex) const {
   return getSavePath(slotIndex) + ".bak";
 }
 
+std::string SaveManager::getGlobalSavePath() const {
+  return m_saveDirectory + "/global.nmd";
+}
+
+std::string SaveManager::getGlobalBackupPath() const {
+  return m_saveDirectory + "/global.nmd.bak";
+}
+
+std::string SaveManager::getGlobalTempPath() const {
+  return m_saveDirectory + "/temp/global.tmp";
+}
+
 bool SaveManager::loadGlobal(entt::registry &registry) {
-  std::string binaryPath = "saves/global.nmd";
-  std::string backupPath = "saves/global.nmd.bak";
+  std::string binaryPath = getGlobalSavePath();
+  std::string backupPath = getGlobalBackupPath();
 
   ItemStorageService *storage = GetItemStorageService(&registry);
 
-  // 1. 优先读取 saves/global.nmd
-  if (fs::exists(binaryPath)) {
-    std::ifstream file(binaryPath, std::ios::binary);
-    ItemStorageService loadedStorage;
-    if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage)) {
-      if (storage) {
-        storage->setUnlockedPages(ContainerKind::SharedStash,
-                                  loadedStorage.getUnlockedPages(ContainerKind::SharedStash));
-        const auto &pages = loadedStorage.getSharedStashPages();
-        for (size_t p = 0; p < pages.size(); ++p) {
-          for (size_t s = 0; s < pages[p].size(); ++s) {
-            ItemHandle h = pages[p][s];
-            if (h) {
-              const auto *inst = loadedStorage.getStore().get(h);
-              if (inst) {
-                const auto *side = loadedStorage.getStore().getSideTable(h);
-                ItemHandle newH = storage->getStoreMutable().create(*inst);
-                if (side && !side->empty()) {
-                  storage->getStoreMutable().setSideTable(newH, *side);
-                }
-                storage->setSlotHandle(
-                    SlotRef{ContainerKind::SharedStash, 0, static_cast<uint16_t>(p),
-                            static_cast<uint16_t>(s)},
-                    newH);
-              }
-            }
-          }
+  bool primaryExists = fs::exists(binaryPath);
+  bool backupExists = fs::exists(backupPath);
+
+  // 1. 优先读取 global.nmd
+  if (primaryExists) {
+    try {
+      std::ifstream file(binaryPath, std::ios::binary);
+      ItemStorageService loadedStorage;
+      if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage)) {
+        if (storage) {
+          restoreSharedStashFrom(*storage, loadedStorage);
         }
-        storage->setSharedStashMeta(loadedStorage.getSharedStashMeta());
+        LOG_INFO("SaveManager: Global save loaded from binary {}", binaryPath);
+        return true;
       }
-      LOG_INFO("SaveManager: Global save loaded from binary {}", binaryPath);
-      return true;
+      LOG_WARN("SaveManager: Failed to decode binary global save {}, attempting backup...", binaryPath);
+    } catch (const std::exception &e) {
+      LOG_WARN("SaveManager: Exception reading global save {}: {}, attempting backup...", binaryPath, e.what());
     }
   }
 
   // 1b. 备份档回退
-  if (fs::exists(backupPath)) {
-    std::ifstream file(backupPath, std::ios::binary);
-    ItemStorageService loadedStorage;
-    if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage)) {
-      if (storage) {
-        storage->setUnlockedPages(ContainerKind::SharedStash,
-                                  loadedStorage.getUnlockedPages(ContainerKind::SharedStash));
-        const auto &pages = loadedStorage.getSharedStashPages();
-        for (size_t p = 0; p < pages.size(); ++p) {
-          for (size_t s = 0; s < pages[p].size(); ++s) {
-            ItemHandle h = pages[p][s];
-            if (h) {
-              const auto *inst = loadedStorage.getStore().get(h);
-              if (inst) {
-                const auto *side = loadedStorage.getStore().getSideTable(h);
-                ItemHandle newH = storage->getStoreMutable().create(*inst);
-                if (side && !side->empty()) {
-                  storage->getStoreMutable().setSideTable(newH, *side);
-                }
-                storage->setSlotHandle(
-                    SlotRef{ContainerKind::SharedStash, 0, static_cast<uint16_t>(p),
-                            static_cast<uint16_t>(s)},
-                    newH);
-              }
-            }
-          }
+  if (backupExists) {
+    try {
+      std::ifstream file(backupPath, std::ios::binary);
+      ItemStorageService loadedStorage;
+      if (file.is_open() && ItemPersistenceCodec::decode(file, loadedStorage)) {
+        if (storage) {
+          restoreSharedStashFrom(*storage, loadedStorage);
         }
-        storage->setSharedStashMeta(loadedStorage.getSharedStashMeta());
+        LOG_INFO("SaveManager: Global save recovered from backup {}", backupPath);
+        return true;
       }
-      LOG_INFO("SaveManager: Global save recovered from backup {}", backupPath);
-      return true;
+      LOG_ERROR("SaveManager: Failed to decode backup global save {}", backupPath);
+    } catch (const std::exception &e) {
+      LOG_ERROR("SaveManager: Exception reading backup global save {}: {}", backupPath, e.what());
     }
   }
 
   auto *ctx = GetSharedContext(registry);
   SharedStash *sharedStash = ctx ? ctx->sharedStash : nullptr;
 
-  // 2. 检测旧版 saves/global.json 并提示，不再执行兼容导入
-  if (fs::exists("saves/global.json")) {
+  // 2. 检测旧版 global.json 并提示，不再执行兼容导入
+  std::string oldGlobalJson = m_saveDirectory + "/global.json";
+  if (fs::exists(oldGlobalJson)) {
     LOG_WARN("SaveManager: Detected old global.json, JSON import is removed.");
   }
 
+  // 若存档文件存在但全部损坏，记录错误并返回 false（H3：不得静默假装成功）
+  if (primaryExists || backupExists) {
+    LOG_ERROR("SaveManager: Both global save and backup are corrupted or failed to load. Rejecting silent reset.");
+    return false;
+  }
+
+  // 仅在首次游玩（文件不存在）时，正常初始化空仓库并返回 true
+  if (storage) {
+    storage->clearContainer(ContainerKind::SharedStash);
+    storage->setUnlockedPages(ContainerKind::SharedStash, 1);
+  }
   if (sharedStash) {
     sharedStash->initialize();
   }
+  LOG_INFO("SaveManager: No existing global save found, initialized empty shared stash.");
   return true;
 }
 
@@ -546,39 +619,39 @@ std::future<bool> SaveManager::saveGlobalAsync(entt::registry &registry) {
     return p.get_future();
   }
 
-  auto *ctx = GetSharedContext(registry);
-  SharedStash *sharedStash = ctx ? ctx->sharedStash : nullptr;
-
-  ItemStorageService *storage = GetItemStorageService(&registry);
-  if (!storage) {
-    LOG_ERROR("SaveManager: ItemStorageService missing, saveGlobalAsync rejected to prevent silent data loss.");
+  // 0. 防并发重入守卫 (L10)
+  if (m_isSavingGlobal.exchange(true, std::memory_order_acq_rel)) {
+    LOG_WARN("SaveManager: Global save operation is already in-flight, rejecting concurrent save request.");
     std::promise<bool> p;
     p.set_value(false);
     return p.get_future();
   }
 
-  ItemStorageService snapshot;
-  snapshot.getStoreMutable() = storage->getStore();
-  snapshot.setUnlockedPages(ContainerKind::SharedStash,
-                            storage->getUnlockedPages(ContainerKind::SharedStash));
-  const auto &sharedPages = storage->getSharedStashPages();
-  for (size_t p = 0; p < sharedPages.size(); ++p) {
-    for (size_t s = 0; s < sharedPages[p].size(); ++s) {
-      if (sharedPages[p][s]) {
-        snapshot.setSlotHandle(
-            SlotRef{ContainerKind::SharedStash, 0, static_cast<uint16_t>(p), static_cast<uint16_t>(s)},
-            sharedPages[p][s]);
-      }
-    }
+  ItemStorageService *storage = GetItemStorageService(&registry);
+  if (!storage) {
+    LOG_ERROR("SaveManager: ItemStorageService missing, saveGlobalAsync rejected to prevent silent data loss.");
+    m_isSavingGlobal.store(false, std::memory_order_release);
+    std::promise<bool> p;
+    p.set_value(false);
+    return p.get_future();
   }
-  snapshot.setSharedStashMeta(storage->getSharedStashMeta());
 
-  std::string targetPath = "saves/global.nmd";
-  std::string tempPath = "saves/temp/global.tmp";
+  // H4: 仅抽取 SharedStash 槽位物品到隔离干净快照，防止全池角色私有物品写入 global.nmd
+  ItemStorageService snapshot;
+  restoreSharedStashFrom(snapshot, *storage);
+
+  std::string targetPath = getGlobalSavePath();
+  std::string tempPath = getGlobalTempPath();
 
   return m_executor->async([snapshot = std::move(snapshot),
                             targetPath = std::move(targetPath),
-                            tempPath = std::move(tempPath)]() {
+                            tempPath = std::move(tempPath),
+                            &isSavingGlobal = m_isSavingGlobal]() {
+    struct InFlightGuard {
+      std::atomic<bool> &flag;
+      ~InFlightGuard() { flag.store(false, std::memory_order_release); }
+    } guard{isSavingGlobal};
+
     try {
       std::stringstream ss;
       uint32_t mask = ContainerDirtyFlags::TemplateFingerprint |

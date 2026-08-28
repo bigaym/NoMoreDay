@@ -335,6 +335,8 @@ StorageError ItemStorageService::splitStack(const SlotRef &from,
   ItemInstance proto = *instFrom;
   proto.instanceId = generateInstanceId();
   proto.quantity = splitCount;
+  proto.sockets.fill(ItemHandle{0, 0});
+  proto.socketCount = 0;
 
   const ItemHandle hNew = m_store.create(proto);
   if (const auto *side = m_store.getSideTable(hFrom)) {
@@ -365,9 +367,29 @@ StorageError ItemStorageService::mergeStack(const SlotRef &from,
     return StorageError::NotFound;
   }
 
+  // M2: 全字段与词缀/旁表差异比对，防止实例差异被静默丢弃
   if (instFrom->baseId != instTo->baseId ||
-      instFrom->rarity != instTo->rarity) {
+      instFrom->rarity != instTo->rarity ||
+      instFrom->itemLevel != instTo->itemLevel ||
+      instFrom->flags != instTo->flags ||
+      instFrom->affixCount != instTo->affixCount ||
+      instFrom->affixes != instTo->affixes ||
+      instFrom->socketCount != instTo->socketCount ||
+      instFrom->sockets != instTo->sockets ||
+      instFrom->activeRunewordId != instTo->activeRunewordId) {
     return StorageError::TypeMismatch;
+  }
+
+  const auto *sideFrom = m_store.getSideTable(hFrom);
+  const auto *sideTo = m_store.getSideTable(hTo);
+  const bool sideFromEmpty = !sideFrom || sideFrom->empty();
+  const bool sideToEmpty = !sideTo || sideTo->empty();
+  if (!sideFromEmpty || !sideToEmpty) {
+    if (sideFromEmpty != sideToEmpty) return StorageError::TypeMismatch;
+    if (sideFrom->conversions != sideTo->conversions ||
+        sideFrom->damage_modifiers != sideTo->damage_modifiers) {
+      return StorageError::TypeMismatch;
+    }
   }
 
   // 保持锁定物品规则与 destroyItem/splitStack 的对称性。
@@ -434,6 +456,13 @@ StorageError ItemStorageService::transferItem(const SlotRef &from,
 StorageError ItemStorageService::autoDeposit(const SlotRef &from,
                                              ContainerKind targetKind,
                                              uint8_t targetContainer) {
+  // L1: 显式拒绝不支持槽位寻址的 targetKind
+  if (targetKind != ContainerKind::Inventory &&
+      targetKind != ContainerKind::PersonalStash &&
+      targetKind != ContainerKind::SharedStash) {
+    return StorageError::TypeMismatch;
+  }
+
   ItemHandle *pFrom = getSlotPointer(from);
   if (!pFrom) {
     return StorageError::InvalidSlot;
@@ -451,7 +480,7 @@ StorageError ItemStorageService::autoDeposit(const SlotRef &from,
         (targetKind == ContainerKind::PersonalStash ||
          targetKind == ContainerKind::SharedStash)
             ? kStashPageCapacity
-            : (targetKind == ContainerKind::Inventory ? kInventoryCapacity : 0);
+            : kInventoryCapacity;
     for (uint16_t i = 0; i < cap; ++i) {
       const SlotRef targetSlot{targetKind, targetContainer, p, i};
       const ItemHandle hTarget = getSlotHandle(targetSlot);
@@ -474,7 +503,7 @@ StorageError ItemStorageService::autoDeposit(const SlotRef &from,
         (targetKind == ContainerKind::PersonalStash ||
          targetKind == ContainerKind::SharedStash)
             ? kStashPageCapacity
-            : (targetKind == ContainerKind::Inventory ? kInventoryCapacity : 0);
+            : kInventoryCapacity;
     for (uint16_t i = 0; i < cap; ++i) {
       const SlotRef targetSlot{targetKind, targetContainer, p, i};
       const ItemHandle hTarget = getSlotHandle(targetSlot);
@@ -489,8 +518,8 @@ StorageError ItemStorageService::autoDeposit(const SlotRef &from,
 }
 
 void ItemStorageService::sortContainer(ContainerKind kind, uint8_t container,
-                                       uint16_t page) {
-  (void)container;
+                                       uint16_t page,
+                                       SlotFilterPredicate filter) {
   std::vector<ItemHandle> *slotArray = nullptr;
   if (kind == ContainerKind::Inventory) {
     slotArray = &m_inventorySlots;
@@ -500,6 +529,8 @@ void ItemStorageService::sortContainer(ContainerKind kind, uint8_t container,
   } else if (kind == ContainerKind::SharedStash &&
              page < m_sharedStash.size()) {
     slotArray = &m_sharedStash[page];
+  } else if (kind == ContainerKind::HeirloomVault) {
+    slotArray = &m_heirloomVault;
   }
 
   if (!slotArray || slotArray->empty()) {
@@ -507,8 +538,17 @@ void ItemStorageService::sortContainer(ContainerKind kind, uint8_t container,
   }
 
   std::vector<ItemHandle> validHandles;
+  std::vector<size_t> participatingIndices;
   validHandles.reserve(slotArray->size());
-  for (const auto &h : *slotArray) {
+  participatingIndices.reserve(slotArray->size());
+
+  for (size_t i = 0; i < slotArray->size(); ++i) {
+    ItemHandle h = (*slotArray)[i];
+    SlotRef sRef{kind, container, page, static_cast<uint16_t>(i)};
+    if (filter && !filter(sRef, h)) {
+      continue;
+    }
+    participatingIndices.push_back(i);
     if (m_store.isValid(h)) {
       validHandles.push_back(h);
     }
@@ -549,11 +589,12 @@ void ItemStorageService::sortContainer(ContainerKind kind, uint8_t container,
               return a->quantity > b->quantity;
             });
 
-  for (size_t i = 0; i < slotArray->size(); ++i) {
-    if (i < validHandles.size()) {
-      (*slotArray)[i] = validHandles[i];
+  for (size_t k = 0; k < participatingIndices.size(); ++k) {
+    size_t slotIdx = participatingIndices[k];
+    if (k < validHandles.size()) {
+      (*slotArray)[slotIdx] = validHandles[k];
     } else {
-      (*slotArray)[i] = ItemHandle{0, 0};
+      (*slotArray)[slotIdx] = ItemHandle{0, 0};
     }
   }
 
@@ -783,7 +824,7 @@ void ItemStorageService::clearContainer(ContainerKind kind, uint8_t container,
     m_heirloomVault.assign(kHeirloomVaultCapacity, ItemHandle{0, 0});
     break;
   case ContainerKind::GroundPending:
-    m_groundPending.clear();
+    clearGroundPending(true);
     break;
   case ContainerKind::MaterialBank:
     m_materialBank.clear();

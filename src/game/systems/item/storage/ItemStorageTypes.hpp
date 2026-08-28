@@ -153,6 +153,7 @@ struct alignas(8) ItemInstance {
   bool operator==(const ItemInstance &other) const noexcept = default;
   bool operator!=(const ItemInstance &other) const noexcept = default;
 };
+static_assert(sizeof(ItemInstance) == 192, "ItemInstance size must be exactly 192 bytes. Increment ITEM_STORE_BINARY_VERSION if modified.");
 static_assert(std::is_trivially_copyable_v<ItemInstance>, "ItemInstance must be trivially copyable");
 static_assert(alignof(ItemInstance) == 8, "ItemInstance alignment must be 8 bytes");
 

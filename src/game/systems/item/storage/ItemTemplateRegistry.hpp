@@ -12,6 +12,13 @@ namespace NoMoreDay {
 /**
  * @brief Centralized registry and single source of truth for immutable ItemTemplates.
  */
+struct StringHash {
+  using is_transparent = void;
+  size_t operator()(std::string_view sv) const noexcept {
+    return std::hash<std::string_view>{}(sv);
+  }
+};
+
 class ItemTemplateRegistry {
 public:
   /**
@@ -96,7 +103,7 @@ private:
   ItemTemplateRegistry &operator=(const ItemTemplateRegistry &) = delete;
 
   std::unordered_map<uint32_t, ItemTemplate> m_templates;
-  std::unordered_map<std::string, uint32_t> m_nameIndex;
+  std::unordered_map<std::string, uint32_t, StringHash, std::equal_to<>> m_nameIndex;
 };
 
 } // namespace NoMoreDay

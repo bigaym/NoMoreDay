@@ -79,6 +79,10 @@ TEST_CASE("[Unit] SaveManager - Binary .nmd Save and Load with Backup Recovery")
   tf::Executor executor;
   SaveManager sm;
   sm.Initialize(&executor);
+  sm.SetSaveDirectory("build/test_saves_isolation");
+
+  std::error_code ec;
+  std::filesystem::create_directories("build/test_saves_isolation", ec);
 
   entt::registry reg;
   auto player = reg.create();
@@ -107,8 +111,8 @@ TEST_CASE("[Unit] SaveManager - Binary .nmd Save and Load with Backup Recovery")
   bool saveResult = future.get();
   REQUIRE(saveResult);
 
-  std::string nmdPath = "saves/slot_99.nmd";
-  std::string bakPath = "saves/slot_99.nmd.bak";
+  std::string nmdPath = "build/test_saves_isolation/slot_99.nmd";
+  std::string bakPath = "build/test_saves_isolation/slot_99.nmd.bak";
   CHECK(std::filesystem::exists(nmdPath));
 
   // 2. 正常读取
@@ -163,7 +167,6 @@ TEST_CASE("[Unit] SaveManager - Binary .nmd Save and Load with Backup Recovery")
   CHECK(backupService.getMaterialCount(101) == 50);
 
   // 清理测试文件
-  std::error_code ec;
   std::filesystem::remove(nmdPath, ec);
   std::filesystem::remove(bakPath, ec);
 }
@@ -174,6 +177,10 @@ TEST_CASE("[Unit] SaveManager - In-Flight Save Guard and Concurrent Rejection") 
   tf::Executor executor;
   SaveManager sm;
   sm.Initialize(&executor);
+  sm.SetSaveDirectory("build/test_saves_isolation");
+
+  std::error_code ec;
+  std::filesystem::create_directories("build/test_saves_isolation", ec);
 
   entt::registry reg;
   auto player = reg.create();
@@ -197,7 +204,239 @@ TEST_CASE("[Unit] SaveManager - In-Flight Save Guard and Concurrent Rejection") 
   (void)res2;
 
   // 清理测试文件
+  std::filesystem::remove("build/test_saves_isolation/slot_98.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_98.nmd.bak", ec);
+}
+
+TEST_CASE("[Unit] SaveManager - Multi-Character and Global SharedStash Separation (N1)") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  tf::Executor executor;
+  SaveManager sm;
+  sm.Initialize(&executor);
+  sm.SetSaveDirectory("build/test_saves_isolation");
+
   std::error_code ec;
-  std::filesystem::remove("saves/slot_98.nmd", ec);
-  std::filesystem::remove("saves/slot_98.nmd.bak", ec);
+  std::filesystem::create_directories("build/test_saves_isolation", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_96.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_96.nmd.bak", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_97.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_97.nmd.bak", ec);
+  std::filesystem::remove("build/test_saves_isolation/global.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/global.nmd.bak", ec);
+
+  // 1. 初始化 角色 A (Slot 96)
+  entt::registry regA;
+  auto playerA = regA.create();
+  regA.emplace<PlayerTag>(playerA);
+  regA.emplace<PlayerName>(playerA, "HeroA");
+  regA.emplace<PlayerLevel>(playerA, 20);
+  regA.emplace<Position>(playerA, 10.0f, 10.0f);
+  regA.emplace<PrimaryStats>(playerA);
+
+  ItemStorageService storageA;
+  storageA.setGold(5000);
+  ItemInstance swordA{};
+  swordA.instanceId = 101;
+  swordA.baseId = 1001;
+  ItemHandle hSwordA = storageA.getStoreMutable().create(swordA);
+  storageA.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, hSwordA);
+
+  ItemInstance sharedRing{};
+  sharedRing.instanceId = 201;
+  sharedRing.baseId = 3011;
+  ItemHandle hSharedRing = storageA.getStoreMutable().create(sharedRing);
+  storageA.setSlotHandle(SlotRef{ContainerKind::SharedStash, 0, 0, 0}, hSharedRing);
+
+  sm.SetItemStorageService(&storageA);
+
+  // 保存角色 A 与全局存档
+  auto futGlobal1 = sm.saveGlobalAsync(regA);
+  REQUIRE(futGlobal1.get());
+  auto futChar1 = sm.saveCharacterAsync(regA, 96);
+  REQUIRE(futChar1.get());
+
+  // 2. 初始化 角色 B (Slot 97)
+  entt::registry regB;
+  auto playerB = regB.create();
+  regB.emplace<PlayerTag>(playerB);
+  regB.emplace<PlayerName>(playerB, "HeroB");
+  regB.emplace<PlayerLevel>(playerB, 15);
+  regB.emplace<Position>(playerB, 20.0f, 20.0f);
+  regB.emplace<PrimaryStats>(playerB);
+
+  ItemStorageService storageB;
+  sm.SetItemStorageService(&storageB);
+
+  // 加载全局共享仓库至角色 B 的运行时
+  REQUIRE(sm.loadGlobal(regB));
+  ItemHandle loadedSharedRingB = storageB.getSlotHandle(SlotRef{ContainerKind::SharedStash, 0, 0, 0});
+  REQUIRE(loadedSharedRingB);
+  CHECK(storageB.getStore().get(loadedSharedRingB)->baseId == 3011);
+  // 确认角色 A 的私有背包武器没有泄露至全局共享仓库 (H4 / B1)
+  CHECK(!storageB.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}));
+
+  // 角色 B 放入私有长袍和新的共享项链
+  ItemInstance robeB{};
+  robeB.instanceId = 301;
+  robeB.baseId = 2011;
+  ItemHandle hRobeB = storageB.getStoreMutable().create(robeB);
+  storageB.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 1}, hRobeB);
+
+  ItemInstance sharedAmulet{};
+  sharedAmulet.instanceId = 401;
+  sharedAmulet.baseId = 3001;
+  ItemHandle hSharedAmulet = storageB.getStoreMutable().create(sharedAmulet);
+  storageB.setSlotHandle(SlotRef{ContainerKind::SharedStash, 0, 0, 1}, hSharedAmulet);
+
+  auto futGlobal2 = sm.saveGlobalAsync(regB);
+  REQUIRE(futGlobal2.get());
+  auto futChar2 = sm.saveCharacterAsync(regB, 97);
+  REQUIRE(futChar2.get());
+
+  // 3. 重新加载 角色 A
+  entt::registry reloadRegA;
+  ItemStorageService reloadStorageA;
+  sm.SetItemStorageService(&reloadStorageA);
+
+  // 先加载全局共享仓库
+  REQUIRE(sm.loadGlobal(reloadRegA));
+  // 再加载角色 A (loadCharacter 必须保护并保留当前活体共享仓库)
+  REQUIRE(sm.loadCharacter(reloadRegA, 96));
+
+  // 验证角色 A 的私有背包物品恢复正常
+  ItemHandle reloadSwordA = reloadStorageA.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0});
+  REQUIRE(reloadSwordA);
+  CHECK(reloadStorageA.getStore().get(reloadSwordA)->baseId == 1001);
+  CHECK(reloadStorageA.getStore().get(reloadSwordA)->instanceId == 101);
+
+  // 验证角色 A 能看到角色 B 更新后的全部共享仓库物品
+  ItemHandle sRing = reloadStorageA.getSlotHandle(SlotRef{ContainerKind::SharedStash, 0, 0, 0});
+  ItemHandle sAmulet = reloadStorageA.getSlotHandle(SlotRef{ContainerKind::SharedStash, 0, 0, 1});
+  REQUIRE(sRing);
+  REQUIRE(sAmulet);
+  CHECK(reloadStorageA.getStore().get(sRing)->baseId == 3011);
+  CHECK(reloadStorageA.getStore().get(sAmulet)->baseId == 3001);
+
+  // 清理
+  std::filesystem::remove("build/test_saves_isolation/slot_96.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_96.nmd.bak", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_97.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/slot_97.nmd.bak", ec);
+  std::filesystem::remove("build/test_saves_isolation/global.nmd", ec);
+  std::filesystem::remove("build/test_saves_isolation/global.nmd.bak", ec);
+}
+
+TEST_CASE("[Unit] SaveManager - Corrupted Global Save Rejection (H3)") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  tf::Executor executor;
+  SaveManager sm;
+  sm.Initialize(&executor);
+  sm.SetSaveDirectory("build/test_saves_isolation");
+
+  std::string binaryPath = "build/test_saves_isolation/global.nmd";
+  std::string backupPath = "build/test_saves_isolation/global.nmd.bak";
+  std::error_code ec;
+  std::filesystem::create_directories("build/test_saves_isolation", ec);
+
+  // 1. 制造损坏的 global.nmd 与 global.nmd.bak
+  std::ofstream f1(binaryPath, std::ios::binary | std::ios::trunc);
+  f1 << "BAD_BINARY_DATA";
+  f1.close();
+
+  std::ofstream f2(backupPath, std::ios::binary | std::ios::trunc);
+  f2 << "BAD_BACKUP_DATA";
+  f2.close();
+
+  entt::registry reg;
+  ItemStorageService storage;
+  sm.SetItemStorageService(&storage);
+
+  // H3: 损坏时不得静默返回 true 重置存档，必须返回 false
+  bool loadResult = sm.loadGlobal(reg);
+  CHECK(loadResult == false);
+
+  // 2. 清理文件后测试全新启动（无文件）正常初始化返回 true
+  std::filesystem::remove(binaryPath, ec);
+  std::filesystem::remove(backupPath, ec);
+
+  bool cleanResult = sm.loadGlobal(reg);
+  CHECK(cleanResult == true);
+  CHECK(storage.getUnlockedPages(ContainerKind::SharedStash) == 1);
+}
+
+TEST_CASE("[Unit] ItemPersistenceCodec - Sparse Inventory Layout Preservation (M7)") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  ItemStorageService srcService;
+  // 在非连续稀疏槽位放置物品
+  ItemInstance item1{};
+  item1.instanceId = 11;
+  item1.baseId = 1001;
+  ItemHandle h1 = srcService.getStoreMutable().create(item1);
+  srcService.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, h1);
+
+  ItemInstance item2{};
+  item2.instanceId = 22;
+  item2.baseId = 1002;
+  ItemHandle h2 = srcService.getStoreMutable().create(item2);
+  srcService.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 7}, h2);
+
+  ItemInstance item3{};
+  item3.instanceId = 33;
+  item3.baseId = 1003;
+  ItemHandle h3 = srcService.getStoreMutable().create(item3);
+  srcService.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 25}, h3);
+
+  ItemInstance item4{};
+  item4.instanceId = 44;
+  item4.baseId = 1004;
+  ItemHandle h4 = srcService.getStoreMutable().create(item4);
+  srcService.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 39}, h4);
+
+  std::stringstream ss;
+  REQUIRE(ItemPersistenceCodec::encode(srcService, ss));
+
+  ItemStorageService dstService;
+  REQUIRE(ItemPersistenceCodec::decode(ss, dstService));
+
+  for (uint16_t i = 0; i < ItemStorageService::kInventoryCapacity; ++i) {
+    ItemHandle h = dstService.getSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, i});
+    if (i == 0) {
+      REQUIRE(h);
+      CHECK(dstService.getStore().get(h)->instanceId == 11);
+    } else if (i == 7) {
+      REQUIRE(h);
+      CHECK(dstService.getStore().get(h)->instanceId == 22);
+    } else if (i == 25) {
+      REQUIRE(h);
+      CHECK(dstService.getStore().get(h)->instanceId == 33);
+    } else if (i == 39) {
+      REQUIRE(h);
+      CHECK(dstService.getStore().get(h)->instanceId == 44);
+    } else {
+      CHECK(!h);
+    }
+  }
+}
+
+TEST_CASE("[Unit] ItemComponent - Set Name Hash Automatic Recalculation (M7)") {
+  TestSetupScope scope;
+
+  ItemComponent setItem;
+  setItem.id = 5001;
+  setItem.name = "Immortal Helm";
+  setItem.setName = "Immortal King";
+  setItem.setNameHash = 0; // 故意重置为 0
+
+  nlohmann::json j = setItem;
+  // JSON 序列化不持久化 setNameHash 字段，反序列化时自动重算
+  CHECK(!j.contains("setNameHash"));
+
+  ItemComponent loadedItem = j.get<ItemComponent>();
+  uint32_t expectedHash = NoMoreDay::utils::Hash("Immortal King");
+  CHECK(loadedItem.setNameHash == expectedHash);
+  CHECK(loadedItem.setName == "Immortal King");
 }

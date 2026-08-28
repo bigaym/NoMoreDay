@@ -368,16 +368,15 @@ void StashSystem::sortTab(entt::registry& registry, StashType type, int tabIndex
         switch (mode) {
             case StashSortMode::RarityDesc:
                 if (itemA->rarity != itemB->rarity) return itemA->rarity > itemB->rarity;
-                return itemA->name < itemB->name;
+                return itemA->baseId < itemB->baseId;
             case StashSortMode::RarityAsc:
                 if (itemA->rarity != itemB->rarity) return itemA->rarity < itemB->rarity;
-                return itemA->name < itemB->name;
+                return itemA->baseId < itemB->baseId;
             case StashSortMode::Type:
                 if (itemA->type != itemB->type) return itemA->type < itemB->type;
-                return itemA->name < itemB->name;
+                return itemA->baseId < itemB->baseId;
             case StashSortMode::Level:
-                // Assuming implicit level or similar, fallback to name
-                 return itemA->name < itemB->name;
+                return itemA->baseId < itemB->baseId;
             default:
                 return false;
         }

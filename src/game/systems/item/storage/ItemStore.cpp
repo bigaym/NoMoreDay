@@ -198,12 +198,15 @@ void ItemStore::restoreRawEntries(
   m_occupied.assign(maxIdx + 1, 0);
   m_freeList.clear();
   m_sideTables = sideTables;
-  m_activeCount = entries.size();
+  m_activeCount = 0;
 
   for (const auto &e : entries) {
     if (e.index > 0 && e.index <= maxIdx) {
+      if (m_occupied[e.index] == 0) {
+        m_activeCount++;
+      }
       m_instances[e.index] = e.instance;
-      m_generations[e.index] = e.gen;
+      m_generations[e.index] = (e.gen > 0) ? e.gen : 1;
       m_occupied[e.index] = 1;
     }
   }

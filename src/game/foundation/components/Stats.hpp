@@ -424,6 +424,8 @@ struct StatConversion {
   StatType target = StatType::Count;
   float ratio = 0.0f;
   Tag required_tags = Tag::None;
+
+  bool operator==(const StatConversion &) const = default;
 };
 
 inline void to_json(nlohmann::json &j, const StatConversion &m) {

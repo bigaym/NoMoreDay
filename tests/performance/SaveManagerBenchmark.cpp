@@ -196,6 +196,7 @@ TEST_CASE("[Performance] SaveManager - createSnapshot (1000 items)") {
   LOG_BENCHMARK("SaveManager createSnapshot (Progression)", stats, "< 0.5ms");
   save_manager_benchmark_detail::LogThresholdWarn(
       "SaveManager createSnapshot (Progression)", stats, 0.5, 2.0);
+  CHECK(stats.mean_ms < 2.0);
   CHECK(!samples.empty());
 }
 
@@ -236,6 +237,7 @@ TEST_CASE("[Performance] SaveManager - restoreFromSnapshot (1000 items)") {
   LOG_BENCHMARK("SaveManager restoreFromSnapshot 1000", stats, "< 2.0ms");
   save_manager_benchmark_detail::LogThresholdWarn(
       "SaveManager restoreFromSnapshot 1000", stats, 2.0, 5.0);
+  CHECK(stats.mean_ms < 6.0);
   CHECK(!samples.empty());
 }
 
@@ -265,6 +267,7 @@ TEST_CASE("[Performance] ItemPersistenceCodec - Binary Encode/Decode (1000 items
   LOG_BENCHMARK("ItemPersistenceCodec encode 1000", encStats, "< 1.0ms");
   save_manager_benchmark_detail::LogThresholdWarn(
       "ItemPersistenceCodec encode 1000", encStats, 1.0, 2.5);
+  CHECK(encStats.mean_ms < 3.0);
 
   // 2. Decode 性能采样 (1000 items binary decode)
   std::vector<double> decodeSamples;
@@ -282,6 +285,7 @@ TEST_CASE("[Performance] ItemPersistenceCodec - Binary Encode/Decode (1000 items
   LOG_BENCHMARK("ItemPersistenceCodec decode 1000", decStats, "< 2.0ms");
   save_manager_benchmark_detail::LogThresholdWarn(
       "ItemPersistenceCodec decode 1000", decStats, 2.0, 5.0);
+  CHECK(decStats.mean_ms < 6.0);
 }
 
 } // namespace NoMoreDay::tests

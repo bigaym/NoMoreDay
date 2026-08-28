@@ -69,7 +69,7 @@ const ItemTemplate *ItemTemplateRegistry::find(uint32_t baseId) const noexcept {
 
 const ItemTemplate *
 ItemTemplateRegistry::findByName(std::string_view name) const noexcept {
-  auto it = m_nameIndex.find(std::string(name));
+  auto it = m_nameIndex.find(name);
   if (it != m_nameIndex.end()) {
     return find(it->second);
   }

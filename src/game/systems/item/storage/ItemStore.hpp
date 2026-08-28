@@ -49,6 +49,8 @@ public:
 
   /**
    * @brief Mutate an item in-place via callable and bump version.
+   * @note The callable `fn` must be non-throwing (noexcept). If `fn` throws an exception,
+   *       `std::terminate` will be called due to noexcept specification.
    * @return true if handle was valid and mutated, false otherwise.
    */
   template <typename Fn>

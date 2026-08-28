@@ -61,14 +61,25 @@ public:
   bool loadGlobal(entt::registry &registry);
   std::future<bool> saveGlobalAsync(entt::registry &registry);
 
+  void SetSaveDirectory(std::string dir) { m_saveDirectory = std::move(dir); }
+  const std::string &GetSaveDirectory() const noexcept { return m_saveDirectory; }
+
+  static bool restoreSharedStashFrom(ItemStorageService &target,
+                                     const ItemStorageService &source);
+
 private:
   tf::Executor *m_executor = nullptr;
   ItemStorageService *m_itemStorage = nullptr;
+  std::string m_saveDirectory = "saves";
   std::atomic<bool> m_isSaving{false};
+  std::atomic<bool> m_isSavingGlobal{false};
 
   std::string getSavePath(int slotIndex) const;
   std::string getTempPath(int slotIndex) const;
   std::string getBackupPath(int slotIndex) const;
+  std::string getGlobalSavePath() const;
+  std::string getGlobalBackupPath() const;
+  std::string getGlobalTempPath() const;
 };
 
 } // namespace NoMoreDay

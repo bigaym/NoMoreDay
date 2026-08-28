@@ -1,4 +1,5 @@
 #include "game/systems/item/storage/ItemStorageAdapter.hpp"
+#include "core/logging/Logger.hpp"
 #include <algorithm>
 
 namespace NoMoreDay {
@@ -24,6 +25,9 @@ IItemStorageAdapter *ItemStorageAdapter::GetDefaultAdapter(SharedContext *ctx) {
   if (ctx) {
     s_fallbackAdapter->setService(ctx->itemStorage);
     s_fallbackAdapter->setSettings(ctx->settings);
+  } else {
+    s_fallbackAdapter->setService(nullptr);
+    s_fallbackAdapter->setSettings(nullptr);
   }
 
   return s_fallbackAdapter.get();
@@ -109,7 +113,8 @@ bool ItemStorageAdapter::canStoreItem(ContainerKind kind, uint8_t container,
   if (m_service) {
     return m_service->canStoreItem(kind, container, page, handle);
   }
-  return true;
+  LOG_ERROR("ItemStorageAdapter::canStoreItem: m_service is null, rejecting canStoreItem");
+  return false;
 }
 
 ItemHandle ItemStorageAdapter::getSlotHandle(ContainerKind kind,
