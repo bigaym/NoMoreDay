@@ -36,10 +36,11 @@ MainMenuState::MainMenuState(StateManager &manager, SharedContext &context)
                   "EXIT",
                   false};
 
-  m_hasSave = std::filesystem::exists("saves/slot_0.json");
+  m_hasSave = std::filesystem::exists("saves/slot_0.nmd");
 }
 
 void MainMenuState::OnEnter() {
+  m_hasSave = std::filesystem::exists("saves/slot_0.nmd");
   // Load main menu background
   m_context->resources->loadTexture(assets::ui::textures::Home_Page.id,
                                     std::string(assets::ui::textures::Home_Page.path));

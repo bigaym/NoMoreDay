@@ -186,19 +186,16 @@ TEST_CASE("[Performance] SaveManager - createSnapshot (1000 items)") {
   for (int i = 0; i < 50; ++i) {
     ScopedTimer timer(samples);
     CharacterSaveData data = sm.createSnapshot(registry);
-    sink += data.inventory.size();
-    sink += data.equipment.size();
-    if (data.personalStash.has_value()) {
-      sink += data.personalStash->tabs.size();
-    }
+    sink += data.header.level;
+    sink += data.skills.slots.size();
   }
 
   CHECK(sink > 0);
   const BenchmarkStats stats = CalculateStats(samples);
-  // 新预算目标 < 1.0ms（P4 冻结快照）
-  LOG_BENCHMARK("SaveManager createSnapshot 1000", stats, "< 1.0ms");
+  // 新预算目标 < 0.5ms（Progression-only 快照）
+  LOG_BENCHMARK("SaveManager createSnapshot (Progression)", stats, "< 0.5ms");
   save_manager_benchmark_detail::LogThresholdWarn(
-      "SaveManager createSnapshot 1000", stats, 1.0, 3.0);
+      "SaveManager createSnapshot (Progression)", stats, 0.5, 2.0);
   CHECK(!samples.empty());
 }
 

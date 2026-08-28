@@ -37,11 +37,7 @@ struct InventoryComponent {
     }
 };
 
-// 序列化 InventoryComponent
-// NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(InventoryComponent, items, capacity, gold) // 移除宏，改为手动在 SerializationSystem 中处理
-
 // 可以装备物品的实体组件 (玩家)
 // EquipmentComponent is defined in EquipmentComponent.hpp
-
 
 } // namespace NoMoreDay

@@ -1,9 +1,6 @@
 #include "SharedStash.hpp"
 #include "game/systems/item/StashConfig.hpp"
 #include "game/foundation/components/Common.hpp"
-#include "game/foundation/components/ItemComponent.hpp"
-#include "game/systems/item/ItemFactory.hpp"
-#include "game/foundation/data/StashData.hpp"
 
 namespace NoMoreDay {
 
@@ -70,76 +67,6 @@ StashTab* SharedStash::getTab(int tabIndex) {
 const StashTab* SharedStash::getTab(int tabIndex) const {
     if (tabIndex < 0 || tabIndex >= m_unlockedTabs) return nullptr;
     return &m_tabs[tabIndex];
-}
-
-nlohmann::json SharedStash::toJson(entt::registry& registry) const {
-    SerializedStash sStash;
-    sStash.unlockedTabs = m_unlockedTabs;
-    
-    for (const auto& tab : m_tabs) {
-        SerializedStashTab sTab;
-        sTab.name = tab.name;
-        sTab.type = tab.type;
-        sTab.iconId = tab.iconId;
-        sTab.color = tab.color;
-        
-        for (int i = 0; i < StashTab::CAPACITY; ++i) {
-            if (registry.valid(tab.items[i])) {
-                SerializedStashSlot slot;
-                slot.slotIndex = i;
-                slot.item = ItemFactory::serializeItem(registry, tab.items[i]);
-                sTab.items.push_back(slot);
-            }
-        }
-        sStash.tabs.push_back(sTab);
-    }
-    
-    nlohmann::json j = sStash;
-    return j;
-}
-
-void SharedStash::fromJson(const nlohmann::json& j, entt::registry& registry) {
-    if (j.is_null() || j.empty()) return;
-
-    SerializedStash sStash = j.get<SerializedStash>();
-    
-    m_unlockedTabs = sStash.unlockedTabs;
-    m_tabs.clear();
-    m_tabs.resize(m_unlockedTabs);
-    
-    const auto& sTabs = sStash.tabs;
-    for (size_t i = 0; i < sTabs.size(); ++i) {
-        if (i >= m_tabs.size()) break;
-        auto& t = m_tabs[i];
-        const auto& sT = sTabs[i];
-        
-        t.name = sT.name;
-        t.type = sT.type;
-        t.iconId = sT.iconId;
-        t.color = sT.color;
-        
-        for (const auto& slot : sT.items) {
-            if (slot.slotIndex >= 0 && slot.slotIndex < StashTab::CAPACITY) {
-                t.items[slot.slotIndex] = ItemFactory::restoreItem(registry, slot.item);
-            }
-        }
-    }
-}
-
-void SharedStash::suspend(entt::registry& registry) {
-    m_suspendedData = toJson(registry);
-    // 物品即将被 SaveManager 的 registry.clear() 销毁。
-    // 清除我们的引用，以防在 tabs 中遗留悬空句柄。
-    for (auto& tab : m_tabs) {
-        tab.items.fill(entt::null);
-    }
-}
-
-void SharedStash::resume(entt::registry& registry) {
-    if (!m_suspendedData.empty()) {
-        fromJson(m_suspendedData, registry);
-        m_suspendedData.clear();
-    }
 }
 
 } // namespace NoMoreDay

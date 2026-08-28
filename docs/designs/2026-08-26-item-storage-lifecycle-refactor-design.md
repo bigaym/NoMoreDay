@@ -278,6 +278,11 @@ struct SlotRef { ContainerKind kind; uint8_t container; uint16_t page; uint16_t 
 - 迁移链沿用既有模式（参考 `MigrateLegacySpecializedSlots`，SaveManager.cpp 内 v<3 处理）。
 - `SerializationSystem`（轨道 A）处置：F5/F8 快捷键重定向到 SaveManager 轨道（快捷全量存档）；全量世界序列化代码移除（其 debug 价值由 JsonCodec 导出替代）。详见 Q3。
 
+> **D8 修订（2026-08-28）**：
+> 正式废止「旧 JSON 读取器保留至少一个发布版本」条款，改为「旧版存档不兼容，按无存档处理」。
+> 触发原因：写入方已全量消亡（所有写盘路径已统一为 `.nmd` 二进制），且处于开发期无存量发布用户档需求，彻底移除 JSON 读取兼容与 DTO 冗余字段，实现单轨持久化。
+
+
 ---
 
 ## 5. 数据所有权与跨系统合同（行为规则）

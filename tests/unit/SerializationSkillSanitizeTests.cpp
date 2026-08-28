@@ -4,12 +4,9 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
-#include "game/systems/SerializationSystem.hpp"
 
 #include <entt/entt.hpp>
-
-#include <filesystem>
-#include <fstream>
+#include <nlohmann/json.hpp>
 
 namespace NoMoreDay {
 namespace {
@@ -103,41 +100,13 @@ TEST_CASE("[Unit] SkillRegistry - SanitizeLoadedSkillSlots resets unknown ids an
   CHECK(active.available_talent_points == 7);
 }
 
-TEST_CASE("[Unit] SerializationSystem - Load sanitizes unknown skill slots from save json") {
+TEST_CASE("[Unit] SkillRegistry - Deserialization sanitizes unknown skill slots from save json payload") {
   RegisterSanitizeFixtureSkill();
 
-  const auto savePath = std::filesystem::temp_directory_path() / "nmd_unit_skill_sanitize_save.json";
-  {
-    nlohmann::json root;
-    root["entities"] = nlohmann::json::array();
-    nlohmann::json entityJson;
-    entityJson["uuid"] = 42u;
-    entityJson["ActiveSkills"] = MakeActiveSkillsJson();
-    root["entities"].push_back(entityJson);
+  nlohmann::json skillJson = MakeActiveSkillsJson();
+  ActiveSkillsComponent active = skillJson.get<ActiveSkillsComponent>();
+  SkillRegistry::Get().SanitizeLoadedSkillSlots(active);
 
-    std::ofstream file(savePath);
-    REQUIRE(file.is_open());
-    file << root.dump(4);
-  }
-
-  entt::registry registry;
-  SerializationSystem::Load(registry, savePath);
-
-  std::error_code ec;
-  std::filesystem::remove(savePath, ec);
-
-  // 按 uuid 定位加载出的实体。
-  entt::entity player = entt::null;
-  for (auto [entity, id] : registry.view<IDComponent>().each()) {
-    if (id.uuid == 42u) {
-      player = entity;
-      break;
-    }
-  }
-  REQUIRE(player != static_cast<entt::entity>(entt::null));
-  REQUIRE(registry.all_of<ActiveSkillsComponent>(player));
-
-  const auto &active = registry.get<ActiveSkillsComponent>(player);
   // 未知活跃槽被清理为空槽。
   CHECK(active.slots[2].id == 0);
   CHECK(active.slots[2].current_charges == 0);

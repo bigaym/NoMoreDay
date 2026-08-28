@@ -7,16 +7,14 @@
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/systems/item/HeirloomScaling.hpp"
 #include <concepts>
-#include <filesystem>
-#include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
 #include <vector>
-
+#include <span>
 
 namespace NoMoreDay {
 
-/// @brief 传家宝数据结构 (用于持久化存储)
+/// @brief 传家宝数据结构
 /// @details 包含 ItemComponent 的核心数据和 HeirloomComponent 的元数据
 struct HeirloomData {
   ItemComponent item;
@@ -27,125 +25,14 @@ struct HeirloomData {
   float effective_power_at_level_50{0.0f};
 };
 
-// JSON 序列化支持
-inline void to_json(nlohmann::json &j, const HeirloomData &h) {
-  j = nlohmann::json{
-      {"item", h.item},
-      {"heirloom",
-       {{"tier", h.heirloom.tier},
-        {"original_level_requirement", h.heirloom.original_level_requirement},
-        {"created_timestamp", h.heirloom.created_timestamp},
-        {"display_name", h.heirloom.display_name},
-        {"original_rarity", h.heirloom.original_rarity}}}};
-}
-
-inline void from_json(const nlohmann::json &j, HeirloomData &h) {
-  j.at("item").get_to(h.item);
-
-  const auto &hj = j.at("heirloom");
-  h.heirloom.tier = hj.value("tier", uint8_t{1});
-  h.heirloom.original_level_requirement =
-      hj.value("original_level_requirement", uint8_t{1});
-  h.heirloom.created_timestamp = hj.value("created_timestamp", int64_t{0});
-  h.heirloom.display_name = hj.value("display_name", std::string{});
-  h.heirloom.original_rarity = hj.value("original_rarity", uint8_t{0});
-  h.heirloom.is_active_this_run = false; // 每次加载重置
-
-  // 预计算有效战力
-  h.effective_power_at_level_1 =
-      HeirloomScaling::calculateEffectivePowerPercent(
-          1, h.heirloom.original_level_requirement);
-  h.effective_power_at_level_50 =
-      HeirloomScaling::calculateEffectivePowerPercent(
-          50, h.heirloom.original_level_requirement);
-}
-
 /// @brief 传家宝宝库管理器
-/// @details 管理跨存档的传家宝持久化存储
+/// @details 管理传家宝内存数据（持久化由 ItemStorageService 二进制单轨统一接管）
 class HeirloomVault {
 public:
   HeirloomVault() = default;
 
   /// 最大传家宝数量
   static constexpr size_t kMaxHeirlooms = 20;
-
-  /// 默认存储路径
-  static constexpr std::string_view kDefaultVaultPath =
-      "saves/heirloom_vault.json";
-
-  /// 加载宝库数据
-  /// @param path 存储路径 (默认使用 kDefaultVaultPath)
-  /// @return 是否加载成功
-  bool load(std::string_view path = kDefaultVaultPath) {
-    const std::filesystem::path filepath{path};
-
-    if (!std::filesystem::exists(filepath)) {
-      LOG_INFO("[HeirloomVault] No vault file found at '{}', starting fresh.",
-               path);
-      m_heirlooms.clear();
-      return true;
-    }
-
-    try {
-      std::ifstream file(filepath);
-      if (!file.is_open()) {
-        LOG_ERROR("[HeirloomVault] Failed to open vault file: {}", path);
-        return false;
-      }
-
-      nlohmann::json j;
-      file >> j;
-
-      m_heirlooms.clear();
-      if (j.contains("heirlooms") && j["heirlooms"].is_array()) {
-        for (const auto &hj : j["heirlooms"]) {
-          HeirloomData data = hj.get<HeirloomData>();
-          m_heirlooms.push_back(std::move(data));
-        }
-      }
-
-      LOG_INFO("[HeirloomVault] Loaded {} heirlooms from '{}'",
-               m_heirlooms.size(), path);
-      return true;
-
-    } catch (const std::exception &e) {
-      LOG_ERROR("[HeirloomVault] Failed to parse vault file: {}", e.what());
-      return false;
-    }
-  }
-
-  /// 保存宝库数据
-  /// @param path 存储路径
-  /// @return 是否保存成功
-  bool save(std::string_view path = kDefaultVaultPath) const {
-    const std::filesystem::path filepath{path};
-
-    // 确保目录存在
-    if (filepath.has_parent_path()) {
-      std::filesystem::create_directories(filepath.parent_path());
-    }
-
-    try {
-      nlohmann::json j;
-      j["version"] = 1;
-      j["heirlooms"] = m_heirlooms;
-
-      std::ofstream file(filepath);
-      if (!file.is_open()) {
-        LOG_ERROR("[HeirloomVault] Failed to create vault file: {}", path);
-        return false;
-      }
-
-      file << j.dump(2); // Pretty print with 2-space indent
-      LOG_INFO("[HeirloomVault] Saved {} heirlooms to '{}'", m_heirlooms.size(),
-               path);
-      return true;
-
-    } catch (const std::exception &e) {
-      LOG_ERROR("[HeirloomVault] Failed to save vault file: {}", e.what());
-      return false;
-    }
-  }
 
   /// 添加传家宝
   /// @param item 物品数据

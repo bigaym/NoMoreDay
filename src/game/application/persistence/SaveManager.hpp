@@ -50,13 +50,9 @@ public:
    * @brief Restores the ECS world from a SaveData DTO.
    * @param registry ECS 注册表
    * @param data 角色存档数据
-   * @param restoreItems 是否从 SaveData 中恢复物品到 ItemStorageService（从旧 JSON 读取时为 true；从 .nmd 二进制加载时为 false，因 decode 已直接灌入 storage）
    */
   void restoreFromSnapshot(entt::registry &registry,
-                           const CharacterSaveData &data,
-                           bool restoreItems = true);
-
-  static void MigrateSaveDataV3toV4(CharacterSaveData &data);
+                           const CharacterSaveData &data);
 
   static nlohmann::json BuildProgressionJson(const CharacterSaveData &charData);
   static CharacterSaveData ParseProgressionJson(const nlohmann::json &progJson);
@@ -73,7 +69,6 @@ private:
   std::string getSavePath(int slotIndex) const;
   std::string getTempPath(int slotIndex) const;
   std::string getBackupPath(int slotIndex) const;
-  std::string getJsonSavePath(int slotIndex) const;
 };
 
 } // namespace NoMoreDay

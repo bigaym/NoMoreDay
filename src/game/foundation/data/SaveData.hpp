@@ -5,8 +5,6 @@
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillContract.hpp"
 #include "game/foundation/data/PlayerCombatHistory.hpp"
-#include "game/foundation/data/SerializedItem.hpp"
-#include "game/foundation/data/StashData.hpp"
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
@@ -16,24 +14,6 @@
 namespace NoMoreDay {
 
 inline constexpr uint32_t CURRENT_CHARACTER_SAVE_VERSION = 4;
-
-struct SerializedInventoryEntry {
-  int slotIndex = 0;
-  SerializedItem item;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SerializedInventoryEntry, slotIndex, item)
-
-struct SerializedBagSlot {
-  uint8_t index = 0;
-  SerializedItem bag;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SerializedBagSlot, index, bag)
-
-struct SerializedMaterialEntry {
-  uint32_t id = 0;
-  int32_t count = 0;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SerializedMaterialEntry, id, count)
 
 /**
  * @brief Metadata for the save file, used for the Load Game menu.
@@ -71,7 +51,7 @@ struct SkillContractRuntimeSaveData {
 };
 
 /**
- * @brief Root DTO for character persistence.
+ * @brief Root DTO for character persistence (progression data).
  */
 struct CharacterSaveData {
   SaveHeader header;
@@ -80,17 +60,6 @@ struct CharacterSaveData {
   PrimaryStats primaryStats;
   Position position;
   std::string mapId = "Town_01";
-
-  // Economy
-  int gold = 0;
-
-  // Item Containers
-  int32_t inventoryCapacity = 40;
-  std::vector<SerializedInventoryEntry> inventory;
-  std::vector<SerializedItem> equipment; // Flat list of equipped items
-  std::vector<SerializedBagSlot> bagSlots;
-  std::vector<SerializedMaterialEntry> materialBank;
-  std::optional<SerializedStash> personalStash;
 
   // Progression Systems
   ActiveSkillsComponent skills;
@@ -112,12 +81,6 @@ inline void to_json(nlohmann::json& j, const CharacterSaveData& p) {
         {"primaryStats", p.primaryStats},
         {"position", p.position},
         {"mapId", p.mapId},
-        {"gold", p.gold},
-        {"inventoryCapacity", p.inventoryCapacity},
-        {"inventory", p.inventory},
-        {"equipment", p.equipment},
-        {"bagSlots", p.bagSlots},
-        {"materialBank", p.materialBank},
         {"skills", p.skills},
         {"skill_contract_runtime", p.skill_contract_runtime},
         {"astrolabe", p.astrolabe},
@@ -132,9 +95,6 @@ inline void to_json(nlohmann::json& j, const CharacterSaveData& p) {
     if (p.blade_signature_skill.has_value()) {
         j["blade_signature_skill"] = p.blade_signature_skill.value();
     }
-    if (p.personalStash.has_value()) {
-        j["personalStash"] = p.personalStash.value();
-    }
 }
 
 inline void from_json(const nlohmann::json& j, CharacterSaveData& p) {
@@ -142,50 +102,6 @@ inline void from_json(const nlohmann::json& j, CharacterSaveData& p) {
     j.at("primaryStats").get_to(p.primaryStats);
     j.at("position").get_to(p.position);
     j.at("mapId").get_to(p.mapId);
-    j.at("gold").get_to(p.gold);
-
-    if (j.contains("inventoryCapacity")) {
-        j.at("inventoryCapacity").get_to(p.inventoryCapacity);
-    } else {
-        p.inventoryCapacity = 40;
-    }
-
-    p.inventory.clear();
-    if (j.contains("inventory")) {
-        const auto& invJson = j.at("inventory");
-        if (invJson.is_array()) {
-            int defaultSlotIndex = 0;
-            for (const auto& elem : invJson) {
-                if (elem.is_object() && elem.contains("slotIndex") && elem.contains("item")) {
-                    SerializedInventoryEntry entry;
-                    elem.at("slotIndex").get_to(entry.slotIndex);
-                    elem.at("item").get_to(entry.item);
-                    p.inventory.push_back(entry);
-                } else {
-                    // Legacy format: elem is SerializedItem
-                    SerializedInventoryEntry entry;
-                    entry.slotIndex = defaultSlotIndex;
-                    entry.item = elem.get<SerializedItem>();
-                    p.inventory.push_back(entry);
-                }
-                defaultSlotIndex++;
-            }
-        }
-    }
-
-    j.at("equipment").get_to(p.equipment);
-
-    if (j.contains("bagSlots")) {
-        j.at("bagSlots").get_to(p.bagSlots);
-    } else {
-        p.bagSlots.clear();
-    }
-
-    if (j.contains("materialBank")) {
-        j.at("materialBank").get_to(p.materialBank);
-    } else {
-        p.materialBank.clear();
-    }
 
     j.at("skills").get_to(p.skills);
     if (j.contains("skill_contract_runtime")) {
@@ -202,10 +118,6 @@ inline void from_json(const nlohmann::json& j, CharacterSaveData& p) {
     if (j.contains("blade_signature_skill")) {
         p.blade_signature_skill =
             j.at("blade_signature_skill").get<BladeSignatureSkillComponent>();
-    }
-    
-    if (j.contains("personalStash")) {
-        p.personalStash = j.at("personalStash").get<SerializedStash>();
     }
 }
 

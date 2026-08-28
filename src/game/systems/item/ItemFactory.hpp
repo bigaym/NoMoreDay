@@ -1,7 +1,6 @@
 #pragma once
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
-#include "game/foundation/data/SerializedItem.hpp"
 #include <entt/entt.hpp>
 #include <map>
 #include <string>
@@ -20,13 +19,6 @@ public:
   // 根据等级创建一个完全随机的物品
   static entt::entity createRandomLoot(entt::registry &registry, int level,
                                        float magicFind = 0.0f);
-
-  // 从快照恢复物品 (确定性)
-  static entt::entity restoreItem(entt::registry &registry,
-                                  const SerializedItem &dto);
-
-  // 序列化物品
-  static SerializedItem serializeItem(entt::registry &registry, entt::entity entity);
 
   // 创建一个具有随机属性的特定物品类型
   static entt::entity createWeapon(entt::registry &registry, int level,

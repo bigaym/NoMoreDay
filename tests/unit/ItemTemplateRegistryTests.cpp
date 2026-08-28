@@ -207,24 +207,6 @@ TEST_CASE("[Unit] ItemFactory & Template Integration") {
     CHECK(item.catalystKind == CatalystKind::LegendaryCore);
     CHECK(item.type == ItemType::Consumable);
   }
-
-  SUBCASE("ItemFactory::serializeItem and restoreItem round-trip with template validation") {
-    auto original = ItemFactory::createWeapon(ecs, 30, Rarity::Rare);
-    const auto &origItem = ecs.get<ItemComponent>(original);
-    uint32_t expectedBaseId = origItem.baseId;
-
-    auto dto = ItemFactory::serializeItem(ecs, original);
-    CHECK(dto.baseId == expectedBaseId);
-
-    // Wipe dynamic name in DTO to test template fallback restoration
-    dto.name.clear();
-
-    auto restored = ItemFactory::restoreItem(ecs, dto);
-    REQUIRE(ecs.valid(restored));
-    const auto &restItem = ecs.get<ItemComponent>(restored);
-    CHECK(restItem.baseId == expectedBaseId);
-    CHECK(!restItem.name.empty()); // Restored from template
-  }
 }
 
 TEST_CASE("[Unit] ItemEquipValidationService & LootFilter with Template Registry") {

@@ -24,12 +24,6 @@ HeirloomVault* GetVaultFromContext(SharedContext* ctx) {
 void HeirloomVaultState::OnEnter() {
   LOG_INFO("[HeirloomVaultState] Entering Heirloom Vault...");
 
-  // 加载宝库数据
-  auto* vault = GetVaultFromContext(m_context);
-  if (vault) {
-    vault->load();
-  }
-
   // 重置 UI 状态
   m_hoveredIndex = -1;
   m_selectedIndex = -1;
