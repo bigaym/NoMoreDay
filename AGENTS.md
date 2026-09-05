@@ -23,7 +23,7 @@
 - `tests/`: automated test suites.
 - `scripts/`, `tools/`: project automation and tools.
 - `assets/`: game data and rendering assets.
-- `conductor/`: process standards, specifications, tracks, and archives.
+- `conductor/`: old docs archives, not use now.
 - `设计文档/`: Chinese game and technical design documents.
 - `docs/`: workflows and project outputs.
 - `third_party/`: vendored dependencies.
@@ -45,6 +45,7 @@
 - See `conductor/code_standard.md` and `conductor/code_styleguides/` for detailed code standards.
 - Use `RelWithDebInfo` with `build.bat` for build config, never `debug`.
 - Use Chinese for comments. Comments must based on the context, rather than details regarding the process of task execution.
+- Do not creat temp file in root dir.
 
 ## Tools
 

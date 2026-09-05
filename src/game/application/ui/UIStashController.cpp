@@ -424,24 +424,45 @@ void UIStashController::Update(const GameUiSnapshot& snapshot,
           drag.draggedItemDomainId != 0) {
         if (drag.isDraggingFromStash) {
           // Stash -> Stash (transfer between tabs/slots).
-          GameUiIntent intent;
-          intent.sourceNode = m_rootNodeId;
-          intent.kind = GameUiIntentKind::StashTransfer;
-          intent.payload.sourceTab = drag.dragSourceStashTab;
-          intent.payload.sourceSlot = drag.dragSourceStashSlot;
-          intent.payload.targetTab = activeTab;
-          intent.payload.targetSlot = i;
-          intent.payload.stashTarget =
-              static_cast<std::uint8_t>(drag.dragSourceStashType);
-          EnqueueIntent(std::move(intent));
+          if (drag.dragSourceStashTab != activeTab ||
+              drag.dragSourceStashSlot != i) {
+            GameUiIntent intent;
+            intent.sourceNode = m_rootNodeId;
+            intent.kind = GameUiIntentKind::StashTransfer;
+            intent.payload.sourceTab = drag.dragSourceStashTab;
+            intent.payload.sourceSlot = drag.dragSourceStashSlot;
+            intent.payload.targetTab = activeTab;
+            intent.payload.targetSlot = i;
+            intent.payload.stashTarget =
+                static_cast<std::uint8_t>(drag.dragSourceStashType);
+            EnqueueIntent(std::move(intent));
+          }
           drag.Clear();
         } else if (drag.isDraggingFromInventory) {
           // Inventory -> Stash (deposit).
           GameUiIntent intent;
           intent.sourceNode = m_rootNodeId;
           intent.kind = GameUiIntentKind::StashDeposit;
+          intent.payload.itemSource =
+              static_cast<std::uint8_t>(GameUiItemSource::Inventory);
           intent.payload.sourceDomainId = drag.draggedItemDomainId;
           intent.payload.sourceSlot = drag.dragSourceInventoryIndex;
+          intent.payload.targetTab = activeTab;
+          intent.payload.targetSlot = i;
+          intent.payload.stashTarget =
+              static_cast<std::uint8_t>(m_activeType);
+          EnqueueIntent(std::move(intent));
+          drag.Clear();
+        } else if (drag.dragSourceEquipmentSlot != EquipmentSlot::None) {
+          // Equipment -> Stash (deposit from equipped item).
+          GameUiIntent intent;
+          intent.sourceNode = m_rootNodeId;
+          intent.kind = GameUiIntentKind::StashDeposit;
+          intent.payload.itemSource =
+              static_cast<std::uint8_t>(GameUiItemSource::Equipment);
+          intent.payload.sourceDomainId = drag.draggedItemDomainId;
+          intent.payload.sourceSlot =
+              static_cast<std::int32_t>(drag.dragSourceEquipmentSlot);
           intent.payload.targetTab = activeTab;
           intent.payload.targetSlot = i;
           intent.payload.stashTarget =

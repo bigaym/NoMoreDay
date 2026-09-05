@@ -536,3 +536,62 @@ TEST_CASE("[Unit] GameUiSnapshot - stash tab unlock invalidates container cache"
   CHECK(snap2.stash.unlockedTabs == 2);
   CHECK(snap2.stash.tabs.size() == 2); // 新页即时生效
 }
+
+TEST_CASE("[Unit] GameUiSnapshot - item swap/move in inventory invalidates container cache via fingerprint") {
+  entt::registry registry;
+
+  const entt::entity player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  auto& inv = registry.emplace<InventoryComponent>(player);
+
+  const entt::entity itemA = registry.create();
+  auto& compA = registry.emplace<ItemComponent>(itemA);
+  compA.id = 7001;
+  inv.items[0] = itemA;
+
+  const entt::entity itemB = registry.create();
+  auto& compB = registry.emplace<ItemComponent>(itemB);
+  compB.id = 7002;
+  inv.items[1] = itemB;
+
+  NoMoreDay::ui::GameUiSnapshotBuilder builder;
+  NoMoreDay::ui::GameUiSnapshotOptions options;
+
+  const auto snap1 = builder.Build(registry, options);
+  REQUIRE(snap1.inventory.items.size() == 2);
+  CHECK(snap1.inventory.items[0].inventoryIndex == 0);
+  CHECK(snap1.inventory.items[0].itemId == 7001);
+  CHECK(snap1.inventory.items[1].inventoryIndex == 1);
+  CHECK(snap1.inventory.items[1].itemId == 7002);
+
+  // Swap item positions: slot 0 <-> slot 1 (item count / used capacity remains 2)
+  std::swap(inv.items[0], inv.items[1]);
+
+  const auto snap2 = builder.Build(registry, options);
+  REQUIRE(snap2.inventory.items.size() == 2);
+  CHECK(snap2.inventory.items[0].inventoryIndex == 0);
+  CHECK(snap2.inventory.items[0].itemId == 7002);
+  CHECK(snap2.inventory.items[1].inventoryIndex == 1);
+  CHECK(snap2.inventory.items[1].itemId == 7001);
+}
+
+TEST_CASE("[Unit] GameUiSnapshot - sortCooldown is reflected in snapshot") {
+  entt::registry registry;
+
+  const entt::entity player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  auto& inv = registry.emplace<InventoryComponent>(player);
+  inv.sortCooldown = 0.5f;
+
+  NoMoreDay::ui::GameUiSnapshotBuilder builder;
+  NoMoreDay::ui::GameUiSnapshotOptions options;
+
+  const auto snap1 = builder.Build(registry, options);
+  CHECK(snap1.inventory.sortCooldown == doctest::Approx(0.5f));
+
+  // When cooling down, cached snapshot also gets sortCooldown updated
+  inv.sortCooldown = 0.2f;
+  const auto snap2 = builder.Build(registry, options);
+  CHECK(snap2.inventory.sortCooldown == doctest::Approx(0.2f));
+}
+

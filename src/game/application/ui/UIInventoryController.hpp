@@ -233,6 +233,7 @@ private:
   // R6: drag mirror updated in Update so Paint can hide the item under the
   // cursor in its source slot (paint stays input-free).
   std::uint64_t m_draggedItemDomainId = 0;
+  bool m_sortHovered = false;
 };
 
 } // namespace NoMoreDay::ui

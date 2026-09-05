@@ -470,77 +470,88 @@ void UIInventoryController::Update(const GameUiSnapshot& snapshot,
         drag.dragSourceInventoryIndex = static_cast<int>(i);
         drag.dragSourceEquipmentSlot = EquipmentSlot::None;
         drag.dragSourceBagSlotIndex = -1;
-      } else if (input.pointer.released && isDragging && hovered && item != nullptr) {
+      } else if (input.pointer.released && isDragging && hovered) {
+        // Drop on same slot: do nothing.
+        if (drag.isDraggingFromInventory &&
+            drag.dragSourceInventoryIndex == static_cast<int>(i)) {
+          drag.Clear();
+          continue;
+        }
+
         const GameUiItemView* dragItem =
             FindDisplayedItem(snapshot, drag.draggedItemDomainId);
-        if (dragItem != nullptr && drag.draggedItemDomainId != item->domainId) {
-          const bool dragIsRune =
-              RunewordSystem::isRune(dragItem->itemId);
-          if (dragIsRune) {
-            const int freeIdx = FreeSocketIndex(*item);
-            if (freeIdx >= 0) {
-              // Socket the rune into the target item.
-              GameUiIntent intent;
-              intent.sourceNode = m_rootNodeId;
-              intent.kind = GameUiIntentKind::SocketRune;
-              intent.payload.targetDomainId = item->domainId;
-              intent.payload.sourceDomainId = drag.draggedItemDomainId;
-              intent.payload.socketIndex = static_cast<std::uint8_t>(freeIdx);
-              intent.payload.itemSource =
-                  drag.isDraggingFromInventory
-                      ? static_cast<std::uint8_t>(GameUiItemSource::Inventory)
-                      : (drag.dragSourceEquipmentSlot != EquipmentSlot::None
-                             ? static_cast<std::uint8_t>(GameUiItemSource::Equipment)
-                             : static_cast<std::uint8_t>(GameUiItemSource::Bag));
-              intent.payload.sourceSlot =
-                  drag.isDraggingFromInventory
-                      ? drag.dragSourceInventoryIndex
-                      : (drag.dragSourceEquipmentSlot != EquipmentSlot::None
-                             ? static_cast<std::int32_t>(drag.dragSourceEquipmentSlot)
-                             : drag.dragSourceBagSlotIndex);
-              EnqueueIntent(std::move(intent));
-              drag.Clear();
-              continue;
-            }
-            if (item->socketCount > 0 && m_uiHost != nullptr) {
-              m_uiHost->ShowMessageBox("No free socket");
-              drag.Clear();
-              continue;
-            }
-          }
 
-          // Drop / swap into the grid slot.
-          GameUiIntent intent;
-          intent.sourceNode = m_rootNodeId;
-          if (drag.isDraggingFromStash) {
-            intent.kind = GameUiIntentKind::StashWithdraw;
-            intent.payload.sourceTab = drag.dragSourceStashTab;
-            intent.payload.sourceSlot = drag.dragSourceStashSlot;
-            intent.payload.targetSlot = static_cast<std::int32_t>(i);
-            intent.payload.stashTarget =
-        static_cast<std::uint8_t>(drag.dragSourceStashType);
-          } else if (drag.isDraggingFromInventory) {
-            intent.kind = GameUiIntentKind::SwapItems;
-            intent.payload.sourceSlot = drag.dragSourceInventoryIndex;
-            intent.payload.targetSlot = static_cast<std::int32_t>(i);
-          } else if (drag.dragSourceEquipmentSlot != EquipmentSlot::None) {
-            intent.kind = GameUiIntentKind::UnequipItem;
+        // Check rune socketing into target item (requires target item to exist).
+        if (item != nullptr && dragItem != nullptr &&
+            drag.draggedItemDomainId != item->domainId &&
+            RunewordSystem::isRune(dragItem->itemId)) {
+          const int freeIdx = FreeSocketIndex(*item);
+          if (freeIdx >= 0) {
+            // Socket the rune into the target item.
+            GameUiIntent intent;
+            intent.sourceNode = m_rootNodeId;
+            intent.kind = GameUiIntentKind::SocketRune;
+            intent.payload.targetDomainId = item->domainId;
             intent.payload.sourceDomainId = drag.draggedItemDomainId;
-            intent.payload.equipmentSlot =
-                static_cast<std::uint8_t>(drag.dragSourceEquipmentSlot);
-            intent.payload.targetSlot = static_cast<std::int32_t>(i);
-          } else if (drag.dragSourceBagSlotIndex != -1) {
-            intent.kind = GameUiIntentKind::BagUnequip;
-            intent.payload.bagAction =
-                static_cast<std::uint8_t>(GameUiBagAction::Unequip);
-            intent.payload.sourceSlot = drag.dragSourceBagSlotIndex;
-            intent.payload.targetSlot = static_cast<std::int32_t>(i);
-          }
-          if (intent.kind != GameUiIntentKind::PickupItem) {
+            intent.payload.socketIndex = static_cast<std::uint8_t>(freeIdx);
+            intent.payload.itemSource =
+                drag.isDraggingFromInventory
+                    ? static_cast<std::uint8_t>(GameUiItemSource::Inventory)
+                    : (drag.dragSourceEquipmentSlot != EquipmentSlot::None
+                           ? static_cast<std::uint8_t>(GameUiItemSource::Equipment)
+                           : static_cast<std::uint8_t>(GameUiItemSource::Bag));
+            intent.payload.sourceSlot =
+                drag.isDraggingFromInventory
+                    ? drag.dragSourceInventoryIndex
+                    : (drag.dragSourceEquipmentSlot != EquipmentSlot::None
+                           ? static_cast<std::int32_t>(drag.dragSourceEquipmentSlot)
+                           : drag.dragSourceBagSlotIndex);
             EnqueueIntent(std::move(intent));
+            drag.Clear();
+            continue;
           }
-          drag.Clear();
+          if (item->socketCount > 0 && m_uiHost != nullptr) {
+            m_uiHost->ShowMessageBox("No free socket");
+            drag.Clear();
+            continue;
+          }
         }
+
+        // Drop / move / swap into the grid slot.
+        GameUiIntent intent;
+        intent.sourceNode = m_rootNodeId;
+        if (drag.isDraggingFromStash) {
+          intent.kind = GameUiIntentKind::StashWithdraw;
+          intent.payload.sourceTab = drag.dragSourceStashTab;
+          intent.payload.sourceSlot = drag.dragSourceStashSlot;
+          intent.payload.targetSlot = static_cast<std::int32_t>(i);
+          intent.payload.stashTarget =
+              static_cast<std::uint8_t>(drag.dragSourceStashType);
+        } else if (drag.isDraggingFromInventory) {
+          if (item == nullptr) {
+            intent.kind = GameUiIntentKind::MoveItem;
+          } else {
+            intent.kind = GameUiIntentKind::SwapItems;
+          }
+          intent.payload.sourceSlot = drag.dragSourceInventoryIndex;
+          intent.payload.targetSlot = static_cast<std::int32_t>(i);
+        } else if (drag.dragSourceEquipmentSlot != EquipmentSlot::None) {
+          intent.kind = GameUiIntentKind::UnequipItem;
+          intent.payload.sourceDomainId = drag.draggedItemDomainId;
+          intent.payload.equipmentSlot =
+              static_cast<std::uint8_t>(drag.dragSourceEquipmentSlot);
+          intent.payload.targetSlot = static_cast<std::int32_t>(i);
+        } else if (drag.dragSourceBagSlotIndex != -1) {
+          intent.kind = GameUiIntentKind::BagUnequip;
+          intent.payload.bagAction =
+              static_cast<std::uint8_t>(GameUiBagAction::Unequip);
+          intent.payload.sourceSlot = drag.dragSourceBagSlotIndex;
+          intent.payload.targetSlot = static_cast<std::int32_t>(i);
+        }
+        if (intent.kind != GameUiIntentKind::PickupItem) {
+          EnqueueIntent(std::move(intent));
+        }
+        drag.Clear();
       }
     }
   } else {
@@ -749,7 +760,9 @@ void UIInventoryController::Update(const GameUiSnapshot& snapshot,
     const UiRect sortRect{{layout.invX + layout.invW - 150.0f,
                            layout.bottomY - 5.0f},
                           {140.0f, 36.0f}};
-    if (sortRect.Contains(mouse) && input.pointer.pressed) {
+    m_sortHovered = sortRect.Contains(mouse);
+    if (m_sortHovered && input.pointer.pressed &&
+        snapshot.inventory.sortCooldown <= 0.0f) {
       GameUiIntent intent;
       intent.sourceNode = m_rootNodeId;
       intent.kind = GameUiIntentKind::OrganizeInventory;
@@ -818,6 +831,7 @@ void UIInventoryController::Paint(UiDrawList& drawList,
   const UiColor& themeHighlight =
       ToUiColor(UIRenderer::GetTheme().textHighlight);
   const UiColor& themeBtn = ToUiColor(UIRenderer::GetTheme().buttonNormal);
+  const UiColor themeBtnHover = ToUiColor(UIRenderer::GetTheme().buttonHover);
 
   // Panel frame.
   drawList.FillRect(UiDrawLayer::Panels, m_rootNodeId,
@@ -1063,14 +1077,27 @@ void UIInventoryController::Paint(UiDrawList& drawList,
     const UiRect sortRect{{layout.invX + layout.invW - 150.0f,
                            layout.bottomY - 5.0f},
                           {140.0f, 36.0f}};
+    const bool onCooldown = snapshot.inventory.sortCooldown > 0.0f;
+    const UiColor btnColor =
+        onCooldown ? ToUiColor(UIRenderer::GetTheme().slotBackground)
+                   : (m_sortHovered ? themeBtnHover : themeBtn);
     drawList.FillRect(UiDrawLayer::Panels, m_rootNodeId, sortRect,
-                      Faded(themeBtn, alpha));
-    drawList.StrokeRect(UiDrawLayer::Panels, m_rootNodeId, sortRect,
-                        Faded(themeBorder, alpha), 1.0f);
-    drawList.Text(UiDrawLayer::Panels, m_rootNodeId, "Sort",
-                  {sortRect.origin.x + 8.0f,
-                   sortRect.origin.y + (36.0f - 18.0f) * 0.5f},
-                  18.0f, Faded(themeText, alpha), kGlobalFontResourceId);
+                      Faded(btnColor, alpha));
+    drawList.StrokeRect(
+        UiDrawLayer::Panels, m_rootNodeId, sortRect,
+        Faded(m_sortHovered && !onCooldown ? themeHighlight : themeBorder,
+              alpha),
+        1.0f);
+
+    const char* sortLabel = onCooldown ? "Sorting..." : "Sort (Z)";
+    const float labelX = sortRect.origin.x + (onCooldown ? 34.0f : 38.0f);
+    drawList.Text(
+        UiDrawLayer::Panels, m_rootNodeId, sortLabel,
+        {labelX, sortRect.origin.y + (36.0f - 18.0f) * 0.5f}, 18.0f,
+        Faded(onCooldown ? ToUiColor(UIRenderer::GetTheme().textSecondary)
+                         : (m_sortHovered ? themeHighlight : themeText),
+              alpha),
+        kGlobalFontResourceId);
 
     drawList.Text(UiDrawLayer::Panels, m_rootNodeId, "Bag slots",
                   {layout.invX + 5.0f, layout.bagSlotsY - 25.0f}, 18.0f,

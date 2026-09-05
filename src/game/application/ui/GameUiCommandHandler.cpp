@@ -844,9 +844,56 @@ GameUiResult GameUiCommandHandler::ExecuteStashDeposit(
     return {false, GameUiResultCode::DomainPrecondition,
             "Item cannot be stored in the stash", {}};
   }
-  const int invSlot = payload.sourceSlot >= 0 ? payload.sourceSlot : 0;
   const NoMoreDay::StashType type =
       static_cast<NoMoreDay::StashType>(payload.stashTarget);
+
+  if (static_cast<GameUiItemSource>(payload.itemSource) ==
+      GameUiItemSource::Equipment) {
+    auto* equipment =
+        registry.template try_get<NoMoreDay::EquipmentComponent>(player);
+    if (equipment == nullptr) {
+      return {false, GameUiResultCode::MissingComponent,
+              "Player has no equipment", {}};
+    }
+    NoMoreDay::EquipmentSlot slot = NoMoreDay::EquipmentSlot::None;
+    if (payload.sourceSlot >= 0 &&
+        payload.sourceSlot <
+            static_cast<int>(NoMoreDay::EquipmentSlot::Count)) {
+      slot = static_cast<NoMoreDay::EquipmentSlot>(payload.sourceSlot);
+    } else {
+      for (std::size_t i = 0; i < equipment->slots.size(); ++i) {
+        if (equipment->slots[i] == item) {
+          slot = static_cast<NoMoreDay::EquipmentSlot>(i);
+          break;
+        }
+      }
+    }
+    if (slot == NoMoreDay::EquipmentSlot::None ||
+        equipment->slots[static_cast<std::size_t>(slot)] != item) {
+      return {false, GameUiResultCode::NotEquipped,
+              "Item is not equipped in the specified slot", {}};
+    }
+
+    NoMoreDay::StashTab* tab =
+        NoMoreDay::StashSystem::getTab(registry, type, payload.targetTab);
+    if (!tab || payload.targetSlot >= NoMoreDay::StashTab::CAPACITY) {
+      return {false, GameUiResultCode::InvalidIndex,
+              "Invalid stash tab or slot", {}};
+    }
+    if (tab->items[payload.targetSlot] != entt::null) {
+      return {false, GameUiResultCode::CapacityFull,
+              "Target stash slot is occupied", {}};
+    }
+
+    equipment->set(slot, entt::null);
+    tab->items[payload.targetSlot] = item;
+    registry.template get_or_emplace<NoMoreDay::StatsDirty>(player);
+
+    std::vector<std::uint64_t> cleared{entt::to_integral(item)};
+    return {true, GameUiResultCode::Success, "", std::move(cleared)};
+  }
+
+  const int invSlot = payload.sourceSlot >= 0 ? payload.sourceSlot : 0;
   if (NoMoreDay::StashSystem::depositFromInventory(
           registry, item, invSlot, type, payload.targetTab,
           payload.targetSlot)) {

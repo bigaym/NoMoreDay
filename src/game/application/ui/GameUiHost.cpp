@@ -610,6 +610,13 @@ void GameUiHost::Update(entt::registry &registry,
       }
     }
   }
+
+  // Drag session cleanup fallback: if the pointer was released anywhere this frame
+  // and no slot or controller consumed the drag session, cancel the drag so the UI
+  // does not remain stuck in dragging state.
+  if (uiInput.pointer.released && m_dragSession.IsDragging()) {
+    m_dragSession.Clear();
+  }
 }
 
 

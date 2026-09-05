@@ -198,6 +198,97 @@ void FillTooltipData(const entt::registry& registry, GameUiItemView& view) {
   }
 }
 
+template <typename Registry>
+std::uint64_t ComputeContainerFingerprint(
+    const Registry& registry, entt::entity player,
+    const GameUiSnapshotOptions& options) {
+  std::uint64_t hash = 14695981039346656037ull;
+  constexpr std::uint64_t prime = 1099511628211ull;
+  const auto mix = [&](std::uint64_t val) {
+    hash ^= val;
+    hash *= prime;
+  };
+
+  if (const auto* inv =
+          registry.template try_get<const NoMoreDay::InventoryComponent>(player)) {
+    mix(static_cast<std::uint64_t>(inv->capacity));
+    mix(static_cast<std::uint64_t>(inv->items.size()));
+    for (std::size_t i = 0; i < inv->items.size(); ++i) {
+      const entt::entity item = inv->items[i];
+      mix(static_cast<std::uint64_t>(entt::to_integral(item)));
+      if (item != entt::null && registry.valid(item)) {
+        if (const auto* ic =
+                registry.template try_get<const NoMoreDay::ItemComponent>(item)) {
+          mix(static_cast<std::uint64_t>(ic->quantity));
+        }
+      }
+    }
+    for (std::size_t i = 0; i < inv->bag_slots.size(); ++i) {
+      const entt::entity bag = inv->bag_slots[i];
+      mix(static_cast<std::uint64_t>(entt::to_integral(bag)));
+      if (bag != entt::null && registry.valid(bag)) {
+        if (const auto* ic =
+                registry.template try_get<const NoMoreDay::ItemComponent>(bag)) {
+          mix(static_cast<std::uint64_t>(ic->quantity));
+        }
+      }
+    }
+  }
+
+  if (const auto* equip =
+          registry.template try_get<const NoMoreDay::EquipmentComponent>(player)) {
+    for (std::size_t i = 0; i < equip->slots.size(); ++i) {
+      const entt::entity eqItem = equip->slots[i];
+      mix(static_cast<std::uint64_t>(entt::to_integral(eqItem)));
+    }
+  }
+
+  if (options.isStashOpen) {
+    const NoMoreDay::StashType stashType =
+        static_cast<NoMoreDay::StashType>(options.stashType);
+    if (stashType == NoMoreDay::StashType::Shared) {
+      if constexpr (requires { registry.ctx(); }) {
+        if (const auto* ctx = GetSharedContext(registry)) {
+          if (ctx->sharedStash) {
+            if (const NoMoreDay::StashTab* tab =
+                    ctx->sharedStash->getTab(options.stashActiveTab)) {
+              for (std::size_t i = 0; i < tab->items.size(); ++i) {
+                const entt::entity sItem = tab->items[i];
+                mix(static_cast<std::uint64_t>(entt::to_integral(sItem)));
+                if (sItem != entt::null && registry.valid(sItem)) {
+                  if (const auto* ic =
+                          registry.template try_get<const NoMoreDay::ItemComponent>(sItem)) {
+                    mix(static_cast<std::uint64_t>(ic->quantity));
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } else if (const auto* stash =
+                   registry.template try_get<const PersonalStashComponent>(player)) {
+      if (options.stashActiveTab >= 0 &&
+          options.stashActiveTab < static_cast<int>(stash->tabs.size())) {
+        const auto& tab =
+            stash->tabs[static_cast<std::size_t>(options.stashActiveTab)];
+        for (std::size_t i = 0; i < tab.items.size(); ++i) {
+          const entt::entity sItem = tab.items[i];
+          mix(static_cast<std::uint64_t>(entt::to_integral(sItem)));
+          if (sItem != entt::null && registry.valid(sItem)) {
+            if (const auto* ic =
+                    registry.template try_get<const NoMoreDay::ItemComponent>(sItem)) {
+              mix(static_cast<std::uint64_t>(ic->quantity));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return hash;
+}
+
 } // namespace
 
 template <typename Registry>
@@ -462,8 +553,12 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
       }
     }
 
+    const std::uint64_t currentFingerprint =
+        ComputeContainerFingerprint(registry, player, options);
+
     bool isContainerCacheValid = m_hasContainerCache &&
         (playerDomainId == m_lastPlayerDomainId) &&
+        (currentFingerprint == m_lastContainerFingerprint) &&
         (currentGold == m_lastPlayerGold) &&
         (currentUnlockedTabs == m_lastUnlockedTabs) &&
         (options.isStashOpen == m_lastOptions.isStashOpen) &&
@@ -472,20 +567,18 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
         (options.stashType == m_lastOptions.stashType) &&
         (options.stashSearchQuery == m_lastOptions.stashSearchQuery);
 
-    if (isContainerCacheValid) {
-      if (hasItemStore) {
-        if (currentItemVersion != m_lastItemStoreVersion) {
-          isContainerCacheValid = false;
-        }
-      } else {
-        if (currentInventoryUsed != m_lastInventoryUsed) {
-          isContainerCacheValid = false;
-        }
+    if (isContainerCacheValid && hasItemStore) {
+      if (currentItemVersion != m_lastItemStoreVersion) {
+        isContainerCacheValid = false;
       }
     }
 
     if (isContainerCacheValid) {
       snapshot.inventory = m_cachedInventory;
+      if (const auto* inventory =
+              registry.template try_get<const NoMoreDay::InventoryComponent>(player)) {
+        snapshot.inventory.sortCooldown = inventory->sortCooldown;
+      }
       snapshot.equipment = m_cachedEquipment;
       snapshot.stash = m_cachedStash;
       snapshot.crafting.materials = m_cachedMaterials;
@@ -497,6 +590,7 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
         inv.capacity = inventory->capacity;
         inv.used = CountUsedSlots(*inventory);
         inv.gold = inventory->gold;
+        inv.sortCooldown = inventory->sortCooldown;
         for (std::size_t i = 0; i < inventory->items.size(); ++i) {
           if (inventory->items[i] == entt::null) {
             continue;
@@ -649,6 +743,7 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
 
       m_hasContainerCache = true;
       m_lastPlayerDomainId = playerDomainId;
+      m_lastContainerFingerprint = currentFingerprint;
       m_lastItemStoreVersion = currentItemVersion;
       m_lastPlayerGold = currentGold;
       m_lastInventoryUsed = currentInventoryUsed;

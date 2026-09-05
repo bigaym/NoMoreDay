@@ -265,6 +265,7 @@ struct GameUiInventoryView {
   std::int32_t capacity = 0;
   std::int32_t used = 0;
   std::int32_t gold = 0;
+  float sortCooldown = 0.0f;
   // Occupied inventory slots (each carries its inventoryIndex; empty slots
   // are implicit and rendered from capacity).
   std::vector<GameUiItemView> items;

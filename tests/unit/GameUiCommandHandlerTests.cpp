@@ -1036,6 +1036,41 @@ TEST_CASE("[Unit] GameUiCommandHandler - depositing into the stash") {
                   entt::to_integral(item)) != result.clearedDomainIds.end());
 }
 
+TEST_CASE("[Unit] GameUiCommandHandler - depositing equipped item into stash succeeds") {
+  entt::registry registry;
+  const entt::entity player = CreatePlayer(registry, 0.0f, 0.0f);
+  CreatePlayerWithStash(registry, player);
+
+  auto& equip = registry.get<EquipmentComponent>(player);
+  const entt::entity weapon = registry.create();
+  auto& comp = registry.emplace<ItemComponent>(weapon);
+  comp.id = 9001;
+  comp.type = ItemType::Weapon;
+  comp.slot = EquipmentSlot::MainHand;
+  equip.set(EquipmentSlot::MainHand, weapon);
+
+  NoMoreDay::ui::GameUiCommandHandler handler;
+  auto intent = MakeIntent(NoMoreDay::ui::GameUiIntentKind::StashDeposit);
+  intent.payload.itemSource =
+      static_cast<std::uint8_t>(NoMoreDay::ui::GameUiItemSource::Equipment);
+  intent.payload.sourceDomainId = entt::to_integral(weapon);
+  intent.payload.sourceSlot = static_cast<std::int32_t>(EquipmentSlot::MainHand);
+  intent.payload.stashTarget =
+      static_cast<std::uint8_t>(NoMoreDay::ui::GameUiStashTarget::Personal);
+  intent.payload.targetTab = 0;
+  intent.payload.targetSlot = 5;
+
+  const NoMoreDay::ui::GameUiResult result = handler.Execute(registry, intent);
+  CHECK(result.success);
+  CHECK_FALSE(registry.valid(equip.get(EquipmentSlot::MainHand)));
+  const auto& tabs = registry.get<PersonalStashComponent>(player).tabs;
+  CHECK(tabs[0].items[5] == weapon);
+  CHECK(registry.all_of<StatsDirty>(player));
+  CHECK(std::find(result.clearedDomainIds.begin(),
+                  result.clearedDomainIds.end(),
+                  entt::to_integral(weapon)) != result.clearedDomainIds.end());
+}
+
 TEST_CASE("[Unit] GameUiCommandHandler - depositing without a stash fails") {
   entt::registry registry;
   const entt::entity player = CreatePlayer(registry, 0.0f, 0.0f);
