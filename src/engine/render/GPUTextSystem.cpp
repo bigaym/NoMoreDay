@@ -146,6 +146,24 @@ void GPUTextSystem::Init(ResourceManager &resources, const uint32_t maxCommands,
   rlEnableVertexAttribute(1);
   rlDisableVertexArray();
 
+  // quad SSBO 使用独立槽 16（与 CPU 标签的 8 号槽分离，杜绝同槽换绑的
+  // 驱动级交错）。OpenGL 4.3 仅保证 16 个 SSBO 绑定点，这里校验硬件上限。
+  {
+    constexpr uint32_t kGLMaxShaderStorageBufferBindings = 0x90DD;
+    int maxSsboBindings = 0;
+    NoMoreDay::utils::GPUUtils::GetIntegerv(kGLMaxShaderStorageBufferBindings,
+                                            &maxSsboBindings);
+    if (maxSsboBindings <=
+        static_cast<int>(
+            NoMoreDay::RenderConstants::TextPassBinding::QUAD_SSBO)) {
+      LOG_WARN("GPUTextSystem: GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS={} does "
+               "not exceed quad slot {}; falling back would break text "
+               "layout.",
+               maxSsboBindings,
+               NoMoreDay::RenderConstants::TextPassBinding::QUAD_SSBO);
+    }
+  }
+
   m_initialized = true;
   LOG_INFO("GPUTextSystem: initialized maxCommands={} maxQuads={}", m_maxCommands,
            m_maxQuads);

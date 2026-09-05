@@ -23,7 +23,7 @@ void LootGridSystem::update(entt::registry& registry) {
         // Use the newly added LootTag for efficient spatial grid rebuilds
         auto lootView = registry.view<LootTag, Position>();
         s_grid->rebuild<Position>(lootView, registry);
-        
+
         s_dirty = false;
     }
 }

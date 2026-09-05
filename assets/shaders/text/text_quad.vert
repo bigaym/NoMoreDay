@@ -16,7 +16,9 @@ struct TextQuadDrawData {
     float opacity;
 };
 
-layout(std430, binding = 8) readonly buffer TextQuadBuffer {
+// 与 RenderConstants.hpp 的 Binding::SSBO_TEXT_QUAD (=16) 保持一致，
+// 与 CPU 标签管线的 SSBO_GLYPH_INSTANCE (=8) 相互独立。
+layout(std430, binding = 16) readonly buffer TextQuadBuffer {
     TextQuadDrawData quads[];
 };
 

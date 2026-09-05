@@ -45,32 +45,91 @@ std::string ReadSource(const char* relativePath) {
 
 } // namespace
 
-TEST_CASE("[Tech] R3 - WorldUiFrame BeginFrame precedes the gpuLootEnabled "
-          "early return (H-01)") {
+TEST_CASE("[Tech] R3 - WorldUiFrame BeginFrame precedes proxy collection and "
+          "CPU label build (H-01, hybrid loot rendering)") {
   const std::string source = ReadSource("src/game/application/render/GameplayRenderAdapter.cpp");
   REQUIRE_MESSAGE(!source.empty(), "GameplayRenderAdapter.cpp not found");
 
   // The UIWorld pass must open a new frame token before ANY branch can
-  // return: the GPU loot early return (which skips the CPU label/glyph/beam
-  // output) must come AFTER BeginFrame, otherwise the previous frame's
-  // vector/hover/token is exposed to the host tooltip and pickup readers.
+  // return, so the previous frame's vector/hover/token is never exposed to
+  // the host tooltip and pickup readers.
   const size_t beginFramePos = source.find("BeginFrame(++m_frameCounter)");
-  const size_t gpuLootReturnPos = source.find("if (frame.gpuLootEnabled) {");
   REQUIRE_MESSAGE(beginFramePos != std::string::npos,
                   "BeginFrame(++m_frameCounter) missing in ExecuteUIWorldPass");
-  REQUIRE_MESSAGE(gpuLootReturnPos != std::string::npos,
-                  "gpuLootEnabled early return missing");
-  CHECK_MESSAGE(beginFramePos < gpuLootReturnPos,
-                "BeginFrame must precede the gpuLootEnabled early return");
 
-  // The read-only proxy collection must run on every branch (CPU and GPU):
-  // the gpuLootEnabled early return must come after CollectVisibleItemProxies.
+  // 混合渲染契约：BuildCpuLootLabels 必须无条件执行（GPU loot 档位也叠加
+  // CPU 精选文字标签 + 防重叠布局）。曾经的 `if (frame.gpuLootEnabled)
+  // { return; }` 旁路导致 Ultra/High 档标签无文字且底板卡片重叠，禁止
+  // 该旁路再次出现。
   const size_t collectPos = source.find("CollectVisibleItemProxies(frame)");
   REQUIRE_MESSAGE(collectPos != std::string::npos,
                   "CollectVisibleItemProxies call missing");
-  CHECK_MESSAGE(collectPos < gpuLootReturnPos,
-                "proxy collection must precede the gpuLootEnabled early "
-                "return (GPU path still fills the proxy)");
+  CHECK_MESSAGE(beginFramePos < collectPos,
+                "BeginFrame must precede proxy collection");
+
+  const size_t buildLabelsPos = source.find("BuildCpuLootLabels(frame)");
+  REQUIRE_MESSAGE(buildLabelsPos != std::string::npos,
+                  "BuildCpuLootLabels call missing in ExecuteUIWorldPass");
+  CHECK_MESSAGE(collectPos < buildLabelsPos,
+                "proxy collection must precede the CPU label build");
+
+  CHECK_MESSAGE(source.find("if (frame.gpuLootEnabled)") == std::string::npos,
+                "the gpuLootEnabled early-return bypass must stay removed "
+                "(hybrid rendering: CPU labels overlay GPU loot cards)");
+}
+
+TEST_CASE("[Tech] R3 - Engine UIWorld pass draws label/glyph on every loot "
+          "path and gates CPU beams on GPU glow (hybrid rendering)") {
+  const std::string source = ReadSource("src/engine/render/RenderSystem.cpp");
+  REQUIRE_MESSAGE(!source.empty(), "RenderSystem.cpp not found");
+
+  // 切出 ExecuteUIWorldPass 函数体（至下一个 pass 定义），锁定两处契约：
+  // 1) 不得包含 gpuLootEnabled 提前 return（混合渲染下 CPU 标签/glyph
+  //    叠加绘制，各绘制段自带 buffer 空守卫）；
+  // 2) CPU beam 光效门控使用 gpuLootGlowActive（GPU loot 卡片停用后，
+  //    glow 由 CPU beam 独立承担，只看用户 glow 开关）。
+  const size_t passPos = source.find("void ExecuteUIWorldPass(");
+  REQUIRE_MESSAGE(passPos != std::string::npos,
+                  "ExecuteUIWorldPass definition missing");
+  const size_t nextPassPos = source.find("void ExecuteCompositePass(", passPos);
+  REQUIRE_MESSAGE(nextPassPos != std::string::npos,
+                  "ExecuteCompositePass definition missing");
+  const std::string passBody =
+      source.substr(passPos, nextPassPos - passPos);
+
+  CHECK_MESSAGE(passBody.find("if (frame.gpuLootEnabled)") == std::string::npos,
+                "ExecuteUIWorldPass must not early-return on gpuLootEnabled");
+  CHECK_MESSAGE(passBody.find("gpuLootGlowActive") != std::string::npos,
+                "CPU beam draw must be gated on GPU loot glow");
+  CHECK_MESSAGE(passBody.find("EndMode2D();") != std::string::npos,
+                "ExecuteUIWorldPass must close its Mode2D scope");
+
+  // GPU loot 卡片层（ExecuteGPULootPass）必须保持停用：其位置来自
+  // GPU 自治推挤（loot_repulsion.compute），与 CPU 防重叠布局互不感知，
+  // 同时启用必然造成卡片与文字两套位置（错位根因）。
+  // 定义签名不含 "ExecuteGPULootPass(frame);"，逐行扫描只放行注释态调用。
+  {
+    size_t searchPos = 0;
+    bool hasActiveCall = false;
+    const std::string callToken = "ExecuteGPULootPass(frame);";
+    size_t hitPos = source.find(callToken, searchPos);
+    while (hitPos != std::string::npos) {
+      const size_t lineStart = source.rfind('\n', hitPos) + 1;
+      size_t codeStart = lineStart;
+      while (codeStart < source.size() &&
+             (source[codeStart] == ' ' || source[codeStart] == '\t')) {
+        ++codeStart;
+      }
+      if (source.compare(codeStart, 2, "//") != 0) {
+        hasActiveCall = true;
+      }
+      searchPos = hitPos + 1;
+      hitPos = source.find(callToken, searchPos);
+    }
+    CHECK_MESSAGE(!hasActiveCall,
+                  "GPU loot card pass must stay disabled: it double-renders "
+                  "labels whose positions fight the CPU overlap layout");
+  }
 }
 
 TEST_CASE("[Tech] R3 - WorldUiFrame proxy is written by both item and gold "

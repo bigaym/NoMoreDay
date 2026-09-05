@@ -45,7 +45,7 @@ void main() {
     // Mix background and border color based on mask
     vec3 mixedRGB = mix(fragBgColor.rgb, fragBorderColor.rgb, borderMask);
     float mixedAlpha = mix(fragBgColor.a, fragBorderColor.a, borderMask);
-    
+
     // Final output with Shape Alpha (AA at outer edge)
     finalColor = vec4(mixedRGB, mixedAlpha * shapeAlpha);
 }

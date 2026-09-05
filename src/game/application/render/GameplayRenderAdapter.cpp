@@ -671,14 +671,14 @@ void GameplayRenderAdapter::ExecuteUIWorldPass(render::GameplayRenderFrame &fram
   }
 
   // R3 (design §3.5.1-2): the read-only query/cull visible-proxy producer runs
-  // on BOTH the CPU and GPU loot paths; the GPU path only skips the CPU
-  // label/glyph/beam output below, never the proxy fill.
+  // on every path, never skipped.
   CollectVisibleItemProxies(frame);
 
-  if (frame.gpuLootEnabled) {
-    return;
-  }
-
+  // 混合渲染（GPU loot 卡片 + CPU 精选文字标签）：GPU 卡片承担全量可见性，
+  // CPU 侧按预算（LootLabelBudget 64）挑选标签、完成防重叠布局并填充
+  // MSDF glyph 实例；Engine 的 label/glyph/beam 绘制段均有 buffer 空守卫，
+  // GPU/CPU 任一档位都安全，不得在此提前 return（否则 Ultra/High 档
+  // 标签无文字且底板卡片无防重叠布局）。
   NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
   BuildCpuLootLabels(frame);
 }
@@ -948,7 +948,6 @@ void GameplayRenderAdapter::BuildCpuLootLabels(
         }
         ++safety;
       }
-
       // Snap currentRect origin to camera screen pixels to avoid subpixel bilinear blurring
       const float zoom = frame.camera.zoom;
       if (zoom > 1e-4f) {

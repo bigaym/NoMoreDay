@@ -653,10 +653,11 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
     frame.glyphMsdfEnabled = hooksFrame.glyphMsdfEnabled;
     frame.glyphMsdfPxRange = hooksFrame.glyphMsdfPxRange;
   }
-  if (frame.gpuLootEnabled) {
-    EndMode2D();
-    return;
-  }
+  // 混合渲染：CPU 精选标签/glyph 照常叠加绘制，不得在此提前 return
+  // （各绘制段均有 buffer 空守卫，空集时零开销）。GPU loot 卡片已停用
+  // （见 RenderGraph 注册处），光效改由 CPU beam 独立承担，因此门控只
+  // 看用户的 glow 开关，不再与 gpuLoot 绑定。
+  const bool gpuLootGlowActive = frame.gpuLootGlowEnabled;
 
   Mesh &quadMesh = GetLabelQuadMesh();
 
@@ -666,7 +667,7 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
   rlDisableBackfaceCulling();
   rlSetBlendMode(RL_BLEND_ALPHA);
 
-  if (!s_beamBuffer.empty() && s_beamShader.id != 0 && s_beamInstanceBuffer) {
+  if (!gpuLootGlowActive && !s_beamBuffer.empty() && s_beamShader.id != 0 && s_beamInstanceBuffer) {
     const size_t sz = s_beamBuffer.size() * sizeof(NoMoreDay::render::GPUBeamInstance);
     if (sz > s_beamInstanceBuffer->GetSize()) {
       s_beamInstanceBuffer->Create(sz * 2, s_beamBuffer.data(), RL_DYNAMIC_DRAW);
@@ -747,6 +748,9 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
       // (still texture unit 3 / slot 3, unchanged), with the per-frame
       // screen-space pixel range the adapter derived from the label font size.
       BeginShaderMode(*frame.glyphMsdfShader);
+      // 文字与标签底板（label 段）必须使用同一 MVP 源。底板走
+      // Build2DMvp，文字也走 Build2DMvp；改用 rlgl 矩阵栈会引入
+      // 两套投影推导的差异，导致文字相对底板随镜头错位。
       const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
           NoMoreDay::render::coord::Camera2DTransform::From(frame.camera),
           static_cast<float>(GetRenderWidth()),
@@ -782,6 +786,7 @@ void ExecuteUIWorldPass(RenderFrameData &frame,
       // practice: the CPU label path is MSDF-only since 2026-08-25. Kept as a
       // defensive fallback for the glyph shader pipeline.
       BeginShaderMode(*frame.glyphShader);
+      // 同 MSDF 路径：文字与标签底板共用 Build2DMvp，避免双套投影差异。
       const Matrix mvp = NoMoreDay::render::coord::Build2DMvp(
           NoMoreDay::render::coord::Camera2DTransform::From(frame.camera),
           static_cast<float>(GetRenderWidth()),
@@ -1633,13 +1638,19 @@ void RenderSystem::render(entt::registry &registry,
         }));
   }
 
-  if (frame.gpuLootEnabled) {
-    graph.AddPass(std::make_shared<NoMoreDay::render::passes::GPULootPass>(
-        [&frame](NoMoreDay::render::graph::RenderContext &) {
-          NoMoreDay::render::core::ScopedGLState scopedState;
-          ExecuteGPULootPass(frame);
-        }));
-  }
+  // GPU loot 卡片（loot_quad：大底框+白色占位图标）停用：卡片位置由
+  // GPU compute（loot_repulsion）自治推挤，与 CPU 标签防重叠结果互不
+  // 感知，两层叠加必然错位。标签底板/图标/文字统一由 CPU 标签管线
+  // 承担（label_instanced.frag 提供底板与占位图标，glyph_msdf 提供文
+  // 字），位置同源于 BuildCpuLootLabels 的防重叠矩形。保留 GPULoot 系
+  // 统与本 pass 代码，供日后"GPU 单卡片模式"重新启用。
+  // if (frame.gpuLootEnabled) {
+  //   graph.AddPass(std::make_shared<NoMoreDay::render::passes::GPULootPass>(
+  //       [&frame](NoMoreDay::render::graph::RenderContext &) {
+  //         NoMoreDay::render::core::ScopedGLState scopedState;
+  //         ExecuteGPULootPass(frame);
+  //       }));
+  // }
 
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::UIWorldPass>(
       [&frame, gameplayHooks](NoMoreDay::render::graph::RenderContext &) {

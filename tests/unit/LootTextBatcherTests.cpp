@@ -21,9 +21,9 @@ bool OnZoomGrid(float value, float zoom) {
 // --- Synthetic MSDF atlas metrics (em units) ---
 //
 // Mirrors the real v4 atlas contract: ASCII digits advance 0.5em, uppercase
-// Latin glyphs carry their own advance/bearing/size. All values are chosen so
-// that fontSize = 2 * emSize yields scale = 2.0 exactly and every expected
-// result is trivially hand-computable.
+// Latin glyphs carry their own advance/bearing/size. Metrics are em units and
+// the world-unit scale equals fontSize (px per em) directly, so expected
+// results are hand-computable from the metric values themselves.
 struct MsdfSpec {
     uint32_t codepoint = 0;
     float advance = 0.0f;
@@ -88,8 +88,8 @@ TEST_CASE("[Unit] LootText - MSDF templates lay out glyphs from atlas metrics") 
     REQUIRE(MSDFAtlasRegistry::Get().IsAvailable());
 
     const float emSize = MSDFAtlasRegistry::kV4AtlasEmSize;
-    const float fontSize = 2.0f * emSize; // scale = 2.0 exactly
-    const float scale = 2.0f;
+    const float fontSize = 2.0f * emSize;
+    const float scale = fontSize; // em -> world units: em * (px per em)
     const float spacing = 1.0f;
 
     std::vector<NoMoreDay::components::GlyphTemplate> templates;
@@ -139,7 +139,8 @@ TEST_CASE("[Unit] LootText - MSDF templates skip unknown codepoints and advance"
     RegisterSyntheticMsdf(MakeSyntheticMsdfGlyphs());
 
     const float emSize = MSDFAtlasRegistry::kV4AtlasEmSize;
-    const float fontSize = 2.0f * emSize; // scale = 2.0
+    const float fontSize = 2.0f * emSize;
+    const float scale = fontSize;
     const float spacing = 1.0f;
 
     // '中' (U+4E2D) is not in the synthetic atlas -> skipped, cursor advances
@@ -149,12 +150,12 @@ TEST_CASE("[Unit] LootText - MSDF templates skip unknown codepoints and advance"
 
     REQUIRE(templates.size() == 2);
 
-    const float cursorAfterA = 0.6f * 2.0f + spacing;              // 2.2
-    const float cursorAfterMiss = cursorAfterA + fontSize * 0.5f + spacing; // 32.278125
+    const float cursorAfterA = 0.6f * scale + spacing;
+    const float cursorAfterMiss = cursorAfterA + fontSize * 0.5f + spacing;
     const NoMoreDay::components::GlyphTemplate& zero = templates[1];
-    CHECK(zero.offset.x == doctest::Approx(cursorAfterMiss + 0.05f * 2.0f));
-    CHECK(zero.offset.y == doctest::Approx(-0.10f * 2.0f));
-    CHECK(zero.advanceX == doctest::Approx(0.5f * 2.0f + spacing));
+    CHECK(zero.offset.x == doctest::Approx(cursorAfterMiss + 0.05f * scale));
+    CHECK(zero.offset.y == doctest::Approx(-0.10f * scale));
+    CHECK(zero.advanceX == doctest::Approx(0.5f * scale + spacing));
 }
 
 TEST_CASE("[Unit] LootText - WriteInstances rebuilds instances from templates") {
@@ -212,10 +213,11 @@ TEST_CASE("[Unit] LootText - MeasureTextMsdf matches template cursor math") {
 
     const float emSize = MSDFAtlasRegistry::kV4AtlasEmSize;
     const float fontSize = 2.0f * emSize;
+    const float scale = fontSize;
     const float spacing = 1.0f;
 
     // "A0": width = advance(A)*scale + spacing + advance(0)*scale + spacing.
-    const float expect = 0.6f * 2.0f + spacing + 0.5f * 2.0f + spacing;
+    const float expect = 0.6f * scale + spacing + 0.5f * scale + spacing;
     const Vector2 measured = LootTextBatcher::MeasureTextMsdf("A0", fontSize);
     CHECK(measured.x == doctest::Approx(expect));
     CHECK(measured.y == doctest::Approx(fontSize));

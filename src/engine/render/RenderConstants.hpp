@@ -29,8 +29,14 @@ enum class Binding : uint32_t {
   // === VFX Systems ===
   SSBO_SKILL_EFFECTS = 6, // 技能特效实例 (GPUSkillEffectSystem)
   SSBO_POPUP_DATA = 7,     // 伤害数字弹出 (PopupRenderer)
-  SSBO_GLYPH_INSTANCE = 8, // Glyph 实例数据 (文字批量渲染)
-  SSBO_TEXT_QUAD = SSBO_GLYPH_INSTANCE, // V4 GPUTextPass alias
+  SSBO_GLYPH_INSTANCE = 8, // Glyph 实例数据 (CPU 标签文字批量渲染)
+  // GPUTextPass 独立槽位。此前与 SSBO_GLYPH_INSTANCE 共享 8 号槽，两条
+  // 管线同帧先后绑定 8 号并各自 draw 时出现驱动级交错，导致部分 CPU 标签
+  // 字形 UV 上下翻转（关闭 render.gpuText 后倒置消失已实证）。分离后各自
+  // 独占绑定点，杜绝同槽换绑的时序耦合。槽 16 依赖硬件
+  // GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS > 16（OpenGL 4.3 仅保证 16），
+  // GPUTextSystem 初始化时做运行时校验。
+  SSBO_TEXT_QUAD = 16,
 
   // === Lighting System (Phase 2) ===
   SSBO_LIGHT_DATA = 9, // GPULight SSBO (LightingPass)
@@ -64,7 +70,7 @@ enum class Binding : uint32_t {
  * 必须与 particle.compute / particle_emit.compute 中的 binding 保持一致。
  */
 namespace BindingGovernance {
-constexpr std::array<uint32_t, 16> kGlobalSharedSSBOBindings = {
+constexpr std::array<uint32_t, 17> kGlobalSharedSSBOBindings = {
     static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA),
     static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID),
     static_cast<uint32_t>(Binding::SSBO_COMMAND),
@@ -81,6 +87,7 @@ constexpr std::array<uint32_t, 16> kGlobalSharedSSBOBindings = {
     static_cast<uint32_t>(Binding::SSBO_DISTORTION_DATA),
     static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE),
     static_cast<uint32_t>(Binding::SSBO_LOOT_INSTANCE),
+    static_cast<uint32_t>(Binding::SSBO_TEXT_QUAD),
 };
 
 constexpr bool HasUniqueGlobalBindings() {
