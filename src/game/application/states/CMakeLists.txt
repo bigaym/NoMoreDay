@@ -12,6 +12,8 @@
 add_library(NoMoreDayGameStates STATIC
     DimensionalLevelSelectState.cpp
     GameplayState.cpp
+    GameplayState_Init.cpp
+    GameplayState_Rift.cpp
     HeirloomVaultState.cpp
     LoadingState.cpp
     MainMenuState.cpp

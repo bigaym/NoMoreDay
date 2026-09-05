@@ -19,6 +19,10 @@ add_library(NoMoreDayGameUi STATIC
     AstrolabeRenderer.cpp
     BladeMasteryUITheme.cpp
     GameUiCommandHandler.cpp
+    GameUiCommandHandler_Crafting.cpp
+    GameUiCommandHandler_Item.cpp
+    GameUiCommandHandler_SkillAstrolabe.cpp
+    GameUiCommandHandler_Stash.cpp
     GameUiHost.cpp
     GameUiSnapshotBuilder.cpp
     MonsterHealthBarController.cpp

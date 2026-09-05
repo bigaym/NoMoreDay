@@ -17,6 +17,9 @@ add_library(NoMoreDayEngineRenderCore STATIC
     ${CMAKE_SOURCE_DIR}/src/engine/render/core/BindingRegistry.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/core/DeviceCapabilityMatrix.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/core/QualityTierManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/core/QualityTierManager_AutoDegrade.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/core/QualityTierManager_Presets.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/core/QualityTierManager_Settings.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/debug/GLDebugCallback.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/debug/GPUTimerQueryRing.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/debug/ProfilerHudRenderer.cpp
@@ -42,6 +45,8 @@ add_library(NoMoreDayEngineRenderCore STATIC
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/ShadowSDFMath.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/shadow/StableLightIdTracker.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/validation/GPUHardwareValidationGate.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/validation/GPUHardwareValidationGate_Evidence.cpp
+    ${CMAKE_SOURCE_DIR}/src/engine/render/validation/GPUHardwareValidationGate_Target.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUABIContract.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/GPUUtils.cpp
     ${CMAKE_SOURCE_DIR}/src/engine/render/MaterialManager.cpp
