@@ -7,8 +7,6 @@
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/MaterialBankComponent.hpp"
 #include "game/foundation/components/StashComponent.hpp"
-#include "game/systems/item/storage/IItemStorageAdapter.hpp"
-#include "game/systems/item/storage/ItemStorageAdapter.hpp"
 #include "game/systems/item/storage/ItemStorageService.hpp"
 #include "game/systems/item/storage/ItemTemplateRegistry.hpp"
 
@@ -239,7 +237,7 @@ TEST_CASE("[Unit] ItemStorageService - Currency Gold Transactions") {
   CHECK(service.getGold() == 300);
 }
 
-TEST_CASE("[Unit] ItemStorageService - Ground Pending and Freeze") {
+TEST_CASE("[Unit] ItemStorageService - Freeze and Snapshot Independence") {
   ItemStorageService service;
 
   const ItemHandle h1 =
@@ -247,46 +245,20 @@ TEST_CASE("[Unit] ItemStorageService - Ground Pending and Freeze") {
   const ItemHandle h2 =
       service.getStoreMutable().create(MakeTestItem(602, 1002));
 
-  service.addGroundPending(h1);
-  service.addGroundPending(h2);
-  CHECK(service.getGroundPending().size() == 2);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, h1);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 1}, h2);
 
-  service.removeGroundPending(h1);
-  CHECK(service.getGroundPending().size() == 1);
-  CHECK(service.getGroundPending()[0] == h2);
-
-  // Freeze snapshot creates independent copy
+  // Freeze 快照生成独立副本
   ItemStore snapshot = service.freeze();
   CHECK(snapshot.activeCount() == service.getStore().activeCount());
   CHECK(snapshot.version() == service.version());
 
-  service.clearGroundPending(true);
-  CHECK(service.getGroundPending().empty());
+  // 销毁活跃存储中的物品，不影响已冻结的快照
+  service.destroyItem(SlotRef{ContainerKind::Inventory, 0, 0, 1});
   CHECK_FALSE(service.getStore().isValid(h2));
-  // Snapshot still holds h2 valid
   CHECK(snapshot.isValid(h2));
-}
-
-TEST_CASE("[Unit] ItemStorageAdapter - Direct Delegation to ItemStorageService") {
-  TestSetupScope scope;
-  entt::registry reg;
-
-  GameSettings settings;
-  ItemStorageService service;
-  ItemStorageAdapter adapter(&service, &settings);
-  CHECK(adapter.isItemStoreEnabled());
-
-  const SlotRef slot0{ContainerKind::Inventory, 0, 0, 0};
-  const SlotRef slot1{ContainerKind::Inventory, 0, 0, 1};
-
-  const ItemHandle h =
-      service.getStoreMutable().create(MakeTestItem(702, 1001));
-  service.setSlotHandle(slot0, h);
-
-  StorageError err = adapter.moveItem(reg, slot0, slot1);
-  CHECK(err == StorageError::Ok);
-  CHECK(service.getSlotHandle(slot0) == ItemHandle{0, 0});
-  CHECK(service.getSlotHandle(slot1) == h);
+  CHECK(snapshot.activeCount() == 2);
+  CHECK(service.getStore().activeCount() == 1);
 }
 
 TEST_CASE("[Unit] ItemStorageService - Deep Copy and Move Semantics") {

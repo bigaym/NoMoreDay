@@ -15,7 +15,6 @@
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/SharedStash.hpp"
 #include "game/systems/item/storage/ItemPersistenceCodec.hpp"
-#include "game/systems/item/storage/ItemStorageConverter.hpp"
 #include "game/systems/item/storage/ItemStorageService.hpp"
 #include "game/systems/item/storage/ItemStorageTypes.hpp"
 #include "game/systems/item/storage/ItemTemplateRegistry.hpp"

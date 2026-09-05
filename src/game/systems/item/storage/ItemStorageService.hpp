@@ -14,7 +14,7 @@ namespace NoMoreDay {
 /**
  * @brief 管理运行时物品实例与存储容器的核心服务。
  * 持有 ItemStore 以及覆盖 Inventory、Equipment、BagSlots、
- * PersonalStash、SharedStash、HeirloomVault、MaterialBank 与 GroundPending 的容器槽位数组。
+ * PersonalStash、SharedStash、HeirloomVault 与 MaterialBank 的容器槽位数组。
  */
 class ItemStorageService {
 public:
@@ -139,15 +139,6 @@ public:
     m_sharedStashMeta = std::move(meta);
   }
 
-  // --- 地面待决物品管理 ---
-  void addGroundPending(ItemHandle h);
-  bool removeGroundPending(ItemHandle h);
-  [[nodiscard]] const std::vector<ItemHandle> &
-  getGroundPending() const noexcept {
-    return m_groundPending;
-  }
-  void clearGroundPending(bool destroyHandles = true);
-
   // --- Store 管理与快照 ---
   [[nodiscard]] const ItemStore &getStore() const noexcept { return m_store; }
   [[nodiscard]] ItemStore &getStoreMutable() noexcept { return m_store; }
@@ -174,7 +165,6 @@ private:
   std::vector<StashTabMeta> m_sharedStashMeta;
   std::vector<ItemHandle> m_heirloomVault;
   std::vector<std::pair<uint32_t, int32_t>> m_materialBank;
-  std::vector<ItemHandle> m_groundPending;
 
   uint16_t m_personalStashUnlockedPages = 1;
   uint16_t m_sharedStashUnlockedPages = 1;

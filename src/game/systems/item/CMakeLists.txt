@@ -23,10 +23,7 @@ add_library(NoMoreDayGameItem STATIC
     StashSystem.cpp
     storage/ItemTemplateRegistry.cpp
     storage/ItemStore.cpp
-    storage/ItemStorageConverter.cpp
     storage/ItemStorageService.cpp
-    storage/ItemStorageAdapter.cpp
-    storage/ItemMigration.cpp
     storage/ItemPersistenceCodec.cpp
 )
 

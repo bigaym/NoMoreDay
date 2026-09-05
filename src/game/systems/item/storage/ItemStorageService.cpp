@@ -34,7 +34,6 @@ ItemStorageService::ItemStorageService() {
   }
 
   m_heirloomVault.assign(kHeirloomVaultCapacity, ItemHandle{0, 0});
-  m_groundPending.reserve(64);
 }
 
 uint64_t ItemStorageService::generateInstanceId() noexcept {
@@ -88,11 +87,6 @@ ItemHandle *ItemStorageService::getSlotPointer(const SlotRef &slot) {
       return &m_heirloomVault[slot.index];
     }
     return nullptr;
-  case ContainerKind::GroundPending:
-    if (slot.index < m_groundPending.size()) {
-      return &m_groundPending[slot.index];
-    }
-    return nullptr;
   case ContainerKind::MaterialBank:
     return nullptr;
   }
@@ -141,11 +135,6 @@ const ItemHandle *ItemStorageService::getSlotPointer(const SlotRef &slot) const 
   case ContainerKind::HeirloomVault:
     if (slot.index < m_heirloomVault.size()) {
       return &m_heirloomVault[slot.index];
-    }
-    return nullptr;
-  case ContainerKind::GroundPending:
-    if (slot.index < m_groundPending.size()) {
-      return &m_groundPending[slot.index];
     }
     return nullptr;
   case ContainerKind::MaterialBank:
@@ -224,9 +213,6 @@ bool ItemStorageService::canStoreItem(ContainerKind kind, uint8_t container,
     if (tpl) {
       return tpl->type == ItemType::Material;
     }
-    return true;
-
-  case ContainerKind::GroundPending:
     return true;
   }
 
@@ -668,8 +654,6 @@ ItemStorageService::getContainerSlots(ContainerKind kind, uint8_t container,
     break;
   case ContainerKind::HeirloomVault:
     return m_heirloomVault;
-  case ContainerKind::GroundPending:
-    return m_groundPending;
   case ContainerKind::MaterialBank:
     break;
   }
@@ -773,30 +757,6 @@ void ItemStorageService::setUnlockedPages(ContainerKind kind,
   }
 }
 
-void ItemStorageService::addGroundPending(ItemHandle h) {
-  if (m_store.isValid(h)) {
-    m_groundPending.push_back(h);
-  }
-}
-
-bool ItemStorageService::removeGroundPending(ItemHandle h) {
-  auto it = std::find(m_groundPending.begin(), m_groundPending.end(), h);
-  if (it != m_groundPending.end()) {
-    m_groundPending.erase(it);
-    return true;
-  }
-  return false;
-}
-
-void ItemStorageService::clearGroundPending(bool destroyHandles) {
-  if (destroyHandles) {
-    for (const auto &h : m_groundPending) {
-      m_store.destroy(h);
-    }
-  }
-  m_groundPending.clear();
-}
-
 void ItemStorageService::clearContainer(ContainerKind kind, uint8_t container,
                                         uint16_t page) {
   (void)container;
@@ -823,9 +783,6 @@ void ItemStorageService::clearContainer(ContainerKind kind, uint8_t container,
   case ContainerKind::HeirloomVault:
     m_heirloomVault.assign(kHeirloomVaultCapacity, ItemHandle{0, 0});
     break;
-  case ContainerKind::GroundPending:
-    clearGroundPending(true);
-    break;
   case ContainerKind::MaterialBank:
     m_materialBank.clear();
     break;
@@ -844,7 +801,6 @@ void ItemStorageService::clearAll() {
     page.assign(kStashPageCapacity, ItemHandle{0, 0});
   }
   m_heirloomVault.assign(kHeirloomVaultCapacity, ItemHandle{0, 0});
-  m_groundPending.clear();
   m_materialBank.clear();
   m_store.clear();
 }

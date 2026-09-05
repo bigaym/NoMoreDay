@@ -11,7 +11,7 @@ namespace NoMoreDay {
 
 /**
  * @brief Manages the persistence of game saves (Serialization, Asynchronous I/O).
- * 统一承载二进制持久化 (.nmd) 与旧版 JSON 存档兼容迁移。
+ * 承载二进制单轨持久化 (.nmd)。
  */
 class SaveManager {
 public:
@@ -37,7 +37,7 @@ public:
   std::future<bool> saveCharacterAsync(entt::registry &registry, int slotIndex);
 
   /**
-   * @brief Loads a character save from a file (.nmd binary, with .bak or JSON migration support) and restores it into the registry.
+   * @brief Loads a character save from a file (.nmd binary, with .bak support) and restores it into the registry.
    */
   bool loadCharacter(entt::registry &registry, int slotIndex);
 

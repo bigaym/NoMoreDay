@@ -37,15 +37,14 @@ enum class ContainerKind : uint8_t {
   PersonalStash,
   SharedStash,
   MaterialBank,
-  HeirloomVault,
-  GroundPending
+  HeirloomVault
 };
 
 /**
  * @brief 跨所有容器类别的统一槽位寻址结构。
  *
  * 寻址约定 (单一真实来源，由 isWellFormed() 强制保证):
- * - 平铺容器 (Inventory, HeirloomVault, GroundPending): kind + index。
+ * - 平铺容器 (Inventory, HeirloomVault): kind + index。
  * - 分页仓库 (PersonalStash, SharedStash): kind + page + index。
  * - 具名槽位容器 (Equipment, BagSlots): 仅 kind + container —
  *   container 携带 EquipmentSlot 枚举值 / 背包索引；index 必须保持为 0，以防两字段冲突。
