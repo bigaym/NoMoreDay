@@ -29,6 +29,7 @@ GameUiSnapshot MakeSnapshotWithSlot(std::size_t slotIndex, uint32_t skillId) {
     snapshot.skillBar.slots.resize(slotIndex + 1);
   }
   snapshot.skillBar.slots[slotIndex].skillId = skillId;
+  snapshot.skillBar.slots[slotIndex].slotIndex = static_cast<std::uint32_t>(slotIndex);
   return snapshot;
 }
 
@@ -206,6 +207,27 @@ TEST_CASE("[Unit] TooltipController (UI) - Enter/LeaveGameplay clear all state")
   tooltip.LeaveGameplay();
   CHECK(tooltip.ActiveTooltipSkillId() == NoMoreDay::INVALID_SKILL_ID);
   CHECK(tooltip.Alpha() == doctest::Approx(0.0f));
+}
+
+TEST_CASE("[Unit] TooltipController (UI) - resolves sparse skillBar.slots by slotIndex") {
+  ui::TooltipController tooltip;
+  GameUiSnapshot snapshot;
+  // Sparse: only slotIndex 2 is populated at vector index 0
+  ui::GameUiSkillBarSlotView slotView;
+  slotView.skillId = 555;
+  slotView.slotIndex = 2;
+  snapshot.skillBar.slots.push_back(slotView);
+
+  // Hovering empty slot 0 should not resolve skill 555
+  tooltip.SetHoveredSkillSlot(0);
+  tooltip.UpdateState(snapshot, 0.1f);
+  CHECK(tooltip.ActiveTooltipSkillId() == NoMoreDay::INVALID_SKILL_ID);
+
+  // Hovering slot 2 should resolve skill 555
+  tooltip.ResetFrame();
+  tooltip.SetHoveredSkillSlot(2);
+  tooltip.UpdateState(snapshot, 0.1f);
+  CHECK(tooltip.ActiveTooltipSkillId() == 555);
 }
 
 TEST_CASE("[Unit] TooltipController (UI) migration sources keep no static tooltip state") {

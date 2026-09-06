@@ -558,6 +558,7 @@ void SkillTreeUI::UpdateInput(const GameUiSnapshot& snapshot,
     if (!skillData || !tree) {
         return;
     }
+    m_selectedSkillId = skillId;
 
     // R8: capture the read-only render data for PaintCanvas (frame-scoped).
     m_paint.snapshot = &snapshot;

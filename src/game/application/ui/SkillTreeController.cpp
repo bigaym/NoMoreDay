@@ -45,6 +45,7 @@ void SkillTreeController::EnterGameplay() {
   m_visible = false;
   m_alpha = 0.0f;
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+  m_hub.ResetSelection();
   if (m_rootNodeId != kInvalidUiId) {
     m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
@@ -54,6 +55,7 @@ void SkillTreeController::LeaveGameplay() {
   m_visible = false;
   m_alpha = 0.0f;
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+  m_hub.ResetSelection();
   if (m_rootNodeId != kInvalidUiId) {
     m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
@@ -82,6 +84,10 @@ void SkillTreeController::Toggle() {
       m_uiHost->CloseCharacterPanel();
       m_uiHost->CloseContextMenu();
       m_uiHost->CloseAstrolabe();
+    }
+    if (m_selectedSkillId == NoMoreDay::INVALID_SKILL_ID &&
+        m_hub.SelectedSkillId() != NoMoreDay::INVALID_SKILL_ID) {
+      m_selectedSkillId = m_hub.SelectedSkillId();
     }
   } else {
     m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // Reset view
@@ -114,14 +120,20 @@ void SkillTreeController::Update(const GameUiSnapshot& snapshot,
     return;
   }
   if (m_selectedSkillId == NoMoreDay::INVALID_SKILL_ID) {
-    m_hub.UpdateInput(snapshot, input, m_alpha);
-  } else {
-    m_tree.UpdateInput(snapshot, input, m_selectedSkillId, m_uiHost, m_alpha);
+    if (m_hub.SelectedSkillId() != NoMoreDay::INVALID_SKILL_ID) {
+      m_selectedSkillId = m_hub.SelectedSkillId();
+    } else {
+      m_hub.UpdateInput(snapshot, input, m_alpha);
+      m_selectedSkillId = m_hub.SelectedSkillId();
+      return;
+    }
   }
-  // R8: the hub writes its selection into its own instance member (was the
-  // State.selectedSkillId read-back round trip; the talent-tree back button
-  // writes INVALID_SKILL_ID through its own member).
-  m_selectedSkillId = m_hub.SelectedSkillId();
+
+  m_tree.UpdateInput(snapshot, input, m_selectedSkillId, m_uiHost, m_alpha);
+  if (m_tree.SelectedSkillId() == NoMoreDay::INVALID_SKILL_ID) {
+    m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+    m_hub.ResetSelection();
+  }
 }
 
 void SkillTreeController::Paint(UiDrawList& drawList, const UiViewport& viewport,

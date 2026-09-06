@@ -68,6 +68,7 @@ public:
     }
 
     void ResetSelection() noexcept { m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID; }
+    void SetSelectedSkillId(uint32_t id) noexcept { m_selectedSkillId = id; }
 
 private:
     // R8: read-only render data captured by UpdateInput (frame-scoped). The

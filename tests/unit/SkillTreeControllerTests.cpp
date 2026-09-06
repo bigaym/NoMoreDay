@@ -7,6 +7,7 @@
 #include "game/application/ui/UiViewport.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 
 #include <fstream>
 #include <string>
@@ -124,6 +125,52 @@ TEST_CASE("[Unit] SkillTreeController Update/Paint are headless-safe") {
   // headless-safely (the hub early-outs without host/data).
   controller.Update(snapshot, input);
   controller.Paint(drawList, viewport, snapshot);
+}
+
+TEST_CASE("[Unit] SkillTreeController Back button returns to hub and ESC retains selection") {
+  NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  UiRuntime runtime;
+  SkillTreeController controller(runtime);
+  GameUiSnapshot snapshot;
+  snapshot.skillTree.specializedSlots[0].skillId = 11;
+
+  NoMoreDay::ui::UiInputFrame input{};
+  input.deltaSeconds = 0.016f;
+
+  controller.EnterGameplay();
+  controller.Toggle();
+  controller.UpdateAlpha(1.0f);
+
+  // 1. Select skill 11 from Hub
+  controller.Hub().SetSelectedSkillId(11);
+  controller.Update(snapshot, input);
+  CHECK(controller.SelectedSkillId() == 11);
+
+  // 2. Click Back button in Talent Tree
+  // startX = (2560 - 1800)/2 = 380, startY = (1440 - 1100)/2 = 170.
+  // backRectLogic = {380 + 1800 - 150, 170 + 30, 120, 50} = {2030, 200, 120, 50}.
+  input.pointer.logicalPosition = {2050.0f, 220.0f};
+  input.pointer.pressed = true;
+  controller.Update(snapshot, input);
+
+  CHECK(controller.SelectedSkillId() == NoMoreDay::INVALID_SKILL_ID);
+  CHECK(controller.Hub().SelectedSkillId() == NoMoreDay::INVALID_SKILL_ID);
+
+  // 3. Select skill 11 again
+  controller.Hub().SetSelectedSkillId(11);
+  input.pointer.pressed = false;
+  input.pointer.logicalPosition = {0.0f, 0.0f};
+  controller.Update(snapshot, input);
+  CHECK(controller.SelectedSkillId() == 11);
+
+  // 4. Close via Close() (ESC behavior)
+  controller.Close();
+  CHECK_FALSE(controller.IsVisible());
+
+  // 5. Reopen via Toggle: retained selection feature works
+  controller.Toggle();
+  CHECK(controller.IsVisible());
+  CHECK(controller.SelectedSkillId() == 11);
 }
 
 TEST_CASE("[Unit] UISystem no longer calls legacy skill panels statically") {

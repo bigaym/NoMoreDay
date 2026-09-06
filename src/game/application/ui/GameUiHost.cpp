@@ -292,6 +292,7 @@ void GameUiHost::Update(entt::registry &registry,
     return;
   }
   CopySnapshotPreservingCapacity(m_snapshot, snapshot);
+  m_tooltip.ResetFrame();
 
   // U6b: consume results published by the gameplay Update phase. Failed
   // intents surface their user-facing message through the hosted message box
@@ -790,7 +791,6 @@ void GameUiHost::Draw(const LevelManager &levelManager,
   // state machine (which resolves this frame's hover writes and mirrors the
   // result onto the frame object). R8: ground-hover detection reads the world
   // frame (domain ids) — no registry.
-  m_tooltip.ResetFrame();
   m_tooltip.DetectGroundHover(camera);
 
   // --- Scale Calculation ---

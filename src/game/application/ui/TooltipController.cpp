@@ -139,10 +139,11 @@ void TooltipController::UpdateState(const GameUiSnapshot& snapshot,
     } else if (m_hoveredSkillSlot != -1) {
       // R8: resolve the hotbar slot hover from the frame snapshot's skill bar
       // view model (GameUiSkillBarSlotView.skillId), never from the registry.
-      if (m_hoveredSkillSlot >= 0 &&
-          m_hoveredSkillSlot <
-              static_cast<int>(snapshot.skillBar.slots.size())) {
-        hoverSkillId = snapshot.skillBar.slots[m_hoveredSkillSlot].skillId;
+      for (const auto& slot : snapshot.skillBar.slots) {
+        if (slot.slotIndex == static_cast<std::uint32_t>(m_hoveredSkillSlot)) {
+          hoverSkillId = slot.skillId;
+          break;
+        }
       }
     } else if (m_hoveredBuffIdx != -1) {
       hoverBuffIdx = m_hoveredBuffIdx;
