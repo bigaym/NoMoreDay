@@ -72,20 +72,13 @@ TEST_CASE("[Integration] SkillSystem - Execution Logic") {
     CHECK_FALSE(SkillSystem::TryCast(registry, player, 0));
   }
 
-  SUBCASE("State Machine & Callback") {
+  SUBCASE("State Machine - Unregistered Cast Takes Warning Path") {
     auto oldCast = SkillBehaviorRegistry::GetCast(1);
     SkillBehaviorRegistry::RegisterCast(1, nullptr);
-
-    bool effect_triggered = false;
-    SkillSystem::RegisterEffect(
-        1, [&](entt::registry &, entt::entity, SkillExecution &) {
-          effect_triggered = true;
-        });
 
     active.slots[0].current_charges = 1;
     SkillSystem::TryCast(registry, player, 0);
     SkillSystem::Update(registry, grid, 0.11f);
-    CHECK(effect_triggered);
 
     SkillBehaviorRegistry::RegisterCast(1, oldCast);
   }

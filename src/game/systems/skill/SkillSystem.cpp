@@ -533,7 +533,6 @@ void SkillSystem::InitHooks() {
   LOG_INFO("Initializing Skill Hooks...");
   SkillBehaviorRegistry::Initialize();
   ClearHooks();
-  s_skill_callbacks.clear();
 
   BehaviorInjectionRegistry::Init();
 
@@ -970,7 +969,6 @@ void SkillSystem::ShutdownHooks() {
   s_procHandlerIds.clear();
 
   ClearHooks();
-  s_skill_callbacks.clear();
   s_hooksInitialized = false;
 }
 
@@ -1173,21 +1171,12 @@ void SkillSystem::Update(entt::registry &registry,
   }
 }
 
-void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {
-  s_skill_callbacks[skill_id] = callback;
-}
-
 void SkillSystem::AddPreCastHook(SkillHook hook) {
   s_pre_cast_hooks.push_back(hook);
 }
 
-void SkillSystem::AddPostCastHook(SkillHook hook) {
-  s_post_cast_hooks.push_back(hook);
-}
-
 void SkillSystem::ClearHooks() {
   s_pre_cast_hooks.clear();
-  s_post_cast_hooks.clear();
 }
 
 float SkillSystem::GetTriggerEffectivenessForCast(uint64_t cast_id) {
@@ -1508,8 +1497,6 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
 
           if (auto castFunc = SkillBehaviorRegistry::GetCast(current_exec.skill_id)) {
             castFunc(registry, current_exec.owner, current_exec);
-          } else if (s_skill_callbacks.contains(current_exec.skill_id)) {
-            s_skill_callbacks[current_exec.skill_id](registry, current_exec.owner, current_exec);
           } else {
             LOG_WARN("UpdateStates: No callback found for skill ID {} on entity {}",
                      current_exec.skill_id, (uint32_t)entity);
@@ -1520,11 +1507,6 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
       case SkillState::Casting:
         exec.state = SkillState::Settle;
         exec.timer = 0.1f;
-        for (auto &hook : s_post_cast_hooks) {
-          if (registry.valid(entity) && registry.all_of<SkillExecution>(entity)) {
-            hook(registry, entity, registry.get<SkillExecution>(entity));
-          }
-        }
         break;
 
       case SkillState::Settle:

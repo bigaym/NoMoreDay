@@ -74,13 +74,6 @@ inline const BuffEffect *FindBuff(const entt::registry &registry,
   return nullptr;
 }
 
-inline void RemoveBuff(entt::registry &registry, entt::entity owner,
-                       std::string_view id) {
-  if (auto *effects = registry.try_get<ActiveEffectsComponent>(owner)) {
-    effects->Remove(std::string(id));
-  }
-}
-
 inline void RefundSkillCooldownPercent(entt::registry &registry,
                                        entt::entity owner, uint32_t skillId,
                                        float pct) {

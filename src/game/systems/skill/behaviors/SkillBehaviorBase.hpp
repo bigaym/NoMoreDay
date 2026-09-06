@@ -23,7 +23,7 @@ struct ElementalConversion {
  * @brief CRTP base class for skill behaviors.
  * 
  * Provides zero-overhead static polymorphism for skill logic.
- * Derived classes should implement DoCast() and optionally DoTick(), DoEnd().
+ * Derived classes should implement DoCast() and optionally DoHit().
  * 
  * Usage:
  *   struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
@@ -93,27 +93,7 @@ struct SkillBehaviorBase {
     static void OnCast(entt::registry& reg, entt::entity owner, SkillExecution& exec) {
         Derived::DoCast(reg, owner, exec);
     }
-    
-    /**
-     * @brief Called each tick for channeled skills.
-     * Optional - only implement if the skill is channeled.
-     */
-    static void OnTick(entt::registry& reg, entt::entity owner, ChannelingComponent& chan, float dt) {
-        if constexpr (requires { Derived::DoTick(reg, owner, chan, dt); }) {
-            Derived::DoTick(reg, owner, chan, dt);
-        }
-    }
-    
-    /**
-     * @brief Called when the skill ends (channeling finishes, buff expires, etc).
-     * Optional - only implement for special cleanup.
-     */
-    static void OnEnd(entt::registry& reg, entt::entity owner, uint32_t skill_id) {
-        if constexpr (requires { Derived::DoEnd(reg, owner, skill_id); }) {
-            Derived::DoEnd(reg, owner, skill_id);
-        }
-    }
-    
+
     /**
      * @brief Called when skill hits a target.
      * Optional - for skills with special on-hit effects.

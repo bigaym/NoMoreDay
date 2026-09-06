@@ -59,7 +59,6 @@ struct TriggerBudget {
 
 class SkillSystem {
 public:
-    using CastCallback = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
     using SkillHook = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
 
     static void Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt, tf::Executor* executor = nullptr);
@@ -90,19 +89,9 @@ public:
                             float effectiveness = 1.0f);
 
     /**
-     * @brief Register a callback for a specific skill ID.
-     */
-    static void RegisterEffect(uint32_t skill_id, CastCallback callback);
-
-    /**
      * @brief Register a hook called before the skill effect is triggered (during Preparing state).
      */
     static void AddPreCastHook(SkillHook hook);
-
-    /**
-     * @brief Register a hook called after the skill effect is triggered or finishes.
-     */
-    static void AddPostCastHook(SkillHook hook);
 
     /**
      * @brief Clear all registered hooks (mainly for testing).
@@ -200,9 +189,7 @@ private:
     static float QueryTriggerEffectiveness(uint64_t cast_id);
     static uint64_t NextCastId();
 
-    static inline std::map<uint32_t, CastCallback> s_skill_callbacks;
     static inline std::vector<SkillHook> s_pre_cast_hooks;
-    static inline std::vector<SkillHook> s_post_cast_hooks;
     static inline uint32_t s_onSkillHitHandlerId = 0;
     static inline uint32_t s_onTakeDamageHandlerId = 0;
     static inline bool s_hooksInitialized = false;
