@@ -188,6 +188,7 @@ struct ItemComponent {
   // 传奇/特殊效果 (如属性转化)
   std::vector<NoMoreDay::StatConversion> conversions;
   std::vector<NoMoreDay::DamageModifier> damage_modifiers;
+  std::vector<NoMoreDay::ItemSkillModifier> skill_modifiers;
 
   // 插槽
   int socketCount = 0;
@@ -231,6 +232,7 @@ inline void to_json(nlohmann::json &j, const ItemComponent &i) {
                      {"affixes", i.affixes},
                      {"conversions", i.conversions},
                      {"damage_modifiers", i.damage_modifiers},
+                     {"skill_modifiers", i.skill_modifiers},
                      {"socketCount", i.socketCount},
                      {"sockets", i.sockets},
                      {"textureId", i.textureId},
@@ -280,6 +282,9 @@ inline void from_json(const nlohmann::json &j, ItemComponent &i) {
   j.at("affixes").get_to(i.affixes);
   j.at("conversions").get_to(i.conversions);
   j.at("damage_modifiers").get_to(i.damage_modifiers);
+  if (j.contains("skill_modifiers")) {
+    j.at("skill_modifiers").get_to(i.skill_modifiers);
+  }
   j.at("socketCount").get_to(i.socketCount);
   j.at("sockets").get_to(i.sockets);
   j.at("textureId").get_to(i.textureId);

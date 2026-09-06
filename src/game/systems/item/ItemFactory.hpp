@@ -54,6 +54,9 @@ public:
   static void addLootPool(uint32_t id, const LootPool &pool);
   static const LootPool *getLootPool(uint32_t id);
 
+  // 为稀有/传奇装备掷出技能修饰器 (ItemSkillModifier)
+  static void rollSkillModifiers(ItemComponent &item, int level);
+
 private:
   static Rarity rollRarity(float magicFind);
   static void rollAffixes(ItemComponent &item, int level);

@@ -61,6 +61,7 @@ void CreateProjectiles(entt::registry &registry, entt::entity owner, int count,
     proj.radius = 8.0f;
     proj.pierce = true;
     proj.pierceCount = 10000;
+    proj.max_pierce = Projectile::kUnlimitedPiercing;
     proj.hasRendered = true;
     proj.hitLimitReached = false;
   }
@@ -70,10 +71,11 @@ void ResetProjectiles(entt::registry &registry) {
   auto view = registry.view<Projectile>();
   for (entt::entity e : view) {
     auto &proj = view.get<Projectile>(e);
-    proj.hitEntities.clear();
+    proj.ClearHits();
     proj.hitLimitReached = false;
     proj.pierce = true;
     proj.pierceCount = 10000;
+    proj.max_pierce = Projectile::kUnlimitedPiercing;
     proj.hasRendered = true;
   }
 }

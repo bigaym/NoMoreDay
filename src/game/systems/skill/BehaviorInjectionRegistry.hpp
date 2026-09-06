@@ -29,6 +29,11 @@ public:
      */
     static void Init();
 
+    /**
+     * @brief Clear all registered injectors (for testing/teardown).
+     */
+    static void Clear();
+
 private:
     static std::array<BehaviorInjector,
                       static_cast<std::size_t>(SkillBehaviorId::Count)>

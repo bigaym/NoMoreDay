@@ -6,6 +6,7 @@
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
@@ -176,6 +177,24 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
                                                   PhantomFlash::kSkillId);
   }
 
+  // 注册数据驱动反击触发规则 (TriggerRuleComponent)
+  auto &trig = registry.get_or_emplace<TriggerRuleComponent>(owner);
+  trig.RemoveRule(PhantomFlash::kSkillId);
+  TriggerRule counterRule;
+  counterRule.rule_id = PhantomFlash::kSkillId;
+  counterRule.listen_event = CombatEventType::OnTakeDamage;
+  counterRule.target_mode = TriggerTargetPolicy::Attacker;
+  counterRule.cast_skill_id = PhantomFlash::kSkillId;
+  counterRule.base_chance = 1.0f;
+  counterRule.use_proc_scaling = false;
+  counterRule.internal_cooldown = pf.counter_window;
+  counterRule.effectiveness = pf.synergy_shadow_hide ? 1.2f : 1.0f;
+  if (pf.flow_reset) {
+    counterRule.cooldown_refund_skill_id = 8;
+    counterRule.cooldown_refund_amount = 1.5f;
+  }
+  trig.AddRule(counterRule);
+
   LOG_INFO("Phantom Flash: Counter state active for entity {}",
            (uint32_t)owner);
 }
@@ -184,6 +203,9 @@ bool PhantomFlash::Update(entt::registry &registry, entt::entity entity,
                           PhantomFlashComponent &pf, float dt) {
   pf.counter_window -= dt;
   if (pf.counter_window <= 0.0f || pf.triggered) {
+    if (auto *trigComp = registry.try_get<TriggerRuleComponent>(entity)) {
+      trigComp->RemoveRule(PhantomFlash::kSkillId);
+    }
     return true;
   }
 

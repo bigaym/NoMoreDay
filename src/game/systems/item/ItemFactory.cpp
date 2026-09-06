@@ -332,6 +332,10 @@ static void fillAffixDetails(Affix &affix, AffixType type, int tier) {
     affix.value = rollVal(5.0f, 3.0f);
     affix.isPrefix = false;
     break;
+  case AffixType::PlusSkillLevelGeneric:
+    affix.value = static_cast<float>(std::max(1, tier / 2));
+    affix.isPrefix = true;
+    break;
   default:
     affix.value = rollVal(5.0f, 0.0f);
     break;
@@ -613,8 +617,53 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
   pickAffixes(true, prefixCount);
   pickAffixes(false, suffixCount);
 
+  rollSkillModifiers(item, level);
+
   LOG_DEBUG("ItemFactory: Generated {} affixes for {}", item.affixes.size(),
             item.name);
+}
+
+void ItemFactory::rollSkillModifiers(ItemComponent &item, int level) {
+  if (item.type != ItemType::Weapon && item.type != ItemType::Armor &&
+      item.type != ItemType::Jewelry && item.type != ItemType::Shield) {
+    return;
+  }
+  if (item.rarity != Rarity::Rare && item.rarity != Rarity::Epic &&
+      item.rarity != Rarity::Legendary && item.rarity != Rarity::Ancient &&
+      item.rarity != Rarity::Mythic) {
+    return;
+  }
+
+  // Determine roll chance: 30% for Rare, 60% for Legendary+
+  int chance = (item.rarity >= Rarity::Legendary) ? 60 : 30;
+  if (std::uniform_int_distribution<>(0, 99)(t_rng) >= chance) {
+    return;
+  }
+
+  static const std::vector<uint32_t> kCandidateSkills = {1, 2, 3, 4, 5, 7, 8, 9};
+  int skillIdx = std::uniform_int_distribution<>(0, (int)kCandidateSkills.size() - 1)(t_rng);
+  uint32_t skillId = kCandidateSkills[skillIdx];
+
+  ItemSkillModifier mod{};
+  mod.target_skill_id = skillId;
+
+  int modKind = std::uniform_int_distribution<>(0, 3)(t_rng);
+  switch (modKind) {
+  case 0:
+    mod.flat_cooldown_delta = -0.5f - (level * 0.01f);
+    break;
+  case 1:
+    mod.mana_cost_delta = -2.0f - (level * 0.05f);
+    break;
+  case 2:
+    mod.extra_projectiles = 1 + (level >= 50 ? 1 : 0);
+    break;
+  case 3:
+    mod.area_radius_mult = 1.15f + (level * 0.002f);
+    break;
+  }
+
+  item.skill_modifiers.push_back(mod);
 }
 
 // -----------------------------------------------------------------------------

@@ -4,6 +4,7 @@
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -18,6 +19,20 @@ SkillDisplayPreviewService::Build(entt::registry& registry,
     if (!skillData)
     {
         return preview;
+    }
+
+    const auto *bakedProfile = SkillSystem::GetBakedSkillProfile(registry, player, skillId);
+    if (bakedProfile) {
+        preview.display_mana_cost = bakedProfile->effective_mana_cost;
+        preview.display_cooldown = bakedProfile->effective_cooldown;
+        preview.display_projectiles = bakedProfile->projectile_count;
+        preview.display_tags = bakedProfile->effective_tags;
+    } else {
+        preview.display_mana_cost = skillData->mana_cost;
+        preview.display_cooldown = skillData->cooldown;
+        preview.display_projectiles = static_cast<int>(skillData->GetParam("projectile_count", 1.0f));
+        if (preview.display_projectiles <= 0) preview.display_projectiles = 1;
+        preview.display_tags = skillData->tags;
     }
 
     const auto* combatStats = registry.try_get<CombatStats>(player);

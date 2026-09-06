@@ -435,9 +435,8 @@ void ProjectileSystem::Update(entt::registry &registry,
               return true;
           s_uniqueHits.push_back(target);
 
-          for (auto e : proj.hitEntities)
-            if (e == target)
-              return true;
+          if (proj.HasHit(target))
+            return true;
 
           // Distance check already done by QueryWorld/query mostly, but double
           // check doesn't hurt if grid returns candidates
@@ -468,14 +467,15 @@ void ProjectileSystem::Update(entt::registry &registry,
             hitAct.pos = {pos.x, pos.y};
             actions.push_back(hitAct);
 
-            proj.hitEntities.push_back(target);
+            bool pierceLimitReached = false;
+            proj.TryRecordHit(target, pierceLimitReached);
             if (!proj.pierce) {
               hit = true;
               proj.hitLimitReached = true;
               return false; // Stop query after first hit if no pierce
             } else {
               proj.pierceCount--;
-              if (proj.pierceCount < 0) {
+              if (proj.pierceCount < 0 || pierceLimitReached) {
                 hit = true;
                 proj.hitLimitReached = true;
                 return false;
@@ -484,6 +484,12 @@ void ProjectileSystem::Update(entt::registry &registry,
           }
           return true;
         });
+
+    // 静态 AoE Hitbox（如技能 7 切割 hitbox）在单帧内完成全部候选目标结算后立即标记销毁，杜绝跨帧重复判定
+    if (proj.speed <= 0.001f && proj.IsUnlimitedPiercing()) {
+      proj.hitLimitReached = true;
+      proj.lifeTime = 0.0f;
+    }
 
     if (proj.hitLimitReached && (proj.hasRendered || proj.lifeTime <= 0.0f)) {
       auto onDeath = proj.on_death;
@@ -639,6 +645,11 @@ void ProjectileSystem::Update(entt::registry &registry,
       request.base_pool = base;
       request.additional_tags = hit_tags;
       request.source_entity = projEnt;
+      if (registry.valid(projEnt)) {
+        if (const auto *p = registry.try_get<Projectile>(projEnt)) {
+          request.payload_context = p->payload_context;
+        }
+      }
       (void)ResolveDamage(registry, request, act.instigator);
       {
         components::GPULight flash = {};
@@ -821,7 +832,7 @@ void ProjectileSystem::SpawnSplitProjectiles(entt::registry &registry,
     p.lifeTime = 0.6f;
     p.hitLimitReached = false;
     p.hasRendered = false;
-    p.hitEntities.clear();
+    p.ClearHits();
 
     // Visuals
     if (auto *col = registry.try_get<ColorComponent>(parent_ent)) {
@@ -864,7 +875,7 @@ void ProjectileSystem::SpawnExplosionProjectiles(entt::registry &registry,
     p.lifeTime = 0.4f;
     p.hitLimitReached = false;
     p.hasRendered = false;
-    p.hitEntities.clear();
+    p.ClearHits();
     p.pierce = false;
 
     if (auto *col = registry.try_get<ColorComponent>(parent_ent)) {

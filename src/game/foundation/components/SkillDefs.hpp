@@ -504,6 +504,45 @@ inline void from_json(const nlohmann::json &j, SkillSlot &s) {
     j.at("current_charges").get_to(s.current_charges);
 }
 
+// 基础载荷定义 (纯 POD / Standard Layout)
+enum class PayloadType : uint8_t {
+  Damage = 0,
+  Ailment,
+  Buff,
+  Impulse
+};
+
+struct PayloadDefinition {
+  PayloadType type = PayloadType::Damage;
+  uint32_t ailment_id = 0;
+  float value_mult = 1.0f;
+  Tag damage_tags = Tag::None;
+  float duration = 3.0f; // 参数化异常/持续时长
+
+  bool operator==(const PayloadDefinition &) const = default;
+};
+static_assert(std::is_standard_layout_v<PayloadDefinition>);
+
+// 纯 POD 实体烘焙属性表
+struct BakedSkillProfile {
+  uint32_t skill_id = 0;
+  int effective_level = 1;
+  float effective_cooldown = 0.0f;
+  float effective_mana_cost = 0.0f;
+  Tag effective_tags = Tag::None;
+  int projectile_count = 1;
+  float area_radius = 1.0f;
+  float proc_coefficient = 1.0f;
+
+  // 定长 POD 载荷数组 (Zero Heap Allocation)
+  static constexpr uint8_t kMaxInjectedPayloads = 4;
+  std::array<PayloadDefinition, kMaxInjectedPayloads> injected_payloads{};
+  uint8_t injected_count = 0;
+
+  bool operator==(const BakedSkillProfile &) const = default;
+};
+static_assert(std::is_standard_layout_v<BakedSkillProfile>);
+
 /**
  * @brief Attached to entities (players) that can use active skills.
  */
@@ -515,6 +554,9 @@ struct ActiveSkillsComponent {
   std::array<SpecializedSkill, SkillConstants::MAX_SKILL_SLOTS>
       specialized_slots;
   int available_talent_points = 0;
+
+  // 纯 POD 烘焙属性表缓存 (每个槽位对应一个)
+  std::array<BakedSkillProfile, SkillConstants::MAX_SKILL_SLOTS> baked_profiles{};
 };
 
 inline void to_json(nlohmann::json &j, const ActiveSkillsComponent &c) {
@@ -562,6 +604,22 @@ struct ShadowCloneComponent {};
  */
 struct ShadowKillArrayReady {};
 
+// 64 字节缓存行对齐的轻量伤害上下文 (Zero Heap Allocation, Standard Layout)
+struct alignas(64) DamagePayloadContext {
+  float base_damage_min = 0.0f;
+  float base_damage_max = 0.0f;
+  float crit_chance = 0.0f;      // 归一化暴击率 [0.0, 1.0] (例如 0.05f 为 5%，1.0f 为 100%)
+  float crit_multiplier = 1.5f;
+  float increased_damage = 0.0f; // 增伤小数加成 (例如 0.5f 为 +50% 增伤；基准无加成为 0.0f)
+  float more_damage = 1.0f;      // More 乘算倍率 (默认 1.0f)
+  Tag effective_tags = Tag::None;
+  uint32_t source_skill_id = 0;
+  uint8_t trigger_depth = 0;
+
+  bool operator==(const DamagePayloadContext &) const = default;
+};
+static_assert(std::is_standard_layout_v<DamagePayloadContext>);
+
 /**
  * @brief Snapshot of skill data for delayed or repeated execution.
  */
@@ -570,6 +628,7 @@ struct SkillSnapshot {
   Vector2 position = {0, 0};
   Vector2 target_pos = {0, 0};
   CombatStats stats; // Snapshot of owner's stats at time of creation
+  DamagePayloadContext payload_context{};
   bool is_empowered = false;
   uint64_t cast_id = 0;
   std::bitset<128> active_nodes;
@@ -913,6 +972,29 @@ struct SwordArrayComponent {
   float execute_health_threshold_ratio = 0.15f;
   float execute_damage_max_health_ratio = 0.10f;
 };
+
+/**
+ * @brief 通用地表领域组件 (AreaFieldComponent - 纯 POD / Standard Layout)
+ */
+struct AreaFieldComponent {
+  entt::entity owner = entt::null;     // 归属施法者 (实体消亡与属性伤害结算必须)
+  uint64_t cast_id = 0;                // 战斗归因 ID
+  uint32_t source_skill_id = 0;        // 技能标识 (兼容外部系统查询)
+  float remaining_duration = 0.0f;
+  float pulse_interval = 0.25f;
+  float timer = 0.0f;
+  float radius = 48.0f;
+  uint8_t shape_type = 0;              // 0: 圆形, 1: 环形, 2: 旋转切割线
+
+  // 定长 POD 载荷数组 (Zero heap allocation, Standard Layout)
+  static constexpr uint8_t kMaxFieldPayloads = 4;
+  std::array<PayloadDefinition, kMaxFieldPayloads> payloads{};
+  uint8_t payload_count = 0;
+
+  bool operator==(const AreaFieldComponent &) const = default;
+};
+static_assert(std::is_standard_layout_v<AreaFieldComponent>);
+static_assert(std::is_trivially_destructible_v<AreaFieldComponent>);
 
 struct HeavenlySwordFieldComponent {
   entt::entity owner = entt::null;

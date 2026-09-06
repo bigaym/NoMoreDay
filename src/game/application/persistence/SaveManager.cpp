@@ -656,6 +656,7 @@ std::future<bool> SaveManager::saveGlobalAsync(entt::registry &registry) {
       uint32_t mask = ContainerDirtyFlags::TemplateFingerprint |
                       ContainerDirtyFlags::ItemInstances |
                       ContainerDirtyFlags::ItemSideTables |
+                      ContainerDirtyFlags::ItemSkillModifiers |
                       ContainerDirtyFlags::SharedStash;
       if (!ItemPersistenceCodec::encode(snapshot, ss, nullptr, mask, "")) {
         LOG_ERROR("SaveManager: Failed to encode global binary save");

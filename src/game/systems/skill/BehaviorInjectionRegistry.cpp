@@ -1,4 +1,5 @@
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include <spdlog/spdlog.h>
 
 namespace NoMoreDay {
@@ -18,28 +19,25 @@ void BehaviorInjectionRegistry::Register(Id id, BehaviorInjector injector) {
     return;
   }
   if (injectors[idx]) {
-    LOG_WARN("BehaviorInjectionRegistry: Overwriting injector for ID '{}'",
-             SkillBehaviorIdToString(id));
+    LOG_WARN("BehaviorInjectionRegistry: overwriting behavior for id {}", idx);
   }
   injectors[idx] = std::move(injector);
 }
 
-void BehaviorInjectionRegistry::Apply(Id id, entt::registry &registry,
-                                      entt::entity entity) {
-  if (id == SkillBehaviorId::None) {
+void BehaviorInjectionRegistry::Apply(Id id, entt::registry &r,
+                                      entt::entity e) {
+  const std::size_t idx = static_cast<std::size_t>(id);
+  if (idx >= injectors.size()) {
     return;
   }
-
-  const std::size_t idx = static_cast<std::size_t>(id);
-  if (idx < injectors.size() && injectors[idx]) {
-    injectors[idx](registry, entity);
-    LOG_DEBUG(
-        "BehaviorInjectionRegistry: Applied behavior '{}' to entity {}",
-        SkillBehaviorIdToString(id), static_cast<uint32_t>(entity));
-  } else {
-    LOG_WARN("BehaviorInjectionRegistry: Unknown behavior ID '{}'",
-             SkillBehaviorIdToString(id));
+  const auto &injector = injectors[idx];
+  if (injector) {
+    injector(r, e);
   }
+}
+
+void BehaviorInjectionRegistry::Clear() {
+  injectors.fill(nullptr);
 }
 
 void BehaviorInjectionRegistry::Init() {
@@ -49,6 +47,19 @@ void BehaviorInjectionRegistry::Init() {
 
   Register(SkillBehaviorId::ShadowCaster,
            [](entt::registry &r, entt::entity e) {
+             auto &trig = r.get_or_emplace<TriggerRuleComponent>(e);
+             if (!trig.HasRule(124)) {
+               TriggerRule rule;
+               rule.rule_id = 124;
+               rule.listen_event = CombatEventType::Count; // 哨值：由 ShadowDuplicationHook 前置钩子直读消费，不走 ProcEngine 通用派发
+               rule.target_mode = TriggerTargetPolicy::GroundTarget;
+               rule.cast_skill_id = 124;
+               rule.internal_cooldown = 3.0f;
+               rule.base_chance = 1.0f;
+               rule.use_proc_scaling = false;
+               rule.effectiveness = 0.5f;
+               trig.AddRule(rule);
+             }
              r.get_or_emplace<ShadowKillArrayReady>(e);
            });
 

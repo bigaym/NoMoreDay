@@ -197,6 +197,46 @@ std::vector<uint8_t> buildItemSideTablesSection(const ItemStorageService &servic
   return payload;
 }
 
+// 序列化 Section 13: ItemSkillModifiers (装备技能修饰器独立持久化分段)
+std::vector<uint8_t> buildItemSkillModifiersSection(const ItemStorageService &service,
+                                                   const std::unordered_set<uint32_t> *allowedIndices) {
+  std::vector<uint8_t> payload;
+  const auto &sideTables = service.getStore().getAllSideTables();
+
+  std::vector<std::pair<uint32_t, const ItemSideTableData *>> sidesToEncode;
+  sidesToEncode.reserve(sideTables.size());
+
+  for (const auto &[idx, data] : sideTables) {
+    if ((!allowedIndices || allowedIndices->contains(idx)) && !data.skill_modifiers.empty()) {
+      sidesToEncode.emplace_back(idx, &data);
+    }
+  }
+
+  const uint32_t count = static_cast<uint32_t>(sidesToEncode.size());
+  appendBytes(payload, count);
+
+  for (const auto &[idx, pData] : sidesToEncode) {
+    const auto &data = *pData;
+    appendBytes(payload, idx);
+    const uint32_t modCount = static_cast<uint32_t>(data.skill_modifiers.size());
+    appendBytes(payload, modCount);
+    for (const auto &mod : data.skill_modifiers) {
+      appendBytes(payload, mod.target_skill_id);
+      appendBytes(payload, mod.flat_cooldown_delta);
+      appendBytes(payload, mod.mana_cost_delta);
+      appendBytes(payload, static_cast<int32_t>(mod.extra_projectiles));
+      appendBytes(payload, mod.area_radius_mult);
+      appendBytes(payload, static_cast<uint64_t>(mod.convert_from));
+      appendBytes(payload, static_cast<uint64_t>(mod.convert_to));
+      appendBytes(payload, mod.conversion_ratio);
+      appendBytes(payload, mod.inject_ailment_id);
+      appendBytes(payload, mod.inject_ailment_chance);
+    }
+  }
+
+  return payload;
+}
+
 // 序列化 Section 4: Inventory
 std::vector<uint8_t> buildInventorySection(const ItemStorageService &service) {
   std::vector<uint8_t> payload;
@@ -461,6 +501,8 @@ bool ItemPersistenceCodec::encode(const ItemStorageService &service,
                  [&]() { return buildItemInstancesSection(service, allowedPtr); });
   processSection(SectionType::ItemSideTables, ContainerDirtyFlags::ItemSideTables,
                  [&]() { return buildItemSideTablesSection(service, allowedPtr); });
+  processSection(SectionType::ItemSkillModifiers, ContainerDirtyFlags::ItemSkillModifiers,
+                 [&]() { return buildItemSkillModifiersSection(service, allowedPtr); });
   processSection(SectionType::Inventory, ContainerDirtyFlags::Inventory,
                  [&]() { return buildInventorySection(service); });
   processSection(SectionType::Equipment, ContainerDirtyFlags::Equipment,
@@ -718,7 +760,9 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
                                            static_cast<Tag>(tgtTag), val,
                                            static_cast<ModifierType>(modType)});
         }
-        sideTables[idx] = std::move(data);
+        auto &targetData = sideTables[idx];
+        targetData.conversions = std::move(data.conversions);
+        targetData.damage_modifiers = std::move(data.damage_modifiers);
       }
       break;
     }
@@ -919,6 +963,48 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
       }
       break;
     }
+    case SectionType::ItemSkillModifiers: {
+      uint32_t count = 0;
+      if (!readBytes(ptr, end, count)) {
+        return false;
+      }
+      if (count > (bytes.size() / 8) + 1 || count > 1000000) {
+        LOG_ERROR("ItemPersistenceCodec: Declared item skill modifiers count {} exceeds section budget", count);
+        return false;
+      }
+      for (uint32_t k = 0; k < count; ++k) {
+        uint32_t idx = 0;
+        if (!readBytes(ptr, end, idx)) return false;
+        uint32_t modCount = 0;
+        if (!readBytes(ptr, end, modCount)) return false;
+        if (modCount > 100) return false;
+        std::vector<ItemSkillModifier> mods;
+        mods.reserve(modCount);
+        for (uint32_t m = 0; m < modCount; ++m) {
+          ItemSkillModifier mod{};
+          uint64_t convFrom = 0, convTo = 0;
+          int32_t extraProj = 0;
+          if (!readBytes(ptr, end, mod.target_skill_id) ||
+              !readBytes(ptr, end, mod.flat_cooldown_delta) ||
+              !readBytes(ptr, end, mod.mana_cost_delta) ||
+              !readBytes(ptr, end, extraProj) ||
+              !readBytes(ptr, end, mod.area_radius_mult) ||
+              !readBytes(ptr, end, convFrom) ||
+              !readBytes(ptr, end, convTo) ||
+              !readBytes(ptr, end, mod.conversion_ratio) ||
+              !readBytes(ptr, end, mod.inject_ailment_id) ||
+              !readBytes(ptr, end, mod.inject_ailment_chance)) {
+            return false;
+          }
+          mod.extra_projectiles = extraProj;
+          mod.convert_from = static_cast<Tag>(convFrom);
+          mod.convert_to = static_cast<Tag>(convTo);
+          mods.push_back(mod);
+        }
+        sideTables[idx].skill_modifiers = std::move(mods);
+      }
+      break;
+    }
     default:
       break;
     }
@@ -1015,7 +1101,7 @@ bool ItemPersistenceCodec::encodeStore(const ItemStore &store,
   });
 
   tempService.getStoreMutable().restoreRawEntries(entries, store.getAllSideTables());
-  return encode(tempService, outStream, nullptr, ContainerDirtyFlags::ItemInstances | ContainerDirtyFlags::ItemSideTables);
+  return encode(tempService, outStream, nullptr, ContainerDirtyFlags::ItemInstances | ContainerDirtyFlags::ItemSideTables | ContainerDirtyFlags::ItemSkillModifiers);
 }
 
 bool ItemPersistenceCodec::decodeStore(std::istream &inStream,

@@ -439,7 +439,19 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
       proj.pierce = true;
       proj.pierceCount = 99;
+      proj.max_pierce = Projectile::kUnlimitedPiercing;
       proj.snapshot = ownerStats;
+
+      DamagePayloadContext ctx{};
+      ctx.base_damage_min = ownerStats.min_weapon_damage;
+      ctx.base_damage_max = ownerStats.max_weapon_damage;
+      ctx.crit_chance = ownerStats.crit_chance + (exec.is_empowered ? 1.0f : 0.0f);
+      ctx.crit_multiplier = ownerStats.crit_damage + (exec.is_empowered ? 1.0f : 0.0f);
+      ctx.increased_damage = 0.0f;
+      ctx.more_damage = damagePenalty * (exec.is_empowered ? 2.0f : 1.0f);
+      ctx.effective_tags = visualIsVoid ? Tag::Void : (visualElementalConv.IsActive() ? visualElementalConv.target_element : Tag::Physical);
+      ctx.source_skill_id = exec.skill_id;
+      proj.payload_context = ctx;
 
       // Apply Behavior Flags
       if (splitOnDeath) {

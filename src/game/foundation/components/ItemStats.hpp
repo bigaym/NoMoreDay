@@ -70,16 +70,21 @@ enum class AffixType : uint16_t {
   LifeOnHit,         // 42
   ManaOnHit,         // 43
 
-  PlusAllSkills,     // 44
-  PlusFlowingThrust, // 45
-  PlusRendingWave,   // 46
-  TitanGrip,         // 47
+  PlusAllSkills = 44,
+  Deprecated_PlusFlowingThrust = 45, // 占位符：保持旧值稳定，防 NMDS v1 存档错位
+  Deprecated_PlusRendingWave = 46,   // 占位符：保持旧值稳定
+  PlusFlowingThrust = Deprecated_PlusFlowingThrust, // 向后兼容别名
+  PlusRendingWave = Deprecated_PlusRendingWave,     // 向后兼容别名
+  TitanGrip = 47,                    // 保持原有定义不变
 
   // NEW: Rating Types
-  FlatDodgeRating,    // +X 闪避评级
-  PercentDodgeRating, // +X% 闪避评级
-  FlatBlockRating,    // +X 格挡评级
-  PercentBlockRating, // +X% 格挡评级
+  FlatDodgeRating = 48,
+  PercentDodgeRating = 49,
+  FlatBlockRating = 50,
+  PercentBlockRating = 51,
+
+  // NEW: Modern Generic Skill Affixes
+  PlusSkillLevelGeneric = 52,        // 泛型技能加级 (安全空闲数值)
 
   Normal_End = 999,
 
@@ -102,6 +107,62 @@ inline AffixNameLookupFunc &GetAffixNameLookup() {
 // 辅助判断函数
 inline bool IsLegendaryAffix(AffixType type) {
   return type >= AffixType::Legendary_Start && type <= AffixType::Legendary_End;
+}
+
+/**
+ * @brief 泛型技能等级加成定义
+ */
+struct SkillLevelBonus {
+  uint32_t target_skill_id = 0;      // 0 表示按标签匹配
+  Tag target_tag_filter = Tag::None; // 例如 Tag::Melee, Tag::Spell
+  int level_delta = 1;
+};
+static_assert(std::is_standard_layout_v<SkillLevelBonus>);
+
+/**
+ * @brief 装备技能修饰器 (Item Skill Modifier - 恐怖黎明式)
+ */
+struct ItemSkillModifier {
+  uint32_t target_skill_id = 0;      // 目标技能 ID
+  float flat_cooldown_delta = 0.0f;  // 冷却时间减免
+  float mana_cost_delta = 0.0f;      // 蓝耗增减
+  int extra_projectiles = 0;         // 投射物增加
+  float area_radius_mult = 1.0f;     // 范围倍率
+  Tag convert_from = Tag::None;      // 来源属性
+  Tag convert_to = Tag::None;        // 目标属性
+  float conversion_ratio = 0.0f;     // 转化比例
+  uint32_t inject_ailment_id = 0;    // 附加异常状态
+  float inject_ailment_chance = 0.0f;
+
+  bool operator==(const ItemSkillModifier &) const = default;
+};
+static_assert(std::is_standard_layout_v<ItemSkillModifier>);
+
+inline void to_json(nlohmann::json &j, const ItemSkillModifier &m) {
+  j = nlohmann::json{
+      {"target_skill_id", m.target_skill_id},
+      {"flat_cooldown_delta", m.flat_cooldown_delta},
+      {"mana_cost_delta", m.mana_cost_delta},
+      {"extra_projectiles", m.extra_projectiles},
+      {"area_radius_mult", m.area_radius_mult},
+      {"convert_from", static_cast<uint64_t>(m.convert_from)},
+      {"convert_to", static_cast<uint64_t>(m.convert_to)},
+      {"conversion_ratio", m.conversion_ratio},
+      {"inject_ailment_id", m.inject_ailment_id},
+      {"inject_ailment_chance", m.inject_ailment_chance}};
+}
+
+inline void from_json(const nlohmann::json &j, ItemSkillModifier &m) {
+  if (j.contains("target_skill_id")) j.at("target_skill_id").get_to(m.target_skill_id);
+  if (j.contains("flat_cooldown_delta")) j.at("flat_cooldown_delta").get_to(m.flat_cooldown_delta);
+  if (j.contains("mana_cost_delta")) j.at("mana_cost_delta").get_to(m.mana_cost_delta);
+  if (j.contains("extra_projectiles")) j.at("extra_projectiles").get_to(m.extra_projectiles);
+  if (j.contains("area_radius_mult")) j.at("area_radius_mult").get_to(m.area_radius_mult);
+  if (j.contains("convert_from")) m.convert_from = static_cast<Tag>(j.at("convert_from").get<uint64_t>());
+  if (j.contains("convert_to")) m.convert_to = static_cast<Tag>(j.at("convert_to").get<uint64_t>());
+  if (j.contains("conversion_ratio")) j.at("conversion_ratio").get_to(m.conversion_ratio);
+  if (j.contains("inject_ailment_id")) j.at("inject_ailment_id").get_to(m.inject_ailment_id);
+  if (j.contains("inject_ailment_chance")) j.at("inject_ailment_chance").get_to(m.inject_ailment_chance);
 }
 
 inline bool IsRandomRollableAffix(AffixType type) {
@@ -484,6 +545,9 @@ inline std::string GetAffixDescription(const Affix &affix,
     break;
   case AffixType::TitanGrip:
     return "泰坦之握 (可单手持双手武器)";
+  case AffixType::PlusSkillLevelGeneric:
+    text += " 技能等级";
+    break;
 
   default:
     text += " 属性";
@@ -615,6 +679,8 @@ inline const char *GetAffixDescriptionRef(const Affix &affix, bool showTier) {
     return TextFormat("%s+%.0f 格挡评级", prefix, val);
   case AffixType::PercentBlockRating:
     return TextFormat("%s+%.0f%% 格挡评级", prefix, val);
+  case AffixType::PlusSkillLevelGeneric:
+    return TextFormat("%s+%.0f 技能等级", prefix, val);
 
   default: {
     if (IsLegendaryAffix(affix.type)) {

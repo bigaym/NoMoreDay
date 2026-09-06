@@ -10,6 +10,7 @@
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/contracts/CombatEvents.hpp"
@@ -240,7 +241,7 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
       req.ailment = AilmentType::Ignite;
       req.source = field.owner;
       req.magnitude = base_damage * 0.25f; // Extra ignite magnitude
-      systems::AilmentApplier::Apply(registry, target, req);
+      (void)systems::AilmentApplier::Apply(registry, target, req);
     }
 
     if (field.frozen_dominion) {
@@ -250,7 +251,7 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
         req.ailment = AilmentType::Freeze;
         req.source = field.owner;
         req.duration = 1.0f;
-        systems::AilmentApplier::Apply(registry, target, req);
+        (void)systems::AilmentApplier::Apply(registry, target, req);
       }
     }
 
@@ -259,7 +260,7 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
       systems::AilmentApplyRequest req;
       req.ailment = AilmentType::Shock;
       req.source = field.owner;
-      systems::AilmentApplier::Apply(registry, target, req);
+      (void)systems::AilmentApplier::Apply(registry, target, req);
     }
   }
 }
@@ -717,6 +718,22 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
     }
   }
 
+  auto &area_field = registry.emplace<AreaFieldComponent>(field_entity);
+  area_field.owner = owner;
+  area_field.cast_id = exec.cast_id;
+  area_field.source_skill_id = kSkillId;
+  area_field.remaining_duration = field.duration;
+  area_field.pulse_interval = field.damage_interval;
+  area_field.timer = 0.0f;
+  area_field.radius = field.radius;
+  area_field.shape_type = 0;
+  PayloadDefinition pdef{};
+  pdef.type = PayloadType::Damage;
+  pdef.value_mult = field.field_damage_mult;
+  pdef.damage_tags = Tag::Physical | Tag::Area;
+  area_field.payloads[0] = pdef;
+  area_field.payload_count = 1;
+
   LOG_INFO("Heavenly Sword Descent cast: spent={} radius={:.1f}", spent_tiers,
            field.radius);
 }
@@ -735,6 +752,9 @@ void HeavenlySwordDescent::UpdateField(entt::registry &registry,
   }
 
   field.duration -= dt;
+  if (auto *af = registry.try_get<AreaFieldComponent>(entity)) {
+    af->remaining_duration = field.duration;
+  }
   field.damage_timer -= dt;
   field.linked_cut_cooldown = std::max(0.0f, field.linked_cut_cooldown - dt);
   field.cycle_refund_timer -= dt;

@@ -83,6 +83,20 @@ TEST_CASE("[Unit] ItemPersistenceCodec - Round-Trip Full Service") {
   mod.value = 10.0f;
   mod.type = ModifierType::Flat;
   sideData.damage_modifiers.push_back(mod);
+
+  ItemSkillModifier skillMod;
+  skillMod.target_skill_id = 8;
+  skillMod.flat_cooldown_delta = 1.5f;
+  skillMod.mana_cost_delta = -10.0f;
+  skillMod.extra_projectiles = 2;
+  skillMod.area_radius_mult = 1.25f;
+  skillMod.convert_from = Tag::Physical;
+  skillMod.convert_to = Tag::Lightning;
+  skillMod.conversion_ratio = 0.5f;
+  skillMod.inject_ailment_id = 1001;
+  skillMod.inject_ailment_chance = 0.35f;
+  sideData.skill_modifiers.push_back(skillMod);
+
   service.getStoreMutable().setSideTable(weaponHandle, sideData);
 
   // 3. 构造装备与背包物品
@@ -233,6 +247,17 @@ TEST_CASE("[Unit] ItemPersistenceCodec - Round-Trip Full Service") {
   CHECK(side->damage_modifiers[0].target_tag == Tag::Fire);
   CHECK(side->damage_modifiers[0].value == doctest::Approx(10.0f));
   CHECK(side->damage_modifiers[0].type == ModifierType::Flat);
+  REQUIRE(side->skill_modifiers.size() == 1);
+  CHECK(side->skill_modifiers[0].target_skill_id == 8);
+  CHECK(side->skill_modifiers[0].flat_cooldown_delta == doctest::Approx(1.5f));
+  CHECK(side->skill_modifiers[0].mana_cost_delta == doctest::Approx(-10.0f));
+  CHECK(side->skill_modifiers[0].extra_projectiles == 2);
+  CHECK(side->skill_modifiers[0].area_radius_mult == doctest::Approx(1.25f));
+  CHECK(side->skill_modifiers[0].convert_from == Tag::Physical);
+  CHECK(side->skill_modifiers[0].convert_to == Tag::Lightning);
+  CHECK(side->skill_modifiers[0].conversion_ratio == doctest::Approx(0.5f));
+  CHECK(side->skill_modifiers[0].inject_ailment_id == 1001);
+  CHECK(side->skill_modifiers[0].inject_ailment_chance == doctest::Approx(0.35f));
 
   // 个人仓库各页断言
   const ItemHandle pStashH1 = restoredService.getSlotHandle(

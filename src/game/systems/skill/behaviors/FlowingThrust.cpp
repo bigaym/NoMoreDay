@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @file FlowingThrust.cpp
  * @brief 娴佷簯鍒?(ID 1) - 绐佸埡鎶€鑳借涓哄疄鐜?
  *
@@ -24,6 +24,7 @@
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp" // For ActiveSkillsComponent
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/components/vfx/MotionTrailComponent.hpp"
 #include "game/foundation/components/vfx/SwordIntentVisualComponent.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
@@ -285,6 +286,19 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           if (spec.skill_id == 1 &&
               spec.allocated_points.contains(FlowingThrustNodes::PrisonSlash) &&
               spec.allocated_points.at(FlowingThrustNodes::PrisonSlash) > 0) {
+            auto &trig = registry.get_or_emplace<TriggerRuleComponent>(owner);
+            if (!trig.HasRule(124)) {
+              TriggerRule rule;
+              rule.rule_id = 124;
+              rule.listen_event = CombatEventType::Count; // 哨值：由 ShadowDuplicationHook 前置钩子直读消费，不走 ProcEngine 通用派发
+              rule.target_mode = TriggerTargetPolicy::GroundTarget;
+              rule.cast_skill_id = 124;
+              rule.internal_cooldown = 3.0f;
+              rule.base_chance = 1.0f;
+              rule.use_proc_scaling = false;
+              rule.effectiveness = 0.5f;
+              trig.AddRule(rule);
+            }
             registry.emplace_or_replace<ShadowKillArrayReady>(owner);
             LOG_INFO("Shadow Kill Array (Prison Slash) Ready for entity {}",
                      (uint32_t)owner);
@@ -407,6 +421,15 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         sc.snapshot.stats = *stats;
         for (auto &mult : sc.snapshot.stats.damage_multipliers)
           mult *= 0.3f;
+        DamagePayloadContext ctx{};
+        ctx.base_damage_min = stats->min_weapon_damage;
+        ctx.base_damage_max = stats->max_weapon_damage;
+        ctx.crit_chance = stats->crit_chance;
+        ctx.crit_multiplier = stats->crit_damage;
+        ctx.increased_damage = 0.0f;
+        ctx.more_damage = 0.3f;
+        ctx.source_skill_id = 1;
+        sc.snapshot.payload_context = ctx;
       }
       LOG_INFO("Liu Ying: Shadow Echo created for Flowing Thrust");
     }
@@ -459,9 +482,24 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     proj.radius = renderRadius;
     proj.pierce = true;
     proj.pierceCount = forcePierce ? 999 : 99;
+    if (forcePierce) {
+      proj.max_pierce = Projectile::kUnlimitedPiercing;
+    }
     proj.visualType = 2; // Beam/Box for Thrust
 
     if (stats) {
+      DamagePayloadContext ctx{};
+      ctx.base_damage_min = stats->min_weapon_damage;
+      ctx.base_damage_max = stats->max_weapon_damage;
+      ctx.crit_chance = stats->crit_chance;
+      ctx.crit_multiplier = stats->crit_damage;
+      ctx.increased_damage = 0.0f;
+      const float totalMore = moreDamageMult * (exec.is_empowered ? 1.5f : 1.0f);
+      ctx.more_damage = totalMore;
+      ctx.effective_tags = Tag::Physical | (elementalConv.IsActive() ? elementalConv.target_element : Tag::None);
+      ctx.source_skill_id = exec.skill_id;
+      proj.payload_context = ctx;
+
       proj.snapshot = *stats;
       for (auto &mult : proj.snapshot.damage_multipliers)
         mult *= moreDamageMult;
@@ -541,6 +579,19 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
               spec.allocated_points.contains(FlowingThrustNodes::PrisonSlash)) {
             int pts = spec.allocated_points.at(FlowingThrustNodes::PrisonSlash);
             if (pts > 0 && GetRandomValue(0, 100) < 20 * pts) {
+              auto &trig = registry.get_or_emplace<TriggerRuleComponent>(attacker);
+              if (!trig.HasRule(124)) {
+                TriggerRule rule;
+                rule.rule_id = 124;
+                rule.listen_event = CombatEventType::OnSkillCast; // 前置钩子直读消费 (ShadowDuplicationHook)，不走 ProcEngine 通用派发
+                rule.target_mode = TriggerTargetPolicy::GroundTarget;
+                rule.cast_skill_id = 124;
+                rule.internal_cooldown = 3.0f;
+                rule.base_chance = 1.0f;
+                rule.use_proc_scaling = false;
+                rule.effectiveness = 0.5f;
+                trig.AddRule(rule);
+              }
               registry.get_or_emplace<ShadowKillArrayReady>(attacker);
               LOG_INFO("Flowing Thrust (133): Shadow Kill Array READY");
             }

@@ -27,6 +27,7 @@
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/modifier/TalentModifierAdapter.hpp"
 #include "game/foundation/utils/MonsterScaling.hpp"
 #include <algorithm>
@@ -271,6 +272,20 @@ public:
             s.bonus_levels += (int)a.value;
       }
     };
+    handlers[(int)AffixType::PlusSkillLevelGeneric] = [](AffixContext &ctx,
+                                                         const Affix &a) {
+      if (auto *active =
+              ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+        for (auto &s : active->specialized_slots) {
+          if (s.skill_id != INVALID_SKILL_ID) {
+            if (a.required_tags == Tag::None ||
+                HasTag(SkillSystem::GetEffectiveSkillTags(ctx.registry, ctx.entity, s.skill_id), a.required_tags)) {
+              s.bonus_levels += (int)a.value;
+            }
+          }
+        }
+      }
+    };
   }
   void Dispatch(AffixContext &ctx, const Affix &affix) const {
     if (static_cast<size_t>(affix.type) < TABLE_SIZE)
@@ -391,7 +406,11 @@ void AttributePipeline::Calculate(entt::registry &registry,
   AffixContext ctx{calcs, stats, registry, entity, hasTitanGrip, global_mods};
   auto procAff = [&](const std::vector<Affix> &affs) {
     for (const auto &a : affs) {
-      if (a.required_tags != Tag::None) {
+      if (a.type == AffixType::PlusSkillLevelGeneric ||
+          a.type == AffixType::PlusAllSkills ||
+          a.type == AffixType::TitanGrip) {
+        AffixDispatcher::Get().Dispatch(ctx, a);
+      } else if (a.required_tags != Tag::None) {
         global_mods.stat_modifiers.push_back({
             .value = a.value,
             .type = static_cast<StatType>(a.type),
@@ -763,6 +782,10 @@ void AttributePipeline::Calculate(entt::registry &registry,
         100.0f;
     stats.raw_resistances[i] = fr;
     stats.resistances[i] = std::min(fr, Cap::RESISTANCE);
+  }
+
+  if (registry.any_of<ActiveSkillsComponent>(entity)) {
+    SkillSystem::RebakeSkillProfiles(registry, entity);
   }
 }
 

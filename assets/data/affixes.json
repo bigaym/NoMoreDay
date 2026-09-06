@@ -1663,5 +1663,60 @@
             "armor",
             "weapon"
         ]
+    },
+    {
+        "id": "plus_skill_level_generic",
+        "type": 52,
+        "nameTemplate": "Skill Mastery",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 15,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 30,
+                "minValue": 1.0,
+                "maxValue": 2.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 45,
+                "minValue": 2.0,
+                "maxValue": 2.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 60,
+                "minValue": 2.0,
+                "maxValue": 3.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 75,
+                "minValue": 3.0,
+                "maxValue": 3.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 90,
+                "minValue": 3.0,
+                "maxValue": 4.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "weapon",
+            "jewelry"
+        ]
     }
 ]

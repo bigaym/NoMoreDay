@@ -197,9 +197,21 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       proj.radius = radius * p_scale;
       proj.pierce = true;
       proj.pierceCount = 99;
+      proj.max_pierce = Projectile::kUnlimitedPiercing;
       proj.snapshot = *stats;
       proj.hasPull = hasPull;
       proj.pullStrength = pullStrength * p_scale;
+
+      DamagePayloadContext ctx{};
+      ctx.base_damage_min = stats->min_weapon_damage;
+      ctx.base_damage_max = stats->max_weapon_damage;
+      ctx.crit_chance = stats->crit_chance;
+      ctx.crit_multiplier = stats->crit_damage;
+      ctx.increased_damage = 0.0f;
+      ctx.more_damage = moreDamageFromSpeed * p_scale * (exec.is_empowered ? 1.5f : 1.0f);
+      ctx.effective_tags = Tag::Physical | (conversionTag != Tag::None ? conversionTag : Tag::None);
+      ctx.source_skill_id = exec.skill_id;
+      proj.payload_context = ctx;
 
       for (auto &mult : proj.snapshot.damage_multipliers) {
         mult *= moreDamageFromSpeed * p_scale;

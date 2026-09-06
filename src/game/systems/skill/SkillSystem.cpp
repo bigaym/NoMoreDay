@@ -11,6 +11,8 @@
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp" // For Position
 #include "game/foundation/components/EffectComponent.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
 #include "game/foundation/components/PlayerState.hpp" // For DashComponent
@@ -20,9 +22,13 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/CombatSystem.hpp"
 #include "game/contracts/impl/ProcBudgetManager.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
+#include "game/systems/skill/AreaFieldDeliverySystem.hpp"
+#include "game/systems/skill/BeamChannelDeliverySystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
@@ -33,6 +39,9 @@
 #include "game/systems/skill/behaviors/PhantomFlash.hpp" // Added
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include "game/systems/skill/behaviors/SwordArray.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
+#include "game/systems/skill/ProcEngine.hpp"
+#include "game/systems/skill/ShadowDuplicationHook.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <atomic>
@@ -50,6 +59,8 @@ namespace NoMoreDay {
 // (Replaced by local/thread_local buffers for safety and performance)
 
 namespace {
+
+static std::vector<std::pair<CombatEventType, uint32_t>> s_procHandlerIds;
 
 constexpr uint8_t kMaxTriggerDepth = 2;
 constexpr size_t kCastDepthRetention = 4096;
@@ -602,6 +613,9 @@ void SkillSystem::InitHooks() {
           return;
         }
 
+        // ProcEngine unified trigger dispatch on skill hit
+        ProcEngine::DispatchEvent(registry, caster, evt);
+
         if (evt.skill_id != 0) {
           Vector2 impact = ResolveEntityWorldPosition(
               registry, evt.target, ResolveEntityWorldPosition(registry, caster));
@@ -786,18 +800,16 @@ void SkillSystem::InitHooks() {
                 continue;
               }
               // Counter window should not recursively dispatch trigger chains.
-              if (evt.skill_id == 9) {
-                if (const auto *pf =
-                        registry.try_get<PhantomFlashComponent>(caster)) {
-                  if (pf->counter_window > 0.0f && !pf->triggered) {
+              if (const auto *pf =
+                      registry.try_get<PhantomFlashComponent>(caster)) {
+                if (pf->counter_window > 0.0f && !pf->triggered) {
 #if COMBAT_TELEMETRY_ENABLED
-                    recordTriggerBlocked(parent_depth);
+                  recordTriggerBlocked(parent_depth);
 #endif
-                    LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id,
-                                    caster,
-                                    "counter window suppresses trigger chain");
-                    continue;
-                  }
+                  LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id,
+                                  caster,
+                                  "counter window suppresses trigger chain");
+                  continue;
                 }
               }
 
@@ -905,97 +917,36 @@ void SkillSystem::InitHooks() {
       },
       50);
 
-  // 3. Phantom Flash Counter (Defensive)
+  // 3. Unified Proc Engine (Defensive / OnTakeDamage)
   s_onTakeDamageHandlerId = CombatEventDispatcher::Register(
       CombatEventType::OnTakeDamage,
       [](entt::registry &registry, const CombatEvent &evt) {
-        entt::entity victim =
-            evt.source; // In OnTakeDamage, source is the victim (defender)
-        entt::entity attacker =
-            evt.target; // In OnTakeDamage, target is the attacker
-
-        if (!registry.valid(victim) || !registry.valid(attacker))
+        if (!registry.valid(evt.source))
           return;
-
-        if (auto *pf = registry.try_get<PhantomFlashComponent>(victim)) {
-          if (!pf->triggered && pf->counter_window > 0.0f) {
-            pf->triggered = true;
-            LOG_INFO("Phantom Flash Counter Triggered for entity {}!",
-                     (uint32_t)victim);
-
-            if (pf->flow_reset) {
-              if (auto *active = registry.try_get<ActiveSkillsComponent>(victim)) {
-                for (auto &slot : active->slots) {
-                  if (slot.id != 8 || slot.cooldown <= 0.0f) {
-                    continue;
-                  }
-                  slot.cooldown = std::max(0.0f, slot.cooldown - 1.5f);
-                }
-              }
-            }
-
-            // Logic: Deal counter damage to attacker
-            if (registry.all_of<CombatStats>(attacker)) {
-              // Create a "Counter Strike" execution
-              auto exec_ent = registry.create();
-              registry.emplace<LocalLevelTag>(exec_ent);
-              auto &exec = registry.emplace<SkillExecution>(exec_ent);
-              exec.skill_id = 9; // Phantom Flash
-              exec.owner = victim;
-              exec.state = SkillState::Preparing;
-              exec.timer = 0.0f; // Instant
-              exec.cast_id = SkillSystem::NextCastId();
-              exec.trigger_depth = 0;
-              SkillSystem::RememberCastDepth(exec.cast_id, exec.trigger_depth);
-
-              if (registry.all_of<Position>(attacker)) {
-                const auto &attr_pos = registry.get<Position>(attacker);
-                exec.target_pos = {attr_pos.x, attr_pos.y};
-              }
-
-              // Add counter-attack tag or logic?
-              if (auto *victim_stats = registry.try_get<CombatStats>(victim)) {
-                if (victim_stats->damage_multipliers[0] <= 0.0f) {
-                  victim_stats->damage_multipliers[0] = 1.0f;
-                }
-                DamagePool counterPool;
-                const float baseCounterDamage =
-                    (std::max)(25.0f, victim_stats->damage_multipliers[0] * 100.0f);
-                const Tag counterTag =
-                    (pf->enchant_tag != Tag::None) ? pf->enchant_tag : Tag::Physical;
-                const float counterScale = pf->synergy_shadow_hide ? 1.2f : 1.0f;
-                counterPool.Add(counterTag, baseCounterDamage * counterScale);
-
-                DamageRequest counterRequest;
-                counterRequest.attacker = victim;
-                counterRequest.defender = attacker;
-                counterRequest.skill_id = exec.skill_id;
-                counterRequest.base_pool = counterPool;
-                counterRequest.additional_tags = Tag::Hit | Tag::Melee;
-                counterRequest.source_entity = exec_ent;
-                const auto counterResult =
-                    ResolveDamage(registry, counterRequest, victim);
-
-                LOG_INFO(
-                    "Phantom Flash Counter resolved: victim={} attacker={} "
-                    "damage={}",
-                    (uint32_t)victim, (uint32_t)attacker,
-                    counterResult.damage.total_damage);
-              } else {
-                LOG_WARN("Phantom Flash Counter skipped: victim {} has no "
-                         "CombatStats",
-                         (uint32_t)victim);
-              }
-            }
-            else {
-              LOG_WARN("Phantom Flash Counter skipped: attacker {} has no "
-                       "CombatStats",
-                       (uint32_t)attacker);
-            }
-          }
-        }
+        ProcEngine::DispatchEvent(registry, evt.source, evt);
       },
       50);
+
+  // 4. Register generic ProcEngine event listeners for other combat hooks
+  constexpr CombatEventType kProcEvents[] = {
+      CombatEventType::OnSkillCast,
+      CombatEventType::OnDealDamage,
+      CombatEventType::OnCrit,
+      CombatEventType::OnKill,
+      CombatEventType::OnDodge,
+      CombatEventType::OnBlock,
+  };
+  for (const auto evType : kProcEvents) {
+    const uint32_t hid = CombatEventDispatcher::Register(
+        evType,
+        [](entt::registry &registry, const CombatEvent &evt) {
+          if (registry.valid(evt.source)) {
+            ProcEngine::DispatchEvent(registry, evt.source, evt);
+          }
+        },
+        50);
+    s_procHandlerIds.emplace_back(evType, hid);
+  }
 
   s_hooksInitialized = true;
   LOG_INFO("Skill Hooks initialized. Skills are now loaded from "
@@ -1013,6 +964,10 @@ void SkillSystem::ShutdownHooks() {
                                       s_onTakeDamageHandlerId);
     s_onTakeDamageHandlerId = 0;
   }
+  for (const auto &[evType, hid] : s_procHandlerIds) {
+    CombatEventDispatcher::Unregister(evType, hid);
+  }
+  s_procHandlerIds.clear();
 
   ClearHooks();
   s_skill_callbacks.clear();
@@ -1153,461 +1108,11 @@ void SkillSystem::Update(entt::registry &registry,
     registry.destroy(e);
   }
 
+  // Update Area Fields
+  AreaFieldDeliverySystem::Update(registry, grid, dt);
+
   // Update Channeling (ID 5 & 7)
-  auto chan_view = registry.view<ChannelingComponent, Position>();
-  for (auto entity : chan_view) {
-    auto &chan = chan_view.get<ChannelingComponent>(entity);
-    const auto &pos = chan_view.get<Position>(entity);
-
-    // For skill 7, target_pos is updated in InputSystem.cpp to follow mouse
-    // accurately.
-
-    // 1. Duration Limit (5s hard cap)
-    chan.total_duration += dt;
-    if (chan.total_duration >= 5.0f) {
-      registry.remove<ChannelingComponent>(entity);
-      continue;
-    }
-
-    chan.channel_timer -= dt;
-    if (chan.channel_timer <= 0.0f) {
-      // Burst Finisher (Talent 513)
-      if (chan.skill_id == 5 && chan.burst_finisher) {
-        // Giant Sword Slash logic
-        auto finisher_ent = registry.create();
-        registry.emplace<LocalLevelTag>(finisher_ent);
-        registry.emplace<ShadowCastTag>(finisher_ent);
-        registry.emplace<Position>(finisher_ent, pos.x, pos.y);
-
-        // Use Rending Wave (ID 2) but massively scaled
-        auto &exec = registry.emplace<SkillExecution>(finisher_ent);
-        exec.skill_id = 2;
-        exec.owner = entity;
-        exec.state = SkillState::Preparing;
-        exec.timer = 0.0f;                 // Instant
-        exec.target_pos = chan.target_pos; // Final aim
-        exec.is_empowered = true;
-
-        if (auto *stats = registry.try_get<CombatStats>(entity)) {
-          exec.has_snapshot = true;
-          exec.snapshot.stats = *stats;
-          exec.snapshot.skill_id = 5; // Attribute to Infinite Blades
-          // 500% Damage
-          for (auto &mult : exec.snapshot.stats.damage_multipliers) {
-            mult *= 5.0f;
-          }
-          // Size scale handled in RendingWave logic or Projectile logic?
-          // Ideally we'd set a specific flag or use a different skill ID (e.g.
-          // 2 with "Giant" tag) For now, relies on base damage scaling.
-        }
-        LOG_INFO("Infinite Blades: Triggered Burst Finisher!");
-      }
-
-      registry.remove<ChannelingComponent>(entity);
-      continue;
-    }
-
-    chan.tick_timer -= dt;
-
-    // 2. VFX: Channeling Aura
-    if (chan.skill_id == 5 || chan.skill_id == 7) {
-      auto &particleSys = systems::GPUParticleSystem::Get();
-      if ((float)GetRandomValue(0, 1000) < 500.0f * dt) {
-        components::GPUParticle p;
-        p.position = {pos.x + (float)GetRandomValue(-20, 20),
-                      pos.y + (float)GetRandomValue(-10, 10)};
-        p.velocity = {(float)GetRandomValue(-20, 20),
-                      -50.0f - (float)GetRandomValue(0, 50)};
-        p.color = chan.is_empowered ? GOLD : SKYBLUE;
-        p.lifetime = 0.6f;
-        p.maxLifetime = 0.6f;
-        p.scale = 2.0f;
-        p.flags = 2; // Spark
-        particleSys.Emit(p);
-      }
-    }
-
-    // Skill 7 continuous channel visuals:
-    // - persistent distortion at cursor
-    // - very thin caster->cursor guiding link (alpha ~0.1)
-    if (chan.skill_id == 7) {
-      Vector2 diff = Vector2Subtract(chan.target_pos, {pos.x, pos.y});
-      float dist = Vector2Length(diff);
-      float max_range = 350.0f;
-      Vector2 cutPos = chan.target_pos;
-      Vector2 dir = {1.0f, 0.0f};
-      if (dist > 0.001f) {
-        dir = Vector2Scale(diff, 1.0f / dist);
-        if (dist > max_range) {
-          cutPos = {pos.x + dir.x * max_range, pos.y + dir.y * max_range};
-        }
-      } else {
-        cutPos = {pos.x + 50.0f, pos.y};
-      }
-
-      if (chan.synergy_lock) {
-        float bestDistSq = 450.0f * 450.0f;
-        entt::entity bestTarget = entt::null;
-        grid.query({pos.x, pos.y}, 450.0f,
-                   [&](entt::entity e, const Position &ep) {
-                     if (!registry.any_of<EnemyTag>(e) ||
-                         registry.any_of<KilledTag>(e)) {
-                       return;
-                     }
-                     float distSq = Vector2DistanceSqr({pos.x, pos.y}, {ep.x, ep.y});
-                     if (distSq < bestDistSq) {
-                       bestDistSq = distSq;
-                       bestTarget = e;
-                     }
-                   });
-        if (registry.valid(bestTarget) && registry.all_of<Position>(bestTarget)) {
-          const auto &tp = registry.get<Position>(bestTarget);
-          cutPos = {tp.x, tp.y};
-        }
-      }
-
-      Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
-      if (chan.conversion_tag != Tag::None) {
-        effectiveTags = (effectiveTags & ~Tag::Physical) | chan.conversion_tag;
-      }
-      const uint8_t elementType =
-          SkillSystem::EncodeSkillVfxElementType(effectiveTags);
-      const bool hasVoidRift = (chan.conversion_tag == Tag::Void);
-      const bool isCold = HasTag(effectiveTags, Tag::Cold);
-      const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
-      const bool isEmpowered = chan.is_empowered;
-
-      // Persistent rift core: non-particle body for readability.
-      {
-        components::GPUSkillEffect riftRing = {};
-        riftRing.position = cutPos;
-        riftRing.velocity = Vector2Scale(dir, 40.0f);
-        riftRing.coreColor =
-            isEmpowered ? Vector4{0.22f, 0.30f, 0.48f, 0.98f}
-                        : (hasVoidRift ? Vector4{0.08f, 0.07f, 0.14f, 0.95f}
-                                       : Vector4{0.18f, 0.24f, 0.38f, 0.90f});
-        riftRing.glowColor =
-            isLightning ? Vector4{0.72f, 0.56f, 1.00f, 0.90f}
-                        : (isCold ? Vector4{0.76f, 0.92f, 1.00f, 0.88f}
-                                  : Vector4{0.46f, 0.74f, 1.00f, 0.84f});
-        riftRing.radius = 24.0f;
-        riftRing.sectorAngle = 360.0f;
-        riftRing.type = isEmpowered   ? 7.0f
-                        : hasVoidRift ? 3.0f
-                        : isLightning ? 6.0f
-                        : isCold      ? 5.0f
-                                      : 4.0f;
-        riftRing.flags =
-            NoMoreDay::render::skillfx::PackSkillEffectFlags(elementType, 7u);
-        systems::GPUSkillEffectSystem::Get().Submit(riftRing);
-        LOG_LIMITED_INFO(
-            1.0f,
-            "Skill7VFX channel: riftType={:.0f} element={} empowered={} void={} cold={} lightning={}",
-            riftRing.type, static_cast<uint32_t>(elementType), isEmpowered ? 1 : 0,
-            hasVoidRift ? 1 : 0, isCold ? 1 : 0, isLightning ? 1 : 0);
-      }
-      const float distortionRadius = isEmpowered ? 34.0f : (hasVoidRift ? 32.0f : 28.0f);
-      const float distortionStrength =
-          isEmpowered ? 0.30f : (hasVoidRift ? 0.26f : 0.22f);
-      RenderSystem::AddDistortionSource(cutPos.x, cutPos.y, distortionRadius,
-                                        distortionStrength);
-
-      auto &particleSys = systems::GPUParticleSystem::Get();
-      if ((float)GetRandomValue(0, 1000) < 700.0f * dt) {
-        constexpr int kSamples = 6;
-        for (int i = 1; i <= kSamples; ++i) {
-          const float t = static_cast<float>(i) / static_cast<float>(kSamples + 1);
-          const Vector2 samplePos = Vector2Lerp({pos.x, pos.y}, cutPos, t);
-          components::GPUParticle link = {};
-          link.position = samplePos;
-          link.velocity = {0.0f, 0.0f};
-          link.acceleration = {0.0f, 0.0f};
-          link.color = isEmpowered ? Color{236, 246, 255, 96}
-                                   : Color{185, 225, 240, 48};
-          link.scale = isEmpowered ? 3.2f : 2.6f;
-          link.lifetime = 0.13f;
-          link.maxLifetime = 0.13f;
-          link.flags = 1;
-          link.growthRate = -4.0f;
-          particleSys.Emit(link);
-        }
-      }
-
-      if (isLightning && (float)GetRandomValue(0, 1000) < 800.0f * dt) {
-        for (int i = 0; i < 2; ++i) {
-          components::GPUParticle arc = {};
-          arc.position = {cutPos.x + (float)GetRandomValue(-18, 18),
-                          cutPos.y + (float)GetRandomValue(-18, 18)};
-          arc.velocity = {(float)GetRandomValue(-40, 40),
-                          (float)GetRandomValue(-40, 40)};
-          arc.acceleration = {0.0f, 0.0f};
-          arc.color = Color{220, 188, 255, 215};
-          arc.scale = 4.4f;
-          arc.lifetime = 0.18f;
-          arc.maxLifetime = 0.18f;
-          arc.flags = 2;
-          arc.growthRate = -9.0f;
-          particleSys.Emit(arc);
-        }
-      }
-    }
-
-    if (chan.tick_timer <= 0.0f) {
-      if (chan.skill_id == 5) {
-        // Infinite Blades (Wan Jian Gui Zong)
-
-        // 1. Determine Count (Base 2 per 0.2s - Smoother stream)
-        int projectileCount = 2;
-        if (chan.extra_projectiles) {
-          projectileCount += 2; // 4 total
-        }
-
-        // 2. Target Logic (Full Screen Lock check)
-        Vector2 targetPos = chan.target_pos;
-        if (chan.full_screen_lock) {
-          float bestDistSq = 900.0f * 900.0f;
-          entt::entity bestTarget = entt::null;
-          grid.query({targetPos.x, targetPos.y}, 900.0f,
-                     [&](entt::entity e, const Position &ep) {
-                       if (registry.any_of<EnemyTag>(e) &&
-                           !registry.any_of<KilledTag>(e)) {
-                         float distSq = Vector2DistanceSqr(
-                             {targetPos.x, targetPos.y}, {ep.x, ep.y});
-                         if (distSq < bestDistSq) {
-                           bestDistSq = distSq;
-                           bestTarget = e;
-                         }
-                       }
-                     });
-          if (registry.valid(bestTarget) &&
-              registry.all_of<Position>(bestTarget)) {
-            const auto &tp = registry.get<Position>(bestTarget);
-            targetPos = {tp.x, tp.y};
-          }
-        }
-
-        Vector2 dirToTarget =
-            Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
-
-        // 3. Loop and Spawn
-        for (int i = 0; i < projectileCount; ++i) {
-          float spreadAmt = (float)GetRandomValue(-20, 20) * DEG2RAD;
-          Vector2 fireDir = Vector2Rotate(dirToTarget, spreadAmt);
-
-          auto proj_ent = registry.create();
-          registry.emplace<LocalLevelTag>(proj_ent);
-          registry.emplace<ShadowCastTag>(proj_ent);
-          // Spawn a bit forward
-          registry.emplace<Position>(proj_ent, pos.x + fireDir.x * 20.0f,
-                                     pos.y + fireDir.y * 20.0f);
-
-          float speed = 1000.0f;
-          registry.emplace<Velocity>(proj_ent, fireDir.x * speed,
-                                     fireDir.y * speed);
-
-          // Visuals: Deep Sky Blue for body + White Rim (from Shader).
-          // Using manual Color value for stronger presence than BLADE_CYAN.
-          Color swordColor = chan.is_empowered
-                                 ? GOLD
-                                 : ColorAlpha(Color{0, 170, 255, 255}, 0.5f);
-          if (chan.conversion_tag == Tag::Fire) {
-            swordColor = ORANGE;
-          } else if (chan.conversion_tag == Tag::Cold) {
-            swordColor = SKYBLUE;
-          } else if (chan.conversion_tag == Tag::Lightning) {
-            swordColor = PURPLE;
-          } else if (chan.conversion_tag == Tag::Void) {
-            swordColor = Color{120, 90, 180, 255};
-          }
-          registry.emplace<ColorComponent>(proj_ent, swordColor);
-
-          auto &proj = registry.emplace<Projectile>(proj_ent);
-          proj.owner = entity;
-          proj.cast_id = chan.cast_id;
-          proj.radius = 35.0f;
-          proj.speed = speed;
-          proj.lifeTime = 1.2f;
-          proj.visualType = 2; // SWORD
-
-          // Stats & Damage
-          if (auto *stats = registry.try_get<CombatStats>(entity)) {
-            proj.snapshot = *stats;
-            // Scale damage: 35% per sword
-            for (auto &mult : proj.snapshot.damage_multipliers) {
-              mult *= (0.35f * chan.bonus_damage_mult);
-            }
-            proj.snapshot.crit_chance += chan.bonus_crit_chance;
-            proj.snapshot.armor_pen += chan.bonus_armor_pen;
-          }
-
-          // CRITICAL: Add SkillComponent so DamagePipeline knows this is Skill
-          // 5
-          auto &sc = registry.emplace<SkillComponent>(proj_ent);
-          sc.skill_id = 5;
-          if (chan.conversion_tag != Tag::None) {
-            auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
-            mods.damage_modifiers.push_back(
-                DamageModifier{Tag::Physical, chan.conversion_tag, 1.0f,
-                               ModifierType::Convert});
-          }
-
-          // VFX: Flash on spawn
-          auto &particleSys = systems::GPUParticleSystem::Get();
-          components::GPUParticle p;
-          p.position = {pos.x + fireDir.x * 30.0f, pos.y + fireDir.y * 30.0f};
-          p.velocity = Vector2Scale(fireDir, 200.0f);
-          p.color = chan.is_empowered ? GOLD : ColorAlpha(WHITE, 0.6f);
-          p.lifetime = 0.2f;
-          p.maxLifetime = 0.2f;
-          p.scale = 1.8f;
-          p.flags = 2;
-          particleSys.Emit(p);
-        }
-
-        chan.tick_timer = std::max(0.08f, chan.tick_interval);
-
-      } else if (chan.skill_id == 7) {
-        // 1. Calculate Cut Position (Clamped to Range)
-        Vector2 diff = Vector2Subtract(chan.target_pos, {pos.x, pos.y});
-        float dist = Vector2Length(diff);
-        float max_range = 350.0f;
-        Vector2 cutPos = chan.target_pos;
-        Vector2 dir = {1.0f, 0.0f}; // Default if dist is 0
-
-        if (dist > 0.001f) {
-          dir = Vector2Scale(diff, 1.0f / dist); // Normalize
-          if (dist > max_range) {
-            cutPos = {pos.x + dir.x * max_range, pos.y + dir.y * max_range};
-          }
-        } else {
-          cutPos = {pos.x + 50.0f, pos.y};
-        }
-
-        const Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
-      const uint8_t elementType =
-          SkillSystem::EncodeSkillVfxElementType(effectiveTags);
-        const bool isCold = HasTag(effectiveTags, Tag::Cold);
-        const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
-        const bool isEmpowered = chan.is_empowered;
-
-        // 2. VFX: random-angle high-frequency cut lines (1-2 per tick)
-        auto &particleSys = systems::GPUParticleSystem::Get();
-        const int slashCount =
-            (isEmpowered ? GetRandomValue(4, 8) : GetRandomValue(2, 4)) +
-            ((chan.bonus_damage_mult > 1.2f) ? 1 : 0);
-        for (int s = 0; s < slashCount; ++s) {
-          const float slashAngle =
-              static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
-          const Vector2 slashDir = {cosf(slashAngle), sinf(slashAngle)};
-          const float halfLen =
-              isEmpowered ? static_cast<float>(GetRandomValue(20, 34))
-                          : static_cast<float>(GetRandomValue(16, 26));
-          constexpr int kSegments = 12;
-          for (int i = 0; i < kSegments; ++i) {
-            const float t = static_cast<float>(i) / static_cast<float>(kSegments - 1);
-            const float offset = (t - 0.5f) * (halfLen * 2.0f);
-            const Vector2 pPos = {cutPos.x + slashDir.x * offset,
-                                  cutPos.y + slashDir.y * offset};
-
-            components::GPUParticle cut = {};
-            cut.position = pPos;
-            cut.velocity = Vector2Scale(slashDir, static_cast<float>(GetRandomValue(20, 60)));
-            cut.acceleration = {0.0f, 0.0f};
-            cut.color = isLightning ? Color{214, 188, 255, 220}
-                        : (isCold ? Color{210, 245, 255, 218}
-                                  : Color{200, 242, 255, 210});
-            cut.scale = isEmpowered ? 5.0f : 4.0f;
-            cut.lifetime = 0.20f;
-            cut.maxLifetime = 0.20f;
-            cut.flags = 2;
-            cut.growthRate = -10.5f;
-            particleSys.Emit(cut);
-          }
-
-          // Add a short non-particle slash body to avoid "only thin particles".
-          components::GPUSkillEffect slashBody = {};
-          slashBody.position = cutPos;
-          slashBody.velocity = Vector2Scale(slashDir, 900.0f);
-          slashBody.coreColor = isLightning ? Vector4{0.66f, 0.58f, 1.00f, 0.96f}
-                               : (isCold ? Vector4{0.72f, 0.90f, 1.00f, 0.96f}
-                                         : Vector4{0.42f, 0.82f, 1.00f, 0.95f});
-          slashBody.glowColor = isLightning ? Vector4{0.90f, 0.84f, 1.00f, 0.90f}
-                               : (isCold ? Vector4{0.88f, 0.96f, 1.00f, 0.90f}
-                                         : Vector4{0.24f, 0.56f, 0.96f, 0.88f});
-          slashBody.radius = halfLen * 1.35f;
-          slashBody.sectorAngle = 0.0f;
-          slashBody.type = 2.0f;
-          slashBody.flags =
-              NoMoreDay::render::skillfx::PackSkillEffectFlags(elementType, 7u);
-          systems::GPUSkillEffectSystem::Get().Submit(slashBody);
-        }
-
-        // 3. Edge shard fragments: dark geometric debris, slow outward.
-        const int shardCount = GetRandomValue(2, 4); // doubled
-        LOG_LIMITED_INFO(
-            1.0f,
-            "Skill7VFX tick: slashCount={} segments={} shardCount={} elem={} empowered={}",
-            slashCount, 12, shardCount, static_cast<uint32_t>(elementType),
-            isEmpowered ? 1 : 0);
-        for (int i = 0; i < shardCount; ++i) {
-          const float a = static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
-          const float r = static_cast<float>(GetRandomValue(12, 20));
-          const Vector2 spawn = {cutPos.x + cosf(a) * r, cutPos.y + sinf(a) * r};
-
-          components::GPUParticle shard = {};
-          shard.position = spawn;
-          shard.velocity = {cosf(a) * static_cast<float>(GetRandomValue(8, 20)),
-                            sinf(a) * static_cast<float>(GetRandomValue(8, 20))};
-          shard.acceleration = {0.0f, 0.0f};
-          shard.color = isCold ? Color{62, 72, 90, 190}
-                      : (isLightning ? Color{74, 54, 110, 190}
-                                     : Color{36, 40, 52, 180});
-          shard.scale = 4.8f;
-          shard.lifetime = 0.62f;
-          shard.maxLifetime = 0.62f;
-          shard.flags = 2;
-          shard.growthRate = -1.5f;
-          particleSys.Emit(shard);
-        }
-
-        // 3. Logic: Spawn "Cut" Hitbox (Stationary Projectile)
-        auto exec_ent = registry.create();
-        registry.emplace<LocalLevelTag>(exec_ent);
-        registry.emplace<Position>(exec_ent, cutPos.x, cutPos.y);
-        registry.emplace<Velocity>(exec_ent, 0.0f, 0.0f);
-
-        auto &proj = registry.emplace<Projectile>(exec_ent);
-        proj.owner = entity;
-        proj.cast_id = chan.cast_id;
-        proj.radius = 60.0f * std::clamp(chan.bonus_damage_mult, 1.0f, 1.35f);
-        proj.speed = 0.0f;
-        proj.lifeTime = 0.1f; // Instant hit (one frame)
-        proj.pierce = true;
-        proj.pierceCount = 999;
-
-        // Link stats
-        if (auto *stats = registry.try_get<CombatStats>(entity)) {
-          proj.snapshot = *stats;
-          for (auto &mult : proj.snapshot.damage_multipliers) {
-            mult *= chan.bonus_damage_mult;
-          }
-          proj.snapshot.crit_chance += chan.bonus_crit_chance;
-          proj.snapshot.armor_pen += chan.bonus_armor_pen;
-        }
-
-        auto &sc = registry.emplace<SkillComponent>(exec_ent);
-        sc.skill_id = 7;
-        if (chan.conversion_tag != Tag::None) {
-          auto &mods = registry.emplace<SkillModifierComponent>(exec_ent);
-          mods.damage_modifiers.push_back(
-              DamageModifier{Tag::Physical, chan.conversion_tag, 1.0f,
-                             ModifierType::Convert});
-        }
-
-        chan.tick_timer = chan.tick_interval;
-      }
-    }
-  }
+  BeamChannelDeliverySystem::Update(registry, grid, dt);
 
   // Update Blade Ward
   auto ward_view = registry.view<BladeWardComponent>();
@@ -1756,6 +1261,15 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
     exec.has_snapshot = true;
     exec.snapshot.stats = *stats;
     exec.snapshot.skill_id = skill_id;
+    DamagePayloadContext ctx{};
+    ctx.base_damage_min = stats->min_weapon_damage;
+    ctx.base_damage_max = stats->max_weapon_damage;
+    ctx.crit_chance = stats->crit_chance;
+    ctx.crit_multiplier = stats->crit_damage;
+    ctx.increased_damage = 0.0f;
+    ctx.more_damage = 1.0f;
+    ctx.source_skill_id = skill_id;
+    exec.snapshot.payload_context = ctx;
     // No empowerment by default for non-snapshot casts unless we want it?
   }
 
@@ -1781,6 +1295,66 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
 
   registry.emplace<ShadowCastTag>(exec_ent);
   LOG_INFO("Shadow casting skill: {}", data->name_key);
+  return true;
+}
+
+bool SkillSystem::TriggerCast(entt::registry &registry, entt::entity caster,
+                              uint32_t skill_id, entt::entity target_entity,
+                              Vector2 target_pos, uint8_t depth,
+                              float effectiveness) {
+  if (depth > kMaxTriggerDepth) {
+    return false;
+  }
+  if (!registry.valid(caster)) {
+    return false;
+  }
+
+  const auto *data = SkillRegistry::Get().GetSkill(skill_id);
+  if (!data) {
+    LOG_WARN("TriggerCast FAILED: Skill ID {} not found", skill_id);
+    return false;
+  }
+
+  if (target_pos.x == 0.0f && target_pos.y == 0.0f) {
+    if (registry.valid(target_entity) && registry.all_of<Position>(target_entity)) {
+      const auto &pos = registry.get<Position>(target_entity);
+      target_pos = {pos.x, pos.y};
+    } else if (registry.all_of<Position>(caster)) {
+      const auto &pos = registry.get<Position>(caster);
+      target_pos = {pos.x, pos.y};
+    }
+  }
+
+  auto exec_ent = registry.create();
+  registry.emplace<LocalLevelTag>(exec_ent);
+  auto &exec = registry.emplace<SkillExecution>(exec_ent);
+  exec.skill_id = skill_id;
+  exec.owner = caster;
+  auto *active = registry.try_get<ActiveSkillsComponent>(caster);
+  exec.slot_index = active ? FindSkillSlotById(*active, skill_id) : -1;
+  exec.target_pos = target_pos;
+  exec.cast_id = SkillSystem::NextCastId();
+  exec.state = SkillState::Preparing;
+  exec.timer = 0.0f;
+  exec.trigger_depth = depth;
+  exec.trigger_effectiveness = std::max(0.0f, effectiveness);
+  SkillSystem::RememberCastDepth(exec.cast_id, exec.trigger_depth,
+                                 exec.trigger_effectiveness);
+
+  if (active) {
+    const SpecializedSkill *specialized =
+        FindSpecializedSkillContext(active, skill_id);
+    if (specialized) {
+      for (const auto &[node_id, points] : specialized->allocated_points) {
+        if (points > 0 && node_id < 128) {
+          exec.active_nodes.set(node_id);
+        }
+      }
+    }
+  }
+
+  LOG_INFO("TriggerCast dispatched: caster={} skill_id={} depth={} eff={:.2f}",
+           static_cast<uint32_t>(caster), skill_id, depth, effectiveness);
   return true;
 }
 
@@ -1843,6 +1417,7 @@ void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
 }
 
 void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
+  ProcEngine::UpdateCooldowns(registry, dt);
   auto view = registry.view<ActiveSkillsComponent>();
   for (auto entity : view) {
     auto &active = view.get<ActiveSkillsComponent>(entity);
@@ -1984,7 +1559,17 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
   });
 
   if (!s_to_remove.empty()) {
-    registry.remove<SkillExecution>(s_to_remove.begin(), s_to_remove.end());
+    for (const auto ent : s_to_remove) {
+      if (registry.valid(ent)) {
+        if (const auto *ex = registry.try_get<SkillExecution>(ent)) {
+          if (ex->owner != ent) {
+            registry.destroy(ent);
+            continue;
+          }
+        }
+        registry.remove<SkillExecution>(ent);
+      }
+    }
   }
 }
 
@@ -2036,36 +1621,19 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   }
 
   auto *stats = registry.try_get<CombatStats>(entity);
+  const auto *bakedProfile = GetBakedSkillProfile(registry, entity, slot.id);
   float rcr = stats ? StatsSystem::GetStatWithTags(
                           registry, entity, StatType::ResourceCostReduction,
                           data->tags, slot.id) /
                           100.0f
                     : 0.0f;
-  float base_cost = data->mana_cost * (1.0f - std::min(0.9f, rcr));
+  float raw_mana_cost = bakedProfile ? bakedProfile->effective_mana_cost : data->mana_cost;
+  float base_cost = raw_mana_cost * (1.0f - std::min(0.9f, rcr));
 
-  // --- Shadow Kill Array (ID 124) Duplication Logic ---
-  bool shadow_duplicate = false;
-  if (registry.any_of<ShadowKillArrayReady>(entity)) {
-    bool excluded =
-        HasTag(data->tags, Tag::Movement) || HasTag(data->tags, Tag::Buff) ||
-        HasTag(data->tags, Tag::Aura) || HasTag(data->tags, Tag::Channeled);
-
-    if (!excluded) {
-      auto *pStats = registry.try_get<PlayerStats>(entity);
-      float currentTime = (float)GetTime();
-      if (pStats && (currentTime - pStats->last_shadow_trigger_time >= 3.0f)) {
-        float extra_cost = base_cost * 0.5f;
-        if (stats && stats->mana >= (base_cost + extra_cost)) {
-          shadow_duplicate = true;
-        }
-      }
-    }
-  }
+  const auto shadowHook = CheckPreCastShadowDuplication(registry, entity, data, base_cost, stats);
 
   if (stats) {
-    float total_cost = base_cost;
-    if (shadow_duplicate)
-      total_cost += base_cost * 0.5f;
+    float total_cost = base_cost + shadowHook.extra_cost;
 
     const bool demonBladeLifeSpend =
         total_cost > 0.0f &&
@@ -2082,37 +1650,8 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     }
   }
 
-  if (shadow_duplicate) {
-    auto *pStats = registry.try_get<PlayerStats>(entity);
-    if (pStats)
-      pStats->last_shadow_trigger_time = (float)GetTime();
-    registry.remove<ShadowKillArrayReady>(entity);
-
-    auto *pos = registry.try_get<Position>(entity);
-    Vector2 spawnPos = pos ? Vector2{pos->x, pos->y} : Vector2{0, 0};
-
-    auto shadow_ent = registry.create();
-    registry.emplace<LocalLevelTag>(shadow_ent);
-    registry.emplace<Position>(shadow_ent, spawnPos.x, spawnPos.y);
-    registry.emplace<AnimationStateComponent>(shadow_ent);
-    registry.emplace<ColorComponent>(shadow_ent, ColorAlpha(PURPLE, 0.4f));
-    registry.emplace<ShadowCloneComponent>(shadow_ent);
-
-    auto &sc = registry.emplace<ShadowComponent>(shadow_ent);
-    sc.damage_scale = 0.5f; // Explicit 50% for Shadow Kill Array
-    sc.delay = 0.1f;
-    sc.lifetime = 1.0f;
-    sc.snapshot.skill_id = slot.id;
-    sc.snapshot.position = spawnPos;
-    sc.snapshot.target_pos = target_pos;
-    if (stats) {
-      sc.snapshot.stats = *stats;
-    }
-
-    registry.emplace<ShadowVisualComponent>(shadow_ent).color_tint = {
-        60, 0, 80, 200}; // Distinct visual for clone
-    LOG_INFO("Shadow Kill Array: Duplicating skill {} for entity {}", slot.id,
-             (uint32_t)entity);
+  if (shadowHook.duplicate) {
+    ExecutePreCastShadowDuplication(registry, entity, slot.id, target_pos, stats);
   }
 
   if (slot.current_charges == data->max_charges) {
@@ -2124,7 +1663,8 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     // Optimization: For Channeled skills with very long cooldowns (like 60s),
     // we might NOT want to start cooldown here but when channeling ends?
     // But preventing abuse is safer.
-    slot.cooldown = (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
+    float raw_cooldown = bakedProfile ? bakedProfile->effective_cooldown : data->cooldown;
+    slot.cooldown = (raw_cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
   }
   slot.current_charges--;
 
@@ -2156,6 +1696,16 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
       exec.snapshot.stats = *stats;
       SkillSpecModifierAdapter::ApplyHeavyMomentumToDamageMultipliers(
           exec.snapshot.stats.damage_multipliers, slot.id, skillTags, nodeIds);
+      DamagePayloadContext ctx{};
+      ctx.base_damage_min = stats->min_weapon_damage;
+      ctx.base_damage_max = stats->max_weapon_damage;
+      ctx.crit_chance = stats->crit_chance;
+      ctx.crit_multiplier = stats->crit_damage;
+      ctx.increased_damage = 0.0f;
+      ctx.more_damage = exec.snapshot.stats.damage_multipliers[0];
+      ctx.effective_tags = skillTags;
+      ctx.source_skill_id = slot.id;
+      exec.snapshot.payload_context = ctx;
     }
   }
 
@@ -2666,6 +2216,107 @@ bool SkillSystem::ConsumeSwordIntent(entt::registry &registry,
            static_cast<uint32_t>(entity), source_skill_id, amount, intent->stacks,
            intent->max_stacks);
   return true;
+}
+
+void SkillSystem::RebakeSkillProfiles(entt::registry &registry, entt::entity entity) {
+  auto *active = registry.try_get<ActiveSkillsComponent>(entity);
+  if (!active)
+    return;
+
+  const auto *equipment = registry.try_get<EquipmentComponent>(entity);
+
+  for (size_t i = 0; i < SkillConstants::MAX_SKILL_SLOTS; ++i) {
+    const uint32_t skill_id = active->slots[i].id;
+    if (skill_id == 0 || skill_id == INVALID_SKILL_ID) {
+      active->baked_profiles[i] = BakedSkillProfile{};
+      continue;
+    }
+
+    const auto *skillData = SkillRegistry::Get().GetSkill(skill_id);
+    if (!skillData) {
+      BakedSkillProfile p{};
+      p.skill_id = skill_id;
+      active->baked_profiles[i] = p;
+      continue;
+    }
+
+    BakedSkillProfile profile{};
+    profile.skill_id = skill_id;
+    profile.effective_level = 1;
+    profile.effective_cooldown = skillData->cooldown;
+    profile.effective_mana_cost = skillData->mana_cost;
+    profile.effective_tags = GetEffectiveSkillTags(registry, entity, skill_id);
+    profile.projectile_count = static_cast<int>(skillData->GetParam("projectile_count", 1.0f));
+    if (profile.projectile_count <= 0) profile.projectile_count = 1;
+    profile.area_radius = skillData->GetParam("area_radius", 1.0f);
+    if (profile.area_radius <= 0.0f) profile.area_radius = 1.0f;
+    profile.proc_coefficient = skillData->GetParam("proc_coefficient", 1.0f);
+    if (profile.proc_coefficient <= 0.0f) profile.proc_coefficient = 1.0f;
+
+    // Apply specialized slot level bonuses
+    for (const auto &spec : active->specialized_slots) {
+      if (spec.skill_id == skill_id) {
+        profile.effective_level += spec.bonus_levels;
+        break;
+      }
+    }
+
+    // Apply equipment skill modifiers
+    if (equipment) {
+      for (const auto itemEnt : equipment->slots) {
+        if (!registry.valid(itemEnt) || !registry.all_of<ItemComponent>(itemEnt)) {
+          continue;
+        }
+        const auto &item = registry.get<ItemComponent>(itemEnt);
+        for (const auto &mod : item.skill_modifiers) {
+          if (mod.target_skill_id != 0 && mod.target_skill_id != skill_id) {
+            continue;
+          }
+
+          profile.effective_cooldown = std::max(0.0f, profile.effective_cooldown + mod.flat_cooldown_delta);
+          profile.effective_mana_cost = std::max(0.0f, profile.effective_mana_cost + mod.mana_cost_delta);
+          profile.projectile_count += mod.extra_projectiles;
+          if (mod.area_radius_mult > 0.0f) {
+            profile.area_radius *= mod.area_radius_mult;
+          }
+
+          // Dynamic tag conversion
+          if (mod.convert_from != Tag::None && mod.convert_to != Tag::None) {
+            if (HasTag(profile.effective_tags, mod.convert_from)) {
+              profile.effective_tags = (profile.effective_tags & ~mod.convert_from) | mod.convert_to;
+            }
+          }
+
+          // Injected payloads
+          if (mod.inject_ailment_id != 0 && profile.injected_count < BakedSkillProfile::kMaxInjectedPayloads) {
+            PayloadDefinition pdef{};
+            pdef.type = PayloadType::Ailment;
+            pdef.ailment_id = mod.inject_ailment_id;
+            pdef.value_mult = (mod.inject_ailment_chance > 0.0f) ? mod.inject_ailment_chance : 1.0f;
+            pdef.damage_tags = (mod.convert_to != Tag::None) ? mod.convert_to : profile.effective_tags;
+            profile.injected_payloads[profile.injected_count++] = pdef;
+          }
+        }
+      }
+    }
+
+    active->baked_profiles[i] = profile;
+  }
+}
+
+const BakedSkillProfile *SkillSystem::GetBakedSkillProfile(const entt::registry &registry,
+                                                          entt::entity entity,
+                                                          uint32_t skill_id) {
+  const auto *active = registry.try_get<ActiveSkillsComponent>(entity);
+  if (!active)
+    return nullptr;
+
+  for (size_t i = 0; i < SkillConstants::MAX_SKILL_SLOTS; ++i) {
+    if (active->baked_profiles[i].skill_id == skill_id && active->slots[i].id == skill_id) {
+      return &active->baked_profiles[i];
+    }
+  }
+  return nullptr;
 }
 
 } // namespace NoMoreDay

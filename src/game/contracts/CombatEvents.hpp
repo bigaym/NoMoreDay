@@ -114,6 +114,10 @@ struct CombatEvent {
     
     // NEW: Unique cast ID for hit tracking
     uint64_t castId = 0;
+
+    // Proc & trigger tracking
+    uint8_t trigger_depth = 0;
+    float parent_skill_cd = 0.0f;
 };
 
 /**

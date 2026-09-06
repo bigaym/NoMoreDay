@@ -1,7 +1,9 @@
 #pragma once
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Stats.hpp"
-
+#include "game/contracts/DamagePipelineTypes.hpp"
+#include <array>
+#include <optional>
 
 namespace NoMoreDay {
 
@@ -13,6 +15,9 @@ struct Projectile {
   // buff expiry) while the projectile is in flight, the projectile's damage
   // remains consistent.
   CombatStats snapshot;
+
+  // Lightweight payload snapshot (Zero heap allocation, 64-byte aligned)
+  std::optional<DamagePayloadContext> payload_context;
 
   // Who fired this? (Entity ID) - Useful for kill credit, friendly fire checks
   entt::entity owner = entt::null;
@@ -36,10 +41,68 @@ struct Projectile {
   bool hasPull = false;
   float pullStrength = 0.0f;
 
-  // Tracking hits to prevent multi-hit on the same target
-  // We use a small static-ish array or vector to keep track.
-  // For many projectiles, a vector is okay as most hits are few.
-  std::vector<entt::entity> hitEntities;
+  // Tracking hits to prevent multi-hit on the same target (True SBO: zero heap allocation for <=32 hits)
+  static constexpr uint8_t kMaxInlineHits = 32;
+  static constexpr uint8_t kUnlimitedPiercing = 255; // 无限穿透/AoE Hitbox 哨兵值
+  std::array<entt::entity, kMaxInlineHits> hit_cache{};
+  std::vector<entt::entity> overflow_hits;
+  uint16_t hit_count = 0;
+  uint8_t max_pierce = 8; // 规则级穿透上限 (255 表示无限穿透/AoE Hitbox)
+
+  bool IsUnlimitedPiercing() const {
+    return max_pierce == kUnlimitedPiercing;
+  }
+
+  bool HasHit(entt::entity target) const {
+    const uint16_t check_count = (std::min<uint16_t>)(hit_count, kMaxInlineHits);
+    for (uint16_t i = 0; i < check_count; ++i) {
+      if (hit_cache[i] == target) return true;
+    }
+    for (entt::entity e : overflow_hits) {
+      if (e == target) return true;
+    }
+    return false;
+  }
+
+  /**
+   * @brief 尝试记录命中目标并返回是否成功，同时给出是否已达穿透上限
+   * @param target 命中的目标实体
+   * @param outLimitReached 输出参数：若已达到穿透/命中上限则为 true
+   * @return bool 若成功记录新命中则返回 true；若先前已命中该目标则返回 false
+   */
+  bool TryRecordHit(entt::entity target, bool &outLimitReached) {
+    if (HasHit(target)) {
+      outLimitReached = !IsUnlimitedPiercing() && (hit_count >= max_pierce);
+      return false;
+    }
+    if (hit_count < kMaxInlineHits) {
+      hit_cache[hit_count] = target;
+    } else {
+      // 达到内联容量后采用堆溢出存储，保证大怪群及折返飞行物全量去重，绝不逐出已命中目标
+      overflow_hits.push_back(target);
+    }
+    hit_count++;
+    if (IsUnlimitedPiercing()) {
+      outLimitReached = false;
+    } else {
+      outLimitReached = (hit_count >= max_pierce);
+    }
+    return true;
+  }
+
+  /**
+   * @brief 兼容接口：返回是否达到穿透上限
+   */
+  bool RecordHit(entt::entity target) {
+    bool limitReached = false;
+    TryRecordHit(target, limitReached);
+    return limitReached;
+  }
+
+  void ClearHits() {
+    hit_count = 0;
+    overflow_hits.clear();
+  }
 
   // --- NEW: Lifecycle Callbacks (Phase 2) ---
   enum class OnDeathBehavior : uint8_t {

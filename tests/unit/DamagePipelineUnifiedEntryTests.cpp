@@ -1,7 +1,6 @@
-#pragma once
-
 #include "TestCommon.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
@@ -149,6 +148,193 @@ TEST_CASE("[Unit] DamagePipelineUnifiedEntry - Self damage supports skip_mitigat
 
   CHECK(bypassed.total_damage == doctest::Approx(50.0f).epsilon(0.0001f));
   CHECK(bypassed.total_damage > mitigated.total_damage);
+}
+
+TEST_CASE("[Unit] DamagePipelineUnifiedEntry - DamagePayloadContext precedence overrides attacker stats") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  entt::registry registry;
+
+  const auto attacker = registry.create();
+  auto &stats = registry.emplace<CombatStats>(attacker);
+  stats.min_weapon_damage = 10.0f;
+  stats.max_weapon_damage = 10.0f;
+  stats.crit_chance = 0.0f;
+  stats.crit_damage = 1.5f;
+  stats.damage_multipliers[(int)DamageType::Physical] = 1.0f;
+
+  const auto defender = registry.create();
+  auto &defStats = registry.emplace<CombatStats>(defender);
+  defStats.armor = 0.0f;
+  defStats.damage_reduction = 0.0f;
+  defStats.cached_area_level = 1;
+
+  DamageRequest req;
+  req.attacker = attacker;
+  req.defender = defender;
+  req.skill_id = 1;
+  req.additional_tags = Tag::Hit;
+  req.skip_mitigation = true;
+  req.is_simulation = true;
+
+  DamagePayloadContext ctx{};
+  ctx.base_damage_min = 100.0f;
+  ctx.base_damage_max = 100.0f;
+  ctx.crit_chance = 1.0f;       // 100% crit chance override
+  ctx.crit_multiplier = 2.5f;   // 2.5x crit multiplier override
+  ctx.increased_damage = 0.5f;  // +50% increased damage
+  ctx.more_damage = 2.0f;       // 2.0x more damage
+  ctx.effective_tags = Tag::Physical;
+  ctx.source_skill_id = 1;
+  req.payload_context = ctx;
+
+  const auto result = DamagePipeline::Calculate(registry, req);
+
+  // Expected calculation:
+  // Skill 1: base 10 + 100 weapon * 1.2 mult = 130
+  // Multiplier: 100% base + 50% increased = 1.5x
+  // More: 1.0 * 2.0 = 2.0x
+  // Damage before crit: 130 * 1.5 * 2.0 = 390
+  // Crit: guaranteed 1.0 chance -> is_crit = true, multiplier = 2.5x
+  // Total damage: 390 * 2.5 = 975
+  CHECK(result.is_crit == true);
+  CHECK(result.total_damage == doctest::Approx(975.0f));
+}
+
+TEST_CASE("[Unit] DamagePipelineUnifiedEntry - Baseline Equivalence with Zero Increased Damage (No +100% Regression)") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  entt::registry registry;
+
+  const auto attacker = registry.create();
+  auto &stats = registry.emplace<CombatStats>(attacker);
+  stats.min_weapon_damage = 100.0f;
+  stats.max_weapon_damage = 100.0f;
+  stats.crit_chance = 0.0f;
+  stats.crit_damage = 1.5f;
+  stats.damage_multipliers[(int)DamageType::Physical] = 1.0f;
+
+  const auto defender = registry.create();
+  auto &defStats = registry.emplace<CombatStats>(defender);
+  defStats.armor = 0.0f;
+  defStats.damage_reduction = 0.0f;
+  defStats.cached_area_level = 1;
+
+  // 1. Without payload_context
+  DamageRequest reqWithout;
+  reqWithout.attacker = attacker;
+  reqWithout.defender = defender;
+  reqWithout.skill_id = 1;
+  reqWithout.additional_tags = Tag::Hit;
+  reqWithout.skip_mitigation = true;
+  reqWithout.is_simulation = true;
+  const auto resWithout = DamagePipeline::Calculate(registry, reqWithout);
+
+  // 2. With payload_context (increased_damage = 0.0f baseline, more_damage = 1.0f)
+  DamageRequest reqWith;
+  reqWith.attacker = attacker;
+  reqWith.defender = defender;
+  reqWith.skill_id = 1;
+  reqWith.additional_tags = Tag::Hit;
+  reqWith.skip_mitigation = true;
+  reqWith.is_simulation = true;
+
+  DamagePayloadContext ctx{};
+  ctx.base_damage_min = 100.0f;
+  ctx.base_damage_max = 100.0f;
+  ctx.crit_chance = 0.0f;
+  ctx.crit_multiplier = 1.5f;
+  ctx.increased_damage = 0.0f; // Baseline: 0.0f fractional increment
+  ctx.more_damage = 1.0f;
+  ctx.effective_tags = Tag::Physical;
+  ctx.source_skill_id = 1;
+  reqWith.payload_context = ctx;
+  const auto resWith = DamagePipeline::Calculate(registry, reqWith);
+
+  // Expected baseline: Skill 1 base 10 + 100 weapon * 1.2 mult = 130
+  // Both paths must yield exactly 130.0f, proving ctx.increased_damage = 0 does NOT duplicate base multiplier
+  CHECK(resWithout.total_damage == doctest::Approx(130.0f));
+  CHECK(resWith.total_damage == doctest::Approx(130.0f));
+  CHECK(resWithout.total_damage == resWith.total_damage);
+}
+
+TEST_CASE("[Unit] DamagePipelineUnifiedEntry - Normalized Crit Chance Boundaries and Zero-Override") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  entt::registry registry;
+
+  // Attacker has 100% crit chance in base stats
+  const auto attacker = registry.create();
+  auto &stats = registry.emplace<CombatStats>(attacker);
+  stats.min_weapon_damage = 100.0f;
+  stats.max_weapon_damage = 100.0f;
+  stats.crit_chance = 1.0f; // 100% crit chance on attacker
+  stats.crit_damage = 2.0f;
+  stats.damage_multipliers[(int)DamageType::Physical] = 1.0f;
+
+  const auto defender = registry.create();
+  auto &defStats = registry.emplace<CombatStats>(defender);
+  defStats.armor = 0.0f;
+  defStats.damage_reduction = 0.0f;
+  defStats.cached_area_level = 1;
+
+  // 1. Explicit 0.0f crit_chance in payload_context MUST override attacker's 100% crit
+  DamageRequest reqZeroCrit;
+  reqZeroCrit.attacker = attacker;
+  reqZeroCrit.defender = defender;
+  reqZeroCrit.skill_id = 1;
+  reqZeroCrit.additional_tags = Tag::Hit;
+  reqZeroCrit.skip_mitigation = true;
+  reqZeroCrit.is_simulation = true;
+
+  DamagePayloadContext ctxZero{};
+  ctxZero.base_damage_min = 100.0f;
+  ctxZero.base_damage_max = 100.0f;
+  ctxZero.crit_chance = 0.0f; // Explicitly 0% crit chance override
+  ctxZero.crit_multiplier = 2.0f;
+  ctxZero.increased_damage = 0.0f;
+  ctxZero.more_damage = 1.0f;
+  ctxZero.effective_tags = Tag::Physical;
+  ctxZero.source_skill_id = 1;
+  reqZeroCrit.payload_context = ctxZero;
+
+  const auto resZeroCrit = DamagePipeline::Calculate(registry, reqZeroCrit);
+  CHECK_FALSE(resZeroCrit.is_crit);
+  CHECK(resZeroCrit.total_damage == doctest::Approx(130.0f));
+
+  // 2. 0.01f normalized crit_chance represents exactly 1% crit (expected mult = 1 + 0.01 * (2 - 1) = 1.01)
+  DamageRequest reqOnePct;
+  reqOnePct.attacker = attacker;
+  reqOnePct.defender = defender;
+  reqOnePct.skill_id = 1;
+  reqOnePct.additional_tags = Tag::Hit;
+  reqOnePct.skip_mitigation = true;
+  reqOnePct.is_simulation = true;
+
+  DamagePayloadContext ctxOnePct = ctxZero;
+  ctxOnePct.crit_chance = 0.01f; // 1% crit chance
+  reqOnePct.payload_context = ctxOnePct;
+
+  const auto resOnePct = DamagePipeline::Calculate(registry, reqOnePct);
+  CHECK_FALSE(resOnePct.is_crit);
+  CHECK(resOnePct.total_damage == doctest::Approx(130.0f * 1.01f));
+
+  // 3. 1.0f normalized crit_chance represents 100% guaranteed crit (mult = 2.0)
+  DamageRequest reqFullCrit;
+  reqFullCrit.attacker = attacker;
+  reqFullCrit.defender = defender;
+  reqFullCrit.skill_id = 1;
+  reqFullCrit.additional_tags = Tag::Hit;
+  reqFullCrit.skip_mitigation = true;
+  reqFullCrit.is_simulation = true;
+
+  DamagePayloadContext ctxFullCrit = ctxZero;
+  ctxFullCrit.crit_chance = 1.0f; // 100% crit chance
+  reqFullCrit.payload_context = ctxFullCrit;
+
+  const auto resFullCrit = DamagePipeline::Calculate(registry, reqFullCrit);
+  CHECK(resFullCrit.is_crit);
+  CHECK(resFullCrit.total_damage == doctest::Approx(130.0f * 2.0f));
 }
 
 } // namespace NoMoreDay

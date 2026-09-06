@@ -58,6 +58,13 @@ float FindActiveHeavenlyFieldDuration(const entt::registry& registry,
             remaining = field.duration;
         }
     }
+    const auto areaView = registry.view<const AreaFieldComponent>();
+    for (const entt::entity entity : areaView) {
+        const auto& field = areaView.get<const AreaFieldComponent>(entity);
+        if (field.owner == player && field.source_skill_id == 11u && field.remaining_duration > remaining) {
+            remaining = field.remaining_duration;
+        }
+    }
     return remaining;
 }
 
@@ -164,6 +171,19 @@ std::string PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
             if (activeField->has_void_keystone &&
                 activeField->miasma_duration_bonus > 0.0f) {
                 return "Miasma Pressure";
+            }
+        }
+        const auto areaView = registry.view<const AreaFieldComponent>();
+        for (const entt::entity entity : areaView) {
+            const auto& field = areaView.get<const AreaFieldComponent>(entity);
+            if (field.owner == player && field.source_skill_id == 12u && field.remaining_duration > 0.0f) {
+                if (const auto* active = registry.try_get<const ActiveSkillsComponent>(player)) {
+                    for (const auto& prof : active->baked_profiles) {
+                        if (prof.skill_id == 12u && HasTag(prof.effective_tags, Tag::Void)) {
+                            return "Miasma Pressure";
+                        }
+                    }
+                }
             }
         }
     }

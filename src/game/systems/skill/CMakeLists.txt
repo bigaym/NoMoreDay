@@ -8,11 +8,15 @@
 # Depends on contracts-core/contracts/combat_v2/data/modifier + engine.
 
 add_library(NoMoreDayGameSkill STATIC
+    AreaFieldDeliverySystem.cpp
     AstrolabeSystem.cpp
+    BeamChannelDeliverySystem.cpp
     BehaviorInjectionRegistry.cpp
     BladeMasteryService.cpp
     BladeResourceService.cpp
+    ProcEngine.cpp
     ProjectileSystem.cpp
+    ShadowDuplicationHook.cpp
     ShadowSystem.cpp
     SkillCastConstraintService.cpp
     SkillDisplayPreviewService.cpp

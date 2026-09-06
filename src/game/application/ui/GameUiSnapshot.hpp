@@ -154,7 +154,7 @@ struct GameUiPlayerSnapshot {
   // R5: active field windows resolved by the builder (read-only query).
   float heavenlyFieldDuration = 0.0f;
   bool bloodSeaHasVoidKeystone = false;
-  float bloodSeaMiasmaBonus = 0.0f;
+  float bloodSeaMiasmaBonus = 0.0f; // 瘴气加成时长 (单位: 秒, 由血海天赋蚀骨余烬提供)
   // R5: sword-intent fallback widget (SwordIntentComponent, used when no
   // BladeResourceComponent is present).
   bool hasSwordIntent = false;

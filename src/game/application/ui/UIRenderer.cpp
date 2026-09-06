@@ -1071,12 +1071,20 @@ UIRenderer::GetSkillTooltipLines(entt::registry &registry, uint32_t skillId) {
     lines.push_back({buffer, {255, 150, 50, 255}});
   }
 
-  utils::FormatToBuffer(buffer, "法力消耗: {:.0f}", skill->mana_cost);
+  const float displayMana = preview.display_mana_cost;
+  const float displayCd = preview.display_cooldown;
+  const Tag displayTags = (preview.display_tags != Tag::None) ? preview.display_tags : skill->tags;
 
+  utils::FormatToBuffer(buffer, "法力消耗: {:.0f}", displayMana);
   lines.push_back({buffer, s_theme.textSecondary});
 
-  if (skill->cooldown > 0) {
-    utils::FormatToBuffer(buffer, "冷却时间: {:.1f}s", skill->cooldown);
+  if (displayCd > 0) {
+    utils::FormatToBuffer(buffer, "冷却时间: {:.1f}s", displayCd);
+    lines.push_back({buffer, s_theme.textSecondary});
+  }
+
+  if (preview.display_projectiles > 1) {
+    utils::FormatToBuffer(buffer, "投射物数量: {}", preview.display_projectiles);
     lines.push_back({buffer, s_theme.textSecondary});
   }
 
@@ -1085,7 +1093,7 @@ UIRenderer::GetSkillTooltipLines(entt::registry &registry, uint32_t skillId) {
   bool firstTag = true;
   for (int i = 0; i < 64; ++i) { // Check all 64 bits
     Tag t = static_cast<Tag>(1ULL << i);
-    if (HasTag(skill->tags, t)) {
+    if (HasTag(displayTags, t)) {
       if (!firstTag)
         tagStr += ", ";
       tagStr += std::string(GetTagName(t));

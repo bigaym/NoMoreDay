@@ -312,8 +312,18 @@ bool MindBlade::Update(entt::registry &registry, entt::entity entity,
       p.owner = comp.owner; // Owner gets credit for damage
 
       // Copy owner stats for snapshot
-      if (registry.all_of<CombatStats>(comp.owner)) {
-        p.snapshot = registry.get<CombatStats>(comp.owner);
+      if (const auto *stats = registry.try_get<CombatStats>(comp.owner)) {
+        p.snapshot = *stats;
+        DamagePayloadContext ctx{};
+        ctx.base_damage_min = stats->min_weapon_damage;
+        ctx.base_damage_max = stats->max_weapon_damage;
+        ctx.crit_chance = stats->crit_chance;
+        ctx.crit_multiplier = stats->crit_damage;
+        ctx.increased_damage = 0.0f;
+        ctx.more_damage = 1.0f;
+        ctx.effective_tags = Tag::Physical;
+        ctx.source_skill_id = kSkillId;
+        p.payload_context = ctx;
       }
       
       // FIX: Pass SkillModifierComponent to the projectile 

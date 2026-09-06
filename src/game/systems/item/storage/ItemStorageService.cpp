@@ -373,7 +373,8 @@ StorageError ItemStorageService::mergeStack(const SlotRef &from,
   if (!sideFromEmpty || !sideToEmpty) {
     if (sideFromEmpty != sideToEmpty) return StorageError::TypeMismatch;
     if (sideFrom->conversions != sideTo->conversions ||
-        sideFrom->damage_modifiers != sideTo->damage_modifiers) {
+        sideFrom->damage_modifiers != sideTo->damage_modifiers ||
+        sideFrom->skill_modifiers != sideTo->skill_modifiers) {
       return StorageError::TypeMismatch;
     }
   }

@@ -85,6 +85,7 @@ enum class SectionType : uint32_t {
   MaterialBank = 10,       //!< (id, count) 有序数组
   EconomyMetadata = 11,    //!< gold, nextInstanceId
   ProgressionData = 12,    //!< 预留承载角色的非物品核心状态（JSON 或紧凑字节流）
+  ItemSkillModifiers = 13, //!< 装备技能修饰器持久化分段
   Count
 };
 
@@ -105,6 +106,7 @@ inline constexpr uint32_t HeirloomVault = 1 << 8;
 inline constexpr uint32_t MaterialBank = 1 << 9;
 inline constexpr uint32_t EconomyMetadata = 1 << 10;
 inline constexpr uint32_t ProgressionData = 1 << 11;
+inline constexpr uint32_t ItemSkillModifiers = 1 << 13;
 inline constexpr uint32_t All = 0xFFFFFFFF;
 } // namespace ContainerDirtyFlags
 

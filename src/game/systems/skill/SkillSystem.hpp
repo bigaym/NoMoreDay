@@ -80,6 +80,16 @@ public:
     static bool ShadowCast(entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 position, Vector2 target_pos = {0,0});
 
     /**
+     * @brief Safely trigger derived cast for procs, talents, and equipment.
+     */
+    static bool TriggerCast(entt::registry& registry, entt::entity caster,
+                            uint32_t skill_id,
+                            entt::entity target_entity = entt::null,
+                            Vector2 target_pos = {0, 0},
+                            uint8_t depth = 1,
+                            float effectiveness = 1.0f);
+
+    /**
      * @brief Register a callback for a specific skill ID.
      */
     static void RegisterEffect(uint32_t skill_id, CastCallback callback);
@@ -130,6 +140,16 @@ public:
     static void UpdateStates(entt::registry& registry, float dt);
 
     /**
+     * @brief Rebake pure POD skill profiles for an entity based on talents and equipped item modifiers.
+     */
+    static void RebakeSkillProfiles(entt::registry& registry, entt::entity entity);
+
+    /**
+     * @brief Lookup baked skill profile for a specific skill on an entity.
+     */
+    static const BakedSkillProfile* GetBakedSkillProfile(const entt::registry& registry, entt::entity entity, uint32_t skill_id);
+
+    /**
      * @brief Get the effective tags for a skill after talent modifications.
      * 
      * Talents can add or remove tags from a skill. This function computes
@@ -170,13 +190,13 @@ public:
                                    int amount,
                                    uint32_t source_skill_id);
     static float GetTriggerEffectivenessForCast(uint64_t cast_id);
+    static uint8_t QueryCastDepth(uint64_t cast_id);
 
 private:
     struct CastTrackingContext;
     static CastTrackingContext &GetCastTrackingContext();
     static void RememberCastDepth(uint64_t cast_id, uint8_t depth,
                                   float trigger_effectiveness = -1.0f);
-    static uint8_t QueryCastDepth(uint64_t cast_id);
     static float QueryTriggerEffectiveness(uint64_t cast_id);
     static uint64_t NextCastId();
 

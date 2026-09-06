@@ -8,6 +8,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/CombatEvents.hpp"
@@ -483,6 +484,23 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
 
   SyncBloodSeaActiveBuff(registry, owner, field);
 
+  auto &area_field = registry.emplace<AreaFieldComponent>(field_entity);
+  area_field.owner = owner;
+  area_field.cast_id = exec.cast_id;
+  area_field.source_skill_id = kSkillId;
+  area_field.remaining_duration = field.duration;
+  area_field.pulse_interval = field.damage_interval;
+  area_field.timer = 0.0f;
+  area_field.radius = field.radius;
+  area_field.shape_type = field.ring_form ? 1 : 0;
+
+  PayloadDefinition pdef{};
+  pdef.type = PayloadType::Damage;
+  pdef.value_mult = field.bonus_damage_mult;
+  pdef.damage_tags = Tag::Physical | Tag::Area | (field.has_void_keystone ? Tag::Void : Tag::None);
+  area_field.payloads[0] = pdef;
+  area_field.payload_count = 1;
+
   LOG_INFO("Blood Sea cast: consumed={} radius={:.1f}", effective_consumed,
            field.radius);
 }
@@ -501,6 +519,9 @@ void BloodSea::UpdateField(entt::registry &registry, entt::entity entity,
   }
 
   field.duration -= dt;
+  if (auto *af = registry.try_get<AreaFieldComponent>(entity)) {
+    af->remaining_duration = field.duration;
+  }
   field.damage_timer -= dt;
   field.linked_pulse_cooldown = std::max(0.0f, field.linked_pulse_cooldown - dt);
   field.return_empower_timer = std::max(0.0f, field.return_empower_timer - dt);

@@ -261,12 +261,36 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
   const EventAttackerContext event_attacker = ResolveEventAttackerContext(
       registry, attacker, source_entity, summon_attribution);
 
+  float parent_skill_cd = 0.0f;
+  if (skill_id != 0) {
+    if (registry.valid(event_attacker.attacker)) {
+      if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, event_attacker.attacker, skill_id)) {
+        parent_skill_cd = profile->effective_cooldown;
+      }
+    }
+    if (parent_skill_cd <= 0.0f) {
+      if (const auto *skillData = SkillRegistry::Get().GetSkill(skill_id)) {
+        parent_skill_cd = skillData->cooldown;
+      }
+    }
+  }
+  uint8_t current_depth = 0;
+  if (event_attacker.cast_id != 0) {
+    current_depth = SkillSystem::QueryCastDepth(event_attacker.cast_id);
+  }
+
+  auto enrichEvent = [&](CombatEvent &evt) {
+    evt.parent_skill_cd = parent_skill_cd;
+    evt.trigger_depth = current_depth;
+  };
+
   if (!HasTag(combined_hit_tags, Tag::DamageOverTime)) {
     CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
         event_attacker.attacker, defender, skill_id, combined_hit_tags, is_crit,
         event_attacker.cast_id);
     CombatEventFactory::SetDamagePayload(hit_evt, reported_damage,
                                          final_applied_damage);
+    enrichEvent(hit_evt);
     AttachSummonAttributionIfAny(hit_evt, summon_attribution);
     CombatEventDispatcher::Dispatch(registry, hit_evt);
   }
@@ -280,6 +304,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
         event_attacker.attacker, defender, skill_id, combined_hit_tags,
         reported_damage, is_crit);
     CombatEventFactory::SetFinalAppliedDamage(melee_evt, final_applied_damage);
+    enrichEvent(melee_evt);
     AttachSummonAttributionIfAny(melee_evt, summon_attribution);
     CombatEventDispatcher::Dispatch(registry, melee_evt);
   }
@@ -289,6 +314,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
         reported_damage, is_crit, source_entity);
     CombatEventFactory::SetFinalAppliedDamage(projectile_evt,
                                               final_applied_damage);
+    enrichEvent(projectile_evt);
     AttachSummonAttributionIfAny(projectile_evt, summon_attribution);
     CombatEventDispatcher::Dispatch(registry, projectile_evt);
   }
@@ -297,6 +323,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
         event_attacker.attacker, defender, skill_id, combined_hit_tags,
         reported_damage, is_crit);
     CombatEventFactory::SetFinalAppliedDamage(area_evt, final_applied_damage);
+    enrichEvent(area_evt);
     AttachSummonAttributionIfAny(area_evt, summon_attribution);
     CombatEventDispatcher::Dispatch(registry, area_evt);
   }
@@ -305,6 +332,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
       event_attacker.attacker, defender, skill_id, combined_hit_tags,
       reported_damage, is_crit, source_entity);
   CombatEventFactory::SetFinalAppliedDamage(deal_evt, final_applied_damage);
+  enrichEvent(deal_evt);
   AttachSummonAttributionIfAny(deal_evt, summon_attribution);
   CombatEventDispatcher::Dispatch(registry, deal_evt);
 
@@ -312,6 +340,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
       defender, event_attacker.attacker, skill_id, combined_hit_tags,
       reported_damage, is_crit);
   CombatEventFactory::SetFinalAppliedDamage(take_evt, final_applied_damage);
+  enrichEvent(take_evt);
   AttachSummonAttributionIfAny(take_evt, summon_attribution);
   CombatEventDispatcher::Dispatch(registry, take_evt);
 
@@ -320,6 +349,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
         event_attacker.attacker, defender, skill_id, combined_hit_tags,
         reported_damage);
     CombatEventFactory::SetFinalAppliedDamage(crit_evt, final_applied_damage);
+    enrichEvent(crit_evt);
     AttachSummonAttributionIfAny(crit_evt, summon_attribution);
     CombatEventDispatcher::Dispatch(registry, crit_evt);
   }
@@ -530,6 +560,9 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     }
   }
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
+  if (request.payload_context.has_value() && request.payload_context->effective_tags != Tag::None) {
+    skill_tags = skill_tags | request.payload_context->effective_tags;
+  }
   Tag combined_hit_tags = skill_tags | additional_tags;
   const SummonAttributionTuple summon_attribution =
       ResolveSummonAttribution(registry, attacker, source_entity, skill_id);
@@ -632,6 +665,11 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     // Calculate Weapon Damage part
     float min_w = attacker_stats ? attacker_stats->min_weapon_damage : 0.0f;
     float max_w = attacker_stats ? attacker_stats->max_weapon_damage : 0.0f;
+    if (request.payload_context.has_value() &&
+        (request.payload_context->base_damage_min > 0.0f || request.payload_context->base_damage_max > 0.0f)) {
+      min_w = request.payload_context->base_damage_min;
+      max_w = request.payload_context->base_damage_max;
+    }
     float weapon_avg = (min_w + max_w) * 0.5f;
 
     float base_dmg =
@@ -836,10 +874,16 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
 
       float multiplier_pct = StatsSystem::GetStatWithTags(
           registry, attacker, dmg_stat, inst.tags, skill_id, source_entity);
+      if (request.payload_context.has_value() && request.payload_context->increased_damage != 0.0f) {
+        multiplier_pct += request.payload_context->increased_damage * 100.0f;
+      }
       inst.amount *= (multiplier_pct / 100.0f);
 
       // Final More accumulation per instance
       float final_more = 1.0f;
+      if (request.payload_context.has_value()) {
+        final_more *= request.payload_context->more_damage;
+      }
       struct MoreBucket {
         Tag source_tag = Tag::None;
         float actual = 0.0f;
@@ -958,10 +1002,16 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       bool is_crit = HasTag(additional_tags, Tag::Critical);
 
       // Dynamic Crit Check if not already marked as critical
-      if (!is_crit && attacker_stats) {
-        float crit_chance = StatsSystem::GetStatWithTags(
-            registry, attacker, StatType::CritChance, inst.tags, skill_id,
-            source_entity);
+      if (!is_crit && (attacker_stats || request.payload_context.has_value())) {
+        float crit_chance = 0.0f;
+        if (request.payload_context.has_value()) {
+          // payload_context->crit_chance 严格约定为归一化小数 [0.0, 1.0] (1.0f = 100%)
+          crit_chance = request.payload_context->crit_chance * 100.0f;
+        } else if (attacker_stats) {
+          crit_chance = StatsSystem::GetStatWithTags(
+              registry, attacker, StatType::CritChance, inst.tags, skill_id,
+              source_entity);
+        }
 
         // Talent: Vital Sense (ID 150)
         if (skill_id == 1) {
@@ -1009,8 +1059,14 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
           float chance = std::clamp(crit_chance, 0.0f, 100.0f) / 100.0f;
           float dmg_mult =
               attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
+          if (request.payload_context.has_value() && request.payload_context->crit_multiplier > 0.0f) {
+            dmg_mult = request.payload_context->crit_multiplier;
+          }
           // Expected = 1 * (1-P) + Mult * P = 1 + P * (Mult - 1)
           crit_mult = 1.0f + chance * (dmg_mult - 1.0f);
+          if (chance >= 1.0f) {
+            is_crit = true;
+          }
         } else {
           if ((utils::ThreadSafeRandom::GetFloat01()) <
               (crit_chance / 100.0f)) {
@@ -1021,8 +1077,12 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
 
       if (is_crit) {
         using namespace NoMoreDay::Constants::Combat::Pipeline;
-        crit_mult =
+        float dmg_mult =
             attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
+        if (request.payload_context.has_value() && request.payload_context->crit_multiplier > 0.0f) {
+          dmg_mult = request.payload_context->crit_multiplier;
+        }
+        crit_mult = dmg_mult;
         result.is_crit = true;
       }
     }

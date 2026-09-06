@@ -162,14 +162,17 @@ static_assert(alignof(ItemInstance) == 8, "ItemInstance alignment must be 8 byte
 struct ItemSideTableData {
   std::vector<StatConversion> conversions;
   std::vector<DamageModifier> damage_modifiers;
+  std::vector<ItemSkillModifier> skill_modifiers;
 
   [[nodiscard]] bool empty() const noexcept {
-    return conversions.empty() && damage_modifiers.empty();
+    return conversions.empty() && damage_modifiers.empty() &&
+           skill_modifiers.empty();
   }
 
   void clear() noexcept {
     conversions.clear();
     damage_modifiers.clear();
+    skill_modifiers.clear();
   }
 };
 

@@ -399,6 +399,38 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
           playerSnap.bloodSeaMiasmaBonus = field.miasma_duration_bonus;
         }
       }
+      const auto areaFieldView =
+          registry.template view<const AreaFieldComponent>();
+      for (const entt::entity entity : areaFieldView) {
+        const auto& field =
+            areaFieldView.template get<const AreaFieldComponent>(entity);
+        if (field.owner == player) {
+          if (field.source_skill_id == 11u &&
+              field.remaining_duration > playerSnap.heavenlyFieldDuration) {
+            playerSnap.heavenlyFieldDuration = field.remaining_duration;
+          } else if (field.source_skill_id == 12u) {
+            if (const auto* active =
+                    registry.template try_get<const ActiveSkillsComponent>(player)) {
+              for (const auto& prof : active->baked_profiles) {
+                if (prof.skill_id == 12u) {
+                  playerSnap.bloodSeaHasVoidKeystone =
+                      HasTag(prof.effective_tags, Tag::Void);
+                  break;
+                }
+              }
+              for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 12u) {
+                  auto it = spec.allocated_points.find(1223u /* BoneGnawingEmber */);
+                  if (it != spec.allocated_points.end() && it->second > 0) {
+                    playerSnap.bloodSeaMiasmaBonus = static_cast<float>(it->second) * 0.25f;
+                  }
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
     }
     // R5: summon groups (replaces the per-frame std::map aggregation). Grouped
     // by skill_id / archetype_id; keeps count + max life ratio + icon id.

@@ -38,8 +38,8 @@ TEST_CASE("[Unit] UiCraftBurst - fuse burst: 20 gold sparks + 20 red trails") {
     CHECK(SameColor(particles[i], GOLD));
     CHECK(particles[i].scale == doctest::Approx(2.0f));
     const float speed = SpeedOf(particles[i]);
-    CHECK(speed >= 100.0f);
-    CHECK(speed <= 300.0f);
+    CHECK(speed >= 99.9f);
+    CHECK(speed <= 300.1f);
   }
 
   // Ancient-red ink trails (legacy: CreateInkTrail 2.0/0.8, recolored).

@@ -27,12 +27,31 @@ void DestroyOwnedFields(entt::registry &registry, const entt::entity owner) {
   }
 }
 
+void DestroyOwnedAreaFields(entt::registry &registry, const entt::entity owner,
+                            const uint32_t skill_id) {
+  std::vector<entt::entity> to_destroy;
+  const auto view = registry.view<AreaFieldComponent>();
+  for (const entt::entity entity : view) {
+    const auto &field = view.get<AreaFieldComponent>(entity);
+    if (field.owner == owner && (skill_id == 0 || field.source_skill_id == skill_id)) {
+      to_destroy.push_back(entity);
+    }
+  }
+  for (const entt::entity entity : to_destroy) {
+    if (registry.valid(entity)) {
+      registry.destroy(entity);
+    }
+  }
+}
+
 void CleanupSpecializedFields(entt::registry &registry, const entt::entity owner,
                               const BladeMasteryId selected_mastery) {
   if (selected_mastery != BladeMasteryId::DemonBlade) {
+    DestroyOwnedAreaFields(registry, owner, 12u);
     DestroyOwnedFields<BloodSeaFieldComponent>(registry, owner);
   }
   if (selected_mastery != BladeMasteryId::HeavenlySword) {
+    DestroyOwnedAreaFields(registry, owner, 11u);
     float formation_attack_interval = 1.0f;
     float channel_tick_interval = 0.5f;
     const auto heavenly_view = registry.view<HeavenlySwordFieldComponent>();

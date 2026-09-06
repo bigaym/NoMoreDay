@@ -2,6 +2,8 @@
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include <entt/entt.hpp>
+#include <optional>
+#include <type_traits>
 #include <vector>
 
 namespace NoMoreDay {
@@ -28,6 +30,7 @@ struct DamageRequest {
   bool dispatch_damage_events = true;
   bool skip_mitigation = false;
   bool thorns_like_damage = false;
+  std::optional<DamagePayloadContext> payload_context;
 };
 
 struct DamageExecutionResult {
