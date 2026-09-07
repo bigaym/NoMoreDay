@@ -572,7 +572,8 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
   const std::streampos endPos = inStream.tellg();
   inStream.seekg(0, std::ios::beg);
   if (endPos < static_cast<std::streampos>(sizeof(FileHeader))) {
-    LOG_ERROR("ItemPersistenceCodec: Stream size {} below minimum FileHeader size", endPos);
+    // fmt 12 不再支持隐式格式化 std::streampos，日志输出转为整数偏移
+  LOG_ERROR("ItemPersistenceCodec: Stream size {} below minimum FileHeader size", static_cast<std::streamoff>(endPos));
     return false;
   }
   const uint64_t totalStreamBytes = static_cast<uint64_t>(endPos);
