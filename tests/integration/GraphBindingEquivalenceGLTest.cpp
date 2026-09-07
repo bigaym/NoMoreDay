@@ -149,11 +149,11 @@ uint32_t CompileEquivalenceComputeProgram() {
       "             vec4(uScale * (float(gid.x) + 1.0),\n"
       "                  uScale * (float(gid.y) + 1.0), 0.0, 1.0));\n"
       "}\n";
-  const unsigned int shaderId = rlCompileShader(source, RL_COMPUTE_SHADER);
+  const unsigned int shaderId = rlLoadShader(source, RL_COMPUTE_SHADER);
   if (shaderId == 0) {
     return 0;
   }
-  const unsigned int programId = rlLoadComputeShaderProgram(shaderId);
+  const unsigned int programId = rlLoadShaderProgramCompute(shaderId);
   if (programId == 0) {
     return 0;
   }
