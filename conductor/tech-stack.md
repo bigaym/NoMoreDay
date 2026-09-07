@@ -16,6 +16,23 @@
 - **Profiling:** **Tracy (v0.13.1)** - Opt-in frame profiler. Header-only client vendored at `third_party/tracy` (single-TU static lib built only when `TRACY_PROFILING=ON`, default OFF; default builds see no-op macros, zero behavior/artifact impact). Instrumented hot paths: `UiDrawList::AppendCommand`, `GameUiHost::Update`, `GameUiHost::PrepareRender`, `GameplayRenderAdapter::ExecuteUIWorldPass`. See remediation evidence §R10 (B-R0-1).
 - **Serialization:** **nlohmann/json** - Industry-standard JSON parsing for configurations and save data.
 
+### Vendored Library Versions
+
+Sources under `third_party/` (git-ignored, replaced in place). Updated 2026-09-07.
+
+| Library | Version | Source Layout |
+| --- | --- | --- |
+| EnTT | 3.13.0 | vendored full repo (`add_subdirectory`) |
+| raylib | 5.5 | vendored full repo (`add_subdirectory`) |
+| spdlog | 1.17.0 | vendored full repo (`add_subdirectory`, SHARED) |
+| Taskflow | 4.1.0 | vendored full repo (`add_subdirectory`) |
+| xsimd | 14.3.0 | git checkout (`add_subdirectory`) |
+| xtl | 0.8.2 | git checkout (`add_subdirectory`) |
+| nlohmann/json | 3.12.0 | headers only (`include/`, `single_include/`) |
+| doctest | 2.5.3 | tracked single header (`third_party/doctest/doctest.h`) |
+| Tracy | 0.14.1 | vendored client (`public/`, single-TU static lib) |
+| cv2pdb | 0.54 | tool binaries |
+
 ## Tooling & Automation
 - **Build System:** CMake (3.20+)
 - **Profiling Tools:** Tracy capture/analysis tools (`tracy-capture`, `tracy-profiler`, `tracy-csvexport`) at `%NMD_TRACY%` (F:\devtools\tracy); consume traces from `TRACY_PROFILING=ON` builds.
