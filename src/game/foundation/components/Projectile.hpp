@@ -2,6 +2,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/contracts/DamagePipelineTypes.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include <array>
 #include <optional>
 
@@ -128,19 +129,6 @@ struct Projectile {
   float hover_duration = 1.0f;
   float hover_tick_rate = 0.2f;
   float hover_damage_mult = 0.3f;
-};
-
-// --- NEW: Special Projectile Behaviors ---
-struct BoomerangComponent {
-  enum Phase { Outward, Paused, Returning };
-  Phase phase = Outward;
-  float returnTimer = 0.5f; // Time until it pauses/turns
-  float pauseTimer = 0.0f;  // Time to stay at apex
-  entt::entity owner = entt::null;
-
-  // Improved return logic
-  float returnSpeed = 0.0f;               // If 0, use projectile speed
-  entt::entity returnTarget = entt::null; // If null, return to owner
 };
 
 struct HomingTag {};

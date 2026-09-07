@@ -523,6 +523,30 @@ struct PayloadDefinition {
 };
 static_assert(std::is_standard_layout_v<PayloadDefinition>);
 
+// 纯 POD 交付参数结构
+struct BakedDeliveryParams {
+  uint8_t primary_archetype = 0;   // 对应 12 大 Delivery 原型枚举
+  uint8_t secondary_archetype = 0; // 组合第二原型 (例如 Mobility + DirectStrike)
+  uint32_t feature_flags = 0;      // 位掩码: 如 IsBoomerang, HasApexVortex, HasSplit
+
+  // 通用参数包 (无需堆分配的定长紧凑结构)
+  // 单一事实源说明: 数量与尺寸的唯一事实源为 BakedSkillProfile 顶层既有字段 projectile_count 与 area_radius
+  float speed = 300.0f;
+  float range = 200.0f;
+  float duration = 1.0f;
+  uint8_t sub_count = 0;           // 分裂数 / 连跳数
+  float sub_interval = 0.0f;       // 脉冲间隔 / 弹幕发射间隔
+
+  // 扩展显式语义字段 (避免重载 range/speed)
+  float pull_radius = 0.0f;        // 顶点牵引/引力陷阱半径 (如 232/830)
+  float armor_pen = 0.0f;          // 护甲/元素穿透 (如 571)
+  float bonus_crit = 0.0f;         // 额外暴击率加成 (如 552)
+
+  bool operator==(const BakedDeliveryParams &) const = default;
+};
+static_assert(std::is_standard_layout_v<BakedDeliveryParams>);
+static_assert(std::is_trivially_destructible_v<BakedDeliveryParams>);
+
 // 纯 POD 实体烘焙属性表
 struct BakedSkillProfile {
   uint32_t skill_id = 0;
@@ -533,6 +557,10 @@ struct BakedSkillProfile {
   int projectile_count = 1;
   float area_radius = 1.0f;
   float proc_coefficient = 1.0f;
+  float more_damage_mult = 1.0f;
+
+  // 烘焙后的交付参数
+  BakedDeliveryParams delivery{};
 
   // 定长 POD 载荷数组 (Zero Heap Allocation)
   static constexpr uint8_t kMaxInjectedPayloads = 4;
@@ -542,6 +570,7 @@ struct BakedSkillProfile {
   bool operator==(const BakedSkillProfile &) const = default;
 };
 static_assert(std::is_standard_layout_v<BakedSkillProfile>);
+static_assert(std::is_trivially_destructible_v<BakedSkillProfile>);
 
 /**
  * @brief Attached to entities (players) that can use active skills.

@@ -64,6 +64,151 @@ void ProjectileSystem::Update(entt::registry &registry,
     }
   };
 
+  // --------------------------------------------------------------------------
+  // DirectStrikeComponent Processing (Melee directional strikes / swings)
+  // --------------------------------------------------------------------------
+  {
+    auto strikeView = registry.view<Position, DirectStrikeComponent>();
+    static thread_local std::vector<entt::entity> s_deadStrikes;
+    s_deadStrikes.clear();
+
+    for (auto strikeEnt : strikeView) {
+      auto &pos = strikeView.get<Position>(strikeEnt);
+      auto &ds = strikeView.get<DirectStrikeComponent>(strikeEnt);
+
+      ds.timer += dt;
+      if (ds.timer >= ds.lifetime) {
+        s_deadStrikes.push_back(strikeEnt);
+        continue;
+      }
+
+      // If the strike entity ALSO has Projectile, the Projectile pipeline
+      // already handles collision and weapon damage calculation; avoid duplicate damage.
+      if (registry.all_of<Projectile>(strikeEnt)) {
+        continue;
+      }
+
+      bool ownerIsPlayer =
+          registry.valid(ds.owner) && registry.any_of<PlayerTag>(ds.owner);
+
+      QueryWorld({pos.x, pos.y}, ds.radius,
+                 [&](entt::entity target, const Position & /*tPos*/) -> bool {
+                   if (target == ds.owner || target == strikeEnt)
+                     return true;
+                   if (registry.any_of<KilledTag>(target))
+                     return true;
+
+                   bool tIsPlayer = registry.any_of<PlayerTag>(target);
+                   bool tIsEnemy = registry.any_of<EnemyTag>(target);
+                   if (ownerIsPlayer && !tIsEnemy)
+                     return true;
+                   if (!ownerIsPlayer && !tIsPlayer)
+                     return true;
+
+                   if (ds.hit_once && ds.hit_entities.contains(target))
+                     return true;
+
+                   ds.hit_entities.insert(target);
+
+                   if (registry.all_of<CombatStats>(target) &&
+                       registry.valid(ds.owner) &&
+                       registry.all_of<CombatStats>(ds.owner)) {
+                     const auto &ownerStats = registry.get<CombatStats>(ds.owner);
+                     float baseDmg = std::max(20.0f, (ownerStats.min_weapon_damage + ownerStats.max_weapon_damage) * 0.5f);
+                     DamagePool pool;
+                     pool.Add(Tag::Physical, baseDmg);
+                     DamageRequest req;
+                     req.attacker = ds.owner;
+                     req.defender = target;
+                     req.skill_id = ds.skill_id;
+                     req.base_pool = pool;
+                     req.additional_tags = Tag::Hit | Tag::Melee;
+                     req.source_entity = strikeEnt;
+                     (void)ResolveDamage(registry, req, ds.owner);
+                   }
+                   return true;
+                 });
+    }
+
+    for (auto e : s_deadStrikes) {
+      if (registry.valid(e)) {
+        if (!registry.all_of<Projectile>(e)) {
+          registry.destroy(e);
+        } else {
+          registry.remove<DirectStrikeComponent>(e);
+        }
+      }
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // StickyDetonationComponent Processing (Delayed detonation marks)
+  // --------------------------------------------------------------------------
+  {
+    auto stickyView = registry.view<StickyDetonationComponent>();
+    static thread_local std::vector<std::pair<entt::entity, StickyDetonationComponent>>
+        s_explodingStickies;
+    s_explodingStickies.clear();
+
+    for (auto ent : stickyView) {
+      auto &sd = stickyView.get<StickyDetonationComponent>(ent);
+      sd.timer -= dt;
+      bool isDead = registry.any_of<KilledTag>(ent);
+      if (sd.timer <= 0.0f || (isDead && sd.explode_on_death) ||
+          (sd.explode_on_max_stacks && sd.current_stacks >= sd.max_stacks)) {
+        s_explodingStickies.emplace_back(ent, sd);
+      }
+    }
+
+    for (const auto &[ent, sd] : s_explodingStickies) {
+      if (registry.valid(ent)) {
+        Vector2 center{0.0f, 0.0f};
+        if (registry.all_of<Position>(ent)) {
+          const auto &p = registry.get<Position>(ent);
+          center = {p.x, p.y};
+        }
+
+        bool attackerIsPlayer =
+            registry.valid(sd.attacker) && registry.any_of<PlayerTag>(sd.attacker);
+        QueryWorld(
+            center, sd.explode_radius,
+            [&](entt::entity target, const Position & /*tPos*/) -> bool {
+              if (target == sd.attacker)
+                return true;
+              if (registry.any_of<KilledTag>(target))
+                return true;
+
+              bool tIsPlayer = registry.any_of<PlayerTag>(target);
+              bool tIsEnemy = registry.any_of<EnemyTag>(target);
+              if (attackerIsPlayer && !tIsEnemy)
+                return true;
+              if (!attackerIsPlayer && !tIsPlayer)
+                return true;
+
+              if (registry.all_of<CombatStats>(target) &&
+                  registry.valid(sd.attacker) &&
+                  registry.all_of<CombatStats>(sd.attacker)) {
+                const auto &attStats = registry.get<CombatStats>(sd.attacker);
+                float baseDmg = std::max(30.0f, (attStats.min_weapon_damage + attStats.max_weapon_damage) * 0.75f) * static_cast<float>(std::max<uint8_t>(1, sd.current_stacks));
+                DamagePool pool;
+                pool.Add(Tag::Physical, baseDmg);
+                DamageRequest req;
+                req.attacker = sd.attacker;
+                req.defender = target;
+                req.skill_id = sd.source_skill_id;
+                req.base_pool = pool;
+                req.additional_tags = Tag::Hit | Tag::Area;
+                req.source_entity = ent;
+                (void)ResolveDamage(registry, req, sd.attacker);
+              }
+              return true;
+            });
+
+        registry.remove<StickyDetonationComponent>(ent);
+      }
+    }
+  }
+
   if (view.begin() == view.end())
     return;
 
@@ -75,11 +220,11 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     // 1. Boomerang Logic
     if (auto *bc = registry.try_get<BoomerangComponent>(entity)) {
-      if (bc->phase == BoomerangComponent::Outward) {
+      if (bc->phase == BoomerangPhase::Outward) {
         bc->returnTimer -= dt;
         if (bc->returnTimer <= 0.0f) {
-          bc->phase = BoomerangComponent::Paused;
-          bc->pauseTimer = 0.2f;
+          bc->phase = BoomerangPhase::HoverApex;
+          bc->hover_timer = (bc->hover_duration > 0.0f ? bc->hover_duration : 0.2f);
 
           // Emit Shockwave on apex
           components::GPUParticle p;
@@ -93,12 +238,12 @@ void ProjectileSystem::Update(entt::registry &registry,
           p.growthRate = 120.0f; // Rapid expansion
           systems::GPUParticleSystem::Get().Emit(p);
         }
-      } else if (bc->phase == BoomerangComponent::Paused) {
-        bc->pauseTimer -= dt;
+      } else if (bc->phase == BoomerangPhase::HoverApex) {
+        bc->hover_timer -= dt;
         vel.vx = 0;
         vel.vy = 0;
-        if (bc->pauseTimer <= 0.0f) {
-          bc->phase = BoomerangComponent::Returning;
+        if (bc->hover_timer <= 0.0f) {
+          bc->phase = BoomerangPhase::Returning;
         }
       } else {
         entt::entity targetEnt =
@@ -157,7 +302,7 @@ void ProjectileSystem::Update(entt::registry &registry,
           vel.vx = dir.x;
           vel.vy = dir.y;
         } else {
-          bc->phase = BoomerangComponent::Outward;
+          bc->phase = BoomerangPhase::Outward;
         }
       }
     }

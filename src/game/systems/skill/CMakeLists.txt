@@ -14,12 +14,16 @@ add_library(NoMoreDayGameSkill STATIC
     BehaviorInjectionRegistry.cpp
     BladeMasteryService.cpp
     BladeResourceService.cpp
+    BoomerangDeliverySystem.cpp
+    MobilityDeliverySystem.cpp
+    OrbitingSentinelDeliverySystem.cpp
     ProcEngine.cpp
     ProjectileSystem.cpp
     ShadowDuplicationHook.cpp
     ShadowSystem.cpp
     SkillCastConstraintService.cpp
     SkillDisplayPreviewService.cpp
+    SkillSpecializationBaker.cpp
     SkillSystem.cpp
     SummonAISystem.cpp
     SummonCombatBridge.cpp

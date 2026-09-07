@@ -815,14 +815,14 @@ TEST_CASE("[Integration] SkillLogic - Specialized Behaviors") {
     registry.emplace<Velocity>(proj_ent, 100.0f, 0.0f);
     registry.emplace<Projectile>(proj_ent).owner = player;
     auto &bc = registry.emplace<BoomerangComponent>(proj_ent);
-    bc.phase = BoomerangComponent::Outward;
+    bc.phase = BoomerangPhase::Outward;
     bc.returnTimer = 0.5f;
 
-    // Total time needed: 0.5s (timer) + 0.2s (pause) = 0.7s. 
-    // Two updates to ensure state transitions (Outward -> Paused -> Returning)
-    ProjectileSystem::Update(registry, grid, 0.6f); // Outward -> Paused
-    ProjectileSystem::Update(registry, grid, 0.3f); // Paused -> Returning
-    CHECK(bc.phase == BoomerangComponent::Returning);
+    // Total time needed: 0.5s (timer) + 0.2s (hover) = 0.7s. 
+    // Two updates to ensure state transitions (Outward -> HoverApex -> Returning)
+    ProjectileSystem::Update(registry, grid, 0.6f); // Outward -> HoverApex
+    ProjectileSystem::Update(registry, grid, 0.3f); // HoverApex -> Returning
+    CHECK(bc.phase == BoomerangPhase::Returning);
   }
 
   SUBCASE("Channeling - Infinite Blades") {
@@ -1037,7 +1037,7 @@ TEST_CASE("[Integration] SkillSystem - Boomerang Catch node restores resources")
   registry.emplace<SkillComponent>(projEnt, 8u, player);
   auto &boom = registry.emplace<BoomerangComponent>(projEnt);
   boom.owner = player;
-  boom.phase = BoomerangComponent::Returning;
+  boom.phase = BoomerangPhase::Returning;
   boom.returnSpeed = 400.0f;
 
   ProjectileSystem::Update(registry, grid, 0.016f);

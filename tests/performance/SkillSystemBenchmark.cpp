@@ -3,6 +3,7 @@
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
+#include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
@@ -135,6 +136,69 @@ TEST_CASE("[Performance] SkillSystem - GetEffectiveSkillTags") {
 
   const BenchmarkStats stats = CalculateStats(samples);
   LOG_BENCHMARK("SkillSystem GetEffectiveSkillTags", stats, "query");
+  CHECK(!samples.empty());
+}
+
+TEST_CASE("[Performance] SkillSystem - Batch Cast 10000 Throughput") {
+  TestSetupScope scope;
+  skill_benchmark_detail::PrepareSkillRuntime();
+
+  entt::registry registry;
+  const entt::entity player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(player);
+  registry.emplace<ActiveSkillsComponent>(player);
+
+  SkillExecution exec;
+  exec.skill_id = 4;
+  exec.owner = player;
+  auto castFunc = SkillBehaviorRegistry::GetCast(4);
+  REQUIRE(castFunc != nullptr);
+
+  for (int i = 0; i < 100; ++i) {
+    castFunc(registry, player, exec);
+  }
+
+  std::vector<double> samples;
+  samples.reserve(10000);
+
+  for (int i = 0; i < 10000; ++i) {
+    ScopedTimer timer(samples);
+    castFunc(registry, player, exec);
+  }
+
+  const BenchmarkStats stats = CalculateStats(samples);
+  LOG_BENCHMARK("SkillSystem 10000 Cast Throughput", stats, "< 0.01ms/cast");
+  skill_benchmark_detail::LogThresholdWarn("SkillSystem 10000 Cast Throughput", stats, 0.01, 0.05);
+  CHECK(!samples.empty());
+}
+
+TEST_CASE("[Performance] SkillSystem - Respec and Rebake Stress (Idempotency)") {
+  TestSetupScope scope;
+  skill_benchmark_detail::PrepareSkillRuntime();
+
+  entt::registry registry;
+  const entt::entity player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(player);
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = 1;
+  active.specialized_slots[0].allocated_points[100] = 1;
+  active.specialized_slots[0].allocated_points[101] = 2;
+
+  SkillSystem::RebakeSkillProfiles(registry, player);
+
+  std::vector<double> samples;
+  samples.reserve(5000);
+
+  for (int i = 0; i < 5000; ++i) {
+    ScopedTimer timer(samples);
+    SkillSystem::RebakeSkillProfiles(registry, player);
+  }
+
+  const BenchmarkStats stats = CalculateStats(samples);
+  LOG_BENCHMARK("SkillSystem Idempotent Rebake", stats, "< 0.05ms");
+  skill_benchmark_detail::LogThresholdWarn("SkillSystem Idempotent Rebake", stats, 0.05, 0.1);
   CHECK(!samples.empty());
 }
 

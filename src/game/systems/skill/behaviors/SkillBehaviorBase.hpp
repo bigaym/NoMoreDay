@@ -19,6 +19,38 @@ struct ElementalConversion {
   }
 };
 
+[[nodiscard]] inline ElementalConversion ResolveElementalConversion(
+    uint32_t element_node_id, int points) noexcept {
+    (void)element_node_id;
+
+    ElementalConversion conv;
+    switch (points) {
+    case 1: // Fire
+        conv.target_element = Tag::Fire;
+        conv.projectile_color = {255, 80, 20, 255};
+        conv.glow_color = {255, 160, 60, 180};
+        break;
+    case 2: // Ice / Frost
+        conv.target_element = Tag::Cold;
+        conv.projectile_color = {100, 200, 255, 255};
+        conv.glow_color = {150, 220, 255, 180};
+        break;
+    case 3: // Lightning
+        conv.target_element = Tag::Lightning;
+        conv.projectile_color = {200, 180, 255, 255};
+        conv.glow_color = {230, 200, 255, 180};
+        break;
+    default:
+        break;
+    }
+    return conv;
+}
+
+namespace skills {
+using NoMoreDay::ResolveElementalConversion;
+using NoMoreDay::ElementalConversion;
+} // namespace skills
+
 /**
  * @brief CRTP base class for skill behaviors.
  * 
@@ -38,29 +70,7 @@ struct SkillBehaviorBase {
     
     [[nodiscard]] static ElementalConversion ResolveElementalConversion(
         uint32_t element_node_id, int points) noexcept {
-        (void)element_node_id;
-
-        ElementalConversion conv;
-        switch (points) {
-        case 1: // Fire
-            conv.target_element = Tag::Fire;
-            conv.projectile_color = {255, 80, 20, 255};
-            conv.glow_color = {255, 160, 60, 180};
-            break;
-        case 2: // Ice / Frost
-            conv.target_element = Tag::Cold;
-            conv.projectile_color = {100, 200, 255, 255};
-            conv.glow_color = {150, 220, 255, 180};
-            break;
-        case 3: // Lightning
-            conv.target_element = Tag::Lightning;
-            conv.projectile_color = {200, 180, 255, 255};
-            conv.glow_color = {230, 200, 255, 180};
-            break;
-        default:
-            break;
-        }
-        return conv;
+        return ::NoMoreDay::ResolveElementalConversion(element_node_id, points);
     }
 
     // Node trigger modifier parameter keys (replaces string-view comparisons).

@@ -29,6 +29,9 @@
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include "game/systems/skill/AreaFieldDeliverySystem.hpp"
 #include "game/systems/skill/BeamChannelDeliverySystem.hpp"
+#include "game/systems/skill/MobilityDeliverySystem.hpp"
+#include "game/systems/skill/BoomerangDeliverySystem.hpp"
+#include "game/systems/skill/OrbitingSentinelDeliverySystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
@@ -42,6 +45,7 @@
 #include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/systems/skill/ProcEngine.hpp"
 #include "game/systems/skill/ShadowDuplicationHook.hpp"
+#include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <atomic>
@@ -1112,6 +1116,28 @@ void SkillSystem::Update(entt::registry &registry,
   // Update Channeling (ID 5 & 7)
   BeamChannelDeliverySystem::Update(registry, grid, dt);
 
+  // Update Universal Delivery Systems (Phase 2)
+  MobilityDeliverySystem::Update(registry, dt);
+  BoomerangDeliverySystem::Update(registry, grid, dt);
+  OrbitingSentinelDeliverySystem::Update(registry, grid, dt);
+
+  // Update Reactive Ward (Task 2.6)
+  static thread_local std::vector<entt::entity> s_ward_finished;
+  s_ward_finished.clear();
+  auto reactive_ward_view = registry.view<ReactiveWardComponent>();
+  for (auto entity : reactive_ward_view) {
+    auto &rw = reactive_ward_view.get<ReactiveWardComponent>(entity);
+    rw.timer += dt;
+    if (rw.timer >= rw.ward_duration) {
+      s_ward_finished.push_back(entity);
+    }
+  }
+  for (auto e : s_ward_finished) {
+    if (registry.valid(e)) {
+      registry.remove<ReactiveWardComponent>(e);
+    }
+  }
+
   // Update Blade Ward
   auto ward_view = registry.view<BladeWardComponent>();
   for (auto entity : ward_view) {
@@ -1285,6 +1311,61 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
   registry.emplace<ShadowCastTag>(exec_ent);
   LOG_INFO("Shadow casting skill: {}", data->name_key);
   return true;
+}
+
+entt::entity SkillSystem::SpawnShadowEcho(
+    entt::registry &registry, entt::entity owner, uint32_t skill_id,
+    const Vector2 &startPos, const Vector2 &targetPos, const CombatStats *stats,
+    float damageScale, float delay, float lifetime, Color tint,
+    const std::bitset<128> &activeNodes)
+{
+  auto shadow_ent = registry.create();
+  registry.emplace<LocalLevelTag>(shadow_ent);
+  registry.emplace<Position>(shadow_ent, startPos.x, startPos.y);
+  registry.emplace<ShadowVisualComponent>(
+      shadow_ent, ShadowVisualComponent{.color_tint = tint, .use_shader = true});
+  registry.emplace<DelayedDestroyComponent>(shadow_ent,
+                                            DelayedDestroyComponent{lifetime + 0.5f});
+
+  SkillSnapshot snapshot;
+  snapshot.skill_id = skill_id;
+  snapshot.position = startPos;
+  snapshot.target_pos = targetPos;
+  snapshot.active_nodes = activeNodes;
+
+  if (stats) {
+    snapshot.stats = *stats;
+    snapshot.stats.min_weapon_damage *= damageScale;
+    snapshot.stats.max_weapon_damage *= damageScale;
+    for (auto &val : snapshot.stats.flat_damage) {
+      val *= damageScale;
+    }
+    DamagePayloadContext ctx{};
+    ctx.base_damage_min = snapshot.stats.min_weapon_damage;
+    ctx.base_damage_max = snapshot.stats.max_weapon_damage;
+    ctx.crit_chance = stats->crit_chance;
+    ctx.crit_multiplier = stats->crit_damage;
+    ctx.increased_damage = 0.0f;
+    ctx.more_damage = damageScale;
+    ctx.source_skill_id = skill_id;
+    snapshot.payload_context = ctx;
+  }
+
+  ShadowComponent shadow_comp;
+  shadow_comp.snapshot = snapshot;
+  shadow_comp.delay = delay;
+  shadow_comp.lifetime = lifetime;
+  shadow_comp.damage_scale = damageScale;
+  registry.emplace<ShadowComponent>(shadow_ent, shadow_comp);
+
+  auto &summon = registry.emplace<SummonComponent>(shadow_ent);
+  summon.owner = owner;
+  summon.skill_id = skill_id;
+  summon.archetype_id = SummonArchetype::ShadowEcho;
+  summon.lifetime = lifetime;
+  summon.max_lifetime = lifetime;
+
+  return shadow_ent;
 }
 
 bool SkillSystem::TriggerCast(entt::registry &registry, entt::entity caster,
@@ -2205,12 +2286,25 @@ void SkillSystem::RebakeSkillProfiles(entt::registry &registry, entt::entity ent
   if (!active)
     return;
 
-  const auto *equipment = registry.try_get<EquipmentComponent>(entity);
-
   for (size_t i = 0; i < SkillConstants::MAX_SKILL_SLOTS; ++i) {
     const uint32_t skill_id = active->slots[i].id;
     if (skill_id == 0 || skill_id == INVALID_SKILL_ID) {
-      active->baked_profiles[i] = BakedSkillProfile{};
+      const uint32_t old_skill_id = active->baked_profiles[i].skill_id;
+      if (old_skill_id != 0 && old_skill_id != INVALID_SKILL_ID) {
+        bool still_equipped = false;
+        for (size_t k = 0; k < SkillConstants::MAX_SKILL_SLOTS; ++k) {
+          if (k != i && active->slots[k].id == old_skill_id) {
+            still_equipped = true;
+            break;
+          }
+        }
+        if (!still_equipped) {
+          SkillSpecializationBaker::SyncTriggerRules(registry, entity, old_skill_id, nullptr);
+        }
+      }
+      if (!(active->baked_profiles[i] == BakedSkillProfile{})) {
+        active->baked_profiles[i] = BakedSkillProfile{};
+      }
       continue;
     }
 
@@ -2218,71 +2312,30 @@ void SkillSystem::RebakeSkillProfiles(entt::registry &registry, entt::entity ent
     if (!skillData) {
       BakedSkillProfile p{};
       p.skill_id = skill_id;
-      active->baked_profiles[i] = p;
+      if (!(active->baked_profiles[i] == p)) {
+        active->baked_profiles[i] = p;
+      }
       continue;
     }
 
-    BakedSkillProfile profile{};
-    profile.skill_id = skill_id;
-    profile.effective_level = 1;
-    profile.effective_cooldown = skillData->cooldown;
-    profile.effective_mana_cost = skillData->mana_cost;
-    profile.effective_tags = GetEffectiveSkillTags(registry, entity, skill_id);
-    profile.projectile_count = static_cast<int>(skillData->GetParam("projectile_count", 1.0f));
-    if (profile.projectile_count <= 0) profile.projectile_count = 1;
-    profile.area_radius = skillData->GetParam("area_radius", 1.0f);
-    if (profile.area_radius <= 0.0f) profile.area_radius = 1.0f;
-    profile.proc_coefficient = skillData->GetParam("proc_coefficient", 1.0f);
-    if (profile.proc_coefficient <= 0.0f) profile.proc_coefficient = 1.0f;
-
-    // Apply specialized slot level bonuses
+    const SpecializedSkill *specPtr = nullptr;
     for (const auto &spec : active->specialized_slots) {
       if (spec.skill_id == skill_id) {
-        profile.effective_level += spec.bonus_levels;
+        specPtr = &spec;
         break;
       }
     }
 
-    // Apply equipment skill modifiers
-    if (equipment) {
-      for (const auto itemEnt : equipment->slots) {
-        if (!registry.valid(itemEnt) || !registry.all_of<ItemComponent>(itemEnt)) {
-          continue;
-        }
-        const auto &item = registry.get<ItemComponent>(itemEnt);
-        for (const auto &mod : item.skill_modifiers) {
-          if (mod.target_skill_id != 0 && mod.target_skill_id != skill_id) {
-            continue;
-          }
+    SkillSpecializationBaker::SyncTriggerRules(registry, entity, skill_id, specPtr);
 
-          profile.effective_cooldown = std::max(0.0f, profile.effective_cooldown + mod.flat_cooldown_delta);
-          profile.effective_mana_cost = std::max(0.0f, profile.effective_mana_cost + mod.mana_cost_delta);
-          profile.projectile_count += mod.extra_projectiles;
-          if (mod.area_radius_mult > 0.0f) {
-            profile.area_radius *= mod.area_radius_mult;
-          }
+    BakedSkillProfile new_profile{};
+    SkillSpecializationBaker::Bake(registry, entity, skill_id, specPtr, new_profile, nullptr);
 
-          // Dynamic tag conversion
-          if (mod.convert_from != Tag::None && mod.convert_to != Tag::None) {
-            if (HasTag(profile.effective_tags, mod.convert_from)) {
-              profile.effective_tags = (profile.effective_tags & ~mod.convert_from) | mod.convert_to;
-            }
-          }
-
-          // Injected payloads
-          if (mod.inject_ailment_id != 0 && profile.injected_count < BakedSkillProfile::kMaxInjectedPayloads) {
-            PayloadDefinition pdef{};
-            pdef.type = PayloadType::Ailment;
-            pdef.ailment_id = mod.inject_ailment_id;
-            pdef.value_mult = (mod.inject_ailment_chance > 0.0f) ? mod.inject_ailment_chance : 1.0f;
-            pdef.damage_tags = (mod.convert_to != Tag::None) ? mod.convert_to : profile.effective_tags;
-            profile.injected_payloads[profile.injected_count++] = pdef;
-          }
-        }
-      }
+    // 幂等判断：先比较后写入，未变化时跳过写回
+    if (active->baked_profiles[i] == new_profile) {
+      continue;
     }
-
-    active->baked_profiles[i] = profile;
+    active->baked_profiles[i] = new_profile;
   }
 }
 
@@ -2294,7 +2347,7 @@ const BakedSkillProfile *SkillSystem::GetBakedSkillProfile(const entt::registry 
     return nullptr;
 
   for (size_t i = 0; i < SkillConstants::MAX_SKILL_SLOTS; ++i) {
-    if (active->baked_profiles[i].skill_id == skill_id && active->slots[i].id == skill_id) {
+    if (active->baked_profiles[i].skill_id == skill_id) {
       return &active->baked_profiles[i];
     }
   }

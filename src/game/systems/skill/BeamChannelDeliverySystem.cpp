@@ -4,7 +4,9 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/foundation/data/TagRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "engine/render/GPUData.hpp"
@@ -21,8 +23,147 @@ namespace NoMoreDay {
 void BeamChannelDeliverySystem::Update(entt::registry &registry,
                                        systems::SpatialHashGrid &grid,
                                        float dt) {
+  // 1. 纯参数驱动的现代 BeamChannelComponent (Task 2.4b, 2.4d)
+  static thread_local std::vector<entt::entity> s_beam_to_remove;
+  s_beam_to_remove.clear();
+
+  auto beam_view = registry.view<BeamChannelComponent, Position>();
+  for (auto entity : beam_view) {
+    auto &beam = beam_view.get<BeamChannelComponent>(entity);
+    const auto &pos = beam_view.get<Position>(entity);
+
+    beam.current_channel_time += dt;
+    if (beam.current_channel_time >= beam.max_channel_time) {
+      if (beam.finisher_trigger_skill_id != 0) {
+        auto finisher_ent = registry.create();
+        registry.emplace<LocalLevelTag>(finisher_ent);
+        registry.emplace<ShadowCastTag>(finisher_ent);
+        registry.emplace<Position>(finisher_ent, pos.x, pos.y);
+
+        auto &exec = registry.emplace<SkillExecution>(finisher_ent);
+        exec.skill_id = beam.finisher_trigger_skill_id;
+        exec.owner = entity;
+        exec.state = SkillState::Preparing;
+        exec.timer = 0.0f;
+        exec.target_pos = beam.target_pos;
+        exec.is_empowered = true;
+      }
+      s_beam_to_remove.push_back(entity);
+      continue;
+    }
+
+    beam.tick_timer -= dt;
+    if (beam.tick_timer <= 0.0f) {
+      beam.tick_timer = std::max(0.05f, beam.tick_interval);
+
+      Vector2 targetPos = beam.target_pos;
+      if (beam.aim_assist) {
+        float bestDistSq = 900.0f * 900.0f;
+        entt::entity bestTarget = entt::null;
+        grid.query({targetPos.x, targetPos.y}, 900.0f,
+                   [&](entt::entity e, const Position &ep) {
+                     if (registry.any_of<EnemyTag>(e) && !registry.any_of<KilledTag>(e)) {
+                       float distSq = Vector2DistanceSqr({targetPos.x, targetPos.y}, {ep.x, ep.y});
+                       if (distSq < bestDistSq) {
+                         bestDistSq = distSq;
+                         bestTarget = e;
+                       }
+                     }
+                   });
+        if (registry.valid(bestTarget) && registry.all_of<Position>(bestTarget)) {
+          const auto &tp = registry.get<Position>(bestTarget);
+          targetPos = {tp.x, tp.y};
+        }
+      }
+
+      if (beam.mode == BeamChannelMode::BarrageEmitter) {
+        Vector2 dirToTarget = Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
+        int count = beam.is_empowered ? 4 : 2;
+        auto *stats = registry.try_get<CombatStats>(entity);
+        for (int i = 0; i < count; ++i) {
+          float spreadAmt = static_cast<float>(GetRandomValue(-20, 20)) * DEG2RAD;
+          Vector2 fireDir = Vector2Rotate(dirToTarget, spreadAmt);
+
+          auto proj_ent = registry.create();
+          registry.emplace<LocalLevelTag>(proj_ent);
+          registry.emplace<Position>(proj_ent, pos.x + fireDir.x * 20.0f, pos.y + fireDir.y * 20.0f);
+          registry.emplace<Velocity>(proj_ent, fireDir.x * 1000.0f, fireDir.y * 1000.0f);
+
+          auto &proj = registry.emplace<Projectile>(proj_ent);
+          proj.owner = entity;
+          proj.cast_id = beam.cast_id;
+          proj.lifeTime = 1.0f;
+          proj.radius = 35.0f;
+          proj.speed = 1000.0f;
+          proj.pierce = true;
+          proj.max_pierce = 1;
+          proj.visualType = 2;
+
+          if (stats) {
+            DamagePayloadContext ctx{};
+            ctx.base_damage_min = stats->min_weapon_damage;
+            ctx.base_damage_max = stats->max_weapon_damage;
+            ctx.crit_chance = stats->crit_chance;
+            ctx.crit_multiplier = stats->crit_damage;
+            ctx.increased_damage = 0.0f;
+            ctx.more_damage = 0.35f * beam.bonus_damage_mult;
+            ctx.effective_tags = Tag::Physical;
+            ctx.source_skill_id = beam.skill_id ? beam.skill_id : 5;
+            proj.payload_context = ctx;
+
+            proj.snapshot = *stats;
+            for (auto &mult : proj.snapshot.damage_multipliers) {
+              mult *= (0.35f * beam.bonus_damage_mult);
+            }
+            registry.emplace<CombatStats>(proj_ent, proj.snapshot);
+          }
+          registry.emplace<SkillComponent>(proj_ent, beam.skill_id ? beam.skill_id : 5, entity);
+
+          auto &particleSys = systems::GPUParticleSystem::Get();
+          components::GPUParticle p;
+          p.position = {pos.x + fireDir.x * 30.0f, pos.y + fireDir.y * 30.0f};
+          p.velocity = Vector2Scale(fireDir, 200.0f);
+          p.color = beam.is_empowered ? GOLD : ColorAlpha(WHITE, 0.6f);
+          p.lifetime = 0.2f;
+          p.maxLifetime = 0.2f;
+          p.scale = 2.0f;
+          p.flags = 2;
+          particleSys.Emit(p);
+        }
+      } else if (beam.mode == BeamChannelMode::ContinuousLaser) {
+        auto *stats = registry.try_get<CombatStats>(entity);
+        grid.query({targetPos.x, targetPos.y}, 60.0f, [&](entt::entity e, const Position &ep) {
+          if (registry.any_of<EnemyTag>(e) && !registry.any_of<KilledTag>(e)) {
+            DamageRequest req{};
+            req.attacker = entity;
+            req.defender = e;
+            req.skill_id = beam.skill_id ? beam.skill_id : 7;
+            req.source_entity = entity;
+            req.added_effectiveness = beam.bonus_damage_mult;
+            if (stats) {
+              req.base_pool.Add(Tag::Physical, (stats->min_weapon_damage + stats->max_weapon_damage) * 0.5f);
+            } else {
+              req.base_pool.Add(Tag::Physical, 30.0f);
+            }
+            (void)ResolveDamage(registry, req, e);
+          }
+        });
+      }
+    }
+  }
+
+  for (auto e : s_beam_to_remove) {
+    if (registry.valid(e)) {
+      registry.remove<BeamChannelComponent>(e);
+    }
+  }
+
+  // 2. 兼容并存旧版 ChannelingComponent (平滑回滚窗口)
   auto chan_view = registry.view<ChannelingComponent, Position>();
   for (auto entity : chan_view) {
+    if (registry.any_of<BeamChannelComponent>(entity)) {
+      continue;
+    }
     auto &chan = chan_view.get<ChannelingComponent>(entity);
     const auto &pos = chan_view.get<Position>(entity);
 

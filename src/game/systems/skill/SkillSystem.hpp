@@ -79,6 +79,15 @@ public:
     static bool ShadowCast(entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 position, Vector2 target_pos = {0,0});
 
     /**
+     * @brief Spawn a fully assembled shadow echo entity.
+     */
+    static entt::entity SpawnShadowEcho(entt::registry &registry, entt::entity owner,
+                                        uint32_t skill_id, const Vector2 &startPos,
+                                        const Vector2 &targetPos, const struct CombatStats *stats,
+                                        float damageScale, float delay, float lifetime,
+                                        Color tint, const std::bitset<128> &activeNodes = {});
+
+    /**
      * @brief Safely trigger derived cast for procs, talents, and equipment.
      */
     static bool TriggerCast(entt::registry& registry, entt::entity caster,

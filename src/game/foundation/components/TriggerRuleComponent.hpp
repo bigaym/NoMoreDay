@@ -48,6 +48,12 @@ struct TriggerRuleComponent {
     uint8_t rule_count = 0;
 
     bool AddRule(const TriggerRule& rule) {
+        for (uint8_t i = 0; i < rule_count; ++i) {
+            if (rules[i].rule_id == rule.rule_id) {
+                rules[i] = rule;
+                return true;
+            }
+        }
         if (rule_count >= kMaxRules) {
             return false;
         }

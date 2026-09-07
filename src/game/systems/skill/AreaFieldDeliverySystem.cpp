@@ -4,13 +4,24 @@
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
 #include "raymath.h"
 #include <vector>
 
 namespace NoMoreDay {
+
+namespace {
+constexpr float kSkyfallImpactEffectiveness = 1.5f;
+constexpr float kSkyfallResidualFieldDuration = 5.0f;
+constexpr float kSkyfallResidualFieldPulseInterval = 0.3f;
+constexpr float kSkyfallResidualFieldDamageMult = 0.5f;
+constexpr float kDefaultAilmentDuration = 3.0f;
+constexpr float kDefaultSkillVfxIntensity = 1.0f;
+} // namespace
 
 void AreaFieldDeliverySystem::Update(entt::registry &registry,
                                      systems::SpatialHashGrid &grid,
@@ -51,7 +62,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
         vfx.type = SkillVfxEventType::CastImpact;
         vfx.origin = {pos.x, pos.y};
         vfx.target = {pos.x, pos.y};
-        vfx.intensity = 1.0f;
+        vfx.intensity = kDefaultSkillVfxIntensity;
         systems::GPUSkillEffectSystem::Get().SubmitSkillEvent(vfx);
       }
 
@@ -90,12 +101,84 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
               applyReq.ailment = static_cast<AilmentType>(payload.ailment_id);
               applyReq.source = field.owner;
               applyReq.magnitude = payload.value_mult;
-              applyReq.duration = (payload.duration > 0.0f) ? payload.duration : 3.0f;
+              applyReq.duration = (payload.duration > 0.0f) ? payload.duration : kDefaultAilmentDuration;
               (void)systems::AilmentApplier::Apply(registry, target, applyReq);
             }
           }
         }
       });
+    }
+  }
+
+  // 处理天降打击与流星轰击 (SkyfallImpactComponent - Task 2.6)
+  auto skyfall_view = registry.view<SkyfallImpactComponent, Position>();
+  for (auto entity : skyfall_view) {
+    auto &skyfall = skyfall_view.get<SkyfallImpactComponent>(entity);
+    auto &pos = skyfall_view.get<Position>(entity);
+    skyfall.timer += dt;
+
+    if (skyfall.waves_spawned < skyfall.wave_count) {
+      const float nextWaveTime = skyfall.delay_before_impact + static_cast<float>(skyfall.waves_spawned) * skyfall.wave_interval;
+      if (skyfall.timer >= nextWaveTime) {
+        skyfall.waves_spawned++;
+
+        grid.query({pos.x, pos.y}, skyfall.impact_radius, [&](entt::entity target, const Position &tPos) {
+          if (!registry.valid(target) || target == skyfall.owner || registry.any_of<KilledTag>(target)) {
+            return;
+          }
+          const bool ownerIsEnemy = registry.valid(skyfall.owner) && registry.any_of<EnemyTag>(skyfall.owner);
+          const bool targetIsEnemy = registry.any_of<EnemyTag>(target);
+          if (ownerIsEnemy != targetIsEnemy) {
+            const auto *p = SkillSystem::GetBakedSkillProfile(registry, skyfall.owner, skyfall.skill_id);
+            const float eff = (p && p->more_damage_mult > 0.0f)
+                                  ? (kSkyfallImpactEffectiveness * p->more_damage_mult)
+                                  : kSkyfallImpactEffectiveness;
+            DamageRequest req;
+            req.attacker = skyfall.owner;
+            req.defender = target;
+            req.skill_id = skyfall.skill_id;
+            req.source_entity = entity;
+            req.added_effectiveness = eff;
+            if (p) {
+              req.additional_tags = p->effective_tags;
+            }
+            (void)ResolveDamage(registry, req, target);
+          }
+        });
+      }
+    }
+
+    if (skyfall.waves_spawned >= skyfall.wave_count) {
+      if (skyfall.leave_field_skill_id != 0) {
+        const auto *p = SkillSystem::GetBakedSkillProfile(registry, skyfall.owner, skyfall.leave_field_skill_id);
+        const float resDuration = (p && p->delivery.duration > 0.0f)
+                                      ? p->delivery.duration
+                                      : kSkyfallResidualFieldDuration;
+        const float resInterval = (p && p->delivery.sub_interval > 0.0f)
+                                      ? p->delivery.sub_interval
+                                      : kSkyfallResidualFieldPulseInterval;
+        const float resDmgMult = (p && p->more_damage_mult > 0.0f)
+                                     ? (kSkyfallResidualFieldDamageMult * p->more_damage_mult)
+                                     : kSkyfallResidualFieldDamageMult;
+        const float resRadius = (p && p->area_radius > 1.0f) ? p->area_radius : skyfall.impact_radius;
+        AreaFieldComponent field{};
+        field.owner = skyfall.owner;
+        field.source_skill_id = skyfall.leave_field_skill_id;
+        field.cast_id = skyfall.cast_id;
+        field.remaining_duration = resDuration;
+        field.pulse_interval = resInterval;
+        field.radius = resRadius;
+        field.payload_count = 1;
+        field.payloads[0].type = PayloadType::Damage;
+        field.payloads[0].value_mult = resDmgMult;
+        if (p) {
+          field.payloads[0].damage_tags = p->effective_tags;
+        }
+        registry.emplace_or_replace<AreaFieldComponent>(entity, field);
+        registry.remove<SkyfallImpactComponent>(entity);
+        continue;
+      }
+      s_to_destroy.push_back(entity);
     }
   }
 

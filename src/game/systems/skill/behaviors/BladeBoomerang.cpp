@@ -1,315 +1,97 @@
 /**
  * @file BladeBoomerang.cpp
- * @brief 御剑回旋 (ID 8) - 回旋镖技能行为实现
- *
- * 天赋分支:
- * - 812 破空: 速度转增伤
- * - 813 幻影回旋: 额外飞剑
- * - 830-833 牵引机制: 磁力/重力/黑洞
- * - 850 滞空切割: 折返点常驻
+ * @brief 御剑回旋 (ID 8) - 模块化回旋镖交付实现
  */
-
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
-#include "engine/render/GPUParticleSystem.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
-
-
-#include "core/logging/Logger.hpp"
-#include "game/foundation/components/SkillDefs.hpp" // For SwordIntent
 #include "raymath.h"
-
 
 namespace NoMoreDay::skills {
 
 namespace BladeBoomerangNodes {
-// 基础分支 / Base
-constexpr uint32_t Speed = 800;     // 疾速 / Speed
-constexpr uint32_t Sharp = 801;     // 锋锐 / Sharp
-
-// 投掷分支 / Throw branch
-constexpr uint32_t AgileBlade = 810; // 灵动之刃 / Agile Blade
-constexpr uint32_t FastRecycle = 811; // 快速回收 / Fast Recycle
-constexpr uint32_t BreakAir = 812;    // 破空 / Break Air
-constexpr uint32_t PhantomSpin = 813; // 幻影回旋 / Phantom Spin
-
-// 牵引分支 / Pull branch
-constexpr uint32_t MagnetField = 830; // 磁力场 / Magnet Field
-constexpr uint32_t CatchBlade = 831;  // 接剑 / Catch Blade
-constexpr uint32_t GravityField = 832; // 重力场 / Gravity Field
-constexpr uint32_t BlackHole = 833;   // 剑气黑洞 / Black Hole
-
-// 停留分支 / Hover branch
-constexpr uint32_t HoverCut = 850;    // 滞空切割 / Hover Cut
-constexpr uint32_t Bleed = 851;       // 放血 / Bleed
-constexpr uint32_t Tear = 852;        // 撕裂 / Tear
-
-// 元素分支 / Element branch
-constexpr uint32_t PathResidue = 870; // 路径残留 / Path Residue
-constexpr uint32_t GuardQi = 871;     // 护体剑气 / Guard Qi
-constexpr uint32_t ElementStorm = 872; // 元素风暴 / Element Storm
+constexpr uint32_t BreakAir = 812;
+constexpr uint32_t PhantomSpin = 813;
+constexpr uint32_t MagnetField = 830;
+constexpr uint32_t CatchBlade = 831;
+constexpr uint32_t GravityField = 832;
+constexpr uint32_t BlackHole = 833;
+constexpr uint32_t HoverCut = 850;
+constexpr uint32_t Bleed = 851;
+constexpr uint32_t Tear = 852;
+constexpr uint32_t PathResidue = 870;
+constexpr uint32_t GuardQi = 871;
 } // namespace BladeBoomerangNodes
 
 struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
   static constexpr uint32_t kSkillId = 8;
-
-  static void DoCast(entt::registry &registry, entt::entity owner,
-                     SkillExecution &exec) {
-    auto *pos = registry.try_get<Position>(owner);
-    auto *stats = registry.try_get<CombatStats>(owner);
-    if (!pos || !stats)
-      return;
-
-    const auto sevenStarLink = seven_star_shared::ConsumeLinkBuffs(
-        registry, owner, kSkillId, false, exec.cast_id);
-
-    const auto *skillData = SkillRegistry::Get().GetSkill(kSkillId);
-    float speed = skillData ? skillData->GetParam("speed", 400.0f) : 400.0f;
-    float returnTimer =
-        skillData ? skillData->GetParam("return_timer", 0.45f) : 0.45f;
-    float radius = skillData ? skillData->GetParam("radius", 40.0f) : 40.0f;
-    float basePull =
-        skillData ? skillData->GetParam("pull_strength", 300.0f) : 300.0f;
-    float gravityPull =
-        skillData ? skillData->GetParam("gravity_strength", 500.0f) : 500.0f;
-
-    Vector2 dir =
-        Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
-
-    bool hasPull = false;
-    float pullStrength = 0.0f;
-    int extraProjectiles = 0;
-    float moreDamageFromSpeed = 1.0f;
-    moreDamageFromSpeed *= sevenStarLink.damage_multiplier;
-    Tag conversionTag = Tag::None;
-    Color conversionColor = ORANGE;
-
-    bool hasZhiKong = false;
-    bool hasCatch = false;
-    const uint32_t activeTransmuter =
-        SkillSystem::GetActiveTransmuterNode(registry, owner, kSkillId);
-    if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          // Talent: Po Kong (破空) - ID 812
-          if (spec.allocated_points.contains(BladeBoomerangNodes::BreakAir)) {
-            float bonus =
-                (speed / 100.0f) * 0.1f *
-                spec.allocated_points.at(BladeBoomerangNodes::BreakAir);
-            moreDamageFromSpeed += bonus;
-          }
-
-          // Talent: Huan Ying Hui Xuan (幻影回旋) - ID 813
-          if (spec.allocated_points.contains(BladeBoomerangNodes::PhantomSpin) &&
-              spec.allocated_points.at(BladeBoomerangNodes::PhantomSpin) > 0) {
-            extraProjectiles = 2;
-          }
-
-          // Talent: Ci Li Chang (磁力场) - ID 830
-          if (spec.allocated_points.contains(BladeBoomerangNodes::MagnetField) &&
-              spec.allocated_points.at(BladeBoomerangNodes::MagnetField) > 0) {
-            hasPull = true;
-            pullStrength = basePull;
-          }
-
-          // Talent: Catch Blade (接剑) - ID 831
-          if (spec.allocated_points.contains(BladeBoomerangNodes::CatchBlade) &&
-              spec.allocated_points.at(BladeBoomerangNodes::CatchBlade) > 0) {
-            hasCatch = true;
-          }
-
-          // Talent: Zhong Li Chang (重力场) - ID 832
-          if (spec.allocated_points.contains(BladeBoomerangNodes::GravityField)) {
-            pullStrength +=
-                gravityPull *
-                spec.allocated_points.at(BladeBoomerangNodes::GravityField);
-          }
-
-          // Talent: Jian Qi Hei Dong (剑气黑洞) - ID 833
-          if (spec.allocated_points.contains(BladeBoomerangNodes::BlackHole) &&
-              spec.allocated_points.at(BladeBoomerangNodes::BlackHole) > 0) {
-            pullStrength *= 2.0f; // Black hole effect
-            radius *= 1.5f;
-          }
-
-          // Talent: Zhi Kong Qie Ge (滞空切割) - ID 850
-          if (spec.allocated_points.contains(BladeBoomerangNodes::HoverCut)) {
-            hasZhiKong = true;
-          }
-
-          // Contract transmuters 870/871 via runtime-selected mutex node.
-          if (activeTransmuter == BladeBoomerangNodes::PathResidue &&
-              spec.allocated_points.contains(BladeBoomerangNodes::PathResidue) &&
-              spec.allocated_points.at(BladeBoomerangNodes::PathResidue) > 0) {
-            conversionTag = Tag::Fire;
-            conversionColor = ORANGE;
-          } else if (activeTransmuter == BladeBoomerangNodes::GuardQi &&
-                     spec.allocated_points.contains(BladeBoomerangNodes::GuardQi) &&
-                     spec.allocated_points.at(BladeBoomerangNodes::GuardQi) > 0) {
-            conversionTag = Tag::Lightning;
-            conversionColor = PURPLE;
-
-            auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
-            BuffEffect guard;
-            guard.id =
-                std::string(BuffIdToString(BuffId::BladeBoomerangGuardQi));
-            guard.name = "Guard Qi";
-            guard.type = BuffType::Shield;
-            guard.duration = 2.0f;
-            guard.remaining = 2.0f;
-            guard.modifiers.push_back({.value = 10.0f,
-                                       .type = StatType::ResistAll,
-                                       .mode = ModifierMode::Flat});
-            effects.AddOrRefresh(guard);
-          }
-          break;
-        }
+  static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
+    auto *pos = registry.try_get<Position>(owner); auto *stats = registry.try_get<CombatStats>(owner); if (!pos || !stats) return;
+    const auto link = seven_star_shared::ConsumeLinkBuffs(registry, owner, kSkillId, false, exec.cast_id);
+    const auto *sd = SkillRegistry::Get().GetSkill(kSkillId);
+    float speed = sd ? sd->GetParam("speed", 400.0f) : 400.0f;
+    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
+    BakedSkillProfile localProfile;
+    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
+      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
+        if (spec.skill_id == kSkillId) { SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr); profile = &localProfile; break; }
       }
     }
+    float moreDmg = (profile ? profile->more_damage_mult : 1.0f) * link.damage_multiplier;
+    int extra = (profile ? ((profile->delivery.feature_flags & 2) != 0) : exec.active_nodes.test(BladeBoomerangNodes::PhantomSpin % 100)) ? 2 : 0;
+    bool hasCatch = profile ? ((profile->delivery.feature_flags & 8) != 0) : exec.active_nodes.test(BladeBoomerangNodes::CatchBlade % 100);
+    bool hasHover = profile ? ((profile->delivery.feature_flags & 64) != 0) : exec.active_nodes.test(BladeBoomerangNodes::HoverCut % 100);
+    float pullStr = 0.0f;
+    if (profile ? ((profile->delivery.feature_flags & 4) != 0) : exec.active_nodes.test(BladeBoomerangNodes::MagnetField % 100)) pullStr += 300.0f;
+    if (profile ? ((profile->delivery.feature_flags & 16) != 0) : exec.active_nodes.test(BladeBoomerangNodes::GravityField % 100)) pullStr += 500.0f;
+    if (profile ? ((profile->delivery.feature_flags & 32) != 0) : exec.active_nodes.test(BladeBoomerangNodes::BlackHole % 100)) pullStr *= 2.0f;
+    Tag convTag = profile ? (profile->effective_tags & ~Tag::Physical) : Tag::None;
+    Color col = ORANGE;
+    if (convTag == Tag::Lightning || (profile ? ((profile->delivery.feature_flags & 1024) != 0) : false)) {
+      convTag = Tag::Lightning; col = PURPLE;
+      BuffEffect g{.id = std::string(BuffIdToString(BuffId::BladeBoomerangGuardQi)), .name = "Guard Qi", .type = BuffType::Shield, .duration = 2.0f, .remaining = 2.0f};
+      g.modifiers.push_back({.value = 10.0f, .type = StatType::ResistAll, .mode = ModifierMode::Flat}); registry.get_or_emplace<ActiveEffectsComponent>(owner).AddOrRefresh(g);
+    } else if (convTag == Tag::Fire || (profile ? ((profile->delivery.feature_flags & 512) != 0) : false)) { convTag = Tag::Fire; col = ORANGE; }
 
-    auto &particleSys = systems::GPUParticleSystem::Get();
-    auto splash = systems::InkEffectHelper::CreateInkSplash({pos->x, pos->y},
-                                                            10, 10.0f, 100.0f);
-    for (auto &p : splash) {
-      p.velocity = Vector2Add(p.velocity, Vector2Scale(dir, 200.0f));
-      particleSys.Emit(p);
-    }
-
+    Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
     auto spawnProj = [&](Vector2 p_dir, float p_scale) {
-      auto proj_ent = registry.create();
-      registry.emplace<LocalLevelTag>(proj_ent);
-      registry.emplace<Position>(proj_ent, pos->x, pos->y);
-      registry.emplace<Velocity>(proj_ent, p_dir.x * speed, p_dir.y * speed);
-      registry.emplace<ColorComponent>(proj_ent, conversionTag == Tag::None
-                                                     ? ORANGE
-                                                     : conversionColor);
-
-      auto &proj = registry.emplace<Projectile>(proj_ent);
-      proj.owner = owner;
-      proj.cast_id = exec.cast_id;
-      proj.speed = speed;
-      proj.lifeTime = 3.0f;
-      proj.radius = radius * p_scale;
-      proj.pierce = true;
-      proj.pierceCount = 99;
-      proj.max_pierce = Projectile::kUnlimitedPiercing;
-      proj.snapshot = *stats;
-      proj.hasPull = hasPull;
-      proj.pullStrength = pullStrength * p_scale;
-
-      DamagePayloadContext ctx{};
-      ctx.base_damage_min = stats->min_weapon_damage;
-      ctx.base_damage_max = stats->max_weapon_damage;
-      ctx.crit_chance = stats->crit_chance;
-      ctx.crit_multiplier = stats->crit_damage;
-      ctx.increased_damage = 0.0f;
-      ctx.more_damage = moreDamageFromSpeed * p_scale * (exec.is_empowered ? 1.5f : 1.0f);
-      ctx.effective_tags = Tag::Physical | (conversionTag != Tag::None ? conversionTag : Tag::None);
-      ctx.source_skill_id = exec.skill_id;
-      proj.payload_context = ctx;
-
-      for (auto &mult : proj.snapshot.damage_multipliers) {
-        mult *= moreDamageFromSpeed * p_scale;
-        if (exec.is_empowered)
-          mult *= 1.5f;
-      }
-
-      if (exec.is_empowered) {
-        proj.radius *= 1.5f;
-        proj.pullStrength += 300.0f;
-        proj.hasPull = true;
-      }
-
-      registry.emplace<CombatStats>(proj_ent, proj.snapshot);
-      registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
-      if (conversionTag != Tag::None) {
-        auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
-        mods.damage_modifiers.push_back(
-            DamageModifier{Tag::Physical, conversionTag, 1.0f,
-                           ModifierType::Convert});
-      }
-
-      auto &bc = registry.emplace<BoomerangComponent>(proj_ent);
-      bc.owner = owner;
-      bc.returnTimer = hasCatch ? returnTimer * 0.85f : returnTimer;
-      bc.phase = BoomerangComponent::Outward;
-      bc.returnSpeed = hasCatch ? speed * 1.8f : speed * 1.5f;
-
-      if (hasZhiKong) {
-        // Talent 850 Logic handled in BoomerangSystem,
-        // but we could set a flag here if needed.
-      }
+      auto e = registry.create(); registry.emplace<LocalLevelTag>(e); registry.emplace<Position>(e, pos->x, pos->y);
+      registry.emplace<Velocity>(e, p_dir.x * speed, p_dir.y * speed); registry.emplace<ColorComponent>(e, col);
+      auto &p = registry.emplace<Projectile>(e);
+      p.owner = owner; p.cast_id = exec.cast_id; p.speed = speed; p.lifeTime = 3.0f; p.radius = (sd ? sd->GetParam("radius", 40.0f) : 40.0f) * p_scale;
+      p.pierce = true; p.pierceCount = 99; p.max_pierce = Projectile::kUnlimitedPiercing; p.snapshot = *stats; p.hasPull = pullStr > 0.0f; p.pullStrength = pullStr * p_scale;
+      p.payload_context = {.base_damage_min = stats->min_weapon_damage, .base_damage_max = stats->max_weapon_damage, .crit_chance = stats->crit_chance, .crit_multiplier = stats->crit_damage, .more_damage = moreDmg * p_scale * (exec.is_empowered ? 1.5f : 1.0f), .effective_tags = Tag::Physical | convTag, .source_skill_id = exec.skill_id};
+      registry.emplace<CombatStats>(e, p.snapshot); registry.emplace<SkillComponent>(e, exec.skill_id, owner);
+      if (convTag != Tag::None) registry.emplace<SkillModifierComponent>(e).damage_modifiers.push_back({Tag::Physical, convTag, 1.0f, ModifierType::Convert});
+      auto &bc = registry.emplace<BoomerangComponent>(e);
+      bc.owner = owner; bc.cast_id = exec.cast_id; bc.skill_id = kSkillId; bc.phase = BoomerangPhase::Outward; bc.returnSpeed = hasCatch ? speed * 1.8f : speed * 1.5f;
+      bc.returnTimer = hasCatch ? 0.38f : 0.45f; bc.hover_duration = hasHover ? 1.0f : 0.45f;
+      bc.pull_radius = (pullStr > 0.0f) ? (p.radius * (exec.is_empowered ? 1.5f : 1.0f)) : 0.0f; bc.pull_strength = (pullStr > 0.0f) ? p.pullStrength : 0.0f; bc.catch_by_owner = true;
     };
-
-    spawnProj(dir, 1.0f);
-    if (extraProjectiles > 0) {
-      spawnProj(Vector2Rotate(dir, 0.25f), 0.6f);
-      spawnProj(Vector2Rotate(dir, -0.25f), 0.6f);
-    }
-    LOG_INFO("Blade Boomerang fired by entity {}", (uint32_t)owner);
+    spawnProj(dir, 1.0f); if (extra > 0) { spawnProj(Vector2Rotate(dir, 0.25f), 0.6f); spawnProj(Vector2Rotate(dir, -0.25f), 0.6f); }
   }
-
-  static void DoHit(entt::registry &registry, entt::entity attacker,
-                    entt::entity target, Tag hit_tags, bool is_crit) {
-    if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
-      for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          // Talent: Fang Xue (放血) - ID 851
-          if (spec.allocated_points.contains(BladeBoomerangNodes::Bleed) &&
-              spec.allocated_points.at(BladeBoomerangNodes::Bleed) > 0) {
-            auto &effects =
-                registry.get_or_emplace<ActiveEffectsComponent>(target);
-            BuffEffect bleed;
-            bleed.id =
-                std::string(BuffIdToString(BuffId::BladeBoomerangBleed));
-            bleed.name = "Bleed";
-            bleed.type = BuffType::Bleed;
-            bleed.duration = 3.0f;
-            bleed.remaining = 3.0f;
-            bleed.is_debuff = true;
-            bleed.source = attacker;
-
-            // Slow effect (SpeedDown)
-            float slowAmount =
-                10.0f * spec.allocated_points.at(BladeBoomerangNodes::Bleed);
-            bleed.modifiers.push_back({.value = -slowAmount,
-                                       .type = StatType::MoveSpeed,
-                                       .mode = ModifierMode::PercentAdd});
-
-            effects.AddOrRefresh(bleed);
-          }
-
-          // Contract sword-intent key node 852: tear bleeding target to gain intent.
-          if (spec.allocated_points.contains(BladeBoomerangNodes::Tear) &&
-              spec.allocated_points.at(BladeBoomerangNodes::Tear) > 0) {
-            const auto *targetEffects =
-                registry.try_get<ActiveEffectsComponent>(target);
-            bool hasBleed = false;
-            if (targetEffects) {
-              const auto *bleedEffect =
-                  targetEffects->Get(BuffId::BladeBoomerangBleed);
-              if (bleedEffect != nullptr && bleedEffect->remaining > 0.0f) {
-                hasBleed = true;
-              }
-            }
-            if (hasBleed) {
-              SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
-            }
-          }
-          break;
-        }
+  static void DoHit(entt::registry &registry, entt::entity attacker, entt::entity target, Tag, bool) {
+    const auto *p = SkillSystem::GetBakedSkillProfile(registry, attacker, kSkillId);
+    bool bleed = p ? ((p->delivery.feature_flags & 128) != 0) : false, tear = p ? ((p->delivery.feature_flags & 256) != 0) : false;
+    if (!p && registry.all_of<ActiveSkillsComponent>(attacker)) {
+      for (const auto &s : registry.get<ActiveSkillsComponent>(attacker).specialized_slots) {
+        if (s.skill_id == kSkillId) { bleed = s.allocated_points.contains(BladeBoomerangNodes::Bleed); tear = s.allocated_points.contains(BladeBoomerangNodes::Tear); break; }
       }
     }
+    if (bleed) {
+      BuffEffect b{.id = std::string(BuffIdToString(BuffId::BladeBoomerangBleed)), .name = "Bleed", .type = BuffType::Bleed, .duration = 3.0f, .remaining = 3.0f, .is_debuff = true, .source = attacker};
+      b.modifiers.push_back({.value = -10.0f, .type = StatType::MoveSpeed, .mode = ModifierMode::PercentAdd}); registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(b);
+    }
+    if (tear) { if (auto *fx = registry.try_get<ActiveEffectsComponent>(target); fx && fx->Get(BuffId::BladeBoomerangBleed)) SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId); }
   }
 };
-
 REGISTER_SKILL_BEHAVIOR(BladeBoomerang)
-
 void RegisterBladeBoomerang() {}
-
 } // namespace NoMoreDay::skills
