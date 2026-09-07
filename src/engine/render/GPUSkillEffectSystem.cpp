@@ -145,15 +145,15 @@ Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
     return shader;
   }
 
-  unsigned int vsId = rlCompileShader(vertexSrc.c_str(), RL_VERTEX_SHADER);
-  unsigned int fsId = rlCompileShader(fragmentSrc.c_str(), RL_FRAGMENT_SHADER);
+  unsigned int vsId = rlLoadShader(vertexSrc.c_str(), RL_VERTEX_SHADER);
+  unsigned int fsId = rlLoadShader(fragmentSrc.c_str(), RL_FRAGMENT_SHADER);
   if (vsId == 0 || fsId == 0) {
     LOG_ERROR("GPUSkillEffectSystem: shader compile failed for {} / {}",
               vertexPath.string(), fragmentPath.string());
     return shader;
   }
 
-  const unsigned int programId = rlLoadShaderProgram(vsId, fsId);
+  const unsigned int programId = rlLoadShaderProgramEx(vsId, fsId);
   if (programId == 0) {
     LOG_ERROR("GPUSkillEffectSystem: shader link failed for {} / {}",
               vertexPath.string(), fragmentPath.string());

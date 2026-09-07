@@ -408,18 +408,18 @@ Shader ResourceManager::loadComputeShader(entt::id_type id,
   }
 
   // Unified rlgl loading
-  unsigned int shaderId = rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
+  unsigned int shaderId = rlLoadShader(source.c_str(), RL_COMPUTE_SHADER);
   unsigned int programId = 0;
 
   if (shaderId != 0) {
-    programId = rlLoadComputeShaderProgram(shaderId);
+    programId = rlLoadShaderProgramCompute(shaderId);
   }
 
   std::vector<std::string> includeChain;
   uint64_t hash = NoMoreDay::render::debug::ShaderReloadGovernance::Get().ComputeIncludeHash(path, includeChain);
   NoMoreDay::render::debug::ShaderReloadGovernance::Get().RecordReloadAttempt(
       path, (programId != 0), hash, includeChain, "ComputeShader", path,
-      (programId != 0) ? "" : "rlLoadComputeShaderProgram failed");
+      (programId != 0) ? "" : "rlLoadShaderProgramCompute failed");
 
   if (programId == 0) {
     LOG_ERROR(

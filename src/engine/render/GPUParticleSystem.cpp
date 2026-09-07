@@ -93,15 +93,15 @@ Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
     return shader;
   }
 
-  unsigned int vsId = rlCompileShader(vertexSrc.c_str(), RL_VERTEX_SHADER);
-  unsigned int fsId = rlCompileShader(fragmentSrc.c_str(), RL_FRAGMENT_SHADER);
+  unsigned int vsId = rlLoadShader(vertexSrc.c_str(), RL_VERTEX_SHADER);
+  unsigned int fsId = rlLoadShader(fragmentSrc.c_str(), RL_FRAGMENT_SHADER);
   if (vsId == 0 || fsId == 0) {
     LOG_ERROR("GPUParticleSystem: shader compile failed for {} / {}",
               vertexPath.string(), fragmentPath.string());
     return shader;
   }
 
-  const unsigned int programId = rlLoadShaderProgram(vsId, fsId);
+  const unsigned int programId = rlLoadShaderProgramEx(vsId, fsId);
   if (programId == 0) {
     LOG_ERROR("GPUParticleSystem: shader link failed for {} / {}",
               vertexPath.string(), fragmentPath.string());
@@ -126,7 +126,7 @@ unsigned int LoadComputeShaderWithIncludes(const std::filesystem::path &path) {
   if (source.empty()) {
     return 0;
   }
-  return rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
+  return rlLoadShader(source.c_str(), RL_COMPUTE_SHADER);
 }
 
 } // namespace
@@ -331,7 +331,7 @@ bool GPUParticleSystem::LoadShaders() {
   unsigned int compId =
       LoadComputeShaderWithIncludes("assets/shaders/particle.compute");
   if (compId != 0) {
-    m_computeShader.id = rlLoadComputeShaderProgram(compId);
+    m_computeShader.id = rlLoadShaderProgramCompute(compId);
     if (m_computeShader.id != 0) {
       LOG_INFO("GPUParticleSystem: Compute shader loaded (ID: {})",
                m_computeShader.id);
@@ -393,7 +393,7 @@ bool GPUParticleSystem::LoadShaders() {
   const unsigned int emitCompId =
       LoadComputeShaderWithIncludes("assets/shaders/particle_emit.compute");
   if (emitCompId != 0) {
-    m_emitShader.id = rlLoadComputeShaderProgram(emitCompId);
+    m_emitShader.id = rlLoadShaderProgramCompute(emitCompId);
     if (m_emitShader.id != 0) {
       NoMoreDay::utils::GPUUtils::LabelProgram(m_emitShader.id, "particle_emit");
       m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
@@ -406,7 +406,7 @@ bool GPUParticleSystem::LoadShaders() {
   const unsigned int subEmitCompId =
       LoadComputeShaderWithIncludes("assets/shaders/particle_sub_emit.compute");
   if (subEmitCompId != 0) {
-    m_subEmitShader.id = rlLoadComputeShaderProgram(subEmitCompId);
+    m_subEmitShader.id = rlLoadShaderProgramCompute(subEmitCompId);
     if (m_subEmitShader.id != 0) {
       NoMoreDay::utils::GPUUtils::LabelProgram(m_subEmitShader.id,
                                                "particle_sub_emit");
@@ -422,7 +422,7 @@ bool GPUParticleSystem::LoadShaders() {
   const unsigned int finalizeCompId =
       LoadComputeShaderWithIncludes("assets/shaders/particle_finalize.compute");
   if (finalizeCompId != 0) {
-    m_finalizeShader.id = rlLoadComputeShaderProgram(finalizeCompId);
+    m_finalizeShader.id = rlLoadShaderProgramCompute(finalizeCompId);
     if (m_finalizeShader.id != 0) {
       NoMoreDay::utils::GPUUtils::LabelProgram(m_finalizeShader.id,
                                                "particle_finalize");

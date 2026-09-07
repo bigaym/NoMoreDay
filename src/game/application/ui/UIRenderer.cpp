@@ -817,8 +817,9 @@ void UIRenderer::DrawSummonIcon(const Font &font, float x, float y, float width,
 
   if (icon.id > 0) {
     // Draw a subtle radial glow behind the icon
-    DrawCircleGradient((int)(iconX + iconSize/2), (int)(iconY + iconSize/2), iconSize * 0.8f,
-                       ApplyAlpha(SKYBLUE, 0.4f * alpha), ApplyAlpha(SKYBLUE, 0.0f));
+    DrawCircleGradient(Vector2{iconX + iconSize / 2, iconY + iconSize / 2},
+                       iconSize * 0.8f, ApplyAlpha(SKYBLUE, 0.4f * alpha),
+                       ApplyAlpha(SKYBLUE, 0.0f));
 
     DrawTexturePro(
         icon, {0, 0, (float)icon.width, (float)icon.height},
@@ -1168,7 +1169,7 @@ static void DrawTooltipHeader(const Font &font, const char *name, uint32_t iconI
       Rectangle source = {0, 0, (float)icon.width, (float)icon.height};
       Rectangle dest = {x + padding, y + padding, iconSize, iconSize};
       // Icon Background / Glow
-      DrawCircleGradient((int)(dest.x + iconSize / 2), (int)(dest.y + iconSize / 2),
+      DrawCircleGradient(Vector2{dest.x + iconSize / 2, dest.y + iconSize / 2},
                          iconSize * 0.7f, Fade(GOLD, 0.3f * alpha), Fade(GOLD, 0));
       DrawTexturePro(icon, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
       // Icon Border

@@ -301,12 +301,13 @@ Shader GPUUtils::LoadComputeShaderLabeled(const char *path,
   if (source == nullptr) {
     return shader;
   }
-  const unsigned int shaderId = rlCompileShader(source, RL_COMPUTE_SHADER);
+  // raylib 6.0: rlCompileShader 并入 rlLoadShader（注释标明支持 RL_COMPUTE_SHADER）
+  const unsigned int shaderId = rlLoadShader(source, RL_COMPUTE_SHADER);
   MemFree(source);
   if (shaderId == 0) {
     return shader;
   }
-  shader.id = rlLoadComputeShaderProgram(shaderId);
+  shader.id = rlLoadShaderProgramCompute(shaderId);
   if (shader.id != 0) {
     const char *name = label;
     std::string derivedName;

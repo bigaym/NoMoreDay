@@ -82,7 +82,7 @@ uint32_t CompileShaderWithGLFallback(const uint32_t stage, const std::string &so
   int32_t status = 0;
   getShaderIv(shaderId, kGLCompileStatus, &status);
   if (status == 1) {
-    LOG_WARN("GPULootSystem: OpenGL fallback compiled shader '{}' after rlCompileShader "
+    LOG_WARN("GPULootSystem: OpenGL fallback compiled shader '{}' after rlLoadShader "
              "failed",
              label);
     return shaderId;
@@ -210,7 +210,7 @@ Shader LoadShaderFromFilesWithIncludes(const char *vertexPath,
 
   auto compileStage = [](const int stage, const std::string &source,
                          const char *label) -> unsigned int {
-    const unsigned int shaderId = rlCompileShader(source.c_str(), stage);
+    const unsigned int shaderId = rlLoadShader(source.c_str(), stage);
     if (shaderId == 0u) {
       std::istringstream stream(source);
       std::string line;
@@ -243,7 +243,7 @@ Shader LoadShaderFromFilesWithIncludes(const char *vertexPath,
     return {};
   }
 
-  const unsigned int programId = rlLoadShaderProgram(vertexShaderId, fragmentShaderId);
+  const unsigned int programId = rlLoadShaderProgramEx(vertexShaderId, fragmentShaderId);
   if (programId == 0u) {
     LOG_ERROR("GPULootSystem: failed to link render shader pair: {} + {}",
               vertexPath, fragmentPath);
@@ -278,13 +278,13 @@ Shader LoadComputeShaderFromFile(const char *path) {
     return {};
   }
 
-  const unsigned int shaderId = rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
+  const unsigned int shaderId = rlLoadShader(source.c_str(), RL_COMPUTE_SHADER);
   if (shaderId == 0) {
     LOG_ERROR("GPULootSystem: failed to compile compute shader: {}", path);
     return {};
   }
 
-  const unsigned int programId = rlLoadComputeShaderProgram(shaderId);
+  const unsigned int programId = rlLoadShaderProgramCompute(shaderId);
   if (programId == 0) {
     LOG_ERROR("GPULootSystem: failed to link compute shader: {}", path);
     return {};

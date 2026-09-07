@@ -316,8 +316,8 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
     const float innerRingRadius = field.ring_form ? field.radius * 0.72f : field.radius * 0.86f;
 
     const Vector2 center{pos.x, pos.y};
-    DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y),
-                       innerFillRadius, coreColor, Fade(coreColor, 0.0f));
+    // raylib 6.0: DrawCircleGradient 参数改为 (Vector2, float, Color, Color)
+    DrawCircleGradient(center, innerFillRadius, coreColor, Fade(coreColor, 0.0f));
     DrawRing(center, innerRingRadius, field.radius, 0.0f, 360.0f, 64,
              edgeColor);
     DrawRing(center, field.radius, outerPulseRadius, 0.0f, 360.0f, 64,
@@ -335,8 +335,8 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
     const float alpha = std::clamp(delayed.timer / 3.0f, 0.0f, 1.0f);
     Color coreColor = color.color;
     coreColor.a = static_cast<unsigned char>(180 * alpha);
-    DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y),
-                       radius.value, coreColor, Fade(coreColor, 0.0f));
+    // raylib 6.0: DrawCircleGradient 参数改为 (Vector2, float, Color, Color)
+    DrawCircleGradient({pos.x, pos.y}, radius.value, coreColor, Fade(coreColor, 0.0f));
     DrawRing({pos.x, pos.y}, radius.value * 0.8f, radius.value, 0, 360, 16,
              {255, 50, 0, static_cast<unsigned char>(100 * alpha)});
   }
@@ -402,8 +402,7 @@ void GameplayRenderAdapter::ExecuteVFXPass(render::GameplayRenderFrame &frame) {
       DrawRectangleGradientV(static_cast<int>(pos.x - w / 2),
                              static_cast<int>(pos.y - h), static_cast<int>(w),
                              static_cast<int>(h), Fade(WHITE, 0.0f), color);
-      DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y), w,
-                         color, Fade(color, 0.0f));
+      DrawCircleGradient({pos.x, pos.y}, w, color, Fade(color, 0.0f));
       break;
     }
     case VisualEffectType::GoldSparkle:

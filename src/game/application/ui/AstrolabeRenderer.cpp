@@ -251,7 +251,8 @@ void AstrolabeRenderer::DrawProfessionStars(const TalentGraph& graph, const Astr
         }
         
         if (ray) {
-             DrawCircleGradient(star.x, star.y, r * 1.5f, Fade(GOLD, 0.5f * view.alpha), Fade(GOLD, 0.0f));
+             // raylib 6.0: DrawCircleGradient 参数改为 (Vector2, float, Color, Color)
+             DrawCircleGradient({star.x, star.y}, r * 1.5f, Fade(GOLD, 0.5f * view.alpha), Fade(GOLD, 0.0f));
         }
         
         DrawCircle(star.x, star.y, r, Fade(color, view.alpha));

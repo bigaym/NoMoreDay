@@ -209,11 +209,11 @@ void MainMenuState::DrawButton(const Button &btn, bool enabled) {
   // Use multiple overlapping circles to approximate an ellipse for better coverage
   // 使用多个重叠圆来模拟椭圆阴影，确保完全覆盖按钮区域
   for (float offset : {-60.0f, 0.0f, 60.0f}) {
-      DrawCircleGradient((int)(center.x + offset), (int)center.y, btn.bounds.height * 1.2f, Fade(BLACK, shadowAlpha * 0.6f), Fade(BLACK, 0.0f));
+      DrawCircleGradient(Vector2{center.x + offset, center.y}, btn.bounds.height * 1.2f, Fade(BLACK, shadowAlpha * 0.6f), Fade(BLACK, 0.0f));
   }
-  
+
   // Central core shadow
-  DrawCircleGradient((int)center.x, (int)center.y, btn.bounds.width * 0.6f, Fade(BLACK, shadowAlpha), Fade(BLACK, 0.0f));
+  DrawCircleGradient(center, btn.bounds.width * 0.6f, Fade(BLACK, shadowAlpha), Fade(BLACK, 0.0f));
 
   // Use a slightly darker tint for the button texture to make the light text pop
   Color tint = enabled ? Color{160, 160, 160, 255} : GRAY;

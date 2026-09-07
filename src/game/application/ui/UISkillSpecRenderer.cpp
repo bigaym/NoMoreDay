@@ -289,11 +289,11 @@ void UISkillSpecRenderer::DrawBackground(const SkillTreeDefinition* tree,
     const Vector2 treeCenter = {view.center.x + view.offset.x,
                                 view.center.y + view.offset.y};
 
-    DrawCircleGradient(static_cast<int>(treeCenter.x), static_cast<int>(treeCenter.y),
-                       520.0f * view.zoom,
+    DrawCircleGradient(treeCenter, 520.0f * view.zoom,
                        Fade(theme.secondary, 0.10f * view.alpha),
                        Fade(BLANK, 0.0f));
-    DrawCircleGradient(GetScreenWidth() / 2, GetScreenHeight() / 2,
+    DrawCircleGradient(Vector2{static_cast<float>(GetScreenWidth()) / 2,
+                               static_cast<float>(GetScreenHeight()) / 2},
                        static_cast<float>(std::max(GetScreenWidth(), GetScreenHeight())),
                        Fade(BLANK, 0.0f), Fade(BLACK, 0.72f * view.alpha));
 

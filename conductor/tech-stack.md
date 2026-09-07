@@ -23,7 +23,7 @@ Sources under `third_party/` (git-ignored, replaced in place). Updated 2026-09-0
 | Library | Version | Source Layout |
 | --- | --- | --- |
 | EnTT | 3.13.0 | vendored full repo (`add_subdirectory`) |
-| raylib | 5.5 | vendored full repo (`add_subdirectory`) |
+| raylib | 6.0 | vendored full repo (`add_subdirectory`) |
 | spdlog | 1.17.0 | vendored full repo (`add_subdirectory`, SHARED) |
 | Taskflow | 4.1.0 | vendored full repo (`add_subdirectory`) |
 | xsimd | 14.3.0 | git checkout (`add_subdirectory`) |
