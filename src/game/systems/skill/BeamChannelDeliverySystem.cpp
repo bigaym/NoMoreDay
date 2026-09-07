@@ -103,7 +103,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
             DamagePayloadContext ctx{};
             ctx.base_damage_min = stats->min_weapon_damage;
             ctx.base_damage_max = stats->max_weapon_damage;
-            ctx.crit_chance = stats->crit_chance;
+            ctx.crit_chance = stats->crit_chance / 100.0f; // payload crit_chance 须归一化 [0,1]
             ctx.crit_multiplier = stats->crit_damage;
             ctx.increased_damage = 0.0f;
             ctx.more_damage = 0.35f * beam.bonus_damage_mult;
@@ -417,7 +417,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
             DamagePayloadContext ctx{};
             ctx.base_damage_min = stats->min_weapon_damage;
             ctx.base_damage_max = stats->max_weapon_damage;
-            ctx.crit_chance = stats->crit_chance + (chan.bonus_crit_chance / 100.0f);
+            ctx.crit_chance = (stats->crit_chance + chan.bonus_crit_chance) / 100.0f; // payload crit_chance 归一化（统一单位）
             ctx.crit_multiplier = stats->crit_damage;
             ctx.increased_damage = 0.0f;
             ctx.more_damage = 0.35f * chan.bonus_damage_mult;
@@ -570,7 +570,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
           DamagePayloadContext ctx{};
           ctx.base_damage_min = stats->min_weapon_damage;
           ctx.base_damage_max = stats->max_weapon_damage;
-          ctx.crit_chance = stats->crit_chance + (chan.bonus_crit_chance / 100.0f);
+          ctx.crit_chance = (stats->crit_chance + chan.bonus_crit_chance) / 100.0f; // payload crit_chance 归一化（统一单位）
           ctx.crit_multiplier = stats->crit_damage;
           ctx.increased_damage = 0.0f;
           ctx.more_damage = chan.bonus_damage_mult;

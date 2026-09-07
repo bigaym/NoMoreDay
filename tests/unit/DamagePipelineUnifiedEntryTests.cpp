@@ -1,4 +1,5 @@
 #include "TestCommon.hpp"
+#include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
@@ -335,6 +336,67 @@ TEST_CASE("[Unit] DamagePipelineUnifiedEntry - Normalized Crit Chance Boundaries
   const auto resFullCrit = DamagePipeline::Calculate(registry, reqFullCrit);
   CHECK(resFullCrit.is_crit);
   CHECK(resFullCrit.total_damage == doctest::Approx(130.0f * 2.0f));
+}
+
+TEST_CASE("[Unit] DamagePipeline - BuffEffect source_skill_id filters Flat resist debuff (SkillOnly)") {
+  TestSetupScope scope;
+  entt::registry registry;
+
+  const auto attacker = registry.create();
+  auto &attackerStats = registry.emplace<CombatStats>(attacker);
+  attackerStats.damage_multipliers[(int)DamageType::Fire] = 1.0f;
+  attackerStats.armor_pen = 0.0f;
+  attackerStats.crit_chance = 0.0f;
+  attackerStats.crit_damage = 0.0f;
+
+  const auto defender = registry.create();
+  auto &defenderStats = registry.emplace<CombatStats>(defender);
+  // resistances 为 AttributePipeline 烘焙后的全局基础值：不含 debuff 修饰符
+  // (AttributePipeline 不聚合 ActiveEffects)，此处以基础抗性 0.35 为起点，
+  // 减抗 debuff 由 DamagePipeline 聚合生效。
+  defenderStats.resistances[(int)DamageType::Fire] = 0.35f;
+  defenderStats.damage_reduction = 0.0f;
+  defenderStats.cached_area_level = 1;
+
+  // 使用不在 skills.json 中的假 skill_id，避免技能自带基础伤害干扰伤害数值
+  constexpr uint32_t kSrcSkill = 990001; // 减抗来源技能
+  constexpr uint32_t kOtherSkill = 990002; // 其他技能
+
+  // 给 defender 施加带来源技能归属(kSrcSkill)的火焰减抗 debuff: -12% 抗性
+  auto &effects = registry.emplace<ActiveEffectsComponent>(defender);
+  BuffEffect erosion;
+  erosion.id = "ElementalErosionFire";
+  erosion.name = "Elemental Erosion";
+  erosion.is_debuff = true;
+  erosion.source_skill_id = static_cast<int>(kSrcSkill);
+  erosion.modifiers.push_back({.value = -12.0f,
+                               .type = StatType::ResistFire,
+                               .mode = ModifierMode::Flat});
+  effects.effects.push_back(erosion);
+
+  auto calc_damage = [&](uint32_t skill_id) {
+    DamageRequest req;
+    req.attacker = attacker;
+    req.defender = defender;
+    req.skill_id = skill_id;
+    req.base_pool.Add(Tag::Fire, 100.0f);
+    req.additional_tags = Tag::None;
+    req.is_simulation = true;
+    return DamagePipeline::Calculate(registry, req).total_damage;
+  };
+
+  // 来源技能：debuff 减抗聚合生效，抗性 0.35 - 0.12 = 0.23
+  const float dmgSrc = calc_damage(kSrcSkill);
+  CHECK(dmgSrc == doctest::Approx(100.0f * (1.0f - 0.23f)).epsilon(0.0001f));
+
+  // 其他技能：SkillOnly 归属过滤跳过该减抗，抗性保持基础值 0.35
+  const float dmgOther = calc_damage(kOtherSkill);
+  CHECK(dmgOther == doctest::Approx(100.0f * (1.0f - 0.35f)).epsilon(0.0001f));
+
+  // 无归属(source_skill_id=0)的减抗对全体伤害生效：替换 debuff 后两技能都吃到减抗
+  effects.effects[0].source_skill_id = 0;
+  CHECK(calc_damage(kSrcSkill) == doctest::Approx(100.0f * (1.0f - 0.23f)).epsilon(0.0001f));
+  CHECK(calc_damage(kOtherSkill) == doctest::Approx(100.0f * (1.0f - 0.23f)).epsilon(0.0001f));
 }
 
 } // namespace NoMoreDay

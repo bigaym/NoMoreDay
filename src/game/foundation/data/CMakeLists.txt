@@ -13,6 +13,7 @@ add_library(NoMoreDayGameData STATIC
     MonsterAffixRegistry.cpp
     ResonanceCalculator.cpp
     SkillRegistry.cpp
+    SkillMechanicsRegistry.cpp
     TalentLayoutService.cpp
     TalentLoader.cpp
 )

@@ -2,10 +2,12 @@
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/foundation/components/AdvancedAffixComponents.hpp" // InvulnerableComponent, SuppressorComponent
 #include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/CombatAntiMeta.hpp"
@@ -884,6 +886,25 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       if (request.payload_context.has_value()) {
         final_more *= request.payload_context->more_damage;
       }
+
+      // 172 凛风: 流云刺命中冻结目标 +50% More (数值读 skill_mechanics.json)。
+      // 放在 per-instance more 乘区，与 payload/节点 more 叠乘；
+      // DoT(碎裂溅射等) 排除在外，避免被冻结增伤二次放大。
+      if (skill_id == 1 && !HasTag(inst.tags, Tag::DamageOverTime) && registry.valid(defender)) {
+        if (auto *fx = registry.try_get<ActiveEffectsComponent>(defender)) {
+          bool isFrozen = false;
+          for (const auto &b : fx->effects) {
+            if (b.type == BuffType::Freeze) {
+              isFrozen = true;
+              break;
+            }
+          }
+          if (isFrozen) {
+            final_more *= data::SkillMechanicsRegistry::Get().GetFloat(
+                1, 172, "frozen_more_mult", 1.50f);
+          }
+        }
+      }
       struct MoreBucket {
         Tag source_tag = Tag::None;
         float actual = 0.0f;
@@ -1000,57 +1021,62 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     if (!thorns_like_damage && HasTag(inst.tags, Tag::Hit) &&
         !HasTag(inst.tags, Tag::DamageOverTime)) {
       bool is_crit = HasTag(additional_tags, Tag::Critical);
+      float extra_crit_mult = 0.0f;
+
+      // Talent: Weak Point (ID 150) - 对高生命值(>80%)或受控敌人的暴击倍率增加 15%...60%
+      if (skill_id == 1) {
+        if (auto *active =
+                registry.try_get<ActiveSkillsComponent>(attacker)) {
+          for (const auto &spec : active->specialized_slots) {
+            if (spec.skill_id == 1) {
+              if (spec.allocated_points.contains(150) &&
+                  spec.allocated_points.at(150) > 0) {
+                int wpPoints = spec.allocated_points.at(150);
+                bool isHighHealth = false;
+                if (auto *hp = registry.try_get<HealthComponent>(defender)) {
+                  isHighHealth = (hp->max > 0.0f) && (hp->current / hp->max > 0.80f);
+                } else if (auto *defStats =
+                               registry.try_get<CombatStats>(defender)) {
+                  isHighHealth = (defStats->max_health > 0.0f) &&
+                      (defStats->health / defStats->max_health > 0.80f);
+                }
+
+                bool isControlled = false;
+                if (auto *effects =
+                        registry.try_get<ActiveEffectsComponent>(defender)) {
+                  for (const auto &effect : effects->effects) {
+                    if (effect.type == BuffType::Stun ||
+                        effect.type == BuffType::Freeze ||
+                        effect.type == BuffType::Root ||
+                        effect.type == BuffType::SpeedDown ||
+                        effect.id.find("Slow") != std::string::npos) {
+                      isControlled = true;
+                      break;
+                    }
+                  }
+                }
+
+                if (isHighHealth || isControlled) {
+                  extra_crit_mult = 0.15f * static_cast<float>(wpPoints);
+                }
+              }
+              break;
+            }
+          }
+        }
+      }
 
       // Dynamic Crit Check if not already marked as critical
       if (!is_crit && (attacker_stats || request.payload_context.has_value())) {
         float crit_chance = 0.0f;
         if (request.payload_context.has_value()) {
           // payload_context->crit_chance 严格约定为归一化小数 [0.0, 1.0] (1.0f = 100%)
+          // 填充方必须把百分数原值 /100.0f 后再写入，禁止传未归一化的百分比
           crit_chance = request.payload_context->crit_chance * 100.0f;
         } else if (attacker_stats) {
           crit_chance = StatsSystem::GetStatWithTags(
               registry, attacker, StatType::CritChance, inst.tags, skill_id,
               source_entity);
-        }
-
-        // Talent: Vital Sense (ID 150)
-        if (skill_id == 1) {
-          if (auto *active =
-                  registry.try_get<ActiveSkillsComponent>(attacker)) {
-            for (const auto &spec : active->specialized_slots) {
-              if (spec.skill_id == 1) {
-                if (spec.allocated_points.contains(150) &&
-                    spec.allocated_points.at(150) > 0) {
-                  bool isFullHealth = false;
-                  if (auto *hp = registry.try_get<HealthComponent>(defender)) {
-                    isFullHealth = hp->current >= hp->max * 0.99f;
-                  } else if (auto *defStats =
-                                 registry.try_get<CombatStats>(defender)) {
-                    isFullHealth =
-                        defStats->health >= defStats->max_health * 0.99f;
-                  }
-
-                  bool isControlled = false;
-                  if (auto *effects =
-                          registry.try_get<ActiveEffectsComponent>(defender)) {
-                    for (const auto &effect : effects->effects) {
-                      if (effect.type == BuffType::Stun ||
-                          effect.type == BuffType::Freeze ||
-                          effect.type == BuffType::Root) {
-                        isControlled = true;
-                        break;
-                      }
-                    }
-                  }
-
-                  if (isFullHealth || isControlled) {
-                    crit_chance = std::min(100.0f, crit_chance * 2.0f);
-                  }
-                }
-                break;
-              }
-            }
-          }
         }
 
         if (is_simulation) {
@@ -1062,6 +1088,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
           if (request.payload_context.has_value() && request.payload_context->crit_multiplier > 0.0f) {
             dmg_mult = request.payload_context->crit_multiplier;
           }
+          dmg_mult += extra_crit_mult;
           // Expected = 1 * (1-P) + Mult * P = 1 + P * (Mult - 1)
           crit_mult = 1.0f + chance * (dmg_mult - 1.0f);
           if (chance >= 1.0f) {
@@ -1082,6 +1109,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         if (request.payload_context.has_value() && request.payload_context->crit_multiplier > 0.0f) {
           dmg_mult = request.payload_context->crit_multiplier;
         }
+        dmg_mult += extra_crit_mult;
         crit_mult = dmg_mult;
         result.is_crit = true;
       }
@@ -1210,10 +1238,24 @@ DamageExecutionResult DamagePipeline::Execute(entt::registry &registry,
   execution.barrier_absorbed = apply_result.barrier_absorbed;
   execution.was_prevented = apply_result.was_prevented;
 
+  // 173 碎裂基数: 记录该目标最近受到的暴击伤害 (流云刺碎裂溅射读取)
+  if (execution.damage.is_crit && registry.valid(request.defender)) {
+    auto &lc = registry.get_or_emplace<LastCritDamageComponent>(request.defender);
+    lc.amount = execution.final_applied_damage;
+    lc.source = request.attacker;
+  }
+
   if (request.dispatch_damage_events) {
     const auto *skill_data = SkillRegistry::Get().GetSkill(request.skill_id);
-    const Tag combined_hit_tags =
+    Tag combined_hit_tags =
         (skill_data ? skill_data->tags : Tag::None) | request.additional_tags;
+    // 事件标签需与 Calculate 的伤害标签一致：并入 payload 的元素 tags，
+    // 否则元素转换（170/172）只影响伤害数值，DoHit 拿不到元素、异常不触发
+    if (request.payload_context.has_value() &&
+        request.payload_context->effective_tags != Tag::None) {
+      combined_hit_tags =
+          combined_hit_tags | request.payload_context->effective_tags;
+    }
     const SummonAttributionTuple summon_attribution = ResolveSummonAttribution(
         registry, request.attacker, request.source_entity, request.skill_id);
 
@@ -1289,6 +1331,18 @@ void DamagePipeline::CalculateBatch(
   };
   std::vector<BatchResult> results(defenders.size());
 
+  // 减抗来源过滤 (SkillOnly scope)：ElementalErosion 等带来源技能归属 (source_skill_id!=0)
+  // 的 Flat 减抗 debuff 仅对该技能的伤害生效。抗性烘焙值 (CombatStats.resistances[]) 不含
+  // debuff 修饰符，此处聚合对当前伤害生效的 debuff 减抗并参与结算：
+  //   - source_skill_id == 0 的减抗对全体伤害生效（含 skill_id == 0 的无归属伤害）；
+  //   - source_skill_id != 0 的减抗仅当 == 当前 skill_id 时生效，否则跳过。
+  // 实现复用 DamageMitigationService::ApplySkillScopedResistEffects，与单实体路径 (Apply) 保持一致。
+  auto debuff_resist_aggregate = [&](entt::entity defender,
+                                     DamageType type) -> float {
+    return DamageMitigationService::ApplySkillScopedResistEffects(
+        registry, defender, skill_id, type);
+  };
+
   auto process_range = [&](size_t start, size_t end) {
     using batch_type = xsimd::batch<float>;
     size_t inc = batch_type::size;
@@ -1339,7 +1393,9 @@ void DamagePipeline::CalculateBatch(
           for (size_t k = 0; k < inc; ++k) {
             auto *ds = registry.try_get<CombatStats>(defenders[i + k]);
             res_batch_data[k] =
-                (ds ? ds->resistances[j] : 0.0f) + endgame_res_delta_data[k];
+                (ds ? ds->resistances[j] : 0.0f) + endgame_res_delta_data[k] +
+                debuff_resist_aggregate(defenders[i + k],
+                                        static_cast<DamageType>(j));
             armor_batch_data[k] =
                 (j == 0 && ds) ? (ds->armor + endgame_armor_delta_data[k]) : 0.0f;
             level_batch_data[k] = (j == 0 && ds) ? (float)ds->cached_area_level
@@ -1447,6 +1503,8 @@ void DamagePipeline::CalculateBatch(
             if (amt <= 0.0f)
               continue;
             float res = def_stats ? def_stats->resistances[j] : 0.0f;
+            res += debuff_resist_aggregate(defender,
+                                           static_cast<DamageType>(j));
             res += endgameResDelta;
             res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
             float after_res = amt * (1.0f - res);
@@ -1624,6 +1682,11 @@ void DamagePipeline::CalculateBatch(
       CombatEventDispatcher::Dispatch(registry, takeEvent);
 
       if (res.is_crit) {
+        // 173 碎裂基数: 记录该目标最近受到的暴击伤害 (流云刺碎裂溅射读取)
+        auto &lc = registry.get_or_emplace<LastCritDamageComponent>(res.target);
+        lc.amount = final_applied_damage;
+        lc.source = event_attacker.attacker;
+
         CombatEvent critEvent = CombatEventFactory::CreateOnCrit(
             event_attacker.attacker, res.target, skill_id, combined_tags,
             final_damage);

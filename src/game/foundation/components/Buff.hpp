@@ -83,6 +83,11 @@ struct BuffEffect {
     
     // Optional: Source entity ID for attribution
     entt::entity source = entt::null;
+
+    // 来源技能归属 (SkillOnly scope 过滤依据):
+    // 0 = 无归属，减抗/增益对全体伤害生效；非 0 = 仅该技能的伤害受益。
+    // 由施加方写入，DamagePipeline 在读取抗性时按当前伤害请求的 skill_id 过滤。
+    int source_skill_id = 0;
 };
 
 // Custom serialization for BuffEffect to handle entity
@@ -94,7 +99,8 @@ inline void to_json(nlohmann::json& j, const BuffEffect& b) {
         {"modifiers", b.modifiers},
         {"managed_ailment", b.managed_ailment},
         {"ailment_type", b.ailment_type},
-        {"ailment_power", b.ailment_power}
+        {"ailment_power", b.ailment_power},
+        {"source_skill_id", b.source_skill_id}
     };
     // source entity is not serialized here as it's runtime transient usually, 
     // or requires UUID mapping which complexifies simple struct serialization.
@@ -118,6 +124,8 @@ inline void from_json(const nlohmann::json& j, BuffEffect& b) {
     if (j.contains("managed_ailment")) j.at("managed_ailment").get_to(b.managed_ailment);
     if (j.contains("ailment_type")) b.ailment_type = j.at("ailment_type").get<uint8_t>();
     if (j.contains("ailment_power")) j.at("ailment_power").get_to(b.ailment_power);
+    // 可选字段：旧存档无此字段时默认 source_skill_id=0（无归属，保持旧"全局生效"语义）
+    if (j.contains("source_skill_id")) j.at("source_skill_id").get_to(b.source_skill_id);
     b.source = entt::null;
 }
 
@@ -136,6 +144,8 @@ struct ActiveEffectsComponent {
                 effect.name = new_effect.name;
                 effect.description = new_effect.description;
                 effect.modifiers = new_effect.modifiers;
+                // 刷新时更新来源技能归属：同 id 效果通常由同一技能重施，取最新归属
+                effect.source_skill_id = new_effect.source_skill_id;
                 
                 // Handle Stacking
                 if (effect.stacks < effect.max_stacks) {

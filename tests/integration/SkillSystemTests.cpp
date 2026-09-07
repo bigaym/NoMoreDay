@@ -496,7 +496,8 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
                     player, target, 1, Tag::Melee | Tag::Physical | Tag::Hit,
                     false));
   CHECK(registry.get<BladeResourceComponent>(player).current >= 2);
-  CHECK(active.slots[1].cooldown == doctest::Approx(2.25f));
+  // 负向断言：旧私有特例"命中削减技能 2 CD 0.75s"已删除，命中后技能 2 CD 保持不变
+  CHECK(active.slots[1].cooldown == doctest::Approx(3.0f));
 
   SkillExecution rendingExec;
   rendingExec.skill_id = 2;
@@ -761,7 +762,7 @@ TEST_CASE("[Integration] SkillSpecialization - Runtime state cleanup on reset/cl
 
   SUBCASE("ResetTalents clears target skill runtime state only") {
     active.specialized_slots[0].skill_id = 1;
-    active.specialized_slots[0].allocated_points[114] = 1;
+    active.specialized_slots[0].allocated_points[134] = 1;
     active.specialized_slots[0].allocated_points[170] = 1;
     active.specialized_slots[1].skill_id = 2;
     active.specialized_slots[1].allocated_points[233] = 1;
@@ -769,20 +770,20 @@ TEST_CASE("[Integration] SkillSpecialization - Runtime state cleanup on reset/cl
     auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
     runtime.active_transmuter_node_by_skill[1] = 170;
     runtime.active_transmuter_node_by_skill[2] = 270;
-    runtime.trigger_cooldowns[114] = 1.5f;
+    runtime.trigger_cooldowns[134] = 1.5f;
     runtime.trigger_cooldowns[233] = 2.0f;
 
     CHECK(SkillSystem::ResetTalents(registry, player, 1));
     CHECK(active.available_talent_points == 2);
     CHECK_FALSE(runtime.active_transmuter_node_by_skill.contains(1));
     CHECK(runtime.active_transmuter_node_by_skill.contains(2));
-    CHECK_FALSE(runtime.trigger_cooldowns.contains(114));
+    CHECK_FALSE(runtime.trigger_cooldowns.contains(134));
     CHECK(runtime.trigger_cooldowns.contains(233));
   }
 
   SUBCASE("ClearAllTalents clears all specialization runtime state") {
     active.specialized_slots[0].skill_id = 1;
-    active.specialized_slots[0].allocated_points[114] = 1;
+    active.specialized_slots[0].allocated_points[134] = 1;
     active.specialized_slots[1].skill_id = 8;
     active.specialized_slots[1].allocated_points[870] = 1;
     active.specialized_slots[1].allocated_points[871] = 1;
@@ -790,7 +791,7 @@ TEST_CASE("[Integration] SkillSpecialization - Runtime state cleanup on reset/cl
     auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
     runtime.active_transmuter_node_by_skill[1] = 170;
     runtime.active_transmuter_node_by_skill[8] = 870;
-    runtime.trigger_cooldowns[114] = 1.0f;
+    runtime.trigger_cooldowns[134] = 1.0f;
     runtime.trigger_cooldowns[831] = 2.0f;
 
     CHECK(SkillSystem::ClearAllTalents(registry, player));

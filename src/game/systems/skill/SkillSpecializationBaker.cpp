@@ -43,6 +43,7 @@ void SkillSpecializationBaker::Bake(
     out_profile.proc_coefficient = 1.0f;
   }
   out_profile.more_damage_mult = 1.0f;
+  out_profile.effective_charges = skillData->max_charges;
   out_profile.injected_count = 0;
 
   // 默认交付模式推导
@@ -178,25 +179,72 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
   switch (skill_id) {
   case 1: // 流云刺
     if (node_id == 100) {
-      // 迅捷之刃：设计草案原标注为「攻速」，既有代码实装为流云刺突进移动速度（del.speed，基底 400，每点 +40/10%）
-      del.speed += 40.0f * static_cast<float>(points);
+      // 迅捷之刃：攻速加成通过 stat_modifiers (t17 AttackSpeed) 由 StatsSystem 交付
     } else if (node_id == 101) {
-      out_profile.more_damage_mult *= (1.0f + 0.05f * static_cast<float>(points));
+      // 气聚：降低法力消耗 15%...45% (max 3)
       out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - 0.15f * static_cast<float>(points));
+    } else if (node_id == 102) {
+      // 剑心洞明：基础暴击率增加 2%...10% (max 5)
+      del.bonus_crit += 2.0f * static_cast<float>(points);
     } else if (node_id == 103) {
+      // 流云劲：伤害提升 10%...40% (max 4)
       out_profile.more_damage_mult *= (1.0f + 0.10f * static_cast<float>(points));
     } else if (node_id == 110) {
-      del.feature_flags |= 1; // 贯穿/无限穿透
+      // 贯日：冷却时间减少 1s，伤害降低 15% (max 1)
       out_profile.effective_cooldown = std::max(0.0f, out_profile.effective_cooldown - 1.0f * static_cast<float>(points));
       out_profile.more_damage_mult *= std::max(0.0f, 1.0f - 0.15f * static_cast<float>(points));
+    } else if (node_id == 111) {
+      // 连环：最大充能 +1/+2，充能时间 +15% (max 2)
+      out_profile.effective_charges += points;
+      out_profile.effective_cooldown *= (1.0f + 0.15f * static_cast<float>(points));
     } else if (node_id == 112) {
-      del.speed += 30.0f * static_cast<float>(points);
+      // 势如破竹：位移距离增加 10%...40%，每多移动 10 码 More +2% (max 4)
+      // 仅标记分配（feature_flags 位 256），实际效果在运行时按真实位移结算：
+      //   - 133 传送距离 ×(1 + 10%×点数)（FlowingThrust::DoCast Swap 分支）；
+      //   - 命中伤害 More ×(1 + 2%×floor(实际位移/10))（下游命中结算按实际距离）。
+      // 不再在烘焙期无条件修改 more_damage_mult / speed。
+      del.feature_flags |= 256;
     } else if (node_id == 113) {
-      del.feature_flags |= 4; // 剑步迅捷
+      // 风行者：疾风状态 (2s) 移速 +40%，无视体积碰撞，激活御剑步 (max 1)
+      del.feature_flags |= 4; // 疾风 / 御剑步
+    } else if (node_id == 114) {
+      // 御风而行：处于御剑步期间近战暴击 +8%...24% (条件生效, 运行时检查剑步状态)
+      out_profile.riding_wind_bonus_crit += 8.0f * static_cast<float>(points);
+    } else if (node_id == 115) {
+      // 无止境：击杀几率回复 1 充能 (max 3)
+      del.feature_flags |= 16;
     } else if (node_id == 130) {
-      del.sub_count = 1; // 留影残影
+      // 留影：施放时在起点留下残影 (max 1)
+      del.sub_count = 1;
       del.feature_flags |= 2;
-    } else if (node_id == 170 || node_id == 171) {
+    } else if (node_id == 131) {
+      // 影域：范围提升通过 stat_modifiers (t32 AreaScale) 交付
+    } else if (node_id == 132) {
+      // 影之突袭：残影同步流云刺 (max 1)
+      del.feature_flags |= 32;
+    } else if (node_id == 133) {
+      // 移形换位：流云刺变传送，起终点范围爆炸 (max 1)
+      del.feature_flags |= 8;
+      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Movement) | Tag::Teleport;
+    } else if (node_id == 134) {
+      // 瞬狱影爆：传送爆炸伤害 +25%...75%，半径 +20%...60% (max 3)
+      out_profile.more_damage_mult *= (1.0f + 0.25f * static_cast<float>(points));
+      out_profile.area_radius *= (1.0f + 0.20f * static_cast<float>(points));
+    } else if (node_id == 150) {
+      // 要害感知：对高生命值或受控敌人暴击倍率提升 (max 4)
+      del.feature_flags |= 64;
+    } else if (node_id == 154) {
+      // 孤注一掷：移除充能，CD 增至 8s，法力消耗翻倍，必暴，More +100% (max 1)
+      out_profile.effective_charges = 1;
+      out_profile.effective_cooldown = 8.0f;
+      out_profile.effective_mana_cost *= 2.0f;
+      out_profile.more_damage_mult *= 2.0f;
+      del.bonus_crit += 100.0f;
+    } else if (node_id == 155) {
+      // 斩断因果：强化版击杀几率重置 CD 并回剑意 (max 3)
+      del.feature_flags |= 128;
+    } else if (node_id == 170 || node_id == 172) {
+      // 劫火 (170) / 凛风 (172)：元素转质
       auto conv = skills::ResolveElementalConversion(node_id, points);
       if (conv.IsActive()) {
         out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;

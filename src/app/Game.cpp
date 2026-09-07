@@ -21,6 +21,7 @@
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/foundation/data/BiomeRegistry.hpp"
 #include "game/foundation/data/BuffRegistry.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/foundation/registry/GroupRegistry.hpp"
 #include "game/application/states/GameplayState.hpp"
@@ -255,6 +256,7 @@ void Game::init() {
   NoMoreDay::MaterialRegistry::Get().LoadMaterials(
       "assets/data/materials.json");
   NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  NoMoreDay::data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json");
   NoMoreDay::data::BladeMasteryRegistry::Get().Load();
   NoMoreDay::SkillSystem::InitHooks();
   NoMoreDay::BuffRegistry::Initialize();

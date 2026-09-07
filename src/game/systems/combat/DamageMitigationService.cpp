@@ -1,4 +1,5 @@
 #include "game/systems/combat/DamageMitigationService.hpp"
+#include "game/foundation/components/Buff.hpp" // ActiveEffectsComponent (减抗来源过滤)
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
@@ -14,6 +15,36 @@ float ClampMoreToMultiplier(float more) {
 }
 
 } // namespace
+
+float DamageMitigationService::ApplySkillScopedResistEffects(
+    entt::registry &registry, entt::entity defender, uint32_t skill_id,
+    DamageType type) {
+  float aggregate = 0.0f;
+  if (const auto *eff = registry.try_get<ActiveEffectsComponent>(defender)) {
+    for (const auto &b : eff->effects) {
+      // 来源技能归属过滤 (SkillOnly scope)：
+      //   - source_skill_id == 0 的减抗对全体伤害生效（含 skill_id == 0 的无归属伤害）；
+      //   - source_skill_id != 0 的减抗仅当 == 当前 skill_id 时生效，否则跳过。
+      if (b.source_skill_id != 0 &&
+          b.source_skill_id != static_cast<int>(skill_id))
+        continue;
+      for (const auto &m : b.modifiers) {
+        if (m.mode != ModifierMode::Flat)
+          continue;
+        const bool isFire =
+            (m.type == StatType::ResistFire && type == DamageType::Fire);
+        const bool isCold =
+            (m.type == StatType::ResistCold && type == DamageType::Cold);
+        // 聚合语义：debuff 修饰符真正参与结算。resistances[] 以小数存储，
+        // 而 StatType 修饰符以百分比点计 (AttributePipeline 除以 100)，故 /100。
+        // m.value 为负(减抗)，累加后使抗性下降。
+        if (isFire || isCold)
+          aggregate += m.value / 100.0f;
+      }
+    }
+  }
+  return aggregate;
+}
 
 float DamageMitigationService::Apply(
     entt::registry &registry, entt::entity attacker, entt::entity defender,
@@ -37,6 +68,9 @@ float DamageMitigationService::Apply(
   float res = 0.0f;
   if (type_idx < ELEMENTAL_TYPE_COUNT) {
     res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
+    // 减抗来源过滤 (SkillOnly scope)：聚合当前伤害生效的 debuff 减抗并参与结算
+    res += ApplySkillScopedResistEffects(
+        registry, defender, skill_id, static_cast<DamageType>(type_idx));
     res += endgame.incoming_resistance_bonus;
     res -= endgame.outgoing_resistance_reduction;
     res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);

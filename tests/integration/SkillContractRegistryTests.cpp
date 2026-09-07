@@ -30,7 +30,7 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
   registry.LoadFromJson("assets/data/skills.json");
 
   SUBCASE("Skill 1 trigger contract") {
-    const auto *node = registry.GetNodeContract(1, 114);
+    const auto *node = registry.GetNodeContract(1, 134);
     REQUIRE(node != nullptr);
     CHECK(node->role == SpecNodeRole::Trigger);
     CHECK(node->trigger.trigger_skill_id == 2);
@@ -202,7 +202,7 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
   registry.LoadFromJson("assets/data/skills.json");
 
   const std::array<uint32_t, 9> expected_trigger_nodes = {
-      114, 233, 373, 451, 533, 633, 713, 831, 951};
+      134, 233, 373, 451, 533, 633, 713, 831, 951};
 
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     CAPTURE(skill_id);

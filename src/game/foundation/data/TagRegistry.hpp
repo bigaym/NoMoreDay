@@ -29,6 +29,7 @@ enum class Tag : uint64_t {
     Attack = 1ULL << 20,
     Movement = 1ULL << 21,
     SwordSkill = 1ULL << 22,
+    Teleport = 1ULL << 23,
 
     // --- Mechanism Tags (32-47) ---
     Hit = 1ULL << 32,
@@ -70,7 +71,7 @@ struct TagInfo {
     std::string_view id;
 };
 
-static constexpr std::array<TagInfo, 28> kTagInfoTable = {{
+static constexpr std::array<TagInfo, 29> kTagInfoTable = {{
     {Tag::Physical, "Physical"},
     {Tag::Fire, "Fire"},
     {Tag::Cold, "Cold"},
@@ -85,6 +86,7 @@ static constexpr std::array<TagInfo, 28> kTagInfoTable = {{
     {Tag::Attack, "Attack"},
     {Tag::Movement, "Movement"},
     {Tag::SwordSkill, "SwordSkill"},
+    {Tag::Teleport, "Teleport"},
     {Tag::Hit, "Hit"},
     {Tag::Critical, "Critical"},
     {Tag::DamageOverTime, "DamageOverTime"},
@@ -107,7 +109,7 @@ constexpr bool HasTag(Tag mask, Tag tag) {
 }
 
 // Helper to get string name of a SINGLE tag
-// Single source of truth: kTagInfoTable above. Linear scan over 28 entries,
+// Single source of truth: kTagInfoTable above. Linear scan over 29 entries,
 // compile-time evaluable.
 constexpr std::string_view GetTagName(Tag tag) {
     for (const auto &entry : kTagInfoTable) {
@@ -117,9 +119,10 @@ constexpr std::string_view GetTagName(Tag tag) {
 }
 
 // Helper to get Tag from string name
-// Single source of truth: kTagInfoTable above. Linear scan over 28 entries,
+// Single source of truth: kTagInfoTable above. Linear scan over 29 entries,
 // compile-time evaluable.
 constexpr std::optional<Tag> TagFromString(std::string_view name) {
+    if (name == "sword_skill" || name == "SwordSkill") return Tag::SwordSkill;
     for (const auto &entry : kTagInfoTable) {
         if (entry.id == name) return entry.tag;
     }

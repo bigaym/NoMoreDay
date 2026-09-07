@@ -5,26 +5,26 @@
       "name_key": "流云刺",
       "desc_key": "向目标突刺，造成物理伤害。若命中目标，回复少量法力。",
       "mana_cost": 5.0,
-      "cooldown": 0.0,
+      "cooldown": 4.0,
       "tags": [
         "Physical",
         "Melee",
         "Attack",
         "Movement",
         "Hit",
-        "sword_skill"
+        "SwordSkill"
       ],
       "base_damage": 10.0,
       "weapon_damage_mult": 1.2,
       "added_damage_effectiveness": 1.0,
-      "charge_count": 1,
+      "charge_count": 2,
       "icon_id": 2920402032,
       "talent_tree": [
         {
           "id": 100,
           "name_key": "迅捷之刃",
           "desc_key": "攻击速度增加 5%/10%/15%/20%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -3.41,
           "y": 1.51,
           "prerequisites": [
@@ -35,7 +35,7 @@
           ],
           "stat_modifiers": [
             {
-              "type": 16,
+              "type": 17,
               "mode": 1,
               "value": 5.0
             }
@@ -46,7 +46,7 @@
           "id": 101,
           "name_key": "气聚",
           "desc_key": "施放时法力消耗降低 15%...45%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.95,
           "y": -1.36,
           "prerequisites": [
@@ -109,7 +109,7 @@
           "id": 111,
           "name_key": "连环",
           "desc_key": "*{需求: 贯日}* 最大充能次数 +1/+2，但单次充能时间增加 15%。",
-          "max_points": 3,
+          "max_points": 2,
           "x": -3.53,
           "y": 0.31,
           "prerequisites": [
@@ -124,7 +124,7 @@
           "id": 112,
           "name_key": "势如破竹",
           "desc_key": "*{需求: 迅捷之刃 2/4}* 位移距离增加 10%...40%，每多移动 10 码，该次伤害总增 (More) 2%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.59,
           "y": -1.76,
           "prerequisites": [
@@ -154,7 +154,7 @@
           "id": 114,
           "name_key": "御风而行",
           "desc_key": "*{需求: 风行者}* 处于“御剑步”状态期间，你的近战攻击获得 8%...24% 额外暴击率，且每次近战击中回复 3...9 点法力。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -3.23,
           "y": -1.01,
           "prerequisites": [
@@ -185,7 +185,7 @@
           "id": 130,
           "name_key": "留影",
           "desc_key": "*{需求: 迅捷之刃 3/4}* 施放时在起点留下一个残影，持续 4s。残影会自动模仿你下一个近战攻击技能（施加 40% 伤害）。",
-          "max_points": 3,
+          "max_points": 1,
           "x": -2.37,
           "y": 2.14,
           "prerequisites": [
@@ -211,7 +211,7 @@
           ],
           "stat_modifiers": [
             {
-              "type": 31,
+              "type": 32,
               "mode": 1,
               "value": 15.0
             }
@@ -222,7 +222,7 @@
           "id": 132,
           "name_key": "影之突袭",
           "desc_key": "*{需求: 留影}* 当你拥有残影时施放此技能，残影也会向你的目标位置发起一次流云刺。",
-          "max_points": 5,
+          "max_points": 1,
           "x": -3.58,
           "y": -0.17,
           "prerequisites": [
@@ -247,13 +247,19 @@
               "required_points": 1
             }
           ],
+          "add_tags": [
+            "Teleport"
+          ],
+          "remove_tags": [
+            "Movement"
+          ],
           "icon_id": 2109425789
         },
         {
           "id": 134,
           "name_key": "瞬狱影爆",
           "desc_key": "*{需求: 移形换位}* 传送爆炸的伤害增加 25%...75%，半径增加 20%...60%。若终点爆炸命中 3 名以上敌人，额外向最近敌人方向触发一次 [裂空斩]（使用其已专精版本，60% 效力，CD: 3s，不消耗法力）。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.52,
           "y": -0.33,
           "prerequisites": [
@@ -299,7 +305,7 @@
           "id": 151,
           "name_key": "重创",
           "desc_key": "*{需求: 要害感知 2/4}* 命中时有 25%...100% 几率造成“流血”（物理持续伤害）。",
-          "max_points": 3,
+          "max_points": 4,
           "x": 3.72,
           "y": 0.69,
           "prerequisites": [
@@ -314,7 +320,7 @@
           "id": 152,
           "name_key": "动脉割裂",
           "desc_key": "*{需求: 重创 3/4}* 对“流血”状态的敌人，流云刺命中时有 75%...225% 几率施加护甲击碎 (Armor Shred)（超过100%的部分有相应概率额外施加1层）。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 0.98,
           "y": 2.64,
           "prerequisites": [
@@ -330,7 +336,7 @@
           "id": 153,
           "name_key": "饮血刃",
           "desc_key": "*{需求: 动脉割裂 2/3}* 击中流血敌人会治疗自身（相当于造成的流血伤害的 100%）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 3.6,
           "y": 1.38,
           "prerequisites": [
@@ -376,7 +382,7 @@
           "id": 170,
           "name_key": "劫火",
           "desc_key": "*{需求: 流云劲 2/4}* 将基础物理伤害完全转化为 **火焰 (Fire)**，获得 [Fire] 标签。流云刺点燃命中的敌人，并在突进路径上留下一条持续 2s 的燃烧余烬。*与 [凛风] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 2.51,
           "y": -1.78,
           "prerequisites": [
@@ -385,6 +391,12 @@
               "required_points": 2
             }
           ],
+          "add_tags": [
+            "Fire"
+          ],
+          "remove_tags": [
+            "Physical"
+          ],
           "stat_modifiers": [],
           "icon_id": 3803273760
         },
@@ -392,7 +404,7 @@
           "id": 171,
           "name_key": "业火焚途",
           "desc_key": "*{需求: 劫火}* 燃烧余烬的持续时间增加 0.5s...1.5s，路径宽度增加。站在自己铺设的火焰余烬上时，你获得 6%...18% 火焰伤害加成。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 2.46,
           "y": -1.98,
           "prerequisites": [
@@ -408,7 +420,7 @@
           "id": 172,
           "name_key": "凛风",
           "desc_key": "*{需求: 流云劲 2/4}* 将基础物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。流云刺使命中的敌人减速 30%，对已被冻结的敌人造成 50% 额外伤害。*与 [劫火] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 2.49,
           "y": 1.84,
           "prerequisites": [
@@ -417,6 +429,12 @@
               "required_points": 2
             }
           ],
+          "add_tags": [
+            "Cold"
+          ],
+          "remove_tags": [
+            "Physical"
+          ],
           "stat_modifiers": [],
           "icon_id": 3836828998
         },
@@ -424,7 +442,7 @@
           "id": 173,
           "name_key": "霜凝寒骨",
           "desc_key": "*{需求: 凛风}* 每次命中减速的敌人时额外施加 1 层“寒冷”。寒冷叠满冻结敌人后，流云刺命中冻结目标有 15%...45% 几率触发“碎裂”——对周围敌人造成上一次暴击伤害 30% 的冰霜溅射。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 4.32,
           "y": 0.73,
           "prerequisites": [
@@ -440,7 +458,7 @@
           "id": 174,
           "name_key": "灵根侵蚀",
           "desc_key": "*{需求: 任意 Transmuter}* 流云刺每命中一名带有对应元素异常状态（点燃/寒冷）的敌人，施加 1 层\"元素侵蚀\"，每层降低目标对应元素抗性 3...12 点（固定值），最多 5 层，持续 4 秒（命中刷新）。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 2.15,
           "y": 1.56,
           "prerequisites": [
@@ -460,7 +478,7 @@
           "id": 175,
           "name_key": "元素余韵",
           "desc_key": "*{需求: 灵根侵蚀 2/4}* 命中带有对应元素异常状态（点燃/寒冷）的敌人时，有 20%...60% 几率将该异常传染给 200 码内的 1 名附近敌人（每次传染有 1s 冷却）。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 3.44,
           "y": -0.13,
           "prerequisites": [
@@ -484,7 +502,7 @@
         "has_synergy_node": true,
         "transmuter_node_ids": [
           170,
-          171
+          172
         ],
         "nodes": [
           {
@@ -518,22 +536,7 @@
             }
           },
           {
-            "node_id": 114,
-            "role": "Trigger",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 2,
-              "effectiveness": 0.6,
-              "range_mult": 1.0,
-              "internal_cooldown": 3.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 130,
+            "node_id": 132,
             "role": "Synergy",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -563,11 +566,26 @@
             }
           },
           {
-            "node_id": 152,
-            "role": "Passive",
+            "node_id": 134,
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "affects_sword_intent": true,
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 2,
+              "effectiveness": 0.6,
+              "range_mult": 1.0,
+              "internal_cooldown": 3.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 154,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -578,11 +596,11 @@
             }
           },
           {
-            "node_id": 154,
-            "role": "Keystone",
-            "resist_model": "TypeB_Shred",
+            "node_id": 155,
+            "role": "Passive",
+            "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
+            "affects_sword_intent": true,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -608,9 +626,24 @@
             }
           },
           {
-            "node_id": 171,
+            "node_id": 172,
             "role": "Transmuter",
             "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 174,
+            "role": "Passive",
+            "resist_model": "TypeB_Shred",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,

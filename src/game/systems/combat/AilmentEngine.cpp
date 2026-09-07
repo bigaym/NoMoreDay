@@ -3,7 +3,12 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
+#include "game/contracts/CombatEvents.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/ProcBudgetManager.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include <atomic>
 #include <algorithm>
 #include <fstream>
@@ -35,6 +40,24 @@ AilmentType AilmentTypeFromStorage(uint8_t value) {
 
 uint8_t AilmentTypeToStorage(AilmentType value) {
   return static_cast<uint8_t>(value);
+}
+
+// 153 饮血刃（流云刺技能 1 节点）：判断 entity 的流云刺专精是否分配了节点 153。
+// 流血 DoT 结算后据此决定是否按实际流血伤害治疗施加者。
+bool HasFlowingThrustBloodDrinker(entt::registry &registry, entt::entity entity) {
+  if (!registry.valid(entity)) {
+    return false;
+  }
+  const auto *act = registry.try_get<ActiveSkillsComponent>(entity);
+  if (!act) {
+    return false;
+  }
+  for (const auto &spec : act->specialized_slots) {
+    if (spec.skill_id == 1) {
+      return spec.allocated_points.count(153) > 0;
+    }
+  }
+  return false;
 }
 
 std::string_view AilmentTypeToString(AilmentType value) {
@@ -659,6 +682,33 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         request.additional_tags = Tag::DamageOverTime;
         const auto result =
             DamagePipeline::Execute(registry, request, effect.source, false);
+
+        // 153 饮血刃（流云刺节点）：命中流血的敌人治疗自身，治疗量 = 该次
+        // 实际流血伤害（结算后扣血值）的 100%。
+        // 语义解读：治疗挂在"流血 DoT 实际结算"上——凡施加者（effect.source）
+        // 的流云刺专精分配了 153，其造成的每一次流血 tick 都会按实际扣血量
+        // 治疗施加者自身；该流血不限于流云刺 151 施加（血海等来源亦可），
+        // 因为 153 的语义是"流云刺命中流血敌人后吸血"，伤害来源即为施放者。
+        if (*ailment == AilmentType::Bleed && result.damage.total_damage > 0.0f &&
+            HasFlowingThrustBloodDrinker(registry, effect.source)) {
+          const float lifestealRatio =
+              data::SkillMechanicsRegistry::Get().GetFloat(1, 153, "lifesteal_ratio", 1.0f);
+          auto *healStats = registry.try_get<CombatStats>(effect.source);
+          if (healStats) {
+            const float before = healStats->health;
+            healStats->health =
+                std::min(healStats->max_health, healStats->health + result.damage.total_damage * lifestealRatio);
+            const float actualHeal = healStats->health - before;
+            if (actualHeal > 0.0f) {
+              if (auto *hp = registry.try_get<HealthComponent>(effect.source)) {
+                hp->current = healStats->health;
+              }
+              registry.emplace_or_replace<StatsDirty>(effect.source);
+              CombatEventDispatcher::Dispatch(
+                  registry, CombatEventFactory::CreateOnHeal(effect.source, effect.source, actualHeal));
+            }
+          }
+        }
 
         EffectSystem::EmitDamagePopup(registry, {position.x, position.y - 20.0f},
                                       result.damage.total_damage,

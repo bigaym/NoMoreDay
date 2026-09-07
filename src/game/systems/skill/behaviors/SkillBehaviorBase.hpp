@@ -21,9 +21,39 @@ struct ElementalConversion {
 
 [[nodiscard]] inline ElementalConversion ResolveElementalConversion(
     uint32_t element_node_id, int points) noexcept {
-    (void)element_node_id;
-
     ElementalConversion conv;
+    if (points <= 0) {
+        return conv;
+    }
+
+    switch (element_node_id) {
+    case 170: // 劫火 (Fire)
+    case 370: // 御剑术转火
+    case 570: // 御剑术·劫火 (Fire)
+        conv.target_element = Tag::Fire;
+        conv.projectile_color = {255, 80, 20, 255};
+        conv.glow_color = {255, 160, 60, 180};
+        return conv;
+    case 172: // 凛风 (Cold)
+    case 270: // 霜寒之刃 (Cold)
+    case 474: // 霜铠 (Cold)
+    case 572: // 凛冬暴雪 (Cold)
+        conv.target_element = Tag::Cold;
+        conv.projectile_color = {100, 200, 255, 255};
+        conv.glow_color = {150, 220, 255, 180};
+        return conv;
+    case 272: // 雷光 (Lightning, was 250 typo)
+    case 372: // 御剑术转电
+    case 472: // 雷霆法环 (Lightning)
+        conv.target_element = Tag::Lightning;
+        conv.projectile_color = {200, 180, 255, 255};
+        conv.glow_color = {230, 200, 255, 180};
+        return conv;
+    default:
+        break;
+    }
+
+    // Fallback for untyped or legacy calls
     switch (points) {
     case 1: // Fire
         conv.target_element = Tag::Fire;

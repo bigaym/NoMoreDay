@@ -71,7 +71,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       if (link.consumed_any && !proj.snapshot.damage_multipliers.empty()) proj.snapshot.damage_multipliers.front() *= link.damage_multiplier;
       if (splitOnDeath) { proj.on_death = Projectile::OnDeathBehavior::Split; proj.split_count = 3; }
       if (hoverAtApex) proj.on_death = Projectile::OnDeathBehavior::Hover;
-      proj.payload_context = {.base_damage_min = stats->min_weapon_damage, .base_damage_max = stats->max_weapon_damage, .crit_chance = stats->crit_chance, .crit_multiplier = stats->crit_damage, .more_damage = (exec.is_empowered ? 2.0f : 1.0f) * (profile ? profile->more_damage_mult : 1.0f), .effective_tags = effTag, .source_skill_id = kSkillId};
+      proj.payload_context = {.base_damage_min = stats->min_weapon_damage, .base_damage_max = stats->max_weapon_damage, .crit_chance = stats->crit_chance / 100.0f, .crit_multiplier = stats->crit_damage, .more_damage = (exec.is_empowered ? 2.0f : 1.0f) * (profile ? profile->more_damage_mult : 1.0f), .effective_tags = effTag, .source_skill_id = kSkillId};
       registry.emplace<CombatStats>(proj_ent, proj.snapshot); registry.emplace<SkillComponent>(proj_ent, kSkillId, owner);
       if (attunement != Tag::None) registry.emplace_or_replace<SkillModifierComponent>(proj_ent).damage_modifiers.push_back({Tag::Physical, attunement, 0.5f, ModifierType::Convert});
       else if (auto *om = registry.try_get<SkillModifierComponent>(owner)) registry.emplace_or_replace<SkillModifierComponent>(proj_ent, *om);

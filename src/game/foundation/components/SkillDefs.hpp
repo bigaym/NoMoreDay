@@ -558,6 +558,11 @@ struct BakedSkillProfile {
   float area_radius = 1.0f;
   float proc_coefficient = 1.0f;
   float more_damage_mult = 1.0f;
+  int effective_charges = 0;
+
+  // 御风而行 (114): 仅当玩家处于"御剑步"状态时,近战交付获得 8%...24% 额外暴击率
+  // 运行时由交付构造处检查剑步状态后才注入,不入 delivery.bonus_crit (避免无条件生效)
+  float riding_wind_bonus_crit = 0.0f;
 
   // 烘焙后的交付参数
   BakedDeliveryParams delivery{};

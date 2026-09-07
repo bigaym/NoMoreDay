@@ -113,17 +113,25 @@ void ProjectileSystem::Update(entt::registry &registry,
                    if (registry.all_of<CombatStats>(target) &&
                        registry.valid(ds.owner) &&
                        registry.all_of<CombatStats>(ds.owner)) {
-                     const auto &ownerStats = registry.get<CombatStats>(ds.owner);
-                     float baseDmg = std::max(20.0f, (ownerStats.min_weapon_damage + ownerStats.max_weapon_damage) * 0.5f);
-                     DamagePool pool;
-                     pool.Add(Tag::Physical, baseDmg);
                      DamageRequest req;
                      req.attacker = ds.owner;
                      req.defender = target;
                      req.skill_id = ds.skill_id;
-                     req.base_pool = pool;
                      req.additional_tags = Tag::Hit | Tag::Melee;
                      req.source_entity = strikeEnt;
+                     if (ds.has_payload) {
+                       // 有效载荷路径与投射物一致：武器基础伤害由 payload 携带
+                       // （base_damage_min/max 覆盖 weapon damage），base_pool
+                       // 必须留空——否则 DamagePipeline 会命中 CombatV2 候选运行时，
+                       // 而该运行时不消费 payload（more_damage / effective_tags 失效）
+                       req.payload_context = ds.payload_context;
+                     } else {
+                       const auto &ownerStats = registry.get<CombatStats>(ds.owner);
+                       float baseDmg = std::max(20.0f, (ownerStats.min_weapon_damage + ownerStats.max_weapon_damage) * 0.5f);
+                       DamagePool pool;
+                       pool.Add(Tag::Physical, baseDmg);
+                       req.base_pool = pool;
+                     }
                      (void)ResolveDamage(registry, req, ds.owner);
                    }
                    return true;

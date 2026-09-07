@@ -95,7 +95,7 @@ inline nlohmann::json LoadJsonFile(const char *relative_path) {
 
 inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
   return {
-      {1, {113, 114, 130, 152, 170, 171}},
+      {1, {113, 130, 132, 134, 153, 155, 170, 172}},
       {2, {213, 214, 230, 233, 250, 252, 270}},
       {3, {330, 352, 370, 371, 373}},
       {4, {430, 451, 452, 470, 471}},

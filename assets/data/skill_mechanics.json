@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "comment": "技能节点机制数值表 (SkillMechanicsRegistry)。键 = 技能 id -> 节点 id -> 数值字段。技能行为运行时读取，禁止硬编码。",
+  "1": {
+    "112": {
+      "dash_range_pct_per_point": 10.0,
+      "damage_more_per_10yd": 2.0
+    },
+    "135": {
+      "leave_radius": 80.0,
+      "ward_dex_mult_per_point": 2.0,
+      "ward_duration": 3.0
+    },
+    "153": {
+      "lifesteal_ratio": 1.0
+    },
+    "170": {
+      "ember_duration": 2.0,
+      "ember_width": 60.0,
+      "ignite_magnitude": 15.0,
+      "ignite_duration": 3.0,
+      "ember_tick_interval": 0.25
+    },
+    "171": {
+      "ember_width_per_point_pct": 25.0,
+      "ember_duration_per_point": 0.5,
+      "fire_damage_pct_per_point": 6.0,
+      "standing_buff_duration": 0.25
+    },
+    "172": {
+      "slow_magnitude": 0.3,
+      "slow_duration": 2.5,
+      "frozen_more_mult": 1.5
+    },
+    "173": {
+      "chill_slow_pct": 20.0,
+      "chill_duration": 3.0,
+      "chill_stacks_to_freeze": 3.0,
+      "freeze_duration": 2.5,
+      "shatter_chance_pct_per_point": 15.0,
+      "shatter_radius": 200.0,
+      "shatter_crit_mult": 0.3
+    },
+    "175": {
+      "spread_icd": 1.0,
+      "spread_radius": 200.0,
+      "spread_chance_pct_per_point": 20.0,
+      "spread_ignite_magnitude": 15.0,
+      "spread_ignite_duration": 3.0,
+      "spread_slow_magnitude": 0.3,
+      "spread_slow_duration": 2.5
+    }
+  }
+}

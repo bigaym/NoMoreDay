@@ -217,7 +217,7 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
     auto& runtime = registry.emplace<SkillContractRuntimeComponent>(player);
     runtime.version = kSkillContractRuntimeVersion;
     runtime.active_transmuter_node_by_skill[8] = 870;
-    runtime.trigger_cooldowns[114] = 1.25f;
+    runtime.trigger_cooldowns[134] = 1.25f;
     runtime.trigger_cooldowns[971] = 0.5f;
 
     SaveManager sm;
@@ -235,8 +235,8 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
 
     REQUIRE(restoredRuntime.active_transmuter_node_by_skill.contains(8));
     CHECK(restoredRuntime.active_transmuter_node_by_skill.at(8) == 870);
-    REQUIRE(restoredRuntime.trigger_cooldowns.contains(114));
-    CHECK(restoredRuntime.trigger_cooldowns.at(114) == doctest::Approx(1.25f));
+    REQUIRE(restoredRuntime.trigger_cooldowns.contains(134));
+    CHECK(restoredRuntime.trigger_cooldowns.at(134) == doctest::Approx(1.25f));
     REQUIRE(restoredRuntime.trigger_cooldowns.contains(971));
     CHECK(restoredRuntime.trigger_cooldowns.at(971) == doctest::Approx(0.5f));
 }

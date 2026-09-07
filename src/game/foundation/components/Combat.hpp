@@ -27,4 +27,12 @@ struct AttackState {
     float baseAttackInterval = 1.0f; // NoMoreDay::Constants::Combat::System::DEFAULT_ATTACK_COOLDOWN 基础攻击间隔 (秒)
 };
 
+// 目标最近一次受到的暴击伤害记录（挂被击方）。
+// 流云刺 173 霜凝寒骨 "碎裂" 以此为溅射基数（该目标上次暴击伤害 × 30% 冰霜）。
+// source 记录来源（原始 attacker，含召唤物），触发时校验来源合法性。
+struct LastCritDamageComponent {
+    float amount = 0.0f;
+    entt::entity source = entt::null;
+};
+
 } // namespace NoMoreDay

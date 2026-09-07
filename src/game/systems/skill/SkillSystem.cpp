@@ -37,6 +37,7 @@
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/SkillCastConstraintService.hpp"
 #include "game/systems/skill/behaviors/BloodSea.hpp"
+#include "game/systems/skill/behaviors/FlowingThrust.hpp"
 #include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 #include "game/systems/skill/behaviors/PhantomFlash.hpp" // Added
@@ -1093,6 +1094,11 @@ void SkillSystem::Update(entt::registry &registry,
     skills::BloodSea::UpdateField(registry, entity, field, dt, grid);
   }
 
+  // Update Flowing Thrust Ember Trails (170 劫火余烬带 / 171 业火焚途站位加成)
+  skills::UpdateFlowingThrustEmbers(registry, dt);
+  // Update Flowing Thrust Phantom Shield (135 虚实相生: 离开残影区触发临时护盾)
+  skills::UpdateFlowingThrustPhantomShield(registry, dt);
+
   // Update Mind Blade (ID 7)
   auto mind_blade_view =
       registry.view<MindBladeComponent, MindBladeAI, Position>();
@@ -1502,7 +1508,12 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
       if (!data)
         continue;
 
-      if (slot.current_charges < data->max_charges) {
+      const auto *bakedProfile = GetBakedSkillProfile(registry, entity, slot.id);
+      const int maxCharges = (bakedProfile && bakedProfile->effective_charges > 0)
+                                 ? bakedProfile->effective_charges
+                                 : data->max_charges;
+
+      if (slot.current_charges < maxCharges) {
         // Paused Cooldown Logic: If channeling THIS skill, do not reduce
         // cooldown. This ensures the cooldown effectively starts AFTER
         // channeling (or duration is added).
@@ -1517,15 +1528,17 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
           slot.cooldown -= dt;
           if (slot.cooldown <= 0.0f) {
             slot.current_charges++;
-            if (slot.current_charges < data->max_charges) {
+            if (slot.current_charges < maxCharges) {
               auto *stats = registry.try_get<CombatStats>(entity);
               float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
               float cdr = StatsSystem::GetStatWithTags(
                               registry, entity, StatType::CooldownReduction,
                               data->tags, slot.id) /
                           100.0f;
+              float raw_cooldown =
+                  bakedProfile ? bakedProfile->effective_cooldown : data->cooldown;
               slot.cooldown =
-                  (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
+                  (raw_cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
             } else {
               slot.cooldown = 0.0f;
             }
@@ -1677,14 +1690,18 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     return false;
   }
 
+  const auto *bakedProfile = GetBakedSkillProfile(registry, entity, slot.id);
+  const int maxCharges = (bakedProfile && bakedProfile->effective_charges > 0)
+                             ? bakedProfile->effective_charges
+                             : data->max_charges;
+
   if (slot.current_charges <= 0) {
     LOG_TRACE("TryCast: Skill {} has no charges ({} / {})", data->name_key,
-              slot.current_charges, data->max_charges);
+              slot.current_charges, maxCharges);
     return false;
   }
 
   auto *stats = registry.try_get<CombatStats>(entity);
-  const auto *bakedProfile = GetBakedSkillProfile(registry, entity, slot.id);
   float rcr = stats ? StatsSystem::GetStatWithTags(
                           registry, entity, StatType::ResourceCostReduction,
                           data->tags, slot.id) /
@@ -1717,7 +1734,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     ExecutePreCastShadowDuplication(registry, entity, slot.id, target_pos, stats);
   }
 
-  if (slot.current_charges == data->max_charges) {
+  if (slot.current_charges >= maxCharges) {
     float cdr = StatsSystem::GetStatWithTags(registry, entity,
                                              StatType::CooldownReduction,
                                              data->tags, slot.id) /

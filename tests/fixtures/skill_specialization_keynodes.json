@@ -3,7 +3,7 @@
   "skills": [
     {
       "skill_id": 1,
-      "key_nodes": [113, 114, 130, 152, 170, 171],
+      "key_nodes": [113, 130, 132, 134, 153, 155, 170, 172],
       "expected_layers": ["CastState", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
     },
     {

@@ -56,7 +56,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
   registry.emplace<CombatStats>(caster).mana = 200.0f;
   auto &active = registry.emplace<ActiveSkillsComponent>(caster);
   active.specialized_slots[0].skill_id = 1;
-  active.specialized_slots[0].allocated_points[114] = 1; // Trigger node
+  active.specialized_slots[0].allocated_points[134] = 1; // Trigger node
 
   auto target = registry.create();
   registry.emplace<Position>(target, 8.0f, 0.0f);
@@ -72,7 +72,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
     const auto *runtime =
         registry.try_get<SkillContractRuntimeComponent>(caster);
     REQUIRE(runtime != nullptr);
-    REQUIRE(runtime->trigger_cooldowns.contains(114));
+    REQUIRE(runtime->trigger_cooldowns.contains(134));
 
     CombatEventDispatcher::Dispatch(
         registry, CombatEventFactory::CreateSkillHit(
@@ -101,7 +101,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
   }
 
   SUBCASE("Trigger dispatch stores trigger effectiveness per cast") {
-    const auto *nodeContract = SkillRegistry::Get().GetNodeContract(1, 114);
+    const auto *nodeContract = SkillRegistry::Get().GetNodeContract(1, 134);
     REQUIRE(nodeContract != nullptr);
     const float expectedEffectiveness =
         (std::max)(0.0f, nodeContract->trigger.effectiveness);
@@ -169,7 +169,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Cast tracking handles concurrent read/wri
   registry.emplace<CombatStats>(caster).mana = 200.0f;
   auto &active = registry.emplace<ActiveSkillsComponent>(caster);
   active.specialized_slots[0].skill_id = 1;
-  active.specialized_slots[0].allocated_points[114] = 1;
+  active.specialized_slots[0].allocated_points[134] = 1;
 
   const auto target = registry.create();
   registry.emplace<Position>(target, 8.0f, 0.0f);
@@ -386,7 +386,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 5;
-    active.specialized_slots[0].allocated_points[570] = 2; // ElementFall -> cold
+    active.specialized_slots[0].allocated_points[570] = 1; // ElementFall (天火流星) -> Fire
     active.specialized_slots[0].allocated_points[571] = 3; // ElementPen
     active.specialized_slots[0].allocated_points[552] = 2; // MindUnify
 
@@ -401,7 +401,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
 
     const auto *chan = registry.try_get<ChannelingComponent>(player);
     REQUIRE(chan != nullptr);
-    CHECK(chan->conversion_tag == Tag::Cold);
+    CHECK(chan->conversion_tag == Tag::Fire);
     CHECK(chan->bonus_armor_pen == doctest::Approx(18.0f));
     CHECK(chan->bonus_damage_mult > 1.0f);
     CHECK(chan->bonus_crit_chance > 0.0f);

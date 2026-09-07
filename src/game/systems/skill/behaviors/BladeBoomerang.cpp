@@ -67,7 +67,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       auto &p = registry.emplace<Projectile>(e);
       p.owner = owner; p.cast_id = exec.cast_id; p.speed = speed; p.lifeTime = 3.0f; p.radius = (sd ? sd->GetParam("radius", 40.0f) : 40.0f) * p_scale;
       p.pierce = true; p.pierceCount = 99; p.max_pierce = Projectile::kUnlimitedPiercing; p.snapshot = *stats; p.hasPull = pullStr > 0.0f; p.pullStrength = pullStr * p_scale;
-      p.payload_context = {.base_damage_min = stats->min_weapon_damage, .base_damage_max = stats->max_weapon_damage, .crit_chance = stats->crit_chance, .crit_multiplier = stats->crit_damage, .more_damage = moreDmg * p_scale * (exec.is_empowered ? 1.5f : 1.0f), .effective_tags = Tag::Physical | convTag, .source_skill_id = exec.skill_id};
+      p.payload_context = {.base_damage_min = stats->min_weapon_damage, .base_damage_max = stats->max_weapon_damage, .crit_chance = stats->crit_chance / 100.0f, .crit_multiplier = stats->crit_damage, .more_damage = moreDmg * p_scale * (exec.is_empowered ? 1.5f : 1.0f), .effective_tags = Tag::Physical | convTag, .source_skill_id = exec.skill_id};
       registry.emplace<CombatStats>(e, p.snapshot); registry.emplace<SkillComponent>(e, exec.skill_id, owner);
       if (convTag != Tag::None) registry.emplace<SkillModifierComponent>(e).damage_modifiers.push_back({Tag::Physical, convTag, 1.0f, ModifierType::Convert});
       auto &bc = registry.emplace<BoomerangComponent>(e);

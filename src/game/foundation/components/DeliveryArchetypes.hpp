@@ -47,6 +47,10 @@ struct DirectStrikeComponent {
   float timer = 0.0f;
   bool hit_once = true;
   CompactEntitySet<8> hit_entities{};
+  // 伤害有效载荷（more 倍率 / 元素 tags / 暴击修正），由生成方填充并交由
+  // ProjectileSystem 的 DirectStrike 处理直接消费，避免遗留未读取的战斗快照。
+  bool has_payload = false;
+  DamagePayloadContext payload_context{};
 };
 static_assert(std::is_standard_layout_v<DirectStrikeComponent>);
 static_assert(std::is_trivially_destructible_v<DirectStrikeComponent>);
