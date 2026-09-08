@@ -3161,11 +3161,21 @@ void rlDrawRenderBatch(rlRenderBatch *batch)
             }
 
             glBindTexture(GL_TEXTURE_2D, 0);    // Unbind textures
+
+            // NMD gate-fin (local fix, waivered): keep the VAO unbind and
+            // glUseProgram(0) INSIDE the vertexCounter>0 block. rlDrawRenderBatch
+            // is also invoked by rlSetShader/BeginShaderMode and by the engine's
+            // FullscreenQuad::Draw before its attribute-less gl_VertexID draw;
+            // on an EMPTY batch the previous unconditional glUseProgram(0) killed
+            // the just-enabled pass program, so the fullscreen draw ran with
+            // program 0 and silently produced black lighting/post-process output.
+            // Re-applied after the raylib 6.0 upgrade (upstream moved the
+            // unbind back outside the block and the local fix was lost).
+            if (RLGL.ExtSupported.vao) glBindVertexArray(0); // Unbind VAO
+
+            glUseProgram(0);    // Unbind shader program
         }
 
-        if (RLGL.ExtSupported.vao) glBindVertexArray(0); // Unbind VAO
-
-        glUseProgram(0);    // Unbind shader program
     }
 
     // Restore viewport to default measures
