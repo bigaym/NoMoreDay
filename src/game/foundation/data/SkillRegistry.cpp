@@ -549,6 +549,17 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
 bool ValidateBladeAscendantResistCoverage(
     const std::unordered_map<uint32_t, SkillContractDefinition> &contracts,
     std::string *error) {
+  bool has_blade_ascendant = false;
+  for (uint32_t id = 1; id <= 9; ++id) {
+    if (contracts.contains(id)) {
+      has_blade_ascendant = true;
+      break;
+    }
+  }
+  if (!has_blade_ascendant) {
+    return true;
+  }
+
   std::array<bool, 5> present = {false, false, false, false, false};
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     auto it = contracts.find(skill_id);

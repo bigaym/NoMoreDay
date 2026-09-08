@@ -631,7 +631,10 @@ void SkillSystem::InitHooks() {
 
         BladeResourceComponent *resource = registry.try_get<BladeResourceComponent>(caster);
         SwordIntentComponent *intent = registry.try_get<SwordIntentComponent>(caster);
-        if ((resource || intent) && HasTag(evt.tags, Tag::Hit)) {
+        // 二次命中（冰爆/连锁等衍生伤害，带 SecondaryHit 标记）不参与命中回资源，
+        // 防止单次施放的衍生伤害重复累积剑意/剑流层数。
+        if ((resource || intent) && HasTag(evt.tags, Tag::Hit) &&
+            !HasTag(evt.tags, Tag::SecondaryHit)) {
           bool gain_stack = false;
           const float current_time = static_cast<float>(GetTime());
           const bool is_continuous =
@@ -696,7 +699,9 @@ void SkillSystem::InitHooks() {
         }
 
         // Unified Sword Step linkage: on-hit mana return and crit extension.
-        if (HasTag(evt.tags, Tag::Hit) && registry.any_of<PhaseTag>(caster)) {
+        // 二次命中（SecondaryHit）不触发御剑步回蓝，与主命中资源口径保持一致。
+        if (HasTag(evt.tags, Tag::Hit) && !HasTag(evt.tags, Tag::SecondaryHit) &&
+            registry.any_of<PhaseTag>(caster)) {
           auto *effects = registry.try_get<ActiveEffectsComponent>(caster);
           BuffEffect *swift =
               effects ? effects->Get(BuffId::SwordStep) : nullptr;
@@ -912,8 +917,15 @@ void SkillSystem::InitHooks() {
           }
         }
 
-        // Dispatch to specific Skill Behavior.
-        if (evt.skill_id != 0) {
+        // 触发链防护：仅主命中（trigger_depth==0 且非 SecondaryHit 标记）允许进入
+        // 行为层 per-hit 副作用。两类衍生命中均被排除：
+        // 1) 触发施法（TriggerCast，depth>=1，如反击/未来触发规则）派生的命中；
+        // 2) 冰爆(271)/连锁(273)等直连 ResolveDamage 的二次伤害（depth 恒 0，
+        //    由生产侧 additional_tags 携带 SecondaryHit 标记识别）。
+        // 目的：阻断烙印/回剑意/传染/引爆等节点的触发链自我放大。
+        // ProcEngine 经 OnDealDamage/OnCrit 等独立事件监听（上方仅显式转发），不受影响。
+        if (evt.skill_id != 0 && evt.trigger_depth == 0 &&
+            !HasTag(evt.tags, Tag::SecondaryHit)) {
           if (auto hitFunc = SkillBehaviorRegistry::GetHit(evt.skill_id)) {
             hitFunc(registry, evt.source, evt.target, evt.tags, evt.isCrit);
           }

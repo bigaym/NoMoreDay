@@ -1,5 +1,6 @@
 #include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -58,8 +59,11 @@ void SkillSpecializationBaker::Bake(
     break;
   case 2: // 裂空斩
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BallisticProjectile);
-    del.speed = 600.0f;
+    // 弹速为相对倍率语义：RendingWave::DoCast 以基准弹速 300 相乘（baseSpeed = 300 × delivery.speed），
+    // 1.0 即基准 300 弹速；272 雷光按 speed_bonus_pct 追加至 2.0（弹速 +100%）
+    del.speed = 1.0f;
     del.range = 500.0f;
+    out_profile.area_radius = 35.0f;
     break;
   case 3: // 御剑术
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::OrbitingSentinel);
@@ -113,6 +117,9 @@ void SkillSpecializationBaker::Bake(
       const auto *node_contract = SkillRegistry::Get().GetNodeContract(skill_id, node_id);
 
       // A. 触发契约写入实体的 TriggerRuleComponent
+      // trigger_skill_id == 0 表示行为层自行处理触发：如 254 回响斩由 RendingWave::DoCast
+      // 消耗剑意时直接向背后发射回响波（skill_mechanics 254 节点 echo_effectiveness/echo_icd），
+      // 引擎轨道禁用以免与行为层轨道双重触发
       if (node_contract && node_contract->role == SpecNodeRole::Trigger) {
         if (out_triggers && node_contract->trigger.trigger_skill_id != 0) {
           TriggerRule rule;
@@ -254,36 +261,114 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
 
   case 2: // 裂空斩
     if (node_id == 200) {
+      // 剑气纵横：宽度和飞行距离增加 10%...40% (max 4)
       out_profile.area_radius *= (1.0f + 0.1f * static_cast<float>(points));
+      del.range *= (1.0f + 0.1f * static_cast<float>(points));
+    } else if (node_id == 201) {
+      // 凝神：法力消耗降低 1...4 点 (max 4)
+      out_profile.effective_mana_cost = std::max(0.0f, out_profile.effective_mana_cost - 1.0f * static_cast<float>(points));
+    } else if (node_id == 202) {
+      // 锋芒：基础物理伤害增加 10%...50% (max 5)
+      out_profile.more_damage_mult *= (1.0f + 0.10f * static_cast<float>(points));
+    } else if (node_id == 203) {
+      // 气劲爆发：异常状态效果提升 15%...60% (max 4)
+      // 由 RendingWave 运行时按 getPts(203) 读 skill_mechanics 结算异常强度缩放，Baker 无需置位
     } else if (node_id == 210) {
+      // 多重剑气：数量 +1/+2/+3，扇形发射，每发伤害降低 25%/20%/15% (max 3)
       out_profile.projectile_count += points;
+      const float penalty = (points == 1) ? 0.75f : ((points == 2) ? 0.80f : 0.85f);
+      out_profile.more_damage_mult *= penalty;
     } else if (node_id == 211) {
-      del.sub_count = 3;      // 分裂数
-      del.feature_flags |= 4; // 末端分裂
+      // 碎裂之刃：命中首个敌人或最大距离分裂成 3 道较小追踪剑气 (max 1)
+      del.sub_count = 3;
+      del.feature_flags |= 4; // 分裂标记
+    } else if (node_id == 212) {
+      // 连锁反应：小剑气追踪角度强化 15%...45%，速度提升 (max 3)
+      // 由 RendingWave 运行时按 getPts(212) 读 skill_mechanics 强化追踪参数，Baker 无需置位
     } else if (node_id == 213) {
-      del.feature_flags |= 8; // 碰撞引爆
+      // 万剑归宗-残篇 (Keystone)：不穿透，命中直接引爆散落 8 道微型穿刺剑气 (max 1)
+      del.feature_flags |= 8;
+    } else if (node_id == 214) {
+      // 星环护体 (Keystone)：环绕周身旋转 3s 持续切割 (max 1)
+      del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::OrbitingSentinel);
+      del.feature_flags |= 64;
+    } else if (node_id == 215) {
+      // 灵剑追击 (Synergy)：活跃灵剑决时 1 柄灵剑伴飞 (max 1)
+      del.feature_flags |= 128;
     } else if (node_id == 230) {
+      // 回旋劲：最大距离向施法者折返，折返伤害减少 30% (max 1)
       del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
       del.feature_flags |= 1;
+    } else if (node_id == 231) {
+      // 重叠打击：折返击中敌人伤害 More +15%...60% (max 4)
+      // 由 RendingWave 运行时按 getPts(231) 读 skill_mechanics 计入折返伤害乘区，Baker 无需置位
     } else if (node_id == 232) {
+      // 引力陷阱：折返瞬间在最远端生成微型黑洞牵引 (max 1)
       del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
-      del.pull_radius = 120.0f; // 顶点牵引半径
+      del.pull_radius = 120.0f;
       del.feature_flags |= (1 | 16);
     } else if (node_id == 233) {
-      del.feature_flags |= 32; // 极点停滞 TimeLock
+      // 深渊边缘：黑洞牵引范围增加 20%...60%，消散时击晕 (max 3)
+      del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
+      del.pull_radius = 120.0f * (1.0f + 0.20f * static_cast<float>(points));
+      del.feature_flags |= (1 | 16 | 512);
+    } else if (node_id == 234) {
+      // 时空停滞 (Keystone)：最远端停滞旋转 2s 剑气风暴，不折返 (max 1)
+      del.feature_flags |= 32;
+    } else if (node_id == 235) {
+      // 御剑引力：御剑步期间牵引半径效果 +15%...45%，折返几率护甲击碎 (max 3)
+      // 由 RendingWave 运行时按 getPts(235) 在御剑步内增强牵引/折返，Baker 无需置位
     } else if (node_id == 250) {
-      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Void;
-      del.feature_flags |= 64;
+      // 剑气烙印：命中几率施加受暴伤增加 debuff (max 4)
+      // 由 RendingWave 运行时按 getPts(250) 读 skill_mechanics 施加烙印 debuff，Baker 无需置位
+    } else if (node_id == 251) {
+      // 剑意爆发：≥5层剑意消耗全部，每层范围+8%暴击+3% (max 1)
+      del.feature_flags |= 4096;
     } else if (node_id == 252) {
-      del.feature_flags |= 128; // IntentBurst
+      // 无底深渊：消耗剑意施放时 10%...30% 几率返还法力 (max 3)
+      // 由 RendingWave 运行时按 getPts(252) 读 skill_mechanics 结算法力返还，Baker 无需置位
     } else if (node_id == 253) {
-      del.feature_flags |= 256; // IntentGain on hit
+      // 湮灭波 (Keystone)：消耗满层(10)剑意巨波 More+80% 无视50%物抗 (max 1)
+      del.feature_flags |= (1 << 15);
+    } else if (node_id == 254) {
+      // 回响斩 (Trigger)：消耗剑意时向背后触发 40% 效力裂空斩 (max 1)
+      del.feature_flags |= (1 << 16);
+    } else if (node_id == 255) {
+      // 意念回流：消耗剑意的裂空斩每命中几率回1层剑意 (max 3)
+      // 由 RendingWave 运行时按 getPts(255) 读 skill_mechanics 结算回能，Baker 无需置位
     } else if (node_id == 270) {
+      // 霜寒之刃 (Transmuter)：物理转冰霜，命中寒冷，满血冻结 (max 1)
+      // 元素转换写入 effective_tags（下方 ResolveElementalConversion）；冻结效果
+      // 由 RendingWave 运行时按 getPts(270) 读 skill_mechanics 结算，Baker 无需置位
       auto conv = skills::ResolveElementalConversion(node_id, points);
       if (conv.IsActive()) {
         out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
       }
-      del.feature_flags |= 512;
+    } else if (node_id == 271) {
+      // 冰晶碎裂：命中冻结目标冰爆溅射 (max 3)
+      // 由 RendingWave 运行时按 getPts(271) 读 skill_mechanics 结算冰爆，Baker 无需置位
+    } else if (node_id == 272) {
+      // 雷光 (Transmuter)：物理转闪电，弹速+100%，暴击感电 (max 1)
+      // 元素转换写入 effective_tags；弹速加成从 skill_mechanics 读取写入 delivery.speed
+      // 相对倍率（RendingWave::DoCast 以基准弹速 300 相乘），数值不再硬编码
+      auto conv = skills::ResolveElementalConversion(node_id, points);
+      if (conv.IsActive()) {
+        out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
+      }
+      const auto &mech = data::SkillMechanicsRegistry::Get();
+      const float speedBonusPct = mech.GetFloat(
+          skill_id, node_id, "speed_bonus_pct", 0.0f);
+      del.speed = 1.0f + speedBonusPct / 100.0f;
+    } else if (node_id == 273) {
+      // 感电传导：命中感电目标连锁闪电 (max 3)
+      // 由 RendingWave 运行时按 getPts(273) 读 skill_mechanics 结算连锁闪电，Baker 无需置位
+    } else if (node_id == 274) {
+      // 灵根亲和：对应元素抗性穿透增加 5%...20% (max 4)
+      del.armor_pen = 5.0f * static_cast<float>(points);
+      del.feature_flags |= (1 << 22);
+    } else if (node_id == 275) {
+      // 异常扩散：击杀异常敌人传染周围并回蓝 (max 3)
+      // 由 RendingWave 运行时按 getPts(275) 读 skill_mechanics 结算传染与回蓝，Baker 无需置位
     }
     break;
 
@@ -482,6 +567,7 @@ void SkillSpecializationBaker::SyncTriggerRules(
     }
     const auto *node_contract = SkillRegistry::Get().GetNodeContract(skill_id, node_id);
     if (node_contract && node_contract->role == SpecNodeRole::Trigger) {
+      // trigger_skill_id == 0（如 254 回响斩）由行为层 DoCast 直接处理，不写 TriggerRule 防双发
       if (node_contract->trigger.trigger_skill_id != 0) {
         if (!triggers) {
           triggers = &registry.get_or_emplace<TriggerRuleComponent>(caster);

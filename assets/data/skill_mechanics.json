@@ -50,5 +50,121 @@
       "spread_slow_magnitude": 0.3,
       "spread_slow_duration": 2.5
     }
+  },
+  "2": {
+    "200": {
+      "area_radius_pct_per_point": 10.0,
+      "range_pct_per_point": 10.0
+    },
+    "201": {
+      "mana_reduction_per_point": 1.0
+    },
+    "202": {
+      "phys_damage_pct_per_point": 10.0
+    },
+    "203": {
+      "ailment_potency_pct_per_point": 15.0
+    },
+    "210": {
+      "damage_penalty_pt1": 0.25,
+      "damage_penalty_pt2": 0.20,
+      "damage_penalty_pt3": 0.15
+    },
+    "211": {
+      "split_count": 3.0,
+      "split_damage_mult": 0.5,
+      "split_speed_mult": 0.8,
+      "split_lifetime": 1.2
+    },
+    "212": {
+      "homing_angle_pct_per_point": 15.0,
+      "homing_speed_pct_per_point": 10.0
+    },
+    "213": {
+      "explode_count": 8.0,
+      "explode_damage_mult": 0.4
+    },
+    "214": {
+      "orbit_duration": 3.0,
+      "orbit_radius": 60.0,
+      "orbit_tick_rate": 0.2,
+      "orbit_damage_mult": 0.35
+    },
+    "215": {
+      "pursuit_effectiveness": 0.20
+    },
+    "230": {
+      "return_damage_penalty": 0.30
+    },
+    "231": {
+      "return_more_pct_per_point": 15.0
+    },
+    "232": {
+      "pull_radius": 120.0,
+      "pull_strength": 250.0
+    },
+    "233": {
+      "pull_radius_pct_per_point": 20.0,
+      "stun_duration": 1.0
+    },
+    "234": {
+      "timelock_duration": 2.0,
+      "timelock_tick_rate": 0.2,
+      "timelock_damage_mult": 0.5
+    },
+    "235": {
+      "sword_step_pull_bonus_pct": 15.0,
+      "armor_shred_chance_pct": 50.0
+    },
+    "250": {
+      "brand_chance_pct_per_point": 25.0,
+      "brand_crit_dmg_pct": 4.0,
+      "brand_duration": 4.0,
+      "brand_max_stacks": 5.0
+    },
+    "251": {
+      "intent_threshold": 5.0,
+      "area_pct_per_intent": 8.0,
+      "crit_pct_per_intent": 3.0
+    },
+    "252": {
+      "mana_refund_chance_pct_per_point": 10.0
+    },
+    "253": {
+      "obliteration_more_damage": 0.80,
+      "obliteration_radius_mult": 2.5,
+      "physical_ignore_res_pct": 50.0
+    },
+    "254": {
+      "echo_effectiveness": 0.40,
+      "echo_icd": 2.0
+    },
+    "255": {
+      "intent_recovery_chance_pct_per_point": 10.0
+    },
+    "270": {
+      "freeze_duration": 1.0
+    },
+    "271": {
+      "shatter_dmg_pct_per_point": 20.0,
+      "shatter_radius": 200.0
+    },
+    "272": {
+      "speed_bonus_pct": 100.0
+    },
+    "273": {
+      "chain_targets_per_point": 1.0,
+      "chain_damage_pct": 30.0,
+      "chain_radius": 300.0
+    },
+    "274": {
+      "penetration_pct_per_point": 5.0
+    },
+    "275": {
+      "proliferate_radius_per_point": 300.0,
+      "proliferate_max_targets": 5.0,
+      "proliferate_potency": 1.5,
+      "proliferate_mana_gain": 2.0
+    }
   }
 }

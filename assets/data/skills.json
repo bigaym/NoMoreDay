@@ -662,8 +662,8 @@
       "id": 2,
       "name_key": "裂空斩",
       "desc_key": "挥动剑气攻击前方敌人，穿透目标。",
-      "mana_cost": 15.0,
-      "cooldown": 0.1,
+      "mana_cost": 10.0,
+      "cooldown": 0.0,
       "tags": [
         "Physical",
         "Projectile",
@@ -674,7 +674,7 @@
       "base_damage": 25.0,
       "weapon_damage_mult": 1.5,
       "added_damage_effectiveness": 1.2,
-      "charge_count": 3,
+      "charge_count": 0,
       "icon_id": 773746652,
       "params": {
         "speed": 300.0,
@@ -686,7 +686,7 @@
           "id": 200,
           "name_key": "剑气纵横",
           "desc_key": "剑气宽度和飞行距离增加 10%...40%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -3.78,
           "y": -0.46,
           "prerequisites": [
@@ -695,20 +695,14 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 31,
-              "mode": 1,
-              "value": 10.0
-            }
-          ],
+          "stat_modifiers": [],
           "icon_id": 1801066794
         },
         {
           "id": 201,
           "name_key": "凝神",
           "desc_key": "法力消耗降低 1...4 点。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.18,
           "y": 2.74,
           "prerequisites": [
@@ -717,18 +711,7 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 29,
-              "mode": 1,
-              "value": 10.0
-            },
-            {
-              "type": 32,
-              "mode": 1,
-              "value": 10.0
-            }
-          ],
+          "stat_modifiers": [],
           "icon_id": 1817844413
         },
         {
@@ -742,6 +725,13 @@
             {
               "node_id": 0,
               "required_points": 1
+            }
+          ],
+          "stat_modifiers": [
+            {
+              "type": 9,
+              "mode": 1,
+              "value": 10.0
             }
           ],
           "icon_id": 1767511556
@@ -796,7 +786,7 @@
           "id": 212,
           "name_key": "连锁反应",
           "desc_key": "*{需求: 碎裂之刃}* 小剑气的追踪角度强化 15%...45%，速度提升。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -0.48,
           "y": -2.48,
           "prerequisites": [
@@ -872,7 +862,7 @@
           "id": 231,
           "name_key": "重叠打击",
           "desc_key": "*{需求: 回旋劲}* 折返击中敌人的伤害总增 (More) +15%...60%。",
-          "max_points": 3,
+          "max_points": 4,
           "x": 0.94,
           "y": 3.28,
           "prerequisites": [
@@ -887,7 +877,7 @@
           "id": 232,
           "name_key": "引力陷阱",
           "desc_key": "*{需求: 回旋劲}* 剑气在折返的瞬间，会在最远端生成一个微型黑洞，将周围轻型敌人牵引至中心。",
-          "max_points": 3,
+          "max_points": 1,
           "x": 3.17,
           "y": 1.48,
           "prerequisites": [
@@ -902,7 +892,7 @@
           "id": 233,
           "name_key": "深渊边缘",
           "desc_key": "*{需求: 引力陷阱}* 黑洞牵引范围增加 20%...60%，黑洞消散时附加击晕效果。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 2.52,
           "y": 3.36,
           "prerequisites": [
@@ -918,7 +908,7 @@
           "id": 234,
           "name_key": "时空停滞",
           "desc_key": "*{需求: 引力陷阱}* 剑气到达最远端时不再折返，而是原地停滞并高速旋转 2s，化为高频段伤害的微型剑气风暴。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 0.32,
           "y": 3.79,
           "prerequisites": [
@@ -949,7 +939,7 @@
           "id": 250,
           "name_key": "剑气烙印",
           "desc_key": "*{需求: 凝神 3/4}* 裂空斩命中时有 25%...100% 几率施加一层“剑气烙印”（使目标受到的暴击伤害增加 4%，最多 5 层，持续 4 秒，命中刷新）。",
-          "max_points": 3,
+          "max_points": 4,
           "x": -2.22,
           "y": 2.4,
           "prerequisites": [
@@ -979,7 +969,7 @@
           "id": 252,
           "name_key": "无底深渊",
           "desc_key": "*{需求: 剑意爆发}* 施放消耗剑意的裂空斩时，有 10%...30% 几率返还全额法力消耗。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.84,
           "y": 0.76,
           "prerequisites": [
@@ -1025,7 +1015,7 @@
           "id": 255,
           "name_key": "意念回流",
           "desc_key": "*{需求: 湮灭波}* 消耗剑意的裂空斩每命中一名敌人，有 10%...30% 几率回复 1 层剑意。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.13,
           "y": 2.21,
           "prerequisites": [
@@ -1041,13 +1031,27 @@
           "id": 270,
           "name_key": "霜寒之刃",
           "desc_key": "*{需求: 气劲爆发 2/4}* 将基础物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。命中时 100% 施加寒冷，满血敌人强制冻结 1s。*与 [雷光] 互斥。*",
-          "max_points": 3,
+          "max_points": 1,
           "x": 2,
           "y": 2.43,
           "prerequisites": [
             {
               "node_id": 203,
               "required_points": 2
+            }
+          ],
+          "add_tags": [
+            "Cold"
+          ],
+          "remove_tags": [
+            "Physical"
+          ],
+          "damage_modifiers": [
+            {
+              "source_tag": "Physical",
+              "target_tag": "Cold",
+              "value": 1.0,
+              "type": "Convert"
             }
           ],
           "icon_id": 3714156645
@@ -1071,13 +1075,27 @@
           "id": 272,
           "name_key": "雷光",
           "desc_key": "*{需求: 气劲爆发 2/4}* 将基础物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。弹道速度增加 100%，暴击时附带感电效果。*与 [霜寒之刃] 互斥。*",
-          "max_points": 3,
+          "max_points": 1,
           "x": 0.54,
           "y": -2.17,
           "prerequisites": [
             {
               "node_id": 203,
-              "required_points": 1
+              "required_points": 2
+            }
+          ],
+          "add_tags": [
+            "Lightning"
+          ],
+          "remove_tags": [
+            "Physical"
+          ],
+          "damage_modifiers": [
+            {
+              "source_tag": "Physical",
+              "target_tag": "Lightning",
+              "value": 1.0,
+              "type": "Convert"
             }
           ],
           "icon_id": 3680601407
@@ -1086,13 +1104,13 @@
           "id": 273,
           "name_key": "感电传导",
           "desc_key": "*{需求: 雷光}* 被感电的敌人被闪电剑气命中时，感电会向 1...3 名附近敌人连锁传导，每次传导造成基础伤害 30% 的闪电伤害。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 1.77,
           "y": -2.59,
           "prerequisites": [
             {
               "node_id": 272,
-              "required_points": 2
+              "required_points": 1
             }
           ],
           "stat_modifiers": [],
@@ -1102,7 +1120,7 @@
           "id": 274,
           "name_key": "灵根亲和",
           "desc_key": "*{需求: 任意 Transmuter}* 裂空斩及其触发效果的对应元素抗性穿透增加 5%...20%（霜寒→冰霜穿透，雷光→闪电穿透），仅适用于本技能。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 4.56,
           "y": 0.12,
           "prerequisites": [
@@ -1122,7 +1140,7 @@
           "id": 275,
           "name_key": "异常扩散",
           "desc_key": "*{需求: 灵根亲和 2/4}* 裂空斩击杀带有对应元素异常状态（寒冷/感电）的敌人时，将该异常以 150% 效力传染给周围 300...900 码内的至多 5 名敌人，且每传染一名敌人回复 2 点法力。",
-          "max_points": 1,
+          "max_points": 3,
           "x": 4.2,
           "y": 0.04,
           "prerequisites": [
@@ -1145,24 +1163,9 @@
         "has_synergy_node": true,
         "transmuter_node_ids": [
           270,
-          250
+          272
         ],
         "nodes": [
-          {
-            "node_id": 211,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
           {
             "node_id": 213,
             "role": "Keystone",
@@ -1199,21 +1202,6 @@
           },
           {
             "node_id": 215,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 230,
             "role": "Synergy",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1228,39 +1216,9 @@
             }
           },
           {
-            "node_id": 233,
-            "role": "Trigger",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 2,
-              "effectiveness": 0.4,
-              "range_mult": 1.0,
-              "internal_cooldown": 2.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 250,
-            "role": "Transmuter",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 251,
+            "node_id": 234,
             "role": "Keystone",
-            "resist_model": "TypeB_Shred",
+            "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
@@ -1271,10 +1229,10 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false
             },
-            "cost_affix": "HeavyMomentum"
+            "keystone_exclusion_group": 1
           },
           {
-            "node_id": 252,
+            "node_id": 251,
             "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1286,14 +1244,15 @@
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "cost_affix": "HeavyMomentum"
           },
           {
             "node_id": 253,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
+            "affects_sword_intent": true,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -1301,14 +1260,30 @@
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 254,
-            "role": "Keystone",
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.4,
+              "range_mult": 1.0,
+              "internal_cooldown": 2.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 255,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -1335,8 +1310,8 @@
           },
           {
             "node_id": 272,
-            "role": "Passive",
-            "resist_model": "TypeA_Penetration",
+            "role": "Transmuter",
+            "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
@@ -1349,9 +1324,9 @@
             }
           },
           {
-            "node_id": 275,
-            "role": "Keystone",
-            "resist_model": "None",
+            "node_id": 274,
+            "role": "Passive",
+            "resist_model": "TypeA_Penetration",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,

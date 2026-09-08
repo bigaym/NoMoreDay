@@ -1,9 +1,13 @@
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/foundation/components/Buff.hpp" // ActiveEffectsComponent (减抗来源过滤)
+#include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp" // 253 physical_ignore_res_pct
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
 #include <bit>
 
@@ -35,10 +39,12 @@ float DamageMitigationService::ApplySkillScopedResistEffects(
             (m.type == StatType::ResistFire && type == DamageType::Fire);
         const bool isCold =
             (m.type == StatType::ResistCold && type == DamageType::Cold);
+        const bool isLightning =
+            (m.type == StatType::ResistLightning && type == DamageType::Lightning);
         // 聚合语义：debuff 修饰符真正参与结算。resistances[] 以小数存储，
         // 而 StatType 修饰符以百分比点计 (AttributePipeline 除以 100)，故 /100。
         // m.value 为负(减抗)，累加后使抗性下降。
-        if (isFire || isCold)
+        if (isFire || isCold || isLightning)
           aggregate += m.value / 100.0f;
       }
     }
@@ -71,6 +77,26 @@ float DamageMitigationService::Apply(
     // 减抗来源过滤 (SkillOnly scope)：聚合当前伤害生效的 debuff 减抗并参与结算
     res += ApplySkillScopedResistEffects(
         registry, defender, skill_id, static_cast<DamageType>(type_idx));
+    // 技能2 灵根亲和 (Node 274)：裂空斩及其触发效果的对应元素抗性穿透增加 5%...20%
+    if (skill_id == 2 && registry.valid(attacker)) {
+      const auto *profile = SkillSystem::GetBakedSkillProfile(registry, attacker, 2);
+      BakedSkillProfile localProfile;
+      if (!profile && registry.all_of<ActiveSkillsComponent>(attacker)) {
+        for (const auto &spec : registry.get<ActiveSkillsComponent>(attacker).specialized_slots) {
+          if (spec.skill_id == 2) {
+            SkillSpecializationBaker::Bake(registry, attacker, 2, &spec, localProfile, nullptr);
+            profile = &localProfile;
+            break;
+          }
+        }
+      }
+      if (profile && (profile->delivery.feature_flags & (1 << 22)) != 0 && profile->delivery.armor_pen > 0.0f) {
+        if ((type_idx == static_cast<int>(DamageType::Cold) && HasTag(profile->effective_tags, Tag::Cold)) ||
+            (type_idx == static_cast<int>(DamageType::Lightning) && HasTag(profile->effective_tags, Tag::Lightning))) {
+          res -= (profile->delivery.armor_pen / 100.0f);
+        }
+      }
+    }
     res += endgame.incoming_resistance_bonus;
     res -= endgame.outgoing_resistance_reduction;
     res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
@@ -83,8 +109,22 @@ float DamageMitigationService::Apply(
     const float pen = StatsSystem::GetStatWithTags(
         registry, attacker, StatType::ArmorPenetration, instance_tags, skill_id,
         source_entity);
-    const float effective_armor =
+    float effective_armor =
         armor - pen - endgame.outgoing_armor_reduction;
+    // 技能2 湮灭波 (Node 253)：满层剑意巨波无视物理护甲/抗性。
+    // 消费交付层显式布尔标志（253 分支设置、经 Projectile 传递），取代旧哨兵值
+    // snapshot.armor_pen>=500（穿透数值语义不得承载布尔标记，且被其它系统误读为穿透）
+    // 与死条件 arcWidth>=100（几何字段仅渲染消费）。无视比例数据驱动：
+    // mech 253.physical_ignore_res_pct（默认 50）→ 保留一半有效护甲。
+    if (skill_id == 2 && source_entity != entt::null && registry.valid(source_entity)) {
+      if (const auto *proj = registry.try_get<Projectile>(source_entity)) {
+        if (proj->ignore_resist) {
+          const float ignore_pct = data::SkillMechanicsRegistry::Get().GetFloat(
+              2, 253, "physical_ignore_res_pct", 50.0f);
+          effective_armor = std::max(0.0f, effective_armor * (1.0f - ignore_pct / 100.0f));
+        }
+      }
+    }
     const int area_level = defender_stats->cached_area_level;
     const float armor_multiplier =
         NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,

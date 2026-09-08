@@ -81,23 +81,36 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
     CHECK(after_second == after_first);
   }
 
-  SUBCASE("Skill 2 trigger contract dispatches and records cooldown") {
+  SUBCASE("Skill 2 node 254 stays on behavior track with no engine trigger rule") {
     active.specialized_slots[0].skill_id = 2;
     active.specialized_slots[0].allocated_points.clear();
-    active.specialized_slots[0].allocated_points[233] = 1; // Skill 2 trigger node
+    active.specialized_slots[0].allocated_points[254] = 1; // Skill 2 trigger node (回响斩)
 
+    // 254 回响斩 trigger_skill_id=0：引擎 TriggerRule 轨道禁用，回响波由
+    // RendingWave::DoCast 消耗剑意时直接向背后发射，防止引擎+行为双发。
+    // 技能命中事件不得派生触发 SkillExecution，也不得记录引擎触发冷却。
     const auto before = registry.storage<SkillExecution>().size();
     CombatEventDispatcher::Dispatch(
         registry, CombatEventFactory::CreateSkillHit(
                       caster, target, 2, Tag::Hit | Tag::Projectile, false, 5001));
 
     const auto after = registry.storage<SkillExecution>().size();
-    CHECK(after > before);
+    CHECK(after == before);
 
     const auto *runtime =
         registry.try_get<SkillContractRuntimeComponent>(caster);
-    REQUIRE(runtime != nullptr);
-    CHECK(runtime->trigger_cooldowns.contains(233));
+    if (runtime != nullptr) {
+      CHECK_FALSE(runtime->trigger_cooldowns.contains(254));
+    }
+
+    // 契约侧锁定：254 仍为 Trigger 角色（节点归属不变），但引擎触发技能 id 为 0，
+    // effectiveness/ICD 保留供行为层读取
+    const auto *nodeContract = SkillRegistry::Get().GetNodeContract(2, 254);
+    REQUIRE(nodeContract != nullptr);
+    CHECK(nodeContract->role == SpecNodeRole::Trigger);
+    CHECK(nodeContract->trigger.trigger_skill_id == 0);
+    CHECK(nodeContract->trigger.effectiveness == doctest::Approx(0.4f));
+    CHECK(nodeContract->trigger.internal_cooldown == doctest::Approx(2.0f));
   }
 
   SUBCASE("Trigger dispatch stores trigger effectiveness per cast") {

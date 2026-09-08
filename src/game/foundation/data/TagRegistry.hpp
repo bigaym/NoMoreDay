@@ -38,6 +38,10 @@ enum class Tag : uint64_t {
     Buff = 1ULL << 35,
     Aura = 1ULL << 36,
     Channeled = 1ULL << 37,
+    // 二次命中 (衍生伤害，如 271 冰爆/273 连锁经直连 ResolveDamage 触发)：
+    // 该类命中的 trigger_depth 恒为 0，hitFunc 侧需按本标记阻断二次命中
+    // 再次驱动行为层 DoHit，防止触发链自我放大
+    SecondaryHit = 1ULL << 38,
 
     // --- State Tags (48-63) ---
     Bleeding = 1ULL << 48,

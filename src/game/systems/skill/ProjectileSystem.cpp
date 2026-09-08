@@ -981,21 +981,36 @@ void ProjectileSystem::SpawnSplitProjectiles(entt::registry &registry,
     p.radius = parent.radius * parent.split_radius_mult;
     for (auto &m : p.snapshot.damage_multipliers)
       m *= parent.split_damage_mult;
-    // Reset lifetime - Reduced from 3.0f to 0.6f to prevent visual clutter
-    p.lifeTime = 0.6f;
+    if (p.payload_context.has_value()) {
+      p.payload_context->more_damage *= parent.split_damage_mult;
+    }
+    // Homing projectiles need flight time to seek and acquire enemies
+    const bool isHoming = registry.any_of<HomingTag>(parent_ent);
+    p.lifeTime = isHoming ? 1.2f : 0.6f;
     p.hitLimitReached = false;
     p.hasRendered = false;
     p.ClearHits();
+
+    if (isHoming) {
+      registry.emplace<HomingTag>(child);
+    }
+    if (auto *parent_seeker = registry.try_get<SeekerComponent>(parent_ent)) {
+      auto &seeker = registry.emplace<SeekerComponent>(child, *parent_seeker);
+      seeker.target = entt::null;
+    }
 
     // Visuals
     if (auto *col = registry.try_get<ColorComponent>(parent_ent)) {
       registry.emplace<ColorComponent>(child, *col);
     }
 
-    // Tags
+    // Tags & Modifiers
     if (registry.any_of<SkillComponent>(parent_ent)) {
       registry.emplace<SkillComponent>(
           child, registry.get<SkillComponent>(parent_ent));
+    }
+    if (auto *mod = registry.try_get<SkillModifierComponent>(parent_ent)) {
+      registry.emplace<SkillModifierComponent>(child, *mod);
     }
     registry.emplace<LocalLevelTag>(child);
   }
@@ -1018,18 +1033,21 @@ void ProjectileSystem::SpawnExplosionProjectiles(entt::registry &registry,
     auto child = registry.create();
     registry.emplace<Position>(child, pos);
     registry.emplace<Velocity>(child, dir.x * parent.speed * 0.8f,
-                               dir.y * parent.speed * 0.8f);
+                                dir.y * parent.speed * 0.8f);
 
     auto &p = registry.emplace<Projectile>(child, parent);
     p.on_death = Projectile::OnDeathBehavior::None;
     for (auto &m : p.snapshot.damage_multipliers)
       m *= parent.explode_damage_mult;
-    // Reduced from 2.0f to 0.4f
-    p.lifeTime = 0.4f;
+    if (p.payload_context.has_value()) {
+      p.payload_context->more_damage *= parent.explode_damage_mult;
+    }
+    p.lifeTime = 0.6f;
     p.hitLimitReached = false;
     p.hasRendered = false;
     p.ClearHits();
-    p.pierce = false;
+    p.pierce = true; // 微型穿刺剑气
+    p.pierceCount = 5;
 
     if (auto *col = registry.try_get<ColorComponent>(parent_ent)) {
       registry.emplace<ColorComponent>(child, *col);
@@ -1037,6 +1055,9 @@ void ProjectileSystem::SpawnExplosionProjectiles(entt::registry &registry,
     if (registry.any_of<SkillComponent>(parent_ent)) {
       registry.emplace<SkillComponent>(
           child, registry.get<SkillComponent>(parent_ent));
+    }
+    if (auto *mod = registry.try_get<SkillModifierComponent>(parent_ent)) {
+      registry.emplace<SkillModifierComponent>(child, *mod);
     }
     registry.emplace<LocalLevelTag>(child);
   }

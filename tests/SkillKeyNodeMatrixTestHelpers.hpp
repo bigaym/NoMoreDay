@@ -63,6 +63,15 @@ inline const std::array<uint32_t, 12> &MatrixSkillIds() {
   return skill_ids;
 }
 
+// 引擎触发矩阵技能集合：技能2（裂空斩）的 254 回响斩由行为层 DoCast 直接处理
+// （契约 trigger_skill_id==0，见 docs/reviews/2026-09-08-skill2 审查 H-A 整改），
+// 不再参与引擎 TriggerCast 矩阵，故从引擎触发矩阵计数中排除。
+inline const std::array<uint32_t, 11> &EngineTriggerMatrixSkillIds() {
+  static const std::array<uint32_t, 11> skill_ids = {1, 3, 4,  5,  6,  7,
+                                                     8, 9, 10, 11, 12};
+  return skill_ids;
+}
+
 inline std::filesystem::path ResolveProjectPath(const char *relative_path) {
   const std::array<std::filesystem::path, 4> roots = {
       std::filesystem::current_path(),
@@ -96,7 +105,7 @@ inline nlohmann::json LoadJsonFile(const char *relative_path) {
 inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
   return {
       {1, {113, 130, 132, 134, 153, 155, 170, 172}},
-      {2, {213, 214, 230, 233, 250, 252, 270}},
+      {2, {211, 213, 214, 215, 230, 232, 234, 251, 253, 254, 255, 270, 272}},
       {3, {330, 352, 370, 371, 373}},
       {4, {430, 451, 452, 470, 471}},
       {5, {530, 533, 552, 570, 571}},

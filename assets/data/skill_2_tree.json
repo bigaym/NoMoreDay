@@ -299,7 +299,7 @@
           "prerequisites": [
             {
               "node_id": 203,
-              "required_points": 1
+              "required_points": 2
             }
           ]
         },
@@ -311,7 +311,7 @@
           "prerequisites": [
             {
               "node_id": 272,
-              "required_points": 2
+              "required_points": 1
             }
           ]
         },

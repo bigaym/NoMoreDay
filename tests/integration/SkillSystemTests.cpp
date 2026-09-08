@@ -45,7 +45,7 @@ TEST_CASE("[Integration] SkillSystem - Registry Loading") {
     const auto *skill = registry.GetSkill(2);
     REQUIRE(skill != nullptr);
     CHECK(HasTag(skill->tags, Tag::Projectile));
-    CHECK(skill->max_charges == 3);
+    CHECK(skill->max_charges == 0);
   }
 }
 
@@ -485,7 +485,7 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   active.slots[1].cooldown = 3.0f;
   active.specialized_slots[0].skill_id = 1;
   active.specialized_slots[1].skill_id = 2;
-  active.specialized_slots[1].allocated_points[252] = 1;
+  active.specialized_slots[1].allocated_points[251] = 1;
 
   systems::BladeMasteryService::RefreshPlayerState(registry, player);
   REQUIRE(systems::BladeMasteryService::SelectMastery(
@@ -499,6 +499,10 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   // 负向断言：旧私有特例"命中削减技能 2 CD 0.75s"已删除，命中后技能 2 CD 保持不变
   CHECK(active.slots[1].cooldown == doctest::Approx(3.0f));
 
+  // 获得足够剑意达到 251 剑意爆发阈值 (>= 5)
+  REQUIRE(systems::BladeResourceService::Gain(registry, player, 3, 10u));
+  CHECK(registry.get<BladeResourceComponent>(player).current >= 5);
+
   SkillExecution rendingExec;
   rendingExec.skill_id = 2;
   rendingExec.owner = player;
@@ -508,7 +512,8 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   rendingCast(registry, player, rendingExec);
   CHECK(rendingExec.is_empowered);
   CHECK(registry.get<BladeResourceComponent>(player).current == 0);
-  CHECK(active.slots[0].cooldown == doctest::Approx(0.5f));
+  // 负向断言：旧私有特例"消耗剑意削减技能 1 CD 1.5s"已删除，技能 1 CD 保持不变
+  CHECK(active.slots[0].cooldown == doctest::Approx(2.0f));
 
   REQUIRE(systems::BladeResourceService::Gain(registry, player, 3, 10u));
   SkillExecution sevenStarExec;
@@ -594,7 +599,7 @@ TEST_CASE("[Integration] Blade Mastery - full-flow release resets Flowing Thrust
   active.slots[0].id = 1;
   active.slots[0].cooldown = 4.0f;
   active.specialized_slots[0].skill_id = 2;
-  active.specialized_slots[0].allocated_points[252] = 1;
+  active.specialized_slots[0].allocated_points[251] = 1;
 
   systems::BladeMasteryService::RefreshPlayerState(registry, player);
   REQUIRE(systems::BladeMasteryService::SelectMastery(

@@ -52,11 +52,23 @@ enum class BuffType {
 inline void to_json(nlohmann::json& j, const BuffType& e) { j = static_cast<int>(e); }
 inline void from_json(const nlohmann::json& j, BuffType& e) { e = static_cast<BuffType>(j.get<int>()); }
 
+// BuffEffect 数值类别标识：战斗热路径 (伤害结算/技能命中) 需要按业务类别查找效果，
+// 字符串键查找 (Get(const std::string&)) 会产生字符串构造与逐字符比较，违反
+// 热路径禁止字符串比较分支的规定 (code_standard §2.1/§7.2)。
+// kind 走整数比较；id 字符串仅保留给序列化与日志边界。
+enum class BuffKind : uint16_t {
+    None = 0,
+    QiBrand, // 剑气烙印 (技能2 节点250)：目标受暴击伤害加深
+};
+
 struct BuffEffect {
     std::string id;             // Unique ID for the buff type (e.g., 'sword_intent', 'rage')
     std::string name;           // Display name
     std::string description;    // Tooltip description
     BuffType type = BuffType::None; // For icon mapping
+
+    // 数值类别 (见 BuffKind)：供 GetByKind 做无字符串的热路径查找，默认无类别
+    BuffKind kind = BuffKind::None;
     
     float duration = 0.0f;      // Total duration in seconds (-1 for infinite)
     float remaining = 0.0f;     // Remaining time in seconds
@@ -100,7 +112,8 @@ inline void to_json(nlohmann::json& j, const BuffEffect& b) {
         {"managed_ailment", b.managed_ailment},
         {"ailment_type", b.ailment_type},
         {"ailment_power", b.ailment_power},
-        {"source_skill_id", b.source_skill_id}
+        {"source_skill_id", b.source_skill_id},
+        {"kind", b.kind}
     };
     // source entity is not serialized here as it's runtime transient usually, 
     // or requires UUID mapping which complexifies simple struct serialization.
@@ -126,6 +139,8 @@ inline void from_json(const nlohmann::json& j, BuffEffect& b) {
     if (j.contains("ailment_power")) j.at("ailment_power").get_to(b.ailment_power);
     // 可选字段：旧存档无此字段时默认 source_skill_id=0（无归属，保持旧"全局生效"语义）
     if (j.contains("source_skill_id")) j.at("source_skill_id").get_to(b.source_skill_id);
+    // 可选字段：旧存档无此字段时默认 kind=None（无数值类别，热路径查找不命中）
+    if (j.contains("kind")) j.at("kind").get_to(b.kind);
     b.source = entt::null;
 }
 
@@ -204,6 +219,27 @@ struct ActiveEffectsComponent {
             }
         }
         return false;
+    }
+
+    // 数值类别查找：线性遍历逐个比较整数 kind，无字符串构造与比较，
+    // 供战斗热路径 (如 DamagePipeline 结算烙印层数) 替代字符串键 Get()。
+    BuffEffect* GetByKind(BuffKind kind) {
+        for (auto& effect : effects) {
+            if (effect.kind == kind) {
+                return &effect;
+            }
+        }
+        return nullptr;
+    }
+
+    // Const variant: read-only lookup by numeric kind
+    const BuffEffect* GetByKind(BuffKind kind) const {
+        for (const auto& effect : effects) {
+            if (effect.kind == kind) {
+                return &effect;
+            }
+        }
+        return nullptr;
     }
     
     void Update(float dt) {

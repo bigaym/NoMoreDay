@@ -82,6 +82,8 @@ struct BoomerangComponent {
   float returnTimer = 0.5f;
   float returnSpeed = 0.0f;
   entt::entity returnTarget = entt::null;
+  float returning_damage_mult = 1.0f; // 折返阶段伤害系数 (Node 230: 0.70f, Node 231: More 增伤)
+  bool stun_on_apex_end = false;      // 顶点黑洞消散时击晕 (Node 233)
 };
 static_assert(std::is_standard_layout_v<BoomerangComponent>);
 static_assert(std::is_trivially_destructible_v<BoomerangComponent>);
@@ -241,5 +243,17 @@ struct StickyDetonationComponent {
 };
 static_assert(std::is_standard_layout_v<StickyDetonationComponent>);
 static_assert(std::is_trivially_destructible_v<StickyDetonationComponent>);
+
+// ============================================================================
+// 消耗剑意施放标记 (技能2 节点251/255 联动)
+// ============================================================================
+// 标识投射物源自「消耗剑意的裂空斩」施放 (251 剑意爆发达到门槛并实际消耗时打标)。
+// DoHit 命中处理仅对带此标记的投射物执行 255 意念回流 roll；
+// 普通施放 (未消耗剑意) 与 254 回响斩衍生波不带标记，避免凭空回剑意。
+// 注：253 湮灭波的无视抗性标志已收敛为 Projectile::ignore_resist 布尔字段，
+// 旧的 ProjectileIgnoreResist 独立组件随之移除，避免双份事实来源。
+struct IntentConsumedCastTag {};
+static_assert(std::is_standard_layout_v<IntentConsumedCastTag>);
+static_assert(std::is_trivially_destructible_v<IntentConsumedCastTag>);
 
 } // namespace NoMoreDay

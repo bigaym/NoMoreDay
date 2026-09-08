@@ -1066,6 +1066,17 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         }
       }
 
+      // Talent: Qi Brand (ID 250) - 目标每层烙印使受到的暴击伤害增加 4% (最多 5 层)
+      if (registry.valid(defender)) {
+        if (auto *effects = registry.try_get<ActiveEffectsComponent>(defender)) {
+          // 热路径按数值类别查找 (GetByKind 整数比较)，替代字符串键 Get("QiBrand")
+          // 的字符串构造与逐字符比较 (code_standard §2.1/§7.2)
+          if (const auto *brand = effects->GetByKind(BuffKind::QiBrand)) {
+            extra_crit_mult += 0.04f * static_cast<float>(brand->stacks);
+          }
+        }
+      }
+
       // Dynamic Crit Check if not already marked as critical
       if (!is_crit && (attacker_stats || request.payload_context.has_value())) {
         float crit_chance = 0.0f;

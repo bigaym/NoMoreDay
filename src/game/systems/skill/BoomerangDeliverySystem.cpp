@@ -4,6 +4,8 @@
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/Projectile.hpp"
+#include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raymath.h"
 #include <vector>
@@ -59,7 +61,31 @@ void BoomerangDeliverySystem::Update(entt::registry &registry,
       }
 
       if (bc.hover_timer <= 0.0f) {
+        if (bc.stun_on_apex_end && bc.pull_radius > 0.0f) {
+          grid.query({pos.x, pos.y}, bc.pull_radius, [&](entt::entity target, const Position &) {
+            if (registry.any_of<EnemyTag>(target) && !registry.any_of<KilledTag>(target)) {
+              systems::AilmentApplyRequest stunReq{
+                  .ailment = AilmentType::Stun,
+                  .source = bc.owner,
+                  .duration = 1.0f,
+                  .stacks = 1
+              };
+              (void)systems::AilmentApplier::Apply(registry, target, stunReq);
+            }
+          });
+        }
         bc.phase = BoomerangPhase::Returning;
+        if (auto *proj = registry.try_get<Projectile>(entity)) {
+          proj->ClearHits();
+          if (bc.returning_damage_mult != 1.0f) {
+            if (proj->payload_context.has_value()) {
+              proj->payload_context->more_damage *= bc.returning_damage_mult;
+            }
+            for (auto &m : proj->snapshot.damage_multipliers) {
+              m *= bc.returning_damage_mult;
+            }
+          }
+        }
       }
       break;
     }
@@ -73,8 +99,8 @@ void BoomerangDeliverySystem::Update(entt::registry &registry,
 
         constexpr float kReturnCatchThreshold = 32.0f;
         if (dist < kReturnCatchThreshold) {
-          // 接剑回调 (Catch by owner, 需节点 831 门控 flag 8)
-          if (bc.catch_by_owner && registry.valid(bc.owner)) {
+          // 接剑回调 (Catch by owner, 需节点 831 门控 flag 8，技能2无接剑返还)
+          if (bc.catch_by_owner && bc.skill_id != 2 && registry.valid(bc.owner)) {
             const auto *p = SkillSystem::GetBakedSkillProfile(registry, bc.owner, bc.skill_id);
             const bool hasCatchRefund = p ? ((p->delivery.feature_flags & 8) != 0) : true;
             if (hasCatchRefund) {

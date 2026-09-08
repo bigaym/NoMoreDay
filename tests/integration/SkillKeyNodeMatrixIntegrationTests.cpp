@@ -216,7 +216,9 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Demon Blade node 1219 extends Bloo
 
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all trigger nodes") {
   const auto compact = sknm::LoadCompactContractBuckets();
-  CHECK(compact.trigger_node_by_skill.size() == sknm::MatrixSkillIds().size());
+  // 技能2 的 254 由行为层 DoCast 轨道处理（trigger_skill_id==0），不在引擎触发矩阵内。
+  CHECK(compact.trigger_node_by_skill.size() ==
+        sknm::EngineTriggerMatrixSkillIds().size());
 
   int scenario_count = 0;
   for (const auto &[skill_id, trigger_node] : compact.trigger_node_by_skill) {
@@ -256,7 +258,8 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
     ++scenario_count;
   }
 
-  CHECK(scenario_count == static_cast<int>(sknm::MatrixSkillIds().size()));
+  CHECK(scenario_count ==
+        static_cast<int>(sknm::EngineTriggerMatrixSkillIds().size()));
 }
 
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guard matrix >= 12") {

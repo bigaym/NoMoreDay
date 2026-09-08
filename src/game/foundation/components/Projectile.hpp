@@ -129,6 +129,11 @@ struct Projectile {
   float hover_duration = 1.0f;
   float hover_tick_rate = 0.2f;
   float hover_damage_mult = 0.3f;
+
+  // 技能2 湮灭波 (Node 253) 无视物理护甲/抗性标志：生成方 (RendingWave) 在满层
+  // 巨波上设置，消费方 (DamageMitigationService) 读取后将有效护甲减半。
+  // 显式布尔取代旧 "snapshot.armor_pen += 500" 哨兵值——穿透数值不得承载布尔语义
+  bool ignore_resist = false;
 };
 
 struct HomingTag {};

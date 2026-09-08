@@ -138,6 +138,12 @@ BuffType BuffTypeFromString(std::string_view value, BuffType fallback) {
     return BuffType::Poison;
   if (value == "Bleed")
     return BuffType::Bleed;
+  if (value == "Freeze")
+    return BuffType::Freeze;
+  if (value == "Shock")
+    return BuffType::Shock;
+  if (value == "SpeedDown" || value == "Slow" || value == "Chill")
+    return BuffType::SpeedDown;
   if (value == "DamageOverTime")
     return BuffType::DamageOverTime;
   return fallback;
@@ -151,6 +157,11 @@ Tag DefaultDamageTag(AilmentType ailment) {
     return Tag::Physical;
   case AilmentType::Poison:
     return Tag::Poison;
+  case AilmentType::Freeze:
+  case AilmentType::Chill:
+    return Tag::Cold;
+  case AilmentType::Shock:
+    return Tag::Lightning;
   default:
     return Tag::Poison;
   }
@@ -397,6 +408,15 @@ void AilmentRegistry::LoadBuiltins() {
   setContract(AilmentType::Bleed, 2, RefreshPolicy::Independent,
               OverwritePolicy::Additive, 0.5f, DamagePoolPolicy::PerStack, 2.5f,
               Tag::Physical, BuffType::Bleed);
+  setContract(AilmentType::Chill, 3, RefreshPolicy::Refresh,
+              OverwritePolicy::Strongest, 1.0f, DamagePoolPolicy::PerStack, 3.0f,
+              Tag::Cold, BuffType::SpeedDown);
+  setContract(AilmentType::Freeze, 1, RefreshPolicy::Refresh,
+              OverwritePolicy::Strongest, 1.0f, DamagePoolPolicy::PerStack, 1.0f,
+              Tag::Cold, BuffType::Freeze);
+  setContract(AilmentType::Shock, 1, RefreshPolicy::Refresh,
+              OverwritePolicy::Strongest, 1.0f, DamagePoolPolicy::PerStack, 3.0f,
+              Tag::Lightning, BuffType::Shock);
 }
 
 std::optional<AilmentType> AilmentAdapter::TryMapLegacyBuff(
@@ -425,6 +445,12 @@ std::optional<AilmentType> AilmentAdapter::TryMapLegacyBuff(
     return AilmentType::Poison;
   case BuffType::Bleed:
     return AilmentType::Bleed;
+  case BuffType::Freeze:
+    return AilmentType::Freeze;
+  case BuffType::Shock:
+    return AilmentType::Shock;
+  case BuffType::SpeedDown:
+    return AilmentType::Chill;
   case BuffType::DamageOverTime:
     if (HasTag(effect.tick_damage_tag, Tag::Fire)) {
       return AilmentType::Ignite;
@@ -451,6 +477,9 @@ BuffType AilmentAdapter::ToLegacyBuffType(AilmentType ailment) {
     return BuffType::Freeze;
   case AilmentType::Shock:
     return BuffType::Shock;
+  case AilmentType::Chill:
+  case AilmentType::Slow:
+    return BuffType::SpeedDown;
   default:
     return BuffType::DamageOverTime;
   }

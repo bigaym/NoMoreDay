@@ -89,7 +89,19 @@ inline void to_json(nlohmann::json &j, const ModifierType &e) {
   j = static_cast<uint8_t>(e);
 }
 inline void from_json(const nlohmann::json &j, ModifierType &e) {
-  e = static_cast<ModifierType>(j.get<uint8_t>());
+  if (j.is_string()) {
+    const std::string s = j.get<std::string>();
+    if (s == "Flat") e = ModifierType::Flat;
+    else if (s == "Increased") e = ModifierType::Increased;
+    else if (s == "More") e = ModifierType::More;
+    else if (s == "Convert") e = ModifierType::Convert;
+    else if (s == "GainExtra") e = ModifierType::GainExtra;
+    else e = ModifierType::Flat;
+  } else if (j.is_number()) {
+    e = static_cast<ModifierType>(j.get<uint8_t>());
+  } else {
+    e = ModifierType::Flat;
+  }
 }
 
 /**
@@ -105,8 +117,39 @@ struct DamageModifier {
   bool operator==(const DamageModifier &) const = default;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DamageModifier, source_tag, target_tag,
-                                   value, type)
+inline void to_json(nlohmann::json &j, const DamageModifier &m) {
+  j = nlohmann::json{
+    {"source_tag", static_cast<uint64_t>(m.source_tag)},
+    {"target_tag", static_cast<uint64_t>(m.target_tag)},
+    {"value", m.value},
+    {"type", static_cast<uint8_t>(m.type)}
+  };
+}
+
+inline void from_json(const nlohmann::json &j, DamageModifier &m) {
+  if (j.contains("source_tag")) {
+    if (j.at("source_tag").is_string()) {
+      auto t = TagFromString(j.at("source_tag").get<std::string>());
+      m.source_tag = t.value_or(Tag::None);
+    } else if (j.at("source_tag").is_number()) {
+      m.source_tag = static_cast<Tag>(j.at("source_tag").get<uint64_t>());
+    }
+  }
+  if (j.contains("target_tag")) {
+    if (j.at("target_tag").is_string()) {
+      auto t = TagFromString(j.at("target_tag").get<std::string>());
+      m.target_tag = t.value_or(Tag::None);
+    } else if (j.at("target_tag").is_number()) {
+      m.target_tag = static_cast<Tag>(j.at("target_tag").get<uint64_t>());
+    }
+  }
+  if (j.contains("value")) {
+    m.value = j.at("value").get<float>();
+  }
+  if (j.contains("type")) {
+    from_json(j.at("type"), m.type);
+  }
+}
 
 struct TalentPrerequisite {
   uint32_t node_id = 0;
