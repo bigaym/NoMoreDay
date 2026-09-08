@@ -202,7 +202,7 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
   registry.LoadFromJson("assets/data/skills.json");
 
   const std::array<uint32_t, 9> expected_trigger_nodes = {
-      134, 254, 373, 451, 533, 633, 713, 831, 951};
+      134, 254, 335, 451, 533, 633, 713, 831, 951};
 
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     CAPTURE(skill_id);
@@ -216,7 +216,8 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
     CHECK(tree->nodes.size() <= contract->max_nodes);
     CHECK(contract->min_nodes <= contract->max_nodes);
     CHECK(contract->max_triggers == 1);
-    CHECK(contract->max_transmuters == 2);
+    // 技能 3（灵剑决）互斥收束为 1：370/372 双元素转质只能二选一
+    CHECK(contract->max_transmuters == (skill_id == 3 ? 1 : 2));
 
     int trigger_count = 0;
     int synergy_count = 0;

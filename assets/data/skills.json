@@ -1364,7 +1364,7 @@
           "id": 300,
           "name_key": "剑池充盈",
           "desc_key": "在场最大灵剑数量 +1/2/3/4。",
-          "max_points": 3,
+          "max_points": 4,
           "x": -2.76,
           "y": 0.99,
           "prerequisites": [
@@ -1434,13 +1434,6 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 31,
-              "mode": 1,
-              "value": 20.0
-            }
-          ],
           "icon_id": 3287221484
         },
         {
@@ -1462,7 +1455,7 @@
           "id": 312,
           "name_key": "灵力网络",
           "desc_key": "*{需求: 无尽剑匣}* 每存在一柄灵剑，你的法力回复速度增加 3...9 点/秒（固定值），且维持技能的法力消耗降低 5%...15%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -1.84,
           "y": 2.5,
           "prerequisites": [
@@ -1508,7 +1501,7 @@
           "id": 315,
           "name_key": "御剑共振",
           "desc_key": "*{需求: 索敌范围 2/3}* 处于“御剑步”状态时，灵剑攻击频率增加 20%...60%，且灵剑命中有 10%...30% 几率为你回复 1 层剑意。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.54,
           "y": 0.98,
           "prerequisites": [
@@ -1554,7 +1547,7 @@
           "id": 332,
           "name_key": "致命锋芒",
           "desc_key": "*{需求: 弱点锁定 3/5}* 巨剑的暴击伤害倍率 +25%...100%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.72,
           "y": -2.78,
           "prerequisites": [
@@ -1599,7 +1592,7 @@
           "id": 335,
           "name_key": "巨剑裂空",
           "desc_key": "*{需求: 弱点锁定 3/5}* 巨剑暴击时，从巨剑位置向目标方向触发一道 [裂空斩]（使用其已专精版本，30% 效力，CD: 4s，不消耗法力）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 1.22,
           "y": -3.4,
           "prerequisites": [
@@ -1645,7 +1638,7 @@
           "id": 352,
           "name_key": "反击剑网",
           "desc_key": "*{需求: 剑影环身}* 每环绕一柄灵剑，你的格挡几率增加 2%...6%。",
-          "max_points": 1,
+          "max_points": 3,
           "x": -2.21,
           "y": -0.37,
           "prerequisites": [
@@ -1675,7 +1668,7 @@
           "id": 354,
           "name_key": "法术共鸣",
           "desc_key": "*{需求: 锋灵 4/5}* 灵剑协同施法，当你施放任意法术时，所有灵剑同步向该方向发射微型剑气飞弹（20% 效力）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": -3.6,
           "y": -1.3,
           "prerequisites": [
@@ -1691,7 +1684,7 @@
           "id": 355,
           "name_key": "剑阵共鸣",
           "desc_key": "*{需求: 灵剑护体 3/5}* 当你处于 [剑阵·诛仙] 范围内时，灵剑获得 50% 攻击速度加成，且命中时附加剑阵当前的元素属性（若剑阵已转化元素）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": -1.75,
           "y": -3.98,
           "prerequisites": [
@@ -1707,7 +1700,7 @@
           "id": 370,
           "name_key": "地火明夷",
           "desc_key": "*{需求: 五行归元 2/4}* 转化为 **火焰 (Fire)** 伤害，获得 [Fire] 标签。命中时必定附加“点燃烧灼”。*与 [紫电紫雷] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 1.31,
           "y": 3.2,
           "prerequisites": [
@@ -1723,7 +1716,7 @@
           "id": 371,
           "name_key": "灼魂剑舞",
           "desc_key": "*{需求: 地火明夷}* 被点燃的敌人每秒额外受到火焰持续伤害（基于活跃灵剑数量缩放），且点燃持续时间增加 20%...60%。",
-          "max_points": 1,
+          "max_points": 3,
           "x": 3.14,
           "y": 1.29,
           "prerequisites": [
@@ -1738,7 +1731,7 @@
           "id": 372,
           "name_key": "紫电紫雷",
           "desc_key": "*{需求: 五行归元 2/4}* 转化为 **闪电 (Lightning)** 伤害，获得 [Lightning] 标签。变为瞬移攻击，击中后短暂停留并释放静电场。*与 [地火明夷] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 2.43,
           "y": -1.38,
           "prerequisites": [
@@ -1754,7 +1747,7 @@
           "id": 373,
           "name_key": "雷弧连锁",
           "desc_key": "*{需求: 紫电紫雷}* 灵剑攻击感电敌人时产生闪电弧，向 1...3 名附近敌人连锁传导，每次跳跃造成基础伤害 15%...45% 的闪电伤害。",
-          "max_points": 1,
+          "max_points": 3,
           "x": 2.45,
           "y": -1.94,
           "prerequisites": [
@@ -1769,7 +1762,7 @@
           "id": 374,
           "name_key": "灵剑蚀甲",
           "desc_key": "*{需求: 任意 Transmuter}* 灵剑每攻击一次带有对应元素异常状态（点燃/感电）的敌人，降低其对应元素抗性 2...8 点（最多 8 层），灵剑停止攻击后 debuff 持续 4 秒后消散。",
-          "max_points": 1,
+          "max_points": 4,
           "x": 2.18,
           "y": 2.66,
           "prerequisites": [
@@ -1805,13 +1798,13 @@
         "skill_id": 3,
         "min_nodes": 28,
         "max_nodes": 28,
-        "max_transmuters": 2,
+        "max_transmuters": 1,
         "max_triggers": 1,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
           370,
-          371
+          372
         ],
         "nodes": [
           {
@@ -1860,8 +1853,23 @@
             }
           },
           {
+            "node_id": 315,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 330,
-            "role": "Synergy",
+            "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -1872,6 +1880,22 @@
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 335,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 2,
+              "effectiveness": 0.3,
+              "range_mult": 1.0,
+              "internal_cooldown": 4.0,
+              "consumes_mana": false,
+              "requires_crit": true
             }
           },
           {
@@ -1890,11 +1914,11 @@
             }
           },
           {
-            "node_id": 352,
+            "node_id": 353,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "affects_sword_intent": true,
+            "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -1905,8 +1929,23 @@
             }
           },
           {
-            "node_id": 353,
+            "node_id": 354,
             "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 355,
+            "role": "Synergy",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -1935,7 +1974,7 @@
             }
           },
           {
-            "node_id": 371,
+            "node_id": 372,
             "role": "Transmuter",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1950,7 +1989,7 @@
             }
           },
           {
-            "node_id": 372,
+            "node_id": 374,
             "role": "Passive",
             "resist_model": "TypeB_Shred",
             "scope_policy": "SkillOnly",
@@ -1965,23 +2004,218 @@
             }
           },
           {
-            "node_id": 373,
-            "role": "Trigger",
+            "node_id": 300,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
-              "trigger_skill_id": 2,
-              "effectiveness": 0.3,
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
               "range_mult": 1.0,
-              "internal_cooldown": 4.0,
+              "internal_cooldown": 0.0,
               "consumes_mana": false
             }
           },
           {
-            "node_id": 374,
-            "role": "Keystone",
+            "node_id": 301,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 302,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 303,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 310,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 312,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 331,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 332,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 333,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 334,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 350,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 352,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 371,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 373,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 375,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,

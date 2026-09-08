@@ -347,6 +347,7 @@ def _build_contract_for_skill(
             "range_mult": float(trigger_obj.get("range_mult", 1.0)),
             "internal_cooldown": float(trigger_obj.get("internal_cooldown", 0.0)),
             "consumes_mana": bool(trigger_obj.get("consumes_mana", False)),
+            "requires_crit": bool(trigger_obj.get("requires_crit", False)),
         }
     if len(trigger_nodes) > max_triggers:
         raise ValueError(
@@ -449,6 +450,7 @@ def _build_contract_for_skill(
                 "range_mult": 1.0,
                 "internal_cooldown": 0.0,
                 "consumes_mana": False,
+                "requires_crit": False,
             },
         )
 
@@ -458,6 +460,7 @@ def _build_contract_for_skill(
             and trigger["range_mult"] == 1.0
             and trigger["internal_cooldown"] == 0.0
             and trigger["consumes_mana"] is False
+            and trigger["requires_crit"] is False
         )
 
         emits_non_default = (

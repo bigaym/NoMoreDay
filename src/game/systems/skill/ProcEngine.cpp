@@ -60,6 +60,8 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
         for (uint8_t i = 0; i < triggerComp->rule_count; ++i) {
             auto& rule = triggerComp->rules[i];
             if (rule.listen_event != event.type || rule.current_cooldown > 0.0f) continue;
+            // 需暴击的规则（如 335 巨剑裂空）仅接受暴击命中事件
+            if (rule.requires_crit && !event.isCrit) continue;
             if (rule.event_tag_filter != Tag::None && (event.tags & rule.event_tag_filter) != rule.event_tag_filter) continue;
 
             // 幻影闪反击规则状态门控：若已触发或反击窗口已关闭则跳过

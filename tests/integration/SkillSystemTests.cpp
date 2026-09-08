@@ -1114,7 +1114,10 @@ TEST_CASE("[Integration] SkillSystem - Key-node cast smoke matrix") {
                                                    2);
     test::skill_keynode_matrix::ConfigureSpecialization(
         registry, caster, skill_id,
-        test::skill_keynode_matrix::AsAllocatedPoints(key_nodes.at(skill_id), 1));
+        test::skill_keynode_matrix::AsAllocatedPoints(
+            test::skill_keynode_matrix::CastSmokeNodes(skill_id,
+                                                       key_nodes.at(skill_id)),
+            1));
 
     CHECK(SkillSystem::TryCast(registry, caster, 0, {80.0f, 0.0f}));
     for (int i = 0; i < 3; ++i) {

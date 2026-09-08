@@ -106,7 +106,7 @@ inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
   return {
       {1, {113, 130, 132, 134, 153, 155, 170, 172}},
       {2, {211, 213, 214, 215, 230, 232, 234, 251, 253, 254, 255, 270, 272}},
-      {3, {330, 352, 370, 371, 373}},
+      {3, {315, 335, 355, 370, 372}},
       {4, {430, 451, 452, 470, 471}},
       {5, {530, 533, 552, 570, 571}},
       {6, {630, 633, 652, 670, 671}},
@@ -287,6 +287,16 @@ AsAllocatedPoints(const std::vector<uint32_t> &nodes, int points = 1) {
   return allocated;
 }
 
+// 冒烟施放配置：技能 3 契约 max_transmuters=1，370/372 互斥，剔除 372 仅保留火转质 370
+inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
+                                            const std::vector<uint32_t> &nodes) {
+  auto result = nodes;
+  if (skill_id == 3u) {
+    result.erase(std::remove(result.begin(), result.end(), 372u), result.end());
+  }
+  return result;
+}
+
 inline entt::entity CreateCaster(entt::registry &registry, float mana = 500.0f) {
   const entt::entity caster = registry.create();
   registry.emplace<PlayerTag>(caster);
@@ -353,10 +363,11 @@ inline SkillExecution BuildExecution(uint32_t skill_id, entt::entity owner,
 inline void DispatchSkillHit(entt::registry &registry, entt::entity caster,
                              entt::entity target, uint32_t skill_id,
                              uint64_t cast_id,
-                             Tag tags = Tag::Hit | Tag::Melee) {
+                             Tag tags = Tag::Hit | Tag::Melee,
+                             bool is_crit = false) {
   CombatEventDispatcher::Dispatch(
       registry, CombatEventFactory::CreateSkillHit(caster, target, skill_id, tags,
-                                                   false, cast_id));
+                                                   is_crit, cast_id));
 }
 
 inline bool HasEffectById(const entt::registry &registry, entt::entity entity,

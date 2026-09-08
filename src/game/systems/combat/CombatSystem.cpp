@@ -15,6 +15,7 @@
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
@@ -628,36 +629,52 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
   }
 
   if (hp.current <= 0) {
-    // --- Blade Formation: Immortality (Node 322) ---
+    // --- Blade Formation: Immortality (Node 353) ---
     if (auto *formation =
             registry.try_get<NoMoreDay::BladeFormationComponent>(target)) {
-      if (formation->immortality_ready) {
-        formation->immortality_ready = false;
-        float heal = hp.max * 0.3f;
-        hp.current = heal;
-        LOG_INFO("Blade Formation Immortality (322) triggered for entity {}! "
-                 "Restored {:.1f} HP",
-                 (uint32_t)target, heal);
-
-        // Visual Effect for Immortality.
-        // Legacy text was never atlas-renderable (fell back to "?" glyph);
-        // Immune is the nearest status kind and preserves the popup feedback.
-        if (registry.all_of<Position>(target)) {
-          const auto &tPos = registry.get<Position>(target);
-          NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-              registry, {tPos.x, tPos.y},
-              NoMoreDay::render::StatusPopupKind::Immune, GOLD);
-          auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
-          auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash(
-              {tPos.x, tPos.y}, 20, 15.0f, 200.0f);
-          for (auto &p : splash) {
-            p.color = GOLD;
-            particleSys.Emit(p);
+      if (formation->has_immortality && formation->immortality_ready &&
+          formation->immortality_cooldown <= 0.0f) {
+        std::vector<entt::entity> swordsToConsume;
+        auto swordView = registry.view<NoMoreDay::SpiritSwordTag, NoMoreDay::SummonComponent>();
+        for (auto sEnt : swordView) {
+          if (swordView.get<NoMoreDay::SummonComponent>(sEnt).owner == target) {
+            swordsToConsume.push_back(sEnt);
           }
-          RenderSystem::AddScreenShake(0.3f);
         }
-        commitApplyResult(healthDamageApplied, barrierDamage, true);
-        return false; // Death prevented
+        if (swordsToConsume.size() >= 3) {
+          formation->immortality_ready = false;
+          formation->immortality_cooldown = 90.0f;
+          const float healPerSword = hp.max * 0.04f;
+          const float totalHeal = healPerSword * static_cast<float>(swordsToConsume.size());
+          hp.current = (std::min)(hp.max, totalHeal);
+          for (auto sEnt : swordsToConsume) {
+            registry.destroy(sEnt);
+          }
+          formation->current_swords = 0;
+          LOG_INFO("Blade Formation Immortality (353) triggered for entity {}! "
+                   "Consumed {} swords, restored {:.1f} HP (CD 90s)",
+                   (uint32_t)target, swordsToConsume.size(), hp.current);
+
+          // Visual Effect for Immortality.
+          // Legacy text was never atlas-renderable (fell back to "?" glyph);
+          // Immune is the nearest status kind and preserves the popup feedback.
+          if (registry.all_of<Position>(target)) {
+            const auto &tPos = registry.get<Position>(target);
+            NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+                registry, {tPos.x, tPos.y},
+                NoMoreDay::render::StatusPopupKind::Immune, GOLD);
+            auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
+            auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash(
+                {tPos.x, tPos.y}, 20, 15.0f, 200.0f);
+            for (auto &p : splash) {
+              p.color = GOLD;
+              particleSys.Emit(p);
+            }
+            RenderSystem::AddScreenShake(0.3f);
+          }
+          commitApplyResult(healthDamageApplied, barrierDamage, true);
+          return false; // Death prevented
+        }
       }
     }
 

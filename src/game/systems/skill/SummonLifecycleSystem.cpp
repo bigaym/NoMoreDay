@@ -13,14 +13,22 @@ void SummonLifecycleSystem::Update(entt::registry &registry, float dt) {
   auto view = registry.view<SummonComponent>();
   for (auto entity : view) {
     auto &summon = view.get<SummonComponent>(entity);
-    summon.lifetime -= dt;
-    if (summon.lifetime <= 0.0f || !registry.valid(summon.owner)) {
-      if (registry.valid(summon.owner)) {
-        CombatEventDispatcher::Dispatch(
-            registry, CombatEventFactory::CreateMinionDeath(summon.owner, entity));
+    if (summon.max_lifetime > 0.0f) {
+      summon.lifetime -= dt;
+      if (summon.lifetime <= 0.0f || !registry.valid(summon.owner)) {
+        if (registry.valid(summon.owner)) {
+          CombatEventDispatcher::Dispatch(
+              registry, CombatEventFactory::CreateMinionDeath(summon.owner, entity));
+        }
+        toDestroy.push_back(entity);
+        continue;
       }
-      toDestroy.push_back(entity);
-      continue;
+    } else {
+      // 永久维持型召唤物：仅当宿主失效时销毁
+      if (!registry.valid(summon.owner)) {
+        toDestroy.push_back(entity);
+        continue;
+      }
     }
 
     auto *profile = registry.try_get<SummonCombatProfile>(entity);

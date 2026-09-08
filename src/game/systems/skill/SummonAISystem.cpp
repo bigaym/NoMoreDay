@@ -1,6 +1,8 @@
 #include "game/systems/skill/SummonAISystem.hpp"
 #include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
@@ -74,42 +76,57 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
       runtime.retarget_timer = (std::max)(0.05f, aiProfile.retarget_interval);
 
       if (aiProfile.command_mode != SummonCommandMode::Passive) {
-        float bestPriority = -1e9f;
-        const float searchRadius = aiProfile.leash_radius;
-        grid.query(*ownerPos, searchRadius,
-                   [&](entt::entity candidate, const Position &candidatePos) {
-                     if (!registry.all_of<EnemyTag, Position>(candidate)) {
-                       return;
-                     }
-                     if (registry.any_of<KilledTag>(candidate)) {
-                       return;
-                     }
+        // 集中号令 (Node 314)：优先攻击最近一次命中目标
+        if (formation && formation->has_concentrate &&
+            registry.valid(formation->last_skill_hit_target) &&
+            registry.all_of<EnemyTag, Position>(formation->last_skill_hit_target) &&
+            !registry.any_of<KilledTag>(formation->last_skill_hit_target)) {
+          const auto &tPos = registry.get<Position>(formation->last_skill_hit_target);
+          const float distSq = Vector2DistanceSqr({ownerPos->x, ownerPos->y}, {tPos.x, tPos.y});
+          if (distSq <= aiProfile.leash_radius * aiProfile.leash_radius) {
+            runtime.current_target = formation->last_skill_hit_target;
+            ai.target = runtime.current_target;
+          }
+        }
 
-                     const float distSq = Vector2DistanceSqr(
-                         {ownerPos->x, ownerPos->y}, {candidatePos.x, candidatePos.y});
-                     if (distSq > searchRadius * searchRadius) {
-                       return;
-                     }
+        if (!registry.valid(runtime.current_target)) {
+          float bestPriority = -1e9f;
+          const float searchRadius = aiProfile.leash_radius;
+          grid.query(*ownerPos, searchRadius,
+                     [&](entt::entity candidate, const Position &candidatePos) {
+                       if (!registry.all_of<EnemyTag, Position>(candidate)) {
+                         return;
+                       }
+                       if (registry.any_of<KilledTag>(candidate)) {
+                         return;
+                       }
 
-                     float priority = -std::sqrt(distSq) / 100.0f;
-                     if (aiProfile.command_mode == SummonCommandMode::Aggressive) {
-                       if (const auto *rarity =
-                               registry.try_get<EnemyRarityComponent>(candidate)) {
-                         if (rarity->rarity == EnemyRarityComponent::BOSS) {
-                           priority += 1000.0f;
-                         } else if (rarity->rarity ==
-                                    EnemyRarityComponent::ELITE) {
-                           priority += 500.0f;
+                       const float distSq = Vector2DistanceSqr(
+                           {ownerPos->x, ownerPos->y}, {candidatePos.x, candidatePos.y});
+                       if (distSq > searchRadius * searchRadius) {
+                         return;
+                       }
+
+                       float priority = -std::sqrt(distSq) / 100.0f;
+                       if (aiProfile.command_mode == SummonCommandMode::Aggressive) {
+                         if (const auto *rarity =
+                                 registry.try_get<EnemyRarityComponent>(candidate)) {
+                           if (rarity->rarity == EnemyRarityComponent::BOSS) {
+                             priority += 1000.0f;
+                           } else if (rarity->rarity ==
+                                      EnemyRarityComponent::ELITE) {
+                             priority += 500.0f;
+                           }
                          }
                        }
-                     }
 
-                     if (priority > bestPriority) {
-                       bestPriority = priority;
-                       runtime.current_target = candidate;
-                     }
-                   });
-        ai.target = runtime.current_target;
+                       if (priority > bestPriority) {
+                         bestPriority = priority;
+                         runtime.current_target = candidate;
+                       }
+                     });
+          ai.target = runtime.current_target;
+        }
       }
     }
 
@@ -119,7 +136,8 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
 
     const float orbitSpeed = isGiant ? 2.5f : 3.5f;
     ai.orbit_angle += dt * orbitSpeed;
-    const float orbitRadius = isGiant ? 55.0f : 35.0f;
+    const auto *sentinel = registry.try_get<OrbitingSentinelComponent>(summon.owner);
+    const float orbitRadius = sentinel ? sentinel->orbit_radius : (isGiant ? 55.0f : 35.0f);
     float targetX = ownerPos->x + std::cos(ai.orbit_angle) * orbitRadius;
     float targetY = ownerPos->y + std::sin(ai.orbit_angle) * orbitRadius;
 
@@ -132,7 +150,32 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
     pos.x += (targetX - pos.x) * moveSpeed * dt;
     pos.y += (targetY - pos.y) * moveSpeed * dt;
 
-    ai.attack_timer -= dt;
+    float effectiveDt = dt;
+    if (formation && formation->sword_step_haste > 0.0f) {
+      if (const auto *effects = registry.try_get<ActiveEffectsComponent>(summon.owner)) {
+        if (effects->Get(BuffId::SwordStep) != nullptr) {
+          effectiveDt *= (1.0f + formation->sword_step_haste);
+        }
+      }
+    }
+
+    // 剑阵共鸣 (Node 355): 当处于 [剑阵·诛仙] 范围内时，灵剑获得 50% 攻击速度加成
+    if (formation && formation->has_array_resonance) {
+      auto arrayView = registry.view<SwordArrayComponent, Position>();
+      for (auto arrEnt : arrayView) {
+        const auto &arr = arrayView.get<SwordArrayComponent>(arrEnt);
+        if (arr.owner == summon.owner) {
+          const auto &arrPos = arrayView.get<Position>(arrEnt);
+          const float d2 = Vector2DistanceSqr({ownerPos->x, ownerPos->y}, {arrPos.x, arrPos.y});
+          if (d2 <= arr.radius * arr.radius) {
+            effectiveDt *= 1.50f;
+            break;
+          }
+        }
+      }
+    }
+
+    ai.attack_timer -= effectiveDt;
     if (ai.attack_timer <= 0.0f && registry.valid(runtime.current_target)) {
       ai.attack_timer = ai.attack_interval;
       SummonCombatBridge::CastSpiritSwordShadow(

@@ -90,8 +90,15 @@ DefenseResolution ResolveDefenseResolution(
     return resolution;
   }
 
+  float extra_block_chance = 0.0f;
+  if (const auto *formation = registry.try_get<BladeFormationComponent>(defender)) {
+    if (formation->current_swords > 0 && formation->block_chance_per_sword > 0.0f) {
+      extra_block_chance = static_cast<float>(formation->current_swords) * formation->block_chance_per_sword;
+    }
+  }
+
   if (defender_stats->dodge_chance <= 0.0f &&
-      defender_stats->block_chance <= 0.0f) {
+      defender_stats->block_chance <= 0.0f && extra_block_chance <= 0.0f) {
     return resolution;
   }
 
@@ -117,7 +124,7 @@ DefenseResolution ResolveDefenseResolution(
     return resolution;
   }
 
-  const float block_chance = std::clamp(defender_stats->block_chance, 0.0f, 1.0f);
+  const float block_chance = std::clamp(defender_stats->block_chance + extra_block_chance, 0.0f, 1.0f);
   COMBAT_DEFENSE_LOG(
       "[DefenseChain] step=2 attacker={} defender={} blockChance={:.4f}",
       static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),

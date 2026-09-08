@@ -35,6 +35,7 @@ struct TriggerRule {
     TriggerTargetPolicy target_mode = TriggerTargetPolicy::Victim;
     uint32_t cooldown_refund_skill_id = 0;
     float cooldown_refund_amount = 0.0f;
+    bool requires_crit = false; // 仅暴击命中事件触发 (如 335 巨剑裂空)
 };
 static_assert(std::is_standard_layout_v<TriggerRule>);
 static_assert(std::is_trivially_destructible_v<TriggerRule>);

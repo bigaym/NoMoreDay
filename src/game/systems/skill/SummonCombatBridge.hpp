@@ -15,6 +15,8 @@ public:
   static bool CastSpiritSwordShadow(entt::registry &registry, entt::entity summon,
                                     entt::entity target, const Vector2 &origin,
                                     bool is_giant);
+  static bool CastSpiritSwordEcho(entt::registry &registry, entt::entity summon,
+                                  const Vector2 &target_pos, const Vector2 &origin);
   static void ApplyMeleeOrbitContact(entt::registry &registry,
                                      entt::entity summon,
                                      const SpatialHashGrid &grid,

@@ -166,5 +166,110 @@
       "proliferate_potency": 1.5,
       "proliferate_mana_gain": 2.0
     }
+  },
+  "3": {
+    "300": {
+      "swords_per_point": 1.0
+    },
+    "301": {
+      "haste_pct_per_point": 8.0
+    },
+    "302": {
+      "phys_damage_pct_per_point": 10.0
+    },
+    "303": {
+      "conv_efficiency_pct_per_point": 10.0
+    },
+    "310": {
+      "range_pct_per_point": 20.0
+    },
+    "311": {
+      "damage_penalty": 0.40
+    },
+    "312": {
+      "mana_regen_per_sword_per_point": 3.0,
+      "cost_reduction_pct_per_point": 5.0
+    },
+    "313": {
+      "attack_speed_scale": 0.75
+    },
+    "315": {
+      "resonance_freq_pct_per_point": 20.0,
+      "intent_gain_chance_pct_per_point": 10.0
+    },
+    "330": {
+      "giant_damage_more": 1.50,
+      "giant_size_mult": 2.50,
+      "giant_attack_interval_mult": 2.0
+    },
+    "331": {
+      "crit_chance_per_point": 5.0,
+      "splash_radius": 60.0
+    },
+    "332": {
+      "crit_damage_per_point": 25.0
+    },
+    "333": {
+      "taken_phys_pct_per_point": 5.0
+    },
+    "334": {
+      "stun_chance_pct_per_point": 33.33,
+      "stun_duration": 0.5
+    },
+    "335": {
+      "trigger_effectiveness": 0.30,
+      "trigger_icd": 4.0
+    },
+    "350": {
+      "ward_dr_pct_per_sword_per_point": 1.0
+    },
+    "351": {
+      "melee_orbit_radius": 50.0,
+      "melee_orbit_speed": 6.0,
+      "melee_orbit_tick_interval": 0.2,
+      "melee_orbit_base_damage": 25.0,
+      "melee_orbit_hit_radius": 30.0
+    },
+    "352": {
+      "block_chance_per_sword_per_point": 2.0
+    },
+    "353": {
+      "min_swords": 3.0,
+      "heal_pct_per_sword": 0.04,
+      "cooldown": 90.0
+    },
+    "354": {
+      "echo_effectiveness": 0.20
+    },
+    "355": {
+      "array_haste_pct": 50.0
+    },
+    "370": {
+      "ignite_duration": 3.0
+    },
+    "371": {
+      "dot_per_sword": 10.0,
+      "ignite_duration_pct_per_point": 20.0
+    },
+    "372": {
+      "static_field_radius": 60.0,
+      "static_field_duration": 2.0
+    },
+    "373": {
+      "chain_count_per_point": 1.0,
+      "chain_damage_pct_per_point": 15.0,
+      "chain_radius": 200.0
+    },
+    "374": {
+      "shred_per_stack_per_point": 2.0,
+      "max_stacks": 8.0,
+      "duration": 4.0
+    },
+    "375": {
+      "hits_required_base": 5.0,
+      "hits_reduction_per_point": 1.0,
+      "elemental_damage_mult": 2.0,
+      "detonate_radius": 80.0
+    }
   }
 }

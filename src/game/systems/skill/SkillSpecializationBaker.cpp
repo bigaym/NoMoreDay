@@ -125,6 +125,7 @@ void SkillSpecializationBaker::Bake(
           TriggerRule rule;
           rule.rule_id = node_id;
           rule.listen_event = CombatEventType::OnSkillHit;
+          rule.requires_crit = node_contract->trigger.requires_crit;
           rule.cast_skill_id = node_contract->trigger.trigger_skill_id;
           rule.effectiveness = node_contract->trigger.effectiveness;
           rule.internal_cooldown = node_contract->trigger.internal_cooldown;
@@ -135,6 +136,16 @@ void SkillSpecializationBaker::Bake(
 
       // B. 数值累加与形态参数写入
       ApplyNodeModifiersToProfile(skill_id, node_id, points, out_profile);
+    }
+
+    if (skill_id == 3) {
+      if ((out_profile.delivery.feature_flags & 2) != 0) {
+        // 330 巨剑降临：固定为 1 柄
+        out_profile.projectile_count = 1;
+      } else if ((out_profile.delivery.feature_flags & 1) != 0) {
+        // 311 无尽剑匣：上限翻倍
+        out_profile.projectile_count *= 2;
+      }
     }
   }
 
@@ -372,28 +383,102 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     }
     break;
 
-  case 3: // 御剑术
-    if (node_id == 300) {
-      out_profile.projectile_count += points;
-    } else if (node_id == 301) {
-      del.sub_interval = 0.1f * static_cast<float>(points);
-    } else if (node_id == 311) {
-      out_profile.projectile_count = 8;
-      out_profile.more_damage_mult *= 0.6f;
-      del.feature_flags |= 1;
-    } else if (node_id == 330) {
-      out_profile.projectile_count = 1;
-      out_profile.area_radius = 80.0f;
-      out_profile.more_damage_mult *= 3.0f;
-      del.feature_flags |= 2;
-    } else if (node_id == 351) {
-      del.feature_flags |= 4; // 剑气回流法力
-    } else if (node_id == 353) {
-      del.feature_flags |= 8; // 不朽准备
-    } else if (node_id == 370) {
-      auto conv = skills::ResolveElementalConversion(node_id, points);
-      if (conv.IsActive()) {
-        out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
+  case 3: // 灵剑决
+    {
+      const auto &mech = data::SkillMechanicsRegistry::Get();
+      if (node_id == 300) {
+        // 剑池充盈：在场最大灵剑数量 +1/2/3/4 (max 4)
+        out_profile.projectile_count += points;
+      } else if (node_id == 301) {
+        // 疾风意：自动攻击频率增加 8%...40% (max 5)
+        const float haste_pct = mech.GetFloat(skill_id, node_id, "haste_pct_per_point", 8.0f);
+        del.sub_interval = (haste_pct / 100.0f) * static_cast<float>(points);
+      } else if (node_id == 302) {
+        // 锋灵：物理伤害增加 10%...50% (max 5)
+        const float phys_pct = mech.GetFloat(skill_id, node_id, "phys_damage_pct_per_point", 10.0f);
+        out_profile.more_damage_mult *= (1.0f + (phys_pct / 100.0f) * static_cast<float>(points));
+      } else if (node_id == 303) {
+        // 五行归元：属性伤害转换效率提升 10%...40% (max 4)
+        del.feature_flags |= 256;
+      } else if (node_id == 310) {
+        // 索敌范围：追踪半径增加 20%...60% (max 3)；基准 200 与 BladeFormation fallback 一致
+        const float range_pct = mech.GetFloat(skill_id, node_id, "range_pct_per_point", 20.0f);
+        del.range = 200.0f * (1.0f + (range_pct / 100.0f) * static_cast<float>(points));
+      } else if (node_id == 311) {
+        // 无尽剑匣：灵剑上限翻倍，单发伤害降低 40% (max 1)
+        // 确定性处理：翻倍在 Bake 循环结束后统一根据 feature_flags |= 1 执行
+        del.feature_flags |= 1;
+      } else if (node_id == 312) {
+        // 灵力网络：每柄灵剑回蓝 3...9 点/秒，维持消耗降低 5%...15% (max 3)
+        const float cost_red_pct = mech.GetFloat(skill_id, node_id, "cost_reduction_pct_per_point", 5.0f);
+        out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - (cost_red_pct / 100.0f) * static_cast<float>(points));
+        del.feature_flags |= 512;
+      } else if (node_id == 313) {
+        // 神速 (Keystone)：灵剑攻击频率受角色攻速 75% 加成 (max 1)
+        del.feature_flags |= 16;
+      } else if (node_id == 314) {
+        // 集中号令：优先攻击最近一次命中目标 (max 1)
+        del.feature_flags |= 32;
+      } else if (node_id == 315) {
+        // 御剑共振：御剑步期间频率 +20%...60%，命中几率回剑意 (max 3)
+        del.feature_flags |= 64;
+      } else if (node_id == 330) {
+        // 巨剑降临 (Keystone)：最多 1 柄，基础伤害提升 150%，范围提升，频率降低 50%
+        // projectile_count 在 post-process 置 1；伤害由 BladeFormation 设置 damage_scale=1.25f (2.5x base 0.5f)
+        out_profile.area_radius = 80.0f;
+        del.feature_flags |= 2;
+      } else if (node_id == 331) {
+        // 弱点锁定：巨剑暴击率 +5%...25% (max 5)；crit_chance 为归一化 0..1，需 /100
+        const float crit_pct = mech.GetFloat(skill_id, node_id, "crit_chance_per_point", 5.0f);
+        del.bonus_crit += (crit_pct / 100.0f) * static_cast<float>(points);
+        del.feature_flags |= 1024;
+      } else if (node_id == 332) {
+        // 致命锋芒：暴伤倍率 +25%...100% (max 4)
+        const float cd_pct = mech.GetFloat(skill_id, node_id, "crit_damage_per_point", 25.0f);
+        del.bonus_crit_damage += (cd_pct / 100.0f) * static_cast<float>(points);
+      } else if (node_id == 333) {
+        // 剑压：巨剑命中使敌人受物理伤害增加 5%...15% (max 3)
+        del.feature_flags |= 2048;
+      } else if (node_id == 334) {
+        // 碎岩：巨剑命中几率击晕 0.5s 并破甲 (max 3)
+        del.feature_flags |= 4096;
+      } else if (node_id == 335) {
+        // 巨剑裂空 (Trigger)：暴击触发裂空斩，由契约处理
+      } else if (node_id == 350) {
+        // 灵剑护体：每柄灵剑提供 1%...5% 全局减伤 (max 5)
+        del.feature_flags |= 8192;
+      } else if (node_id == 351) {
+        // 剑影环身 (Keystone)：始终环绕自身高速旋转近战 (max 1)
+        del.feature_flags |= 4;
+      } else if (node_id == 352) {
+        // 反击剑网：每环绕一柄灵剑，格挡几率增加 2%...6% (max 3)
+        del.feature_flags |= 16384;
+      } else if (node_id == 353) {
+        // 不灭剑魂：致命伤抵消与回血 CD 90s (max 1)
+        del.feature_flags |= 8;
+      } else if (node_id == 354) {
+        // 法术共鸣：施法时微型剑气协同齐射 20% (max 1)
+        del.feature_flags |= 32768;
+      } else if (node_id == 355) {
+        // 剑阵共鸣 (Synergy)：剑阵范围内攻速 +50% 并附加元素 (max 1)
+        del.feature_flags |= 65536;
+      } else if (node_id == 370 || node_id == 372) {
+        // 地火明夷 (370) / 紫电紫雷 (372) Transmuters
+        auto conv = skills::ResolveElementalConversion(node_id, points);
+        if (conv.IsActive()) {
+          out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
+        }
+      } else if (node_id == 371) {
+        // 灼魂剑舞：点燃持续伤害与时间增加 (max 3)
+        del.feature_flags |= (1 << 17);
+      } else if (node_id == 373) {
+        // 雷弧连锁：感电闪电弧跳跃 (max 3)
+        del.feature_flags |= (1 << 18);
+      } else if (node_id == 374) {
+        // 灵剑蚀甲：TypeB 降抗，由契约处理
+      } else if (node_id == 375) {
+        // 灵剑充能：攻击充能双倍元素伤害与引爆 (max 3)
+        del.feature_flags |= (1 << 19);
       }
     }
     break;
@@ -575,6 +660,7 @@ void SkillSpecializationBaker::SyncTriggerRules(
         TriggerRule rule;
         rule.rule_id = node_id;
         rule.listen_event = CombatEventType::OnSkillHit;
+        rule.requires_crit = node_contract->trigger.requires_crit;
         rule.cast_skill_id = node_contract->trigger.trigger_skill_id;
         rule.effectiveness = node_contract->trigger.effectiveness;
         rule.internal_cooldown = node_contract->trigger.internal_cooldown;

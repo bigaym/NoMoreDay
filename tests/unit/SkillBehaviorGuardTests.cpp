@@ -921,7 +921,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
   SkillBehaviorRegistry::Initialize();
 
   const std::array<std::pair<uint32_t, uint32_t>, 7> trigger_matrix = {{
-      {3u, 373u},
+      {3u, 335u},
       {4u, 451u},
       {5u, 533u},
       {6u, 633u},
@@ -946,8 +946,12 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
         registry, caster, skill_id, {{trigger_node, 1}});
 
     const auto before = registry.storage<SkillExecution>().size();
+    // 技能 3 的 335 规则 requires_crit=true，仅暴击命中事件触发；其余技能普通命中即可
+    const bool requires_crit = (skill_id == 3u);
     test::skill_keynode_matrix::DispatchSkillHit(
-        registry, caster, target, skill_id, static_cast<uint64_t>(9900 + skill_id));
+        registry, caster, target, skill_id,
+        static_cast<uint64_t>(9900 + skill_id), Tag::Hit | Tag::Melee,
+        requires_crit);
     const auto after = registry.storage<SkillExecution>().size();
     CHECK(after > before);
 
@@ -955,6 +959,14 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
         registry.try_get<SkillContractRuntimeComponent>(caster);
     REQUIRE(runtime != nullptr);
     CHECK(runtime->trigger_cooldowns.contains(trigger_node));
+
+    if (skill_id == 3u) {
+      // 335 巨剑裂空：契约 requires_crit=true（仅暴击命中事件触发）
+      const auto *node_contract =
+          skill_registry.GetNodeContract(skill_id, trigger_node);
+      REQUIRE(node_contract != nullptr);
+      CHECK(node_contract->trigger.requires_crit);
+    }
   }
 }
 

@@ -13,7 +13,7 @@
     },
     {
       "skill_id": 3,
-      "key_nodes": [330, 352, 370, 371, 373],
+      "key_nodes": [315, 335, 355, 370, 372],
       "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy"]
     },
     {

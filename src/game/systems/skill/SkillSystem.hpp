@@ -76,7 +76,7 @@ public:
     /**
      * @brief Trigger a shadow cast of a skill.
      */
-    static bool ShadowCast(entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 position, Vector2 target_pos = {0,0});
+    static bool ShadowCast(entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 position, Vector2 target_pos = {0,0}, float override_damage_scale = -1.0f);
 
     /**
      * @brief Spawn a fully assembled shadow echo entity.

@@ -69,7 +69,8 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
     sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 2);
     sknm::ConfigureSpecialization(
         registry, caster, skill_id,
-        sknm::AsAllocatedPoints(fixture_nodes.at(skill_id), 1));
+        sknm::AsAllocatedPoints(
+            sknm::CastSmokeNodes(skill_id, fixture_nodes.at(skill_id)), 1));
 
     if (skill_id >= 10) {
       REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(

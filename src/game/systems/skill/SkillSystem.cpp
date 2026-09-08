@@ -37,6 +37,7 @@
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/SkillCastConstraintService.hpp"
 #include "game/systems/skill/behaviors/BloodSea.hpp"
+#include "game/systems/skill/SummonCombatBridge.hpp"
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
 #include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
@@ -617,6 +618,15 @@ void SkillSystem::InitHooks() {
           return;
         }
 
+        // 集中号令 (Node 314)：记录最近一次命中目标 (排除灵剑自身的命中)
+        if (evt.skill_id != 3 && evt.summon_source_skill != 3 && registry.valid(evt.target)) {
+          if (auto *bf = registry.try_get<BladeFormationComponent>(caster)) {
+            if (bf->has_concentrate) {
+              bf->last_skill_hit_target = evt.target;
+            }
+          }
+        }
+
         // ProcEngine unified trigger dispatch on skill hit
         ProcEngine::DispatchEvent(registry, caster, evt);
 
@@ -930,6 +940,12 @@ void SkillSystem::InitHooks() {
             hitFunc(registry, evt.source, evt.target, evt.tags, evt.isCrit);
           }
         }
+        if (evt.summon_source_skill != 0 && evt.summon_source_skill != evt.skill_id &&
+            evt.trigger_depth == 0 && !HasTag(evt.tags, Tag::SecondaryHit)) {
+          if (auto summonHitFunc = SkillBehaviorRegistry::GetHit(evt.summon_source_skill)) {
+            summonHitFunc(registry, evt.source, evt.target, evt.tags, evt.isCrit);
+          }
+        }
       },
       50);
 
@@ -1060,29 +1076,20 @@ void SkillSystem::Update(entt::registry &registry,
     }
     formation.current_swords = count;
 
-    // Talent: Ling Jian Hu Ti (灵剑护体) - ID 320
-    if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
-      for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == 3 && spec.allocated_points.contains(320) &&
-            spec.allocated_points.at(320) > 0) {
-          auto &effects =
-              registry.get_or_emplace<ActiveEffectsComponent>(entity);
-          BuffEffect bladeDR;
-          bladeDR.id = std::string(BuffIdToString(BuffId::LingJianHuTi));
-          bladeDR.name = "Ling Jian Hu Ti";
-          bladeDR.type = BuffType::Shield;
-          bladeDR.duration = 0.2f; // Short duration, refreshed every update
-          bladeDR.remaining = 0.2f;
+    // 不灭剑魂 (Talent 353) 内置冷却计时
+    if (formation.immortality_cooldown > 0.0f) {
+      formation.immortality_cooldown -= dt;
+      if (formation.immortality_cooldown <= 0.0f && formation.has_immortality) {
+        formation.immortality_ready = true;
+      }
+    }
 
-          float dr_per_sword = 2.0f * spec.allocated_points.at(320);
-          float total_dr = formation.current_swords * dr_per_sword;
-
-          bladeDR.modifiers.push_back({.value = total_dr,
-                                       .type = StatType::ResistAll,
-                                       .mode = ModifierMode::Flat});
-          effects.AddOrRefresh(bladeDR);
-          break;
-        }
+    // 灵力网络 (Talent 312) 每柄灵剑每秒回蓝
+    // 仅由 BladeFormationComponent.mana_regen_per_sword 驱动：DoCast 已在施放时烘焙
+    // （含 profile 兜底 3.0f），此处不再每帧 GetFloat 查表，避免热路径字符串堆分配
+    if (formation.mana_regen_per_sword > 0.0f && formation.current_swords > 0) {
+      if (auto *stats = registry.try_get<CombatStats>(entity)) {
+        stats->mana = std::min(stats->max_mana, stats->mana + formation.mana_regen_per_sword * static_cast<float>(formation.current_swords) * dt);
       }
     }
   }
@@ -1229,7 +1236,8 @@ float SkillSystem::GetTriggerEffectivenessForCast(uint64_t cast_id) {
 
 bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
                              uint32_t skill_id, Vector2 position,
-                             Vector2 target_pos) {
+                             Vector2 target_pos,
+                             float override_damage_scale) {
   const auto *data = SkillRegistry::Get().GetSkill(skill_id);
   if (!data)
     return false;
@@ -1309,7 +1317,11 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
   // Ensure shadow components are initialized
   if (!registry.all_of<ShadowComponent>(shadow)) {
     auto &sc = registry.get_or_emplace<ShadowComponent>(shadow);
-    sc.damage_scale = 0.3f; // Default 30%
+    if (override_damage_scale >= 0.0f) {
+      sc.damage_scale = override_damage_scale;
+    } else {
+      sc.damage_scale = registry.any_of<SpiritSwordTag>(owner) ? 1.0f : 0.3f;
+    }
 
     if (!registry.all_of<ShadowVisualComponent>(shadow)) {
       auto &visual = registry.emplace<ShadowVisualComponent>(shadow);
@@ -1606,6 +1618,23 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
           } else {
             LOG_WARN("UpdateStates: No callback found for skill ID {} on entity {}",
                      current_exec.skill_id, (uint32_t)entity);
+          }
+
+          // Node 354 法术共鸣 (Spell Echo): 当你施放任意法术时，所有灵剑同步发射微型剑气 (20% 效力)
+          if (current_exec.skill_id != 3 && registry.valid(current_exec.owner) &&
+              !registry.any_of<ShadowComponent>(current_exec.owner)) {
+            if (const auto *bf = registry.try_get<BladeFormationComponent>(current_exec.owner)) {
+              if (bf->has_spell_echo) {
+                auto swordView = registry.view<SpiritSwordTag, SummonComponent, Position>();
+                for (auto sEnt : swordView) {
+                  if (swordView.get<SummonComponent>(sEnt).owner == current_exec.owner) {
+                    const auto &sPos = swordView.get<Position>(sEnt);
+                    systems::SummonCombatBridge::CastSpiritSwordEcho(
+                        registry, sEnt, current_exec.target_pos, {sPos.x, sPos.y});
+                  }
+                }
+              }
+            }
           }
         }
         break;

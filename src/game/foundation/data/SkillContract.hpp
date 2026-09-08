@@ -44,6 +44,7 @@ struct TriggerContract {
   float range_mult = 1.0f;
   float internal_cooldown = 0.0f;
   bool consumes_mana = false;
+  bool requires_crit = false; // 仅暴击命中事件触发
 };
 
 struct NodeContractData {

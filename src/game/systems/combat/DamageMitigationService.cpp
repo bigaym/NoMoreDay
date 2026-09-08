@@ -156,6 +156,18 @@ float DamageMitigationService::Apply(
             registry, defender);
   }
 
+  // 技能 3 灵剑护体 (Node 350)：每柄活跃灵剑提供全局伤害减免 (1%...5%/柄)
+  if (registry.valid(defender)) {
+    if (const auto *formation = registry.try_get<BladeFormationComponent>(defender)) {
+      if (formation->current_swords > 0 && formation->ward_dr_per_sword > 0.0f) {
+        const float ward_dr = std::clamp(
+            static_cast<float>(formation->current_swords) * formation->ward_dr_per_sword,
+            0.0f, 0.75f);
+        damage_after_res *= (1.0f - ward_dr);
+      }
+    }
+  }
+
   return damage_after_res;
 }
 

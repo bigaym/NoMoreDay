@@ -389,6 +389,8 @@ void ParseContractNode(const json &node_json, SkillContractDefinition &def) {
         trigger.value("internal_cooldown", node.trigger.internal_cooldown);
     node.trigger.consumes_mana =
         trigger.value("consumes_mana", node.trigger.consumes_mana);
+    node.trigger.requires_crit =
+        trigger.value("requires_crit", node.trigger.requires_crit);
   }
 
   def.nodes[node_id] = node;

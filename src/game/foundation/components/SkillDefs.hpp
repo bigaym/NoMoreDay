@@ -584,6 +584,7 @@ struct BakedDeliveryParams {
   float pull_radius = 0.0f;        // 顶点牵引/引力陷阱半径 (如 232/830)
   float armor_pen = 0.0f;          // 护甲/元素穿透 (如 571)
   float bonus_crit = 0.0f;         // 额外暴击率加成 (如 552)
+  float bonus_crit_damage = 0.0f;  // 额外暴击伤害加成 (如 332)
 
   bool operator==(const BakedDeliveryParams &) const = default;
 };
@@ -965,6 +966,8 @@ struct SummonCombatProfile {
   float proc_budget_cap = 6.0f;
   float melee_orbit_hit_radius = 30.0f;
   float melee_orbit_base_damage = 25.0f;
+  float bonus_crit = 0.0f;
+  float bonus_crit_damage = 0.0f;
 };
 
 struct SummonAIProfile {
@@ -1023,10 +1026,50 @@ struct BladeFormationComponent {
   SpiritSwordMode mode = SpiritSwordMode::Guardian;
 
   // Talent Flags
-  bool has_giant_sword = false;   // Talent 330
-  bool mana_on_hit = false;       // Talent 351
-  bool immortality_ready = false; // Talent 353
-  bool melee_orbit = false;       // Talent 352 (Melee Orbit)
+  bool has_giant_sword = false;   // Talent 330: 巨剑降临
+  bool mana_on_hit = false;       // Legacy
+  bool immortality_ready = false; // Talent 353: 不灭剑魂就绪标记
+  bool has_immortality = false;   // Talent 353: 是否拥有不灭剑魂专精
+  float immortality_cooldown = 0.0f; // Talent 353: 90s 冷却计时
+  bool melee_orbit = false;       // Talent 351: 剑影环身 (Melee Orbit)
+  float ward_dr_per_sword = 0.0f; // Talent 350: 灵剑护体全局减伤/柄
+  float block_chance_per_sword = 0.0f; // Talent 352: 反击剑网格挡率/柄
+  entt::entity last_skill_hit_target = entt::null; // Talent 314: 集中号令
+  bool has_concentrate = false;      // Talent 314: 是否启用集中号令索敌
+  float mana_regen_per_sword = 0.0f; // Talent 312: 灵力网络回蓝/柄/秒
+  float sword_step_haste = 0.0f;     // Talent 315: 御剑共振攻击频率提升
+  float sword_step_intent_chance = 0.0f; // Talent 315: 御剑共振剑意获取几率
+  bool has_godspeed = false;      // Talent 313: 神速
+  bool has_spell_echo = false;    // Talent 354: 法术共鸣
+  int charge_attack_counter = 0;  // Talent 375: 灵剑充能
+
+  // Additional node parameters
+  int pts303 = 0;                 // Talent 303: 五行归元 (转换效率 +10%..40%)
+  int pts333 = 0;                 // Talent 333: 剑压 (物伤易伤 +5%..15%)
+  int pts334 = 0;                 // Talent 334: 碎岩 (击晕 33%..100% & 破甲)
+  bool has_array_resonance = false; // Talent 355: 剑阵共鸣 (剑阵内攻速 +50%)
+  bool has_fire = false;          // Talent 370: 地火明夷 (火转质 & 必点燃)
+  int pts371 = 0;                 // Talent 371: 灼魂剑舞 (点燃持续+持续伤)
+  bool has_lightning = false;     // Talent 372: 紫电紫雷 (雷转质 & 感电)
+  int pts373 = 0;                 // Talent 373: 雷弧连锁 (感电闪电弧跳跃 1..3)
+  int pts374 = 0;                 // Talent 374: 灵剑蚀甲 (降抗 2..8, max 8)
+  int pts375 = 0;                 // Talent 375: 灵剑充能 (每 4/3/2 次攻击双倍引爆)
+
+  // DoHit 热路径预烘焙缓存：DoCast 一次性读取 mechanics 写入，DoHit 零 GetFloat、零 std::string 构造
+  float taken_phys_pct = 0.0f;    // Talent 333: 剑压 物伤易伤比例 (5%..15%)
+  float crush_stun_chance = 0.0f; // Talent 334: 碎岩 击晕几率 (33.33%..100%)
+  float crush_stun_duration = 0.0f; // Talent 334: 碎岩 击晕时长
+  float ignite_base_duration = 0.0f; // Talent 370: 地火明夷 点燃基础时长
+  float ignite_duration_mult = 1.0f; // Talent 371: 灼魂剑舞 点燃时长倍率
+  float ignite_dot_per_sword = 0.0f; // Talent 371: 灼魂剑舞 每柄剑持续伤害加成
+  float ignite_base_magnitude = 0.0f; // Talent 370: 点燃基础强度
+  float chain_damage_pct = 0.0f;  // Talent 373: 雷弧连锁 每跳伤害比例 (15%..45%)
+  float chain_radius = 200.0f;    // Talent 373: 雷弧连锁 跳跃半径
+  float shred_per_stack = 0.0f;   // Talent 374: 灵剑蚀甲 每层降抗
+  float shred_max_stacks = 0.0f;  // Talent 374: 灵剑蚀甲 最大层数
+  float shred_duration = 0.0f;    // Talent 374: 灵剑蚀甲 持续时间
+  float burst_mult = 0.0f;        // Talent 375: 灵剑充能 爆发倍率
+  float final_damage_scale = 1.0f; // 灵剑单发攻击等效伤害缩放 (373/375 伤害基数用)
 };
 
 struct SwordArrayComponent {

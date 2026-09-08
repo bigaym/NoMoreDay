@@ -84,6 +84,8 @@ CombatStats SummonCombatBridge::ResolveInheritedStats(entt::registry &registry,
       break;
     }
     ApplyDamageScale(resolved, profile->damage_scale);
+    resolved.crit_chance += profile->bonus_crit;
+    resolved.crit_damage += profile->bonus_crit_damage;
   }
 
   return resolved;
@@ -172,6 +174,24 @@ bool SummonCombatBridge::CastSpiritSwordShadow(entt::registry &registry,
   }
 
   return true;
+}
+
+bool SummonCombatBridge::CastSpiritSwordEcho(entt::registry &registry,
+                                             entt::entity summon,
+                                             const Vector2 &target_pos,
+                                             const Vector2 &origin) {
+  if (!registry.valid(summon)) {
+    return false;
+  }
+  if (!ConsumeProcBudget(registry, summon, 0.5f)) {
+    return false;
+  }
+
+  registry.emplace_or_replace<CombatStats>(summon,
+                                           ResolveInheritedStats(registry, summon));
+  EnsureSummonAttribution(registry, summon);
+
+  return SkillSystem::ShadowCast(registry, summon, 2, origin, target_pos, 0.20f);
 }
 
 void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
