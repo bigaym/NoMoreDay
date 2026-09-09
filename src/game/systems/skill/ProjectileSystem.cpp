@@ -598,16 +598,19 @@ void ProjectileSystem::Update(entt::registry &registry,
           if (dx * dx + dy * dy <= check_radius * check_radius) {
             // Interception Logic
             if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
-              float chance = ward->sword_count * ward->interception_chance;
-              if ((float)GetRandomValue(0, 1000) / 1000.0f < chance) {
+              const float chance = std::clamp(static_cast<float>(ward->sword_count) * ward->interception_chance, 0.0f, 1.0f);
+              if (chance > 0.0f && ((float)GetRandomValue(0, 1000) / 1000.0f < chance)) {
                 DeferredAction hitAct;
                 hitAct.type = DeferredAction::Damage;
                 hitAct.entity = entity;
                 hitAct.target = target;
                 hitAct.instigator = proj.owner;
                 hitAct.pos = {pos.x, pos.y};
+                hitAct.flag = true;
                 actions.push_back(hitAct);
-                return true;
+                hit = true;
+                proj.hitLimitReached = true;
+                return false;
               }
             }
 
@@ -618,6 +621,7 @@ void ProjectileSystem::Update(entt::registry &registry,
             hitAct.target = target;
             hitAct.instigator = proj.owner;
             hitAct.pos = {pos.x, pos.y};
+            hitAct.flag = false;
             actions.push_back(hitAct);
 
             bool pierceLimitReached = false;
@@ -734,36 +738,35 @@ void ProjectileSystem::Update(entt::registry &registry,
       if (!registry.valid(target))
         continue;
 
-      bool intercepted = false;
-      if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
-        float chance = ward->sword_count * ward->interception_chance;
-        if (!ward->is_solidified && ward->sword_count > 0 &&
-            (float)GetRandomValue(0, 1000) / 1000.0f < chance) {
-          intercepted = true;
-          ward->sword_count--;
-          particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(
-              act.pos, {0, -50.0f}, 1.5f));
-        }
-      }
-
+      const bool intercepted = act.flag;
       if (intercepted) {
         if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
+          if (!ward->is_solidified && ward->sword_count > 0) {
+            ward->sword_count--;
+          }
+          particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(
+              act.pos, {0, -50.0f}, 1.5f));
+
           if (ward->trigger_counter && registry.valid(act.instigator) &&
               registry.all_of<CombatStats>(act.instigator)) {
+            Tag elementTag = Tag::Physical;
+            if (ward->is_lightning_ward) {
+              elementTag = Tag::Lightning;
+            } else if (ward->is_cold_ward) {
+              elementTag = Tag::Cold;
+            }
+            const float counterDmg = 35.0f * (1.0f + ward->counter_damage_more);
             DamagePool counterPool;
-            counterPool.Add(ward->has_rainbow_qi ? Tag::Lightning : Tag::Physical,
-                            ward->has_blink_counter ? 55.0f : 35.0f);
+            counterPool.Add(elementTag, counterDmg);
             DamageRequest counterRequest;
             counterRequest.attacker = target;
             counterRequest.defender = act.instigator;
             counterRequest.skill_id = 4;
             counterRequest.base_pool = counterPool;
-            counterRequest.additional_tags = Tag::Hit | Tag::Melee;
+            counterRequest.additional_tags = Tag::Hit | Tag::Melee | Tag::SecondaryHit;
             counterRequest.source_entity = target;
             (void)ResolveDamage(registry, counterRequest, target);
-            if (ward->has_agile_counter) {
-              SkillSystem::GainSwordIntent(registry, target, 1, 4);
-            }
+
             if (ward->counter_spin) {
               particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(
                   act.pos, {0.0f, -80.0f}, 1.2f));

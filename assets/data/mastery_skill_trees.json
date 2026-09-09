@@ -29,7 +29,8 @@
               "effectiveness": 0.12,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -44,7 +45,8 @@
               "effectiveness": 0.02,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -59,7 +61,8 @@
               "effectiveness": 0.1,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -74,7 +77,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 3
           },
@@ -90,7 +94,8 @@
               "effectiveness": 0.12,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -105,7 +110,8 @@
               "effectiveness": 12.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -120,7 +126,8 @@
               "effectiveness": 0.35,
               "range_mult": 1.2,
               "internal_cooldown": 3.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -135,7 +142,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -150,7 +158,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -165,7 +174,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -180,7 +190,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 3
           },
@@ -196,7 +207,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 3
           },
@@ -212,7 +224,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -869,7 +882,8 @@
               "effectiveness": 0.0,
               "range_mult": 0.08,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -884,7 +898,8 @@
               "effectiveness": 0.04,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -899,7 +914,8 @@
               "effectiveness": 0.35,
               "range_mult": 0.7,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -914,7 +930,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -929,7 +946,8 @@
               "effectiveness": 0.1,
               "range_mult": 1.0,
               "internal_cooldown": 4.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -944,7 +962,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -959,7 +978,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -974,7 +994,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -989,7 +1010,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -1595,7 +1617,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1610,7 +1633,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1625,7 +1649,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1640,7 +1665,8 @@
               "effectiveness": 0.3,
               "range_mult": 1.0,
               "internal_cooldown": 3.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1655,7 +1681,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1670,7 +1697,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1685,7 +1713,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1700,7 +1729,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 4
           },
@@ -1716,7 +1746,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 4
           },
@@ -1732,7 +1763,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]

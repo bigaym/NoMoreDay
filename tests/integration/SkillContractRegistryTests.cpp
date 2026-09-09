@@ -59,6 +59,15 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(skill2NodeB->keystone_exclusion_group == 1);
     CHECK(skill2NodeA->cost_affix == CostAffixPreset::HeavyMomentum);
 
+    const auto *skill3NodeA = registry.GetNodeContract(3, 370);
+    const auto *skill3NodeB = registry.GetNodeContract(3, 372);
+    REQUIRE(skill3NodeA != nullptr);
+    REQUIRE(skill3NodeB != nullptr);
+    CHECK(skill3NodeA->role == SpecNodeRole::Transmuter);
+    CHECK(skill3NodeB->role == SpecNodeRole::Transmuter);
+    CHECK(skill3NodeA->keystone_exclusion_group == 1);
+    CHECK(skill3NodeB->keystone_exclusion_group == 1);
+
     const auto *skill9NodeA = registry.GetNodeContract(9, 971);
     const auto *skill9NodeB = registry.GetNodeContract(9, 972);
     REQUIRE(skill9NodeA != nullptr);
@@ -66,6 +75,36 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(skill9NodeA->keystone_exclusion_group == 2);
     CHECK(skill9NodeB->keystone_exclusion_group == 2);
     CHECK(skill9NodeA->cost_affix == CostAffixPreset::GlassCannonCrit);
+  }
+
+  SUBCASE("Skill 4 keystone/passive node contract is exact") {
+    // 契约 keystone_node_ids 精确集合 {412, 433, 434, 470}；413 破釜沉舟为被动
+    const auto *contract = registry.GetSkillContract(4);
+    REQUIRE(contract != nullptr);
+    const std::array<uint32_t, 4> expected_keystones = {412, 433, 434, 470};
+    for (const uint32_t id : expected_keystones) {
+      CAPTURE(id);
+      const auto *node = registry.GetNodeContract(4, id);
+      REQUIRE(node != nullptr);
+      CHECK(node->role == SpecNodeRole::Keystone);
+    }
+
+    const auto *node413 = registry.GetNodeContract(4, 413);
+    REQUIRE(node413 != nullptr);
+    CHECK(node413->role == SpecNodeRole::Passive);
+    CHECK(node413->scope_policy == ScopePolicy::SkillOnly);
+    CHECK_FALSE(node413->affects_sword_intent);
+    CHECK_FALSE(node413->affects_sword_step);
+
+    // 472/474 为转质节点且互斥组一致
+    const auto *node472 = registry.GetNodeContract(4, 472);
+    const auto *node474 = registry.GetNodeContract(4, 474);
+    REQUIRE(node472 != nullptr);
+    REQUIRE(node474 != nullptr);
+    CHECK(node472->role == SpecNodeRole::Transmuter);
+    CHECK(node474->role == SpecNodeRole::Transmuter);
+    CHECK(node472->keystone_exclusion_group == 1);
+    CHECK(node474->keystone_exclusion_group == 1);
   }
 
   SUBCASE("Skill 10 signature contract is materialized") {
@@ -202,7 +241,7 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
   registry.LoadFromJson("assets/data/skills.json");
 
   const std::array<uint32_t, 9> expected_trigger_nodes = {
-      134, 254, 335, 451, 533, 633, 713, 831, 951};
+      134, 254, 335, 452, 533, 633, 713, 831, 951};
 
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     CAPTURE(skill_id);
@@ -216,8 +255,9 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
     CHECK(tree->nodes.size() <= contract->max_nodes);
     CHECK(contract->min_nodes <= contract->max_nodes);
     CHECK(contract->max_triggers == 1);
-    // 技能 3（灵剑决）互斥收束为 1：370/372 双元素转质只能二选一
-    CHECK(contract->max_transmuters == (skill_id == 3 ? 1 : 2));
+    // 技能 3（灵剑决）、技能 4（剑气护体）互斥收束为 1
+    CHECK(contract->max_transmuters ==
+          ((skill_id == 3 || skill_id == 4) ? 1 : 2));
 
     int trigger_count = 0;
     int synergy_count = 0;
@@ -251,7 +291,7 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
 
     CHECK(trigger_count == 1);
     CHECK(trigger_node_id == expected_trigger_nodes[skill_id - 1]);
-    CHECK(synergy_count >= 1);
+    CHECK(synergy_count >= (skill_id == 4 ? 0 : 1));
     CHECK(transmuter_count == 2);
     CHECK(keystone_count >= 2);
   }

@@ -1193,12 +1193,18 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       }
     }
 
-    // --- Blade Ward Interception Logic (Projectiles only) ---
-    if (HasTag(combined_hit_tags, Tag::Projectile)) {
+    // --- Blade Ward Interception Logic (Projectiles only, not already evaluated by ProjectileSystem) ---
+    const bool is_physical_projectile =
+        registry.valid(source_entity) && registry.all_of<Projectile>(source_entity);
+    bool intercepted = false;
+    if (HasTag(combined_hit_tags, Tag::Projectile) && !is_physical_projectile) {
       if (auto *ward = registry.try_get<BladeWardComponent>(defender)) {
         if (ward->sword_count > 0) {
-          if (utils::ThreadSafeRandom::GetFloat01() <
-              ward->interception_chance) {
+          const float chance = std::clamp(
+              static_cast<float>(ward->sword_count) * ward->interception_chance,
+              0.0f, 1.0f);
+          if (utils::ThreadSafeRandom::GetFloat01() < chance) {
+            intercepted = true;
             if (!ward->is_solidified) {
               ward->sword_count--;
             }
@@ -1208,6 +1214,39 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
             LOG_INFO(
                 "Blade Ward: Projectile intercepted! Swords remaining: {}",
                 ward->sword_count);
+          }
+        }
+      }
+    }
+
+    // --- Blade Ward Counter Logic (Talent 470: 偏转/格挡/近战受击触发反击) ---
+    {
+      if (auto *ward = registry.try_get<BladeWardComponent>(defender)) {
+        if (ward->trigger_counter && registry.valid(attacker) &&
+            attacker != defender && registry.all_of<CombatStats>(attacker) &&
+            skill_id != 4 && !HasTag(combined_hit_tags, Tag::SecondaryHit)) {
+          const bool isMelee = HasTag(combined_hit_tags, Tag::Melee);
+          const bool isBlocked = defense_resolution.blocked;
+          if (intercepted || isMelee || isBlocked) {
+            Tag elementTag = Tag::Physical;
+            if (ward->is_lightning_ward) {
+              elementTag = Tag::Lightning;
+            } else if (ward->is_cold_ward) {
+              elementTag = Tag::Cold;
+            }
+            const float counterDmg =
+                35.0f * (1.0f + ward->counter_damage_more);
+            DamagePool counterPool;
+            counterPool.Add(elementTag, counterDmg);
+            DamageRequest counterRequest;
+            counterRequest.attacker = defender;
+            counterRequest.defender = attacker;
+            counterRequest.skill_id = 4;
+            counterRequest.base_pool = counterPool;
+            counterRequest.additional_tags =
+                Tag::Hit | Tag::Melee | Tag::SecondaryHit;
+            counterRequest.source_entity = defender;
+            (void)ResolveDamage(registry, counterRequest, defender);
           }
         }
       }
@@ -1618,19 +1657,59 @@ void DamagePipeline::CalculateBatch(
         }
       }
 
-      // --- Blade Ward Interception Logic ---
-      if (HasTag(combined_tags, Tag::Projectile)) {
+      // --- Blade Ward Interception Logic (Projectiles only, not already evaluated by ProjectileSystem) ---
+      const bool is_physical_projectile =
+          registry.valid(source_entity) && registry.all_of<Projectile>(source_entity);
+      bool intercepted = false;
+      if (HasTag(combined_tags, Tag::Projectile) && !is_physical_projectile) {
         if (auto *ward = registry.try_get<BladeWardComponent>(res.target)) {
           if (ward->sword_count > 0) {
-            if (utils::ThreadSafeRandom::GetFloat01() <
-                ward->interception_chance) {
+            const float chance = std::clamp(
+                static_cast<float>(ward->sword_count) * ward->interception_chance,
+                0.0f, 1.0f);
+            if (utils::ThreadSafeRandom::GetFloat01() < chance) {
+              intercepted = true;
               if (!ward->is_solidified) {
                 ward->sword_count--;
               }
               final_damage = 0.0f;
               LOG_INFO("Blade Ward (Batch): Projectile intercepted for "
-                           "entity {}! Swords remaining: {}",
-                           (uint32_t)res.target, ward->sword_count);
+                       "entity {}! Swords remaining: {}",
+                       (uint32_t)res.target, ward->sword_count);
+            }
+          }
+        }
+      }
+
+      // --- Blade Ward Counter Logic (Talent 470: 偏转/格挡/近战受击触发反击) ---
+      {
+        if (auto *ward = registry.try_get<BladeWardComponent>(res.target)) {
+          if (ward->trigger_counter && registry.valid(attacker) &&
+              attacker != res.target &&
+              registry.all_of<CombatStats>(attacker) && skill_id != 4 &&
+              !HasTag(combined_tags, Tag::SecondaryHit)) {
+            const bool isMelee = HasTag(combined_tags, Tag::Melee);
+            const bool isBlocked = defense_resolution.blocked;
+            if (intercepted || isMelee || isBlocked) {
+              Tag elementTag = Tag::Physical;
+              if (ward->is_lightning_ward) {
+                elementTag = Tag::Lightning;
+              } else if (ward->is_cold_ward) {
+                elementTag = Tag::Cold;
+              }
+              const float counterDmg =
+                  35.0f * (1.0f + ward->counter_damage_more);
+              DamagePool counterPool;
+              counterPool.Add(elementTag, counterDmg);
+              DamageRequest counterRequest;
+              counterRequest.attacker = res.target;
+              counterRequest.defender = attacker;
+              counterRequest.skill_id = 4;
+              counterRequest.base_pool = counterPool;
+              counterRequest.additional_tags =
+                  Tag::Hit | Tag::Melee | Tag::SecondaryHit;
+              counterRequest.source_entity = res.target;
+              (void)ResolveDamage(registry, counterRequest, res.target);
             }
           }
         }

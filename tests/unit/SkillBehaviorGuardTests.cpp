@@ -922,7 +922,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
 
   const std::array<std::pair<uint32_t, uint32_t>, 7> trigger_matrix = {{
       {3u, 335u},
-      {4u, 451u},
+      {4u, 452u},
       {5u, 533u},
       {6u, 633u},
       {7u, 713u},

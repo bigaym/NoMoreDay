@@ -46,11 +46,14 @@
 - Use `RelWithDebInfo` with `build.bat` for build config, never `debug`.
 - Use Chinese for comments. Comments must based on the context, rather than details regarding the process of task execution.
 - Do not creat temp file in root dir.
+- For complex tasks, break the work down into sub-agents for parallel execution; ensure that sub-agents do not perform conflicting operations—such as compilation or testing—during this process.
+- retry wake up subagent for 3 times at most when subagent exec failed, otherwise create now subagent.
 
 ## Tools
 
 - Must use `codebase-memory-mcp` graph tools for ALL code retrieval — definitions, search, call chains, data flow, impact analysis, and architecture understanding first. 
 - Use `rg` cmd for search. Use `Read` when graph tools and `rg` can not provide enough info.
+- Must not push `rg` cmd in async call, must sync.
 - Use other cmd only when no specialized tool fits. For compilation, testing, or other high-output commands, do not emit full output to context; filter it or redirect it to a text file.
 
 ### Memory, Context, And Evidence

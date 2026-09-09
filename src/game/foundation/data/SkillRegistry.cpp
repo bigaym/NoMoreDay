@@ -500,7 +500,22 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
     }
   }
 
-  if (transmuter_count > def.contract.max_transmuters) {
+  const bool has_transmuter_exclusion =
+      !def.contract.transmuter_node_ids.empty() &&
+      [&]() {
+        for (uint32_t tid : def.contract.transmuter_node_ids) {
+          if (tid != 0) {
+            auto it = def.nodes.find(tid);
+            if (it != def.nodes.end() && it->second.keystone_exclusion_group != 0) {
+              return true;
+            }
+          }
+        }
+        return false;
+      }();
+
+  if (transmuter_count > def.contract.transmuter_node_ids.size() ||
+      (!has_transmuter_exclusion && transmuter_count > def.contract.max_transmuters)) {
     std::ostringstream oss;
     oss << "transmuter overflow, got=" << transmuter_count
         << " max=" << static_cast<int>(def.contract.max_transmuters);

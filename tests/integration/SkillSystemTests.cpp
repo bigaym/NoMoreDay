@@ -20,6 +20,7 @@
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <entt/entt.hpp>
@@ -1066,9 +1067,8 @@ TEST_CASE("[Integration] SkillSystem - BladeWard interception counter loop") {
   ward.sword_count = 2;
   ward.interception_chance = 1.0f;
   ward.trigger_counter = true;
-  ward.has_blink_counter = true;
-  ward.has_agile_counter = true;
-  ward.has_rainbow_qi = true;
+  ward.is_lightning_ward = true;
+  ward.counter_damage_more = 0.4f;
 
   auto attacker = registry.create();
   registry.emplace<EnemyTag>(attacker);
@@ -1089,7 +1089,263 @@ TEST_CASE("[Integration] SkillSystem - BladeWard interception counter loop") {
   ProjectileSystem::Update(registry, grid, 0.016f);
 
   CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
-  CHECK(registry.get<SwordIntentComponent>(defender).stacks >= 1);
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard 412 is_solidified prevents sword consumption") {
+  entt::registry registry;
+  systems::SpatialHashGrid grid(100, 100, 50);
+
+  // Case A: is_solidified = false -> sword_count decrements from 2 to 1
+  {
+    auto defender = registry.create();
+    registry.emplace<PlayerTag>(defender);
+    registry.emplace<Position>(defender, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(defender);
+    auto &ward = registry.emplace<BladeWardComponent>(defender);
+    ward.sword_count = 2;
+    ward.interception_chance = 1.0f;
+    ward.is_solidified = false;
+
+    auto attacker = registry.create();
+    registry.emplace<EnemyTag>(attacker);
+    registry.emplace<Position>(attacker, 2.0f, 0.0f);
+    registry.emplace<CombatStats>(attacker);
+
+    auto projEnt = registry.create();
+    registry.emplace<Position>(projEnt, 0.0f, 0.0f);
+    registry.emplace<Velocity>(projEnt, 0.0f, 0.0f);
+    auto &proj = registry.emplace<Projectile>(projEnt);
+    proj.owner = attacker;
+    proj.radius = 20.0f;
+    proj.speed = 0.0f;
+    proj.lifeTime = 1.0f;
+    registry.emplace<SkillComponent>(projEnt, 2u, attacker);
+
+    ProjectileSystem::Update(registry, grid, 0.016f);
+    CHECK(ward.sword_count == 1);
+  }
+
+  // Case B: is_solidified = true -> sword_count stays 2
+  {
+    auto defender = registry.create();
+    registry.emplace<PlayerTag>(defender);
+    registry.emplace<Position>(defender, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(defender);
+    auto &ward = registry.emplace<BladeWardComponent>(defender);
+    ward.sword_count = 2;
+    ward.interception_chance = 1.0f;
+    ward.is_solidified = true;
+
+    auto attacker = registry.create();
+    registry.emplace<EnemyTag>(attacker);
+    registry.emplace<Position>(attacker, 2.0f, 0.0f);
+    registry.emplace<CombatStats>(attacker);
+
+    auto projEnt = registry.create();
+    registry.emplace<Position>(projEnt, 0.0f, 0.0f);
+    registry.emplace<Velocity>(projEnt, 0.0f, 0.0f);
+    auto &proj = registry.emplace<Projectile>(projEnt);
+    proj.owner = attacker;
+    proj.radius = 20.0f;
+    proj.speed = 0.0f;
+    proj.lifeTime = 1.0f;
+    registry.emplace<SkillComponent>(projEnt, 2u, attacker);
+
+    ProjectileSystem::Update(registry, grid, 0.016f);
+    CHECK(ward.sword_count == 2);
+  }
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard 470 counter on Melee and Block") {
+  entt::registry registry;
+
+  // Melee hit triggers counter
+  {
+    auto defender = registry.create();
+    registry.emplace<PlayerTag>(defender);
+    registry.emplace<CombatStats>(defender);
+    auto &ward = registry.emplace<BladeWardComponent>(defender);
+    ward.trigger_counter = true;
+    ward.counter_damage_more = 0.2f;
+
+    auto attacker = registry.create();
+    registry.emplace<EnemyTag>(attacker);
+    registry.emplace<CombatStats>(attacker);
+    registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+
+    DamagePool pool;
+    pool.Add(Tag::Physical, 10.0f);
+    DamageRequest req;
+    req.attacker = attacker;
+    req.defender = defender;
+    req.skill_id = 1;
+    req.base_pool = pool;
+    req.additional_tags = Tag::Hit | Tag::Melee;
+    req.source_entity = attacker;
+
+    DamagePipeline::CalculateBatch(registry, attacker, {defender}, 1, pool, req.additional_tags, attacker);
+    CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
+  }
+
+  // Blocked hit triggers counter
+  {
+    auto defender = registry.create();
+    registry.emplace<PlayerTag>(defender);
+    auto &defStats = registry.emplace<CombatStats>(defender);
+    defStats.block_chance = 1.0f; // 100% block
+    auto &ward = registry.emplace<BladeWardComponent>(defender);
+    ward.trigger_counter = true;
+
+    auto attacker = registry.create();
+    registry.emplace<EnemyTag>(attacker);
+    registry.emplace<CombatStats>(attacker);
+    registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+
+    DamagePool pool;
+    pool.Add(Tag::Physical, 10.0f);
+    DamageRequest req;
+    req.attacker = attacker;
+    req.defender = defender;
+    req.skill_id = 1;
+    req.base_pool = pool;
+    req.additional_tags = Tag::Hit; // Not melee, but blocked
+    req.source_entity = attacker;
+
+    DamagePipeline::CalculateBatch(registry, attacker, {defender}, 1, pool, req.additional_tags, attacker);
+    CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
+  }
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard 451 & 455 OnDodge triggers") {
+  entt::registry registry;
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  auto defender = registry.create();
+  registry.emplace<PlayerTag>(defender);
+  registry.emplace<CombatStats>(defender);
+  auto &intent = registry.emplace<SwordIntentComponent>(defender);
+  intent.stacks = 0;
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(defender);
+  SpecializedSkill spec;
+  spec.skill_id = 4u;
+  spec.allocated_points[451u] = 3;
+  spec.allocated_points[455u] = 1;
+  active.specialized_slots[0] = spec;
+
+  auto attacker = registry.create();
+  registry.emplace<EnemyTag>(attacker);
+  registry.emplace<CombatStats>(attacker);
+
+  CombatEvent dodgeEvt = CombatEventFactory::CreateOnDodge(defender, attacker);
+  CombatEventDispatcher::Dispatch(registry, dodgeEvt);
+
+  const auto *effects = registry.try_get<ActiveEffectsComponent>(defender);
+  REQUIRE(effects != nullptr);
+  const auto *speedBuff = effects->Get("blade_ward_dodge_speed");
+  REQUIRE(speedBuff != nullptr);
+  CHECK(speedBuff->type == BuffType::SpeedUp);
+
+  const auto *powerBuff = effects->Get("blade_ward_dodge_power");
+  REQUIRE(powerBuff != nullptr);
+  CHECK(powerBuff->type == BuffType::PowerBoost);
+
+  CHECK(registry.get<SwordIntentComponent>(defender).stacks == 1);
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard 432 & 435 OnBlock triggers") {
+  entt::registry registry;
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  auto blocker = registry.create();
+  registry.emplace<PlayerTag>(blocker);
+  auto &stats = registry.emplace<CombatStats>(blocker);
+  stats.barrier = 0.0f;
+  auto &intent = registry.emplace<SwordIntentComponent>(blocker);
+  intent.stacks = 0;
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(blocker);
+  SpecializedSkill spec;
+  spec.skill_id = 4u;
+  spec.allocated_points[432u] = 3; // 30 barrier
+  spec.allocated_points[435u] = 3; // intent chance
+  active.specialized_slots[0] = spec;
+
+  auto attacker = registry.create();
+  registry.emplace<EnemyTag>(attacker);
+  registry.emplace<CombatStats>(attacker);
+
+  CombatEvent blockEvt = CombatEventFactory::CreateOnBlock(blocker, attacker, 50.0f);
+  CombatEventDispatcher::Dispatch(registry, blockEvt);
+
+  CHECK(registry.get<CombatStats>(blocker).barrier >= 30.0f);
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard 452 defensive trigger on dodge") {
+  entt::registry registry;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  auto dodger = registry.create();
+  registry.emplace<PlayerTag>(dodger);
+  registry.emplace<Position>(dodger, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(dodger);
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(dodger);
+  SpecializedSkill spec;
+  spec.skill_id = 4u;
+  spec.allocated_points[452u] = 1;
+  active.specialized_slots[0] = spec;
+
+  SkillSpecializationBaker::SyncTriggerRules(registry, dodger, 4u, &spec);
+
+  auto attacker = registry.create();
+  registry.emplace<EnemyTag>(attacker);
+  registry.emplace<Position>(attacker, 50.0f, 0.0f);
+  registry.emplace<CombatStats>(attacker);
+
+  CombatEvent dodgeEvt = CombatEventFactory::CreateOnDodge(dodger, attacker);
+  CombatEventDispatcher::Dispatch(registry, dodgeEvt);
+
+  auto execView = registry.view<SkillExecution>();
+  bool foundTriggeredCast = false;
+  for (auto ent : execView) {
+    const auto &exec = execView.get<SkillExecution>(ent);
+    if (exec.skill_id == 1u && exec.owner == dodger) {
+      foundTriggeredCast = true;
+      break;
+    }
+  }
+  CHECK(foundTriggeredCast);
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard B2 expiration cleanup") {
+  entt::registry registry;
+  systems::SpatialHashGrid grid(100, 100, 50);
+
+  auto entity = registry.create();
+  registry.emplace<PlayerTag>(entity);
+  registry.emplace<Position>(entity, 0.0f, 0.0f);
+
+  auto &ward = registry.emplace<BladeWardComponent>(entity);
+  ward.duration = 10.0f;
+  ward.remaining = 0.0f;
+
+  auto &sent = registry.emplace<OrbitingSentinelComponent>(entity);
+  sent.skill_id = 4u;
+
+  auto &rw = registry.emplace<ReactiveWardComponent>(entity);
+  rw.counter_skill_id = 4u;
+
+  SkillSystem::Update(registry, grid, 0.016f);
+
+  CHECK_FALSE(registry.all_of<BladeWardComponent>(entity));
+  CHECK_FALSE(registry.all_of<OrbitingSentinelComponent>(entity));
+  CHECK_FALSE(registry.all_of<ReactiveWardComponent>(entity));
 }
 
 TEST_CASE("[Integration] SkillSystem - Key-node cast smoke matrix") {

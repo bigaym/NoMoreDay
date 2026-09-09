@@ -892,13 +892,17 @@ struct BladeWardComponent {
   float duration = 10.0f;
   float remaining = 10.0f;
   int sword_count = 3;
-  float interception_chance = 0.15f;
-  bool is_solidified = false;   // "Solidified" talent: swords are not consumed
-  bool trigger_counter = false; // Talent 470
-  bool counter_spin = false;    // Talent 473
-  bool has_blink_counter = false; // Talent 451
-  bool has_agile_counter = false; // Talent 452
-  bool has_rainbow_qi = false;    // Talent 471
+  float interception_chance = 0.10f; // 基础偏转 10% (对齐职业设计草案 §3.4)
+  bool is_solidified = false;        // Talent 412 不动如山: 偏转时不扣减灵剑数量
+  bool trigger_counter = false;      // Talent 470 剑气反震: 偏转/格挡/受击发射 5 道反击剑气
+  float counter_damage_more = 0.0f;  // Talent 471 以眼还眼: 反击伤害 More 加成 (+20%..80%)
+  bool is_lightning_ward = false;    // Talent 472 雷霆法环: 转闪电
+  bool is_cold_ward = false;         // Talent 474 霜铠: 转冰霜
+  bool counter_spin = false;         // Talent 473 雷贯长虹: 电击与旋转视觉
+  float dodge_speed_points = 0.0f;   // Talent 451 借力打力: 闪避后移速/攻速加成点数
+  bool dodge_power_boost = false;    // Talent 455 以攻代守: 闪避后 More+20% 并回剑意
+  float block_intent_chance = 0.0f;  // Talent 435 剑意格御: 格挡回剑意几率 (15%..45%)
+  float block_ward_amount = 0.0f;    // Talent 432 剑盾屏障: 格挡获取护盾 (10..30 Ward)
 };
 
 struct PhantomFlashComponent {

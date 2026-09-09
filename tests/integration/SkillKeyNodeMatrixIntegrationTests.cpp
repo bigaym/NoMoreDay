@@ -122,7 +122,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
       break;
     case 4:
       REQUIRE(registry.all_of<BladeWardComponent>(caster));
-      CHECK(registry.get<BladeWardComponent>(caster).trigger_counter);
+      CHECK(registry.get<BladeWardComponent>(caster).is_lightning_ward);
       break;
     case 5:
       REQUIRE(registry.all_of<ChannelingComponent>(caster));

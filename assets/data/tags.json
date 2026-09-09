@@ -29,7 +29,9 @@
         "Spell",
         "Attack",
         "Movement",
-        "SwordSkill"
+        "SwordSkill",
+        "Teleport",
+        "Defense"
       ]
     },
     {
@@ -44,7 +46,8 @@
         "DamageOverTime",
         "Buff",
         "Aura",
-        "Channeled"
+        "Channeled",
+        "SecondaryHit"
       ]
     },
     {

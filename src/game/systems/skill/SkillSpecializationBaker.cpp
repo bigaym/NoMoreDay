@@ -124,12 +124,17 @@ void SkillSpecializationBaker::Bake(
         if (out_triggers && node_contract->trigger.trigger_skill_id != 0) {
           TriggerRule rule;
           rule.rule_id = node_id;
-          rule.listen_event = CombatEventType::OnSkillHit;
+          if (node_id == 452) {
+            rule.listen_event = CombatEventType::OnDodge;
+            rule.target_mode = TriggerTargetPolicy::Attacker;
+          } else {
+            rule.listen_event = CombatEventType::OnSkillHit;
+            rule.target_mode = TriggerTargetPolicy::Victim;
+          }
           rule.requires_crit = node_contract->trigger.requires_crit;
           rule.cast_skill_id = node_contract->trigger.trigger_skill_id;
           rule.effectiveness = node_contract->trigger.effectiveness;
           rule.internal_cooldown = node_contract->trigger.internal_cooldown;
-          rule.target_mode = TriggerTargetPolicy::Victim;
           out_triggers->AddRule(rule);
         }
       }
@@ -483,29 +488,40 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     }
     break;
 
-  case 4: // 剑气护体
+  case 4: // 剑气护体 (Blade Ward)
     if (node_id == 400) {
-      del.feature_flags |= 1; // 金钟 减伤
+      del.feature_flags |= 1; // 金钟罩 护甲/减伤
     } else if (node_id == 401) {
-      del.feature_flags |= 2; // 拨云 拦截提升
+      del.feature_flags |= 2; // 拨云见日 偏转提升
     } else if (node_id == 411) {
-      del.feature_flags |= 4; // 五行御守
+      del.feature_flags |= 4; // 五行御守 全抗
     } else if (node_id == 412) {
-      del.feature_flags |= 8; // 不动如山
+      del.feature_flags |= 8; // 不动如山 (Keystone)
     } else if (node_id == 430) {
       del.feature_flags |= 16; // 剑意格挡
     } else if (node_id == 451) {
-      del.sub_count = 1;
-      del.feature_flags |= 32; // 瞬身反击
+      del.feature_flags |= 32; // 借力打力 (闪避提速)
     } else if (node_id == 452) {
-      del.feature_flags |= 64; // 灵动反击
+      del.feature_flags |= 64; // 瞬身反打 (Trigger)
     } else if (node_id == 470) {
-      del.sub_count = 8;
-      del.feature_flags |= 128; // 反制剑气
+      del.sub_count = 5;       // 设计基准: 5 道反击剑气 (解 M3)
+      del.feature_flags |= 128; // 剑气反震 (Keystone)
     } else if (node_id == 471) {
-      del.feature_flags |= 256; // 剑气如虹
+      del.feature_flags |= 256; // 以眼还眼 (反击增伤)
+    } else if (node_id == 472 || node_id == 474) {
+      // 雷霆法环 (472) / 霜铠 (474) 双 Transmuter 接线 (解 C3)
+      auto conv = skills::ResolveElementalConversion(node_id, points);
+      if (conv.IsActive()) {
+        out_profile.effective_tags =
+            (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
+      }
+      if (node_id == 472) {
+        del.feature_flags |= 512; // 雷霆法环
+      } else {
+        del.feature_flags |= 1024; // 霜铠
+      }
     } else if (node_id == 473) {
-      del.feature_flags |= 512; // 剑刃风暴
+      del.feature_flags |= 2048; // 雷贯长虹
     }
     break;
 
@@ -659,12 +675,17 @@ void SkillSpecializationBaker::SyncTriggerRules(
         }
         TriggerRule rule;
         rule.rule_id = node_id;
-        rule.listen_event = CombatEventType::OnSkillHit;
+        if (node_id == 452) {
+          rule.listen_event = CombatEventType::OnDodge;
+          rule.target_mode = TriggerTargetPolicy::Attacker;
+        } else {
+          rule.listen_event = CombatEventType::OnSkillHit;
+          rule.target_mode = TriggerTargetPolicy::Victim;
+        }
         rule.requires_crit = node_contract->trigger.requires_crit;
         rule.cast_skill_id = node_contract->trigger.trigger_skill_id;
         rule.effectiveness = node_contract->trigger.effectiveness;
         rule.internal_cooldown = node_contract->trigger.internal_cooldown;
-        rule.target_mode = TriggerTargetPolicy::Victim;
         triggers->AddRule(rule);
       }
     }

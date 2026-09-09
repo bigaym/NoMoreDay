@@ -30,6 +30,7 @@ enum class Tag : uint64_t {
     Movement = 1ULL << 21,
     SwordSkill = 1ULL << 22,
     Teleport = 1ULL << 23,
+    Defense = 1ULL << 24,
 
     // --- Mechanism Tags (32-47) ---
     Hit = 1ULL << 32,
@@ -38,9 +39,6 @@ enum class Tag : uint64_t {
     Buff = 1ULL << 35,
     Aura = 1ULL << 36,
     Channeled = 1ULL << 37,
-    // 二次命中 (衍生伤害，如 271 冰爆/273 连锁经直连 ResolveDamage 触发)：
-    // 该类命中的 trigger_depth 恒为 0，hitFunc 侧需按本标记阻断二次命中
-    // 再次驱动行为层 DoHit，防止触发链自我放大
     SecondaryHit = 1ULL << 38,
 
     // --- State Tags (48-63) ---
@@ -75,7 +73,7 @@ struct TagInfo {
     std::string_view id;
 };
 
-static constexpr std::array<TagInfo, 29> kTagInfoTable = {{
+static constexpr std::array<TagInfo, 31> kTagInfoTable = {{
     {Tag::Physical, "Physical"},
     {Tag::Fire, "Fire"},
     {Tag::Cold, "Cold"},
@@ -91,12 +89,14 @@ static constexpr std::array<TagInfo, 29> kTagInfoTable = {{
     {Tag::Movement, "Movement"},
     {Tag::SwordSkill, "SwordSkill"},
     {Tag::Teleport, "Teleport"},
+    {Tag::Defense, "Defense"},
     {Tag::Hit, "Hit"},
     {Tag::Critical, "Critical"},
     {Tag::DamageOverTime, "DamageOverTime"},
     {Tag::Buff, "Buff"},
     {Tag::Aura, "Aura"},
     {Tag::Channeled, "Channeled"},
+    {Tag::SecondaryHit, "SecondaryHit"},
     {Tag::Bleeding, "Bleeding"},
     {Tag::Burning, "Burning"},
     {Tag::Frozen, "Frozen"},
@@ -113,23 +113,76 @@ constexpr bool HasTag(Tag mask, Tag tag) {
 }
 
 // Helper to get string name of a SINGLE tag
-// Single source of truth: kTagInfoTable above. Linear scan over 29 entries,
-// compile-time evaluable.
 constexpr std::string_view GetTagName(Tag tag) {
-    for (const auto &entry : kTagInfoTable) {
-        if (entry.tag == tag) return entry.id;
+    switch(tag) {
+        case Tag::Physical: return "Physical";
+        case Tag::Fire: return "Fire";
+        case Tag::Cold: return "Cold";
+        case Tag::Lightning: return "Lightning";
+        case Tag::Shadow: return "Shadow";
+        case Tag::Poison: return "Poison";
+        case Tag::Void: return "Void";
+        case Tag::Melee: return "Melee";
+        case Tag::Projectile: return "Projectile";
+        case Tag::Area: return "Area";
+        case Tag::Spell: return "Spell";
+        case Tag::Attack: return "Attack";
+        case Tag::Movement: return "Movement";
+        case Tag::SwordSkill: return "SwordSkill";
+        case Tag::Teleport: return "Teleport";
+        case Tag::Defense: return "Defense";
+        case Tag::Hit: return "Hit";
+        case Tag::Critical: return "Critical";
+        case Tag::DamageOverTime: return "DamageOverTime";
+        case Tag::Buff: return "Buff";
+        case Tag::Aura: return "Aura";
+        case Tag::Channeled: return "Channeled";
+        case Tag::SecondaryHit: return "SecondaryHit";
+        case Tag::Bleeding: return "Bleeding";
+        case Tag::Burning: return "Burning";
+        case Tag::Frozen: return "Frozen";
+        case Tag::Shocked: return "Shocked";
+        case Tag::Stunned: return "Stunned";
+        case Tag::SwordRiding: return "SwordRiding";
+        case Tag::Elite: return "Elite";
+        case Tag::Boss: return "Boss";
+        default: return "Unknown";
     }
-    return "Unknown";
 }
 
 // Helper to get Tag from string name
-// Single source of truth: kTagInfoTable above. Linear scan over 29 entries,
-// compile-time evaluable.
 constexpr std::optional<Tag> TagFromString(std::string_view name) {
-    if (name == "sword_skill" || name == "SwordSkill") return Tag::SwordSkill;
-    for (const auto &entry : kTagInfoTable) {
-        if (entry.id == name) return entry.tag;
-    }
+    if (name == "Physical") return Tag::Physical;
+    if (name == "Fire") return Tag::Fire;
+    if (name == "Cold") return Tag::Cold;
+    if (name == "Lightning") return Tag::Lightning;
+    if (name == "Shadow") return Tag::Shadow;
+    if (name == "Poison") return Tag::Poison;
+    if (name == "Void") return Tag::Void;
+    if (name == "Melee") return Tag::Melee;
+    if (name == "Projectile") return Tag::Projectile;
+    if (name == "Area") return Tag::Area;
+    if (name == "Spell") return Tag::Spell;
+    if (name == "Attack") return Tag::Attack;
+    if (name == "Movement") return Tag::Movement;
+    if (name == "SwordSkill") return Tag::SwordSkill;
+    if (name == "Teleport") return Tag::Teleport;
+    if (name == "Defense") return Tag::Defense;
+    if (name == "Hit") return Tag::Hit;
+    if (name == "Critical") return Tag::Critical;
+    if (name == "DamageOverTime") return Tag::DamageOverTime;
+    if (name == "Buff") return Tag::Buff;
+    if (name == "Aura") return Tag::Aura;
+    if (name == "Channeled") return Tag::Channeled;
+    if (name == "SecondaryHit") return Tag::SecondaryHit;
+    if (name == "Bleeding") return Tag::Bleeding;
+    if (name == "Burning") return Tag::Burning;
+    if (name == "Frozen") return Tag::Frozen;
+    if (name == "Shocked") return Tag::Shocked;
+    if (name == "Stunned") return Tag::Stunned;
+    if (name == "SwordRiding") return Tag::SwordRiding;
+    if (name == "Elite") return Tag::Elite;
+    if (name == "Boss") return Tag::Boss;
     return std::nullopt;
 }
 

@@ -517,7 +517,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -532,7 +533,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -547,7 +549,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -562,7 +565,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -577,7 +581,8 @@
               "effectiveness": 0.6,
               "range_mult": 1.0,
               "internal_cooldown": 3.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -592,7 +597,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -607,7 +613,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -622,7 +629,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -637,7 +645,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -652,7 +661,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -1178,7 +1188,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 1,
             "cost_affix": "HeavyMomentum"
@@ -1195,7 +1206,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 1,
             "cost_affix": "HeavyMomentum"
@@ -1212,7 +1224,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1227,7 +1240,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 1
           },
@@ -1243,7 +1257,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "cost_affix": "HeavyMomentum"
           },
@@ -1259,7 +1274,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 1
           },
@@ -1275,7 +1291,8 @@
               "effectiveness": 0.4,
               "range_mult": 1.0,
               "internal_cooldown": 2.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1290,7 +1307,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1305,7 +1323,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1320,7 +1339,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1335,7 +1355,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -1819,7 +1840,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1834,7 +1856,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1849,7 +1872,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1864,7 +1888,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1879,7 +1904,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1910,7 +1936,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1925,7 +1952,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1940,7 +1968,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1955,7 +1984,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -1970,8 +2000,10 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
+              "consumes_mana": false,
+              "requires_crit": false
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 372,
@@ -1985,8 +2017,10 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
+              "consumes_mana": false,
+              "requires_crit": false
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 374,
@@ -2000,232 +2034,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 300,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 301,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 302,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 303,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 310,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 312,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 331,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 332,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 333,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 334,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 350,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 352,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 371,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 373,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 375,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -2240,7 +2050,8 @@
       "tags": [
         "Physical",
         "Spell",
-        "Buff"
+        "Buff",
+        "Defense"
       ],
       "base_damage": 0.0,
       "weapon_damage_mult": 0.0,
@@ -2252,7 +2063,7 @@
           "id": 400,
           "name_key": "金钟罩",
           "desc_key": "开启时护甲增加 15%...60%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.36,
           "y": 1.26,
           "prerequisites": [
@@ -2261,14 +2072,20 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            {
+              "type": 8,
+              "mode": 1,
+              "value": 15.0
+            }
+          ],
           "icon_id": 1369623208
         },
         {
           "id": 401,
           "name_key": "拨云见日",
           "desc_key": "投射物偏转几率增加 4%...16%。",
-          "max_points": 3,
+          "max_points": 4,
           "x": 3.81,
           "y": 0.9,
           "prerequisites": [
@@ -2314,7 +2131,7 @@
           "id": 410,
           "name_key": "厚积薄发",
           "desc_key": "*{需求: 金钟罩 3/4}* 护甲的减伤效果提升 10%...30%，且每有 1000 点护甲，额外提供 1% 伤害减免。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 0.01,
           "y": 3.51,
           "prerequisites": [
@@ -2330,7 +2147,7 @@
           "id": 411,
           "name_key": "五行御守",
           "desc_key": "*{需求: 金钟罩 2/4}* 全元素抗性 +6%...24%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -5.07,
           "y": 1.28,
           "prerequisites": [
@@ -2341,9 +2158,9 @@
           ],
           "stat_modifiers": [
             {
-              "type": 27,
+              "type": 28,
               "mode": 0,
-              "value": 5.0
+              "value": 6.0
             }
           ],
           "icon_id": 1453658398
@@ -2397,7 +2214,7 @@
           "id": 415,
           "name_key": "坚韧回生",
           "desc_key": "*{需求: 厚积薄发 2/3}* 剑气护体开启期间，每秒回复 0.5%...1.5% 缺失生命值。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.85,
           "y": -0.56,
           "prerequisites": [
@@ -2424,7 +2241,7 @@
           ],
           "stat_modifiers": [
             {
-              "type": 35,
+              "type": 36,
               "mode": 0,
               "value": 4.0
             }
@@ -2435,7 +2252,7 @@
           "id": 431,
           "name_key": "势不可挡",
           "desc_key": "*{需求: 剑意格挡 2/5}* 格挡效率提升 15%...60%。",
-          "max_points": 1,
+          "max_points": 4,
           "x": 2.38,
           "y": -1.09,
           "prerequisites": [
@@ -2450,7 +2267,7 @@
           "id": 432,
           "name_key": "剑盾屏障",
           "desc_key": "*{需求: 剑意格挡 4/5}* 每次成功格挡，获得 10...30 点护盾 (Ward)。",
-          "max_points": 1,
+          "max_points": 3,
           "x": -0.11,
           "y": 2.96,
           "prerequisites": [
@@ -2465,7 +2282,7 @@
           "id": 433,
           "name_key": "鲜血壁垒",
           "desc_key": "*{需求: 剑盾屏障 2/3}* 剑气护体不再消耗法力，改为消耗你的最大生命值，但你可以通过汲取生命获取大量护甲。",
-          "max_points": 3,
+          "max_points": 1,
           "x": 4.25,
           "y": 1.13,
           "prerequisites": [
@@ -2480,7 +2297,7 @@
           "id": 434,
           "name_key": "无瑕之御",
           "desc_key": "*{需求: 势不可挡 4/4}* 每过 5 秒，下一次受到的击中伤害 (Hit) 将被完全抵消（100% 减伤）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 3.55,
           "y": 1.71,
           "prerequisites": [
@@ -2496,7 +2313,7 @@
           "id": 435,
           "name_key": "剑意格御",
           "desc_key": "*{需求: 剑意格挡 3/5}* 成功格挡时有 15%...45% 几率回复 1 层剑意，回复的剑意使你下次攻击暴击率额外 +5%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 3.25,
           "y": 1.75,
           "prerequisites": [
@@ -2512,7 +2329,7 @@
           "id": 450,
           "name_key": "幻影步",
           "desc_key": "*{需求: 拨云见日 2/4}* 闪避等级加成 +15%...60%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 0.35,
           "y": -2.98,
           "prerequisites": [
@@ -2523,9 +2340,9 @@
           ],
           "stat_modifiers": [
             {
-              "type": 34,
-              "mode": 0,
-              "value": 3.0
+              "type": 47,
+              "mode": 1,
+              "value": 15.0
             }
           ],
           "icon_id": 3484338677
@@ -2534,7 +2351,7 @@
           "id": 451,
           "name_key": "借力打力",
           "desc_key": "*{需求: 幻影步 2/4}* 每次成功闪避，移动速度和攻击速度提升增加 5%...15% (持续2秒)。",
-          "max_points": 1,
+          "max_points": 3,
           "x": 4.6,
           "y": 0.94,
           "prerequisites": [
@@ -2594,7 +2411,7 @@
           "id": 455,
           "name_key": "以攻代守",
           "desc_key": "*{需求: 借力打力 2/3}* 闪避成功后 2s 内，你的下一次攻击造成 20% 总增 (More) 伤害，且必定获得 1 层剑意。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 2.25,
           "y": -3.38,
           "prerequisites": [
@@ -2610,7 +2427,7 @@
           "id": 470,
           "name_key": "剑气反震",
           "desc_key": "*{需求: 剑压外放 2/4}* 当你偏转投射物、格挡或被近战击中时，会向四周发射 5 道反击剑气（造成物理伤害）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": -2.15,
           "y": -3.15,
           "prerequisites": [
@@ -2626,7 +2443,7 @@
           "id": 471,
           "name_key": "以眼还眼",
           "desc_key": "*{需求: 剑气反震}* 反击剑气的伤害总增 (More) +20%...80%，飞行距离增加。",
-          "max_points": 1,
+          "max_points": 4,
           "x": 3.9,
           "y": -0.39,
           "prerequisites": [
@@ -2641,7 +2458,7 @@
           "id": 472,
           "name_key": "雷霆法环",
           "desc_key": "*{需求: 剑压外放 2/4}* 剑气护体转化为 **闪电 (Lightning)** 光环，获得 [Lightning] 标签。每隔 0.5s 持续电击极近距离的敌人。反击剑气变为追踪闪电球。*与 [霜铠] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": -4.1,
           "y": -0.49,
           "prerequisites": [
@@ -2657,7 +2474,7 @@
           "id": 473,
           "name_key": "雷贯长虹",
           "desc_key": "*{需求: 雷霆法环}* 闪电光环的电击频率增加 30%...90%，被感电的敌人移速降低 10%...30%，且感电敌人被电击时受到的伤害增加 15%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -3.88,
           "y": -1.66,
           "prerequisites": [
@@ -2673,7 +2490,7 @@
           "id": 474,
           "name_key": "霜铠",
           "desc_key": "*{需求: 剑气反震}* 剑气护体转化为 **冰霜 (Cold)** 护盾，获得 [Cold] 标签。反击时不再发射剑气，而是以自身为中心爆发冰龙卷，强制击退敌人并施加寒冷。*与 [雷霆法环] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": -2.1,
           "y": -3.49,
           "prerequisites": [
@@ -2689,7 +2506,7 @@
           "id": 475,
           "name_key": "永冻领域",
           "desc_key": "*{需求: 霜铠}* 冰龙卷的范围增加 20%...60%，触发频率提高。被击退的冻结敌人着地时触发“冰碎”，对落点周围敌人造成冰霜范围伤害。",
-          "max_points": 1,
+          "max_points": 3,
           "x": 4.12,
           "y": -0.55,
           "prerequisites": [
@@ -2704,7 +2521,7 @@
           "id": 476,
           "name_key": "元素曝光",
           "desc_key": "*{需求: 任意 Transmuter}* 被剑气护体的反击/光环效果命中的敌人获得“元素暴露”状态：受到的对应元素伤害增加 4%...16%（不可叠加），持续 3 秒（命中刷新）。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 0.6,
           "y": -4.19,
           "prerequisites": [
@@ -2726,13 +2543,13 @@
         "skill_id": 4,
         "min_nodes": 29,
         "max_nodes": 29,
-        "max_transmuters": 2,
+        "max_transmuters": 1,
         "max_triggers": 1,
         "has_sword_intent_node": true,
-        "has_synergy_node": true,
+        "has_synergy_node": false,
         "transmuter_node_ids": [
-          470,
-          471
+          472,
+          474
         ],
         "nodes": [
           {
@@ -2747,11 +2564,44 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
             "node_id": 413,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 414,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 433,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -2762,26 +2612,12 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
-            "node_id": 430,
-            "role": "Synergy",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 431,
+            "node_id": 434,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -2792,26 +2628,28 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
-            "node_id": 432,
-            "role": "Keystone",
+            "node_id": 435,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
+            "affects_sword_intent": true,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
-            "node_id": 451,
+            "node_id": 452,
             "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -2822,12 +2660,29 @@
               "effectiveness": 1.0,
               "range_mult": 1.0,
               "internal_cooldown": 2.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
-            "node_id": 452,
-            "role": "Keystone",
+            "node_id": 454,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 455,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": true,
@@ -2837,12 +2692,13 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
             "node_id": 470,
-            "role": "Transmuter",
+            "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -2852,26 +2708,46 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 471,
-            "role": "Transmuter",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
             "node_id": 472,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            },
+            "keystone_exclusion_group": 1
+          },
+          {
+            "node_id": 474,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            },
+            "keystone_exclusion_group": 1
+          },
+          {
+            "node_id": 476,
             "role": "Passive",
             "resist_model": "TypeC_Exposure",
             "scope_policy": "SkillOnly",
@@ -2882,22 +2758,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
-            }
-          },
-          {
-            "node_id": 475,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -3384,7 +3246,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3399,7 +3262,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3414,7 +3278,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3429,7 +3294,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3444,7 +3310,8 @@
               "effectiveness": 1.0,
               "range_mult": 1.0,
               "internal_cooldown": 2.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3459,7 +3326,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3474,7 +3342,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3489,7 +3358,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3504,7 +3374,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3519,7 +3390,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3534,7 +3406,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -3549,7 +3422,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -4046,7 +3920,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4061,7 +3936,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4076,7 +3952,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4091,7 +3968,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4106,7 +3984,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4121,7 +4000,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4136,7 +4016,8 @@
               "effectiveness": 0.5,
               "range_mult": 1.0,
               "internal_cooldown": 3.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4151,7 +4032,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4166,7 +4048,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4181,7 +4064,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4196,7 +4080,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4211,7 +4096,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -4705,7 +4591,8 @@
               "effectiveness": 0.35,
               "range_mult": 1.0,
               "internal_cooldown": 3.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4720,7 +4607,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4735,7 +4623,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4750,7 +4639,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4765,7 +4655,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4780,7 +4671,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4795,7 +4687,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4810,7 +4703,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4825,7 +4719,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4840,7 +4735,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -4855,7 +4751,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -5371,7 +5268,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5386,7 +5284,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5401,7 +5300,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5416,7 +5316,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5431,7 +5332,8 @@
               "effectiveness": 0.5,
               "range_mult": 1.0,
               "internal_cooldown": 3.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5446,7 +5348,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5461,7 +5364,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5476,7 +5380,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5491,7 +5396,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5506,7 +5412,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5521,7 +5428,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5536,7 +5444,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5551,7 +5460,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -5566,7 +5476,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           }
         ]
@@ -6025,7 +5936,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6040,7 +5952,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6055,7 +5968,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6070,7 +5984,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6085,7 +6000,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6100,7 +6016,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6115,7 +6032,8 @@
               "effectiveness": 0.6,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6130,7 +6048,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6145,7 +6064,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6160,7 +6080,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6175,7 +6096,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             }
           },
           {
@@ -6190,7 +6112,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 2,
             "cost_affix": "GlassCannonCrit"
@@ -6207,7 +6130,8 @@
               "effectiveness": 0.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.0,
-              "consumes_mana": false
+              "consumes_mana": false,
+              "requires_crit": false
             },
             "keystone_exclusion_group": 2
           }

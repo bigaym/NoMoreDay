@@ -1,5 +1,6 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "core/utils/FrameRateUtils.hpp" // Frame-rate independent utilities
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/render/GPUData.hpp"
@@ -971,9 +972,109 @@ void SkillSystem::InitHooks() {
   for (const auto evType : kProcEvents) {
     const uint32_t hid = CombatEventDispatcher::Register(
         evType,
-        [](entt::registry &registry, const CombatEvent &evt) {
-          if (registry.valid(evt.source)) {
-            ProcEngine::DispatchEvent(registry, evt.source, evt);
+        [evType](entt::registry &registry, const CombatEvent &evt) {
+          if (!registry.valid(evt.source)) {
+            return;
+          }
+          ProcEngine::DispatchEvent(registry, evt.source, evt);
+
+          if (evType == CombatEventType::OnDodge) {
+            float speedPoints = 0.0f;
+            bool powerBoost = false;
+            if (const auto *ward = registry.try_get<BladeWardComponent>(evt.source)) {
+              speedPoints = ward->dodge_speed_points;
+              powerBoost = ward->dodge_power_boost;
+            }
+            if (const auto *active = registry.try_get<ActiveSkillsComponent>(evt.source)) {
+              for (const auto &spec : active->specialized_slots) {
+                if (spec.skill_id == 4u) {
+                  auto it451 = spec.allocated_points.find(451u);
+                  if (it451 != spec.allocated_points.end() && it451->second > 0) {
+                    speedPoints = std::max(speedPoints, static_cast<float>(it451->second));
+                  }
+                  auto it455 = spec.allocated_points.find(455u);
+                  if (it455 != spec.allocated_points.end() && it455->second > 0) {
+                    powerBoost = true;
+                  }
+                  break;
+                }
+              }
+            }
+
+            // Talent 451: 借力打力 闪避后移速/攻速加成 (2s)
+            if (speedPoints > 0.0f) {
+              const float speedBonus = 5.0f * speedPoints;
+              BuffEffect speedBuff{
+                  .id = "blade_ward_dodge_speed",
+                  .name = "Counter Speed",
+                  .type = BuffType::SpeedUp,
+                  .duration = 2.0f,
+                  .remaining = 2.0f,
+              };
+              speedBuff.modifiers.push_back({.value = speedBonus,
+                                            .type = StatType::MoveSpeed,
+                                            .mode = ModifierMode::PercentAdd});
+              speedBuff.modifiers.push_back({.value = speedBonus,
+                                            .type = StatType::AttackSpeed,
+                                            .mode = ModifierMode::PercentAdd});
+              registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
+                  .AddOrRefresh(speedBuff);
+              registry.get_or_emplace<StatsDirty>(evt.source);
+            }
+            // Talent 455: 以攻代守 闪避后 More+20% (2s) 并必得 1 层剑意
+            if (powerBoost) {
+              BuffEffect powerBuff{
+                  .id = "blade_ward_dodge_power",
+                  .name = "Offensive Guard",
+                  .type = BuffType::PowerBoost,
+                  .duration = 2.0f,
+                  .remaining = 2.0f,
+              };
+              powerBuff.modifiers.push_back({.value = 20.0f,
+                                            .type = StatType::PhysicalDamage,
+                                            .mode = ModifierMode::PercentMult});
+              registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
+                  .AddOrRefresh(powerBuff);
+              registry.get_or_emplace<StatsDirty>(evt.source);
+              SkillSystem::GainSwordIntent(registry, evt.source, 1, 4);
+            }
+          } else if (evType == CombatEventType::OnBlock) {
+            float blockWard = 0.0f;
+            float intentChance = 0.0f;
+            if (const auto *ward = registry.try_get<BladeWardComponent>(evt.source)) {
+              blockWard = ward->block_ward_amount;
+              intentChance = ward->block_intent_chance;
+            }
+            if (const auto *active = registry.try_get<ActiveSkillsComponent>(evt.source)) {
+              for (const auto &spec : active->specialized_slots) {
+                if (spec.skill_id == 4u) {
+                  auto it432 = spec.allocated_points.find(432u);
+                  if (it432 != spec.allocated_points.end() && it432->second > 0) {
+                    blockWard = std::max(blockWard, 10.0f * static_cast<float>(it432->second));
+                  }
+                  auto it435 = spec.allocated_points.find(435u);
+                  if (it435 != spec.allocated_points.end() && it435->second > 0) {
+                    intentChance = std::max(intentChance, 0.15f * static_cast<float>(it435->second));
+                  }
+                  break;
+                }
+              }
+            }
+
+            // Talent 432: 剑盾屏障 每次格挡获 10..30 Ward
+            if (blockWard > 0.0f) {
+              if (auto *stats = registry.try_get<CombatStats>(evt.source)) {
+                stats->barrier += blockWard;
+                (void)registry.get_or_emplace<BarrierComponent>(evt.source);
+                registry.get_or_emplace<StatsDirty>(evt.source);
+              }
+            }
+            // Talent 435: 剑意格御 15%..45% 几率回 1 层剑意
+            if (intentChance > 0.0f) {
+              if (utils::ThreadSafeRandom::GetFloat01() < intentChance) {
+                SkillSystem::GainSwordIntent(registry, evt.source, 1, 4);
+              }
+            }
           }
         },
         50);
@@ -1184,6 +1285,20 @@ void SkillSystem::Update(entt::registry &registry,
       SkillExecutionContext wardExitContext = BuildSkillVfxContextFromEvent(
           registry, entity, 4u, 0u, ResolveEntityWorldPosition(registry, entity));
       EmitSkillVfxEvent(wardExitContext, SkillVfxEventType::BuffExit, 0.9f);
+
+      // 解 B2: 彻底清除 OrbitingSentinelComponent 与 ReactiveWardComponent 驻留
+      if (registry.all_of<OrbitingSentinelComponent>(entity)) {
+        const auto &sent = registry.get<OrbitingSentinelComponent>(entity);
+        if (sent.skill_id == 4u) {
+          registry.remove<OrbitingSentinelComponent>(entity);
+        }
+      }
+      if (registry.all_of<ReactiveWardComponent>(entity)) {
+        const auto &rw = registry.get<ReactiveWardComponent>(entity);
+        if (rw.counter_skill_id == 4u) {
+          registry.remove<ReactiveWardComponent>(entity);
+        }
+      }
       registry.remove<BladeWardComponent>(entity);
       continue;
     }

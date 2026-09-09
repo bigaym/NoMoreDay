@@ -271,5 +271,112 @@
       "elemental_damage_mult": 2.0,
       "detonate_radius": 80.0
     }
+  },
+  "4": {
+    "400": {
+      "armor_pct_per_point": 15.0,
+      "phys_dr_base": 12.0
+    },
+    "401": {
+      "base_deflection": 0.10,
+      "deflection_pct_per_point": 0.04
+    },
+    "402": {
+      "mana_cost_reduction_per_point": 0.15
+    },
+    "403": {
+      "counter_chance_per_point": 0.10,
+      "counter_range_per_point": 0.10
+    },
+    "410": {
+      "dr_bonus_pct_per_point": 0.10,
+      "dr_per_1000_armor": 0.01
+    },
+    "411": {
+      "all_resist_per_point": 6.0
+    },
+    "412": {
+      "movespeed_penalty_pct": 0.15
+    },
+    "413": {
+      "low_health_threshold": 0.35,
+      "base_dr": 0.24,
+      "armor_multiplier": 2.0
+    },
+    "414": {
+      "sword_step_dr_per_point": 0.10,
+      "armor_multiplier": 2.0
+    },
+    "415": {
+      "missing_hp_regen_pct_per_point": 0.005
+    },
+    "430": {
+      "block_chance_per_point": 4.0
+    },
+    "431": {
+      "block_eff_pct_per_point": 0.15
+    },
+    "432": {
+      "ward_per_block_per_point": 10.0
+    },
+    "433": {
+      "blood_barrier_active": 1.0
+    },
+    "434": {
+      "perfect_parry_interval": 5.0
+    },
+    "435": {
+      "intent_chance_per_point": 0.15,
+      "crit_bonus": 0.05
+    },
+    "450": {
+      "dodge_rating_pct_per_point": 0.15
+    },
+    "451": {
+      "speed_bonus_pct_per_point": 0.05,
+      "duration": 2.0
+    },
+    "452": {
+      "trigger_skill_id": 1.0,
+      "trigger_icd": 2.0
+    },
+    "453": {
+      "heal_missing_hp_pct_per_point": 0.05
+    },
+    "454": {
+      "dodge_rating_flat_per_point": 50.0
+    },
+    "455": {
+      "more_damage_pct": 0.20,
+      "intent_gain": 1.0,
+      "duration": 2.0
+    },
+    "470": {
+      "counter_swords": 5.0,
+      "base_damage": 35.0
+    },
+    "471": {
+      "counter_more_damage_per_point": 0.20
+    },
+    "472": {
+      "static_interval": 0.5,
+      "static_radius": 50.0
+    },
+    "473": {
+      "frequency_pct_per_point": 0.30,
+      "shock_slow_pct_per_point": 0.10,
+      "shock_damage_bonus": 0.15
+    },
+    "474": {
+      "frost_radius": 80.0,
+      "knockback": 100.0
+    },
+    "475": {
+      "radius_pct_per_point": 0.20
+    },
+    "476": {
+      "exposure_pct_per_point": 0.04,
+      "exposure_duration": 3.0
+    }
   }
 }

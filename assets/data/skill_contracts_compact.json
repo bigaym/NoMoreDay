@@ -124,6 +124,10 @@
       "scope_policies": {
         "374": "SkillOnly"
       },
+      "keystone_exclusion_groups": {
+        "370": 1,
+        "372": 1
+      },
       "trigger_nodes": [
         {
           "node_id": 335,
@@ -139,29 +143,41 @@
       "skill_id": 4,
       "min_nodes": 29,
       "max_nodes": 29,
-      "max_transmuters": 2,
+      "max_transmuters": 1,
       "max_triggers": 1,
       "has_sword_intent_node": true,
-      "has_synergy_node": true,
+      "has_synergy_node": false,
       "transmuter_node_ids": [
-        470,
-        471
-      ],
-      "synergy_node_ids": [
-        430
+        472,
+        474
       ],
       "sword_intent_node_ids": [
-        452
+        435,
+        455
       ],
-      "resist_models": {
-        "472": "TypeC_Exposure"
-      },
+      "sword_step_node_ids": [
+        414,
+        454
+      ],
+      "keystone_node_ids": [
+        412,
+        433,
+        434,
+        470
+      ],
+       "keystone_exclusion_groups": {
+         "472": 1,
+         "474": 1
+       },
+       "resist_models": {
+         "476": "TypeC_Exposure"
+       },
       "scope_policies": {
-        "472": "SkillOnly"
+        "476": "SkillOnly"
       },
       "trigger_nodes": [
         {
-          "node_id": 451,
+          "node_id": 452,
           "trigger_skill_id": 1,
           "effectiveness": 1.0,
           "internal_cooldown": 2.0,

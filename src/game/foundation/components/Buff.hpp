@@ -193,6 +193,15 @@ struct ActiveEffectsComponent {
         return nullptr;
     }
 
+    const BuffEffect* Get(const std::string& id) const {
+        for (const auto& effect : effects) {
+            if (effect.id == id) {
+                return &effect;
+            }
+        }
+        return nullptr;
+    }
+
     // Helper to get a buff by enum id
     BuffEffect* Get(BuffId id) {
         return Get(std::string(BuffIdToString(id)));
