@@ -912,6 +912,42 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
           }
         }
       }
+
+      // 512 天降命印: 目标每层命印使受到的万剑归宗伤害增加 3%
+      if (skill_id == 5 && registry.valid(defender)) {
+        if (const auto *fx = registry.try_get<ActiveEffectsComponent>(defender)) {
+          if (const auto *fateMark = fx->GetByKind(BuffKind::FateMark)) {
+            const float per_stack = data::SkillMechanicsRegistry::Get().GetFloat(
+                5, 512, "damage_taken_per_stack", 0.03f);
+            final_more *= (1.0f + per_stack * static_cast<float>(fateMark->stacks));
+          }
+          // 573 绝对零度: 对冻结目标的击碎伤害提升 15%...45%
+          bool isFrozen = false;
+          for (const auto &b : fx->effects) {
+            if (b.type == BuffType::Freeze) {
+              isFrozen = true;
+              break;
+            }
+          }
+          if (isFrozen) {
+            int pts_573 = 0;
+            if (const auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+              for (const auto &spec : active->specialized_slots) {
+                if (spec.skill_id == 5) {
+                  auto it = spec.allocated_points.find(573);
+                  if (it != spec.allocated_points.end()) pts_573 = it->second;
+                  break;
+                }
+              }
+            }
+            if (pts_573 > 0) {
+              const float per_point = data::SkillMechanicsRegistry::Get().GetFloat(
+                  5, 573, "shatter_damage_pct_per_point", 0.15f);
+              final_more *= (1.0f + per_point * static_cast<float>(pts_573));
+            }
+          }
+        }
+      }
       struct MoreBucket {
         Tag source_tag = Tag::None;
         float actual = 0.0f;

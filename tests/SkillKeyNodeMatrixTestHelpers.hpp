@@ -108,7 +108,7 @@ inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
       {2, {211, 213, 214, 215, 230, 232, 234, 251, 253, 254, 255, 270, 272}},
       {3, {315, 335, 355, 370, 372}},
       {4, {412, 414, 433, 434, 435, 452, 454, 455, 470, 472, 474}},
-      {5, {530, 533, 552, 570, 571}},
+      {5, {513, 515, 533, 534, 550, 553, 554, 555, 570, 572, 574}},
       {6, {630, 633, 652, 670, 671}},
       {7, {713, 730, 750, 752, 770}},
       {8, {813, 830, 831, 852, 870, 871}},
@@ -288,7 +288,8 @@ AsAllocatedPoints(const std::vector<uint32_t> &nodes, int points = 1) {
 }
 
 // 冒烟施放配置：技能 3 契约 max_transmuters=1，370/372 互斥，剔除 372 仅保留火转质 370；
-// 技能 4 契约 max_transmuters=1，472/474 互斥，剔除 474 仅保留雷转质 472
+// 技能 4 契约 max_transmuters=1，472/474 互斥，剔除 474 仅保留雷转质 472；
+// 技能 5 契约 max_transmuters=1，570/572 互斥，剔除 572 仅保留火转质 570
 inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
                                             const std::vector<uint32_t> &nodes) {
   auto result = nodes;
@@ -296,6 +297,8 @@ inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
     result.erase(std::remove(result.begin(), result.end(), 372u), result.end());
   } else if (skill_id == 4u) {
     result.erase(std::remove(result.begin(), result.end(), 474u), result.end());
+  } else if (skill_id == 5u) {
+    result.erase(std::remove(result.begin(), result.end(), 572u), result.end());
   }
   return result;
 }

@@ -11,6 +11,7 @@
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/contracts/CombatEvents.hpp"
@@ -511,12 +512,14 @@ void CastInfiniteBladesWithHeavenlyFollowUp(entt::registry &registry,
     return;
   }
 
-  auto *chan = registry.try_get<ChannelingComponent>(owner);
-  if (chan == nullptr || chan->skill_id != 5u) {
-    return;
+  if (auto *chan = registry.try_get<ChannelingComponent>(owner); chan && chan->skill_id == 5u) {
+    chan->bonus_damage_mult *= 1.0f + bonus_mult;
+    chan->is_empowered = true;
   }
-  chan->bonus_damage_mult *= 1.0f + bonus_mult;
-  chan->is_empowered = true;
+  if (auto *beam = registry.try_get<BeamChannelComponent>(owner); beam && beam->skill_id == 5u) {
+    beam->bonus_damage_mult *= 1.0f + bonus_mult;
+    beam->is_empowered = true;
+  }
 }
 
 } // namespace

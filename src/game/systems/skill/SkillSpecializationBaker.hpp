@@ -41,7 +41,9 @@ public:
                                const SpecializedSkill *spec);
 
 private:
-  static void ApplyNodeModifiersToProfile(uint32_t skill_id,
+  static void ApplyNodeModifiersToProfile(entt::registry &registry,
+                                         entt::entity caster,
+                                         uint32_t skill_id,
                                          uint32_t node_id,
                                          int points,
                                          BakedSkillProfile &out_profile);

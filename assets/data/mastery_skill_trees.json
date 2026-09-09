@@ -967,6 +967,22 @@
             }
           },
           {
+            "node_id": 1115,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
             "node_id": 1117,
             "role": "Synergy",
             "resist_model": "None",

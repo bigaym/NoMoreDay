@@ -378,5 +378,124 @@
       "exposure_pct_per_point": 0.04,
       "exposure_duration": 3.0
     }
+  },
+  "5": {
+    "500": {
+      "mana_reduction_pct_per_point": 0.10
+    },
+    "501": {
+      "frequency_max_pct_per_point": 0.15,
+      "ramp_duration": 2.0
+    },
+    "502": {
+      "phys_damage_pct_per_point": 0.10,
+      "splash_radius": 30.0
+    },
+    "503": {
+      "move_penalty_reduction_pct_per_point": 0.10
+    },
+    "510": {
+      "lock_range": 450.0,
+      "mana_cost_increase_pct": 0.30
+    },
+    "511": {
+      "lock_radius_pct_per_point": 0.15,
+      "fall_speed_mult_per_point": 0.25
+    },
+    "512": {
+      "fate_mark_chance_pct_per_point": 0.20,
+      "damage_taken_per_stack": 0.03,
+      "max_stacks": 5.0,
+      "full_stack_splash_pct": 0.20,
+      "splash_radius": 60.0
+    },
+    "513": {
+      "execution_trigger_icd": 2.0,
+      "execution_damage_mult": 3.0
+    },
+    "514": {
+      "kill_split_damage_pct_per_point": 0.30,
+      "split_count": 3.0
+    },
+    "515": {
+      "array_pause_duration": 1.0
+    },
+    "530": {
+      "channel_dr_pct_per_point": 0.06
+    },
+    "531": {
+      "armor_per_sec_per_point": 15.0,
+      "max_stacks": 10.0,
+      "linger_duration": 2.0
+    },
+    "532": {
+      "ward_per_sec_per_point": 10.0
+    },
+    "533": {
+      "sword_count_mult": 0.5,
+      "size_bonus_pct": 1.0,
+      "damage_more_pct": 1.5,
+      "impact_radius": 80.0
+    },
+    "534": {
+      "min_channel_duration": 2.0,
+      "giant_sword_damage_mult": 8.0,
+      "giant_sword_radius": 120.0,
+      "knockup_force": 300.0
+    },
+    "535": {
+      "radius_pct_per_point": 0.20,
+      "stun_duration": 1.5
+    },
+    "550": {
+      "move_speed_penalty_pct": 0.40
+    },
+    "551": {
+      "dodge_rating_per_point": 50.0
+    },
+    "552": {
+      "circle_radius": 150.0
+    },
+    "553": {
+      "intent_gain_per_point": 1.0,
+      "hits_required": 10.0
+    },
+    "554": {
+      "intent_cost": 10.0,
+      "crit_chance_bonus": 100.0
+    },
+    "555": {
+      "crit_damage_pct_per_point": 0.20
+    },
+    "570": {
+      "frequency_penalty_pct": 0.60,
+      "damage_more_mult": 2.0,
+      "impact_radius": 100.0
+    },
+    "571": {
+      "ground_burn_duration": 3.0,
+      "burn_damage_pct_per_point": 0.10,
+      "burn_tick_interval": 0.5
+    },
+    "572": {
+      "frequency_bonus_pct": 0.50,
+      "chill_magnitude": 0.20,
+      "freeze_chance": 0.25
+    },
+    "573": {
+      "freeze_extension_per_point": 0.10,
+      "shatter_damage_pct_per_point": 0.15
+    },
+    "574": {
+      "max_penetration": 30.0,
+      "pen_ratio_per_point_tier4": 0.0833333,
+      "pen_ratio_per_point_tier3": 0.0555556,
+      "pen_ratio_per_point_tier2": 0.0416667,
+      "pen_ratio_per_point_tier1": 0.0333333,
+      "base_pen_per_point": 6.0
+    },
+    "575": {
+      "ailment_chance_pct_per_point": 0.30
+    }
   }
 }

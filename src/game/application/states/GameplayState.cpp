@@ -461,6 +461,52 @@ m_uiHost->InputCapture();
 
     using namespace NoMoreDay::Constants::Combat; // Cap::CDR etc.
 
+    // 550 御剑行: 引导万剑归宗 (技能5) 时的移动/位移约束。
+    // 基底引导不可移动; 点出 550 后可保持移动但移速固定降低, 且无法使用位移技能;
+    // 503 灵动引导降低惩罚; 551 御剑风雷在御剑步状态下免除惩罚。
+    bool channelingSkill5 = false;
+    bool walkThePath = false;       // 550
+    float movePenalty = 0.0f;
+    if (auto *chan = registry.try_get<ChannelingComponent>(entity);
+        chan && chan->skill_id == 5) {
+      channelingSkill5 = true;
+      if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5)) {
+        constexpr uint32_t kWalkThePathFlag = 32768;      // 550 御剑行
+        constexpr uint32_t kSwordStepChannelFlag = 65536; // 551 御剑风雷
+        if ((profile->delivery.feature_flags & kWalkThePathFlag) != 0) {
+          walkThePath = true;
+          movePenalty = data::SkillMechanicsRegistry::Get().GetFloat(
+              5, 550, "move_speed_penalty_pct", 0.40f);
+          // 503 灵动引导: 每点降低 10% 移速惩罚
+          int pts_503 = 0;
+          if (const auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
+            for (const auto &spec : active->specialized_slots) {
+              if (spec.skill_id == 5) {
+                auto it = spec.allocated_points.find(503);
+                if (it != spec.allocated_points.end()) pts_503 = it->second;
+                break;
+              }
+            }
+          }
+          if (pts_503 > 0) {
+            movePenalty *=
+                (1.0f - data::SkillMechanicsRegistry::Get().GetFloat(
+                            5, 503, "move_penalty_reduction_pct_per_point", 0.10f) *
+                            static_cast<float>(pts_503));
+          }
+          // 551 御剑风雷: 御剑步状态引导期间免除移速惩罚
+          if ((profile->delivery.feature_flags & kSwordStepChannelFlag) != 0) {
+            bool inSwordStep = false;
+            if (const auto *effects = registry.try_get<ActiveEffectsComponent>(entity)) {
+              inSwordStep = (effects->Get(BuffId::SwordStep) != nullptr);
+            }
+            if (!inSwordStep) inSwordStep = registry.any_of<PhaseTag>(entity);
+            if (inSwordStep) movePenalty = 0.0f;
+          }
+        }
+      }
+    }
+
     if (IsKeyPressed(KEY_SPACE))
       input.dash = true;
 
@@ -488,7 +534,8 @@ m_uiHost->InputCapture();
         dash.uiFlash = false;
     }
 
-    if (input.dash && dash.charges > 0 && !dash.isDashing) {
+    // 引导万剑归宗期间禁用位移技能 (冲刺; 技能槽位位移需 SkillSystem 侧拦截)
+    if (input.dash && dash.charges > 0 && !dash.isDashing && !channelingSkill5) {
       dash.charges--;
       dash.isDashing = true;
       dash.dashTimer = dash.dashDuration;
@@ -552,6 +599,14 @@ m_uiHost->InputCapture();
       float speed = DEFAULT_MOVE_SPEED;
       if (registry.all_of<CombatStats>(entity)) {
         speed = registry.get<CombatStats>(entity).move_speed;
+      }
+      // 550 御剑行: 点出后引导时可保持移动但移速降低; 未点出时引导期间不可移动
+      if (channelingSkill5) {
+        if (walkThePath) {
+          speed *= (1.0f - movePenalty);
+        } else {
+          speed = 0.0f;
+        }
       }
       speed *= m_context->levelManager->getMapSystem().getSpeedMultiplierAtWorld(
           pos.x, pos.y);

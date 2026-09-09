@@ -97,6 +97,39 @@ float DamageMitigationService::Apply(
         }
       }
     }
+    // 技能 5 灵根感应 (Node 574): 万剑归宗对应元素抗性穿透增加 (Int -> 穿透, 上限 30%)
+    // 热路径保护：绝大多数敌人/未专精玩家没有技能 5 槽位，直接跳过，
+    // 仅在确有技能 5 槽位且缺 Bake 结果时才执行整树 Bake 兜底，避免反复高开销。
+    if (skill_id == 5 && registry.valid(attacker)) {
+      const auto *active = registry.try_get<ActiveSkillsComponent>(attacker);
+      if (active != nullptr) {
+        const SpecializedSkill *skill5Slot = nullptr;
+        for (const auto &spec : active->specialized_slots) {
+          if (spec.skill_id == 5u) {
+            skill5Slot = &spec;
+            break;
+          }
+        }
+        if (skill5Slot != nullptr) {
+          const auto *profile = SkillSystem::GetBakedSkillProfile(registry, attacker, 5u);
+          BakedSkillProfile localProfile;
+          if (profile == nullptr) {
+            SkillSpecializationBaker::Bake(registry, attacker, 5u, skill5Slot,
+                                           localProfile, nullptr);
+            profile = &localProfile;
+          }
+          if (profile && (profile->delivery.feature_flags & 33554432) != 0 &&
+              profile->delivery.armor_pen > 0.0f) {
+            if ((type_idx == static_cast<int>(DamageType::Fire) &&
+                 HasTag(profile->effective_tags, Tag::Fire)) ||
+                (type_idx == static_cast<int>(DamageType::Cold) &&
+                 HasTag(profile->effective_tags, Tag::Cold))) {
+              res -= (profile->delivery.armor_pen / 100.0f);
+            }
+          }
+        }
+      }
+    }
     res += endgame.incoming_resistance_bonus;
     res -= endgame.outgoing_resistance_reduction;
     res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
@@ -164,6 +197,32 @@ float DamageMitigationService::Apply(
             static_cast<float>(formation->current_swords) * formation->ward_dr_per_sword,
             0.0f, 0.75f);
         damage_after_res *= (1.0f - ward_dr);
+      }
+    }
+
+    // 技能 5 气定神闲 (Node 530): 仅当引导万剑归宗（技能 5）时受到的所有伤害降低 6%...24%
+    // 校验组件携带的 skill_id，避免玩家引导任意技能时误享技能 5 减伤。
+    const auto *beamChannel = registry.try_get<BeamChannelComponent>(defender);
+    const auto *channeling = registry.try_get<ChannelingComponent>(defender);
+    const bool channelingSkill5 = (beamChannel != nullptr && beamChannel->skill_id == 5u) ||
+                                  (channeling != nullptr && channeling->skill_id == 5u);
+    if (channelingSkill5) {
+      const auto *profile = SkillSystem::GetBakedSkillProfile(registry, defender, 5u);
+      if (profile && (profile->delivery.feature_flags & 512) != 0) {
+        int pts_530 = 0;
+        if (const auto *active = registry.try_get<ActiveSkillsComponent>(defender)) {
+          for (const auto &spec : active->specialized_slots) {
+            if (spec.skill_id == 5u) {
+              auto it = spec.allocated_points.find(530);
+              if (it != spec.allocated_points.end()) pts_530 = it->second;
+              break;
+            }
+          }
+        }
+        if (pts_530 > 0) {
+          float dr = std::clamp(static_cast<float>(pts_530) * 0.06f, 0.0f, 0.50f);
+          damage_after_res *= (1.0f - dr);
+        }
       }
     }
   }

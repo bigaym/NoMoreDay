@@ -5,6 +5,7 @@
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/contracts/CombatEvents.hpp"
+#include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
 #include <algorithm>
 
@@ -30,6 +31,9 @@ void SkillSpecializationBaker::Bake(
   out_profile.effective_level = 1;
   out_profile.effective_cooldown = skillData->cooldown;
   out_profile.effective_mana_cost = skillData->mana_cost;
+  if (skill_id == 5) {
+    out_profile.effective_mana_cost = 20.0f; // 持续引导基础每秒法耗 20 点
+  }
   out_profile.effective_tags = SkillSystem::GetEffectiveSkillTags(registry, caster, skill_id);
   out_profile.projectile_count = static_cast<int>(skillData->GetParam("projectile_count", 1.0f));
   if (out_profile.projectile_count <= 0) {
@@ -76,7 +80,7 @@ void SkillSpecializationBaker::Bake(
   case 5: // 万剑归宗
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BeamChannel);
     del.duration = 5.0f;
-    del.sub_interval = 0.2f;
+    del.sub_interval = 0.3f;
     break;
   case 6: // 剑阵·诛仙
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::AreaField);
@@ -140,7 +144,7 @@ void SkillSpecializationBaker::Bake(
       }
 
       // B. 数值累加与形态参数写入
-      ApplyNodeModifiersToProfile(skill_id, node_id, points, out_profile);
+      ApplyNodeModifiersToProfile(registry, caster, skill_id, node_id, points, out_profile);
     }
 
     if (skill_id == 3) {
@@ -195,7 +199,12 @@ void SkillSpecializationBaker::Bake(
 }
 
 void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
-    uint32_t skill_id, uint32_t node_id, int points, BakedSkillProfile &out_profile)
+    entt::registry &registry,
+    entt::entity caster,
+    uint32_t skill_id,
+    uint32_t node_id,
+    int points,
+    BakedSkillProfile &out_profile)
 {
   BakedDeliveryParams &del = out_profile.delivery;
 
@@ -525,35 +534,112 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     }
     break;
 
-  case 5: // 万剑归宗
-    if (node_id == 512) {
-      del.sub_interval = 0.1f;
-      del.feature_flags |= 1; // 快速引导
-    } else if (node_id == 513) {
-      del.feature_flags |= 2; // 天剑降世终结技
-      del.sub_count = 2;
-    } else if (node_id == 530) {
-      del.feature_flags |= 4; // 全屏索敌锁定
-    } else if (node_id == 533) {
-      del.feature_flags |= 8; // 穿心
-    } else if (node_id == 551) {
-      del.sub_interval = 0.1f; // 剑意爆发
+  case 5: { // 万剑归宗
+    const auto &mech = data::SkillMechanicsRegistry::Get();
+    if (node_id == 500) { // 剑雨绵绵: 引导法耗 -10..40%
+      const float red = mech.GetFloat(5, 500, "mana_reduction_pct_per_point", 0.10f) * static_cast<float>(points);
+      out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - red);
+    } else if (node_id == 501) { // 剑意共鸣: 引导提频
+      // 提频为交付层随引导时间 ramp 的动态加成 (+15%×点数 上限)，
+      // Baker 侧只置标志位，不静态写入满额因子，避免与交付层 ramp 双重计入
+      del.feature_flags |= 1;
+    } else if (node_id == 502) { // 陨铁: 伤害+10..50% + 微小溅射
+      out_profile.more_damage_mult *= (1.0f + mech.GetFloat(5, 502, "phys_damage_pct_per_point", 0.10f) * static_cast<float>(points));
+      del.pull_radius = mech.GetFloat(5, 502, "splash_radius", 30.0f);
+      del.feature_flags |= 2;
+    } else if (node_id == 503) { // 灵动引导: 移速惩罚降低
+      del.feature_flags |= 4;
+    } else if (node_id == 510) { // 神识锁定: 光标锁敌 + 法耗+30%
+      out_profile.effective_mana_cost *= (1.0f + mech.GetFloat(5, 510, "mana_cost_increase_pct", 0.30f));
+      del.feature_flags |= 8;
+    } else if (node_id == 511) { // 无处遁形: 锁定半径 + 下落加速
+      del.range = mech.GetFloat(5, 510, "lock_range", 450.0f) * (1.0f + mech.GetFloat(5, 511, "lock_radius_pct_per_point", 0.15f) * static_cast<float>(points));
+      del.speed = 1000.0f * (1.0f + mech.GetFloat(5, 511, "fall_speed_mult_per_point", 0.25f) * static_cast<float>(points));
       del.feature_flags |= 16;
-    } else if (node_id == 552) {
-      out_profile.more_damage_mult *= (1.0f + 0.05f * static_cast<float>(points));
+    } else if (node_id == 512) { // 天降命印: 命印叠层 + 5层溅射
       del.feature_flags |= 32;
-      del.bonus_crit = 1.5f * static_cast<float>(points); // bonus_crit_chance
-    } else if (node_id == 570) {
+    } else if (node_id == 513) { // 天诛: 满层命印主剑触发
+      del.feature_flags |= 64;
+    } else if (node_id == 514) { // 剑刃风暴: 击杀分裂
+      del.sub_count = 3;
+      del.feature_flags |= 128;
+    } else if (node_id == 515) { // 万剑归阵: 剑阵轰击 + 暂停
+      del.feature_flags |= 256;
+    } else if (node_id == 530) { // 气定神闲: 引导减伤 6..24%
+      del.feature_flags |= 512;
+    } else if (node_id == 531) { // 不坏剑身: 护甲叠层
+      del.feature_flags |= 1024;
+    } else if (node_id == 532) { // 剑气充盈: 引导回复 Ward
+      del.feature_flags |= 2048;
+    } else if (node_id == 533) { // 巨剑术: 数量减半、体积+100%、伤害+150%
+      out_profile.more_damage_mult *= (1.0f + mech.GetFloat(5, 533, "damage_more_pct", 1.50f));
+      // 取最大值而非直接赋值，避免覆盖其它来源 (如 535 余波) 设置的更大范围
+      out_profile.area_radius = std::max(out_profile.area_radius, 70.0f);
+      del.feature_flags |= 4096;
+    } else if (node_id == 534) { // 天剑降世: 引导>=2s 召唤 800% 范围巨剑
+      del.feature_flags |= 8192;
+    } else if (node_id == 535) { // 余波: 天剑范围+20..60% + 必晕
+      del.feature_flags |= 16384;
+    } else if (node_id == 550) { // 御剑行: 移动施法/移速-40%
+      del.feature_flags |= 32768;
+    } else if (node_id == 551) { // 御剑风雷: 御剑步免罚+闪避
+      del.feature_flags |= 65536;
+    } else if (node_id == 552) { // 随影: 圆形落剑
+      del.range = mech.GetFloat(5, 552, "circle_radius", 150.0f);
+      del.feature_flags |= 131072;
+    } else if (node_id == 553) { // 剑意回流: 击杀/连击回剑意
+      del.feature_flags |= 262144;
+    } else if (node_id == 554) { // 意气爆发: 满剑意消耗->100%暴击
+      del.bonus_crit = mech.GetFloat(5, 554, "crit_chance_bonus", 100.0f);
+      del.feature_flags |= 524288;
+    } else if (node_id == 555) { // 意念合一: 暴伤+20..80%
+      del.bonus_crit_damage += mech.GetFloat(5, 555, "crit_damage_pct_per_point", 0.20f) * static_cast<float>(points) * 100.0f;
+      del.feature_flags |= 1048576;
+    } else if (node_id == 570) { // 天火流星: 火焰转质 / 低频高伤
       auto conv = skills::ResolveElementalConversion(node_id, points);
       if (conv.IsActive()) {
         out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
       }
-      del.feature_flags |= 128;
-    } else if (node_id == 571) {
-      del.armor_pen = static_cast<float>(points) * 6.0f; // bonus_armor_pen
-      del.feature_flags |= 64; // 元素穿透
+      out_profile.more_damage_mult *= mech.GetFloat(5, 570, "damage_more_mult", 2.0f);
+      // 570 低频: 频率大幅下降 (间隔除以 (1-惩罚比), 与 501 提频叠乘共存)
+      del.sub_interval /= (1.0f - mech.GetFloat(5, 570, "frequency_penalty_pct", 0.60f));
+      del.feature_flags |= 2097152;
+    } else if (node_id == 571) { // 末日余烬: 燃烧地表 DoT
+      del.feature_flags |= 4194304;
+    } else if (node_id == 572) { // 凛冬暴雪: 冰霜转质 / 高频寒冷
+      auto conv = skills::ResolveElementalConversion(node_id, points);
+      if (conv.IsActive()) {
+        out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | conv.target_element;
+      }
+      // 572 高频: 频率大幅提升 (间隔除以 (1+加成比), 与 501 提频叠乘共存)
+      del.sub_interval /= (1.0f + mech.GetFloat(5, 572, "frequency_bonus_pct", 0.50f));
+      del.feature_flags |= 8388608;
+    } else if (node_id == 573) { // 绝对零度: 冻结延长+击碎增伤
+      del.feature_flags |= 16777216;
+    } else if (node_id == 574) { // 灵根感应: Type D 属性转穿透 (Int -> 穿透, 上限 30%)
+      float intel = 0.0f;
+      if (registry.valid(caster)) {
+        if (const auto *ps = registry.try_get<PrimaryStats>(caster)) {
+          intel = ps->intelligence;
+        }
+      }
+      // 分段穿透系数外置 (数据代理向 skill_mechanics.json 技能5/574 补充同名键, 现值作默认)
+      float pen_per_int = (points >= 4) ? mech.GetFloat(5, 574, "pen_ratio_per_point_tier4", 1.0f / 12.0f)
+                                        : ((points >= 3) ? mech.GetFloat(5, 574, "pen_ratio_per_point_tier3", 1.0f / 18.0f)
+                                                         : ((points >= 2) ? mech.GetFloat(5, 574, "pen_ratio_per_point_tier2", 1.0f / 24.0f)
+                                                                          : mech.GetFloat(5, 574, "pen_ratio_per_point_tier1", 1.0f / 30.0f)));
+      float pen = intel * pen_per_int;
+      if (pen <= 0.0f) {
+        // 无智力时以基准穿透兜底
+        pen = static_cast<float>(points) * mech.GetFloat(5, 574, "base_pen_per_point", 6.0f);
+      }
+      del.armor_pen = std::min(mech.GetFloat(5, 574, "max_penetration", 30.0f), pen);
+      del.feature_flags |= 33554432;
+    } else if (node_id == 575) { // 天灾: 异常几率 +30..90%
+      del.feature_flags |= 67108864;
     }
     break;
+  }
 
   case 6: // 剑阵·诛仙
     if (node_id == 630) {

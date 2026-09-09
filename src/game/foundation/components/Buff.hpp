@@ -59,6 +59,7 @@ inline void from_json(const nlohmann::json& j, BuffType& e) { e = static_cast<Bu
 enum class BuffKind : uint16_t {
     None = 0,
     QiBrand, // 剑气烙印 (技能2 节点250)：目标受暴击伤害加深
+    FateMark, // 天降命印 (技能5 节点512)：目标受万剑归宗伤害增加
 };
 
 struct BuffEffect {

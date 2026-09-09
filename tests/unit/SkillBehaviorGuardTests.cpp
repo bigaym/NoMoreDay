@@ -395,13 +395,14 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     auto player = registry.create();
     registry.emplace<Position>(player, 0.0f, 0.0f);
     registry.emplace<CombatStats>(player).mana = 200.0f;
-    registry.emplace<SwordIntentComponent>(player).stacks = 6;
+    registry.emplace<SwordIntentComponent>(player).stacks = 10;
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 5;
-    active.specialized_slots[0].allocated_points[570] = 1; // ElementFall (天火流星) -> Fire
-    active.specialized_slots[0].allocated_points[571] = 3; // ElementPen
-    active.specialized_slots[0].allocated_points[552] = 2; // MindUnify
+    active.specialized_slots[0].allocated_points[570] = 1; // 天火流星 -> Fire
+    active.specialized_slots[0].allocated_points[574] = 3; // 灵根感应 -> 18.0f armor_pen
+    active.specialized_slots[0].allocated_points[554] = 1; // 意气爆发 -> 100% crit
+    active.specialized_slots[0].allocated_points[555] = 2; // 意念合一 -> bonus crit dmg
 
     SkillExecution exec;
     exec.skill_id = 5;
@@ -417,7 +418,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(chan->conversion_tag == Tag::Fire);
     CHECK(chan->bonus_armor_pen == doctest::Approx(18.0f));
     CHECK(chan->bonus_damage_mult > 1.0f);
-    CHECK(chan->bonus_crit_chance > 0.0f);
+    CHECK(chan->bonus_crit_chance >= 100.0f);
   }
 
   SUBCASE("Skill 6 key-node mapping drives SwordArray flags") {
@@ -923,7 +924,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
   const std::array<std::pair<uint32_t, uint32_t>, 7> trigger_matrix = {{
       {3u, 335u},
       {4u, 452u},
-      {5u, 533u},
+      {5u, 513u},
       {6u, 633u},
       {7u, 713u},
       {8u, 831u},
@@ -944,6 +945,23 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
     const auto target = test::skill_keynode_matrix::CreateTarget(registry);
     test::skill_keynode_matrix::ConfigureSpecialization(
         registry, caster, skill_id, {{trigger_node, 1}});
+
+    if (skill_id == 5u) {
+      // 513 天诛 (Execution) 契约要求目标具有满层(5层)命印
+      auto &vicEffects = registry.get_or_emplace<ActiveEffectsComponent>(target);
+      BuffEffect mark{
+        .id = "FateMark",
+        .name = "Fate Mark",
+        .type = BuffType::DefenseDown,
+        .kind = BuffKind::FateMark,
+        .duration = 5.0f,
+        .remaining = 5.0f,
+        .stacks = 5,
+        .max_stacks = 5,
+        .is_debuff = true
+      };
+      vicEffects.AddOrRefresh(mark);
+    }
 
     const auto before = registry.storage<SkillExecution>().size();
     // 技能 3 的 335 规则 requires_crit=true，仅暴击命中事件触发；其余技能普通命中即可

@@ -1,6 +1,7 @@
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/foundation/components/AdvancedAffixComponents.hpp"
+#include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Projectile.hpp"
@@ -235,6 +236,24 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
     sknm::ConfigureSpecialization(registry, caster, skill_id,
                                   {{trigger_node, 1}});
 
+    // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
+    // 构造须在配置专精之后、派发命中之前（与 unit 矩阵测试口径一致）。
+    if (skill_id == 5u) {
+      auto &vicEffects =
+          registry.get_or_emplace<ActiveEffectsComponent>(target);
+      BuffEffect mark{
+          .id = "FateMark",
+          .name = "Fate Mark",
+          .type = BuffType::DefenseDown,
+          .kind = BuffKind::FateMark,
+          .duration = 5.0f,
+          .remaining = 5.0f,
+          .stacks = 5,
+          .max_stacks = 5,
+          .is_debuff = true};
+      vicEffects.AddOrRefresh(mark);
+    }
+
     const auto before = registry.storage<SkillExecution>().size();
     sknm::DispatchSkillHit(registry, caster, target, skill_id,
                            static_cast<uint64_t>(7000 + skill_id));
@@ -274,6 +293,24 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
     const auto target = sknm::CreateTarget(registry, {16.0f, 0.0f});
     sknm::ConfigureSpecialization(registry, caster, skill_id,
                                   {{trigger_node, 1}});
+
+    // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
+    // 构造须在配置专精之后、派发命中之前（与 unit 矩阵测试口径一致）。
+    if (skill_id == 5u) {
+      auto &vicEffects =
+          registry.get_or_emplace<ActiveEffectsComponent>(target);
+      BuffEffect mark{
+          .id = "FateMark",
+          .name = "Fate Mark",
+          .type = BuffType::DefenseDown,
+          .kind = BuffKind::FateMark,
+          .duration = 5.0f,
+          .remaining = 5.0f,
+          .stacks = 5,
+          .max_stacks = 5,
+          .is_debuff = true};
+      vicEffects.AddOrRefresh(mark);
+    }
 
     const auto before = registry.storage<SkillExecution>().size();
     sknm::DispatchSkillHit(registry, caster, target, skill_id,

@@ -554,6 +554,20 @@ void AttributePipeline::Calculate(entt::registry &registry,
         ApplyStatModifier(calcs, m.type, m.mode, m.value);
     }
   }
+  // Buff 修饰符聚合: BuffEffect::modifiers 随 buff 生命周期生效/失效。
+  // 仅跳过 ResistFire/Cold/Lightning —— 三者已在 DamageMitigationService
+  // ::ApplySkillScopedResistEffects 按伤害类型消费，避免双重计算。
+  if (auto *buffs = registry.try_get<ActiveEffectsComponent>(entity)) {
+    for (const auto &buff : buffs->effects) {
+      for (const auto &m : buff.modifiers) {
+        if (m.type == StatType::ResistFire || m.type == StatType::ResistCold ||
+            m.type == StatType::ResistLightning)
+          continue;
+        if (m.required_tags == Tag::None || HasTag(etags, m.required_tags))
+          ApplyStatModifier(calcs, m.type, m.mode, m.value);
+      }
+    }
+  }
   if (auto *ac = registry.try_get<MonsterAffixComponent>(entity)) {
     const ModifierDelta monsterAffixDelta =
         MonsterModifierAdapter::EvaluateAffixDelta(*ac);

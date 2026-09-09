@@ -833,6 +833,27 @@ void SkillSystem::InitHooks() {
                 }
               }
 
+              if (node_id == 513) {
+                // 513 天诛 (Execution): 仅当目标拥有满层（5 层）命印时才触发——
+                // 无命印或层数不足一律阻断，避免对无印目标无脑触发 300% 必爆主剑。
+                bool hasFullFateMark = false;
+                if (registry.valid(evt.target)) {
+                  if (const auto *fx = registry.try_get<ActiveEffectsComponent>(evt.target)) {
+                    if (const auto *fateMark = fx->GetByKind(BuffKind::FateMark)) {
+                      hasFullFateMark = fateMark->stacks >= 5;
+                    }
+                  }
+                }
+                if (!hasFullFateMark) {
+#if COMBAT_TELEMETRY_ENABLED
+                  recordTriggerBlocked(parent_depth);
+#endif
+                  LogGuardBlocked(kDiagScopePolicy, evt.skill_id, node_id, caster,
+                                  "target lacks full FateMark stacks");
+                  continue;
+                }
+              }
+
               const uint32_t trigger_skill_id =
                   node_contract->trigger.trigger_skill_id;
               if (trigger_skill_id == 0) {

@@ -95,6 +95,10 @@
 
 #include "game/application/ui/UIRenderer.hpp"
 #include "core/utils/FmtBuffer.hpp"
+// 550 御剑行移动引导约束所需的组件/机制表头文件
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/data/BuffIds.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 
 #include <filesystem>
 

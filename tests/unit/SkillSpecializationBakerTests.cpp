@@ -224,19 +224,20 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
     CHECK(profile.delivery.range == 500.0f); // Default ballistic range preserved
   }
 
-  // Skill 5 nodes 552 (bonus crit) & 571 (armor pen)
+  // Skill 5 nodes 502 (more damage), 555 (crit dmg) & 574 (armor pen)
   {
     SpecializedSkill spec;
     spec.skill_id = 5;
-    spec.allocated_points[552] = 2; // 2 * 1.5% = 3.0%
-    spec.allocated_points[571] = 3; // 3 * 6.0 = 18.0
+    spec.allocated_points[502] = 2; // 2 * 10% = 20%
+    spec.allocated_points[555] = 2; // 2 * 20% = 40%
+    spec.allocated_points[574] = 3; // 3 * 6.0 = 18.0
     BakedSkillProfile profile{};
     SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
-    CHECK(profile.delivery.bonus_crit == doctest::Approx(3.0f));
+    CHECK(profile.delivery.bonus_crit_damage == doctest::Approx(40.0f));
     CHECK(profile.delivery.armor_pen == doctest::Approx(18.0f));
     CHECK(profile.delivery.speed == 300.0f); // Default speed NOT clobbered!
     CHECK(profile.delivery.range == 200.0f); // Default range NOT clobbered!
-    CHECK(profile.more_damage_mult > 1.0f);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.20f));
   }
 
   // Skill 8 nodes 830 pull_radius without clobbering range 300

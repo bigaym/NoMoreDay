@@ -465,6 +465,8 @@ def _build_contract_for_skill(
 
         emits_non_default = (
             role != ROLE_PASSIVE
+            or (node_id in explicit_passive_ids)
+            or (max_points == 1 and role == ROLE_PASSIVE)
             or resist_model != RESIST_NONE
             or scope_policy != SCOPE_SKILL_ONLY
             or (keystone_exclusion_group != 0)

@@ -189,33 +189,48 @@
       "skill_id": 5,
       "min_nodes": 28,
       "max_nodes": 28,
-      "max_transmuters": 2,
+      "max_transmuters": 1,
       "max_triggers": 1,
       "has_sword_intent_node": true,
       "has_synergy_node": true,
       "transmuter_node_ids": [
         570,
-        571
+        572
       ],
       "synergy_node_ids": [
-        530
+        515
       ],
       "sword_intent_node_ids": [
-        552
+        553,
+        554,
+        555
       ],
+      "keystone_node_ids": [
+        533,
+        534,
+        550
+      ],
+      "passive_node_ids": [
+        574
+      ],
+      "keystone_exclusion_groups": {
+        "570": 1,
+        "572": 1
+      },
       "resist_models": {
-        "572": "TypeD_StatToPenetration"
+        "574": "TypeD_StatToPenetration"
       },
       "scope_policies": {
-        "572": "SkillOnly"
+        "574": "SkillOnly"
       },
       "trigger_nodes": [
         {
-          "node_id": 533,
+          "node_id": 513,
           "trigger_skill_id": 5,
-          "effectiveness": 1.0,
+          "effectiveness": 3.0,
           "internal_cooldown": 2.0,
-          "consumes_mana": false
+          "consumes_mana": false,
+          "requires_crit": false
         }
       ]
     },

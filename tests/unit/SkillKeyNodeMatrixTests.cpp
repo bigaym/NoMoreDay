@@ -124,6 +124,24 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       sknm::ConfigureSpecialization(registry, caster, skill_id,
                                     {{trigger_node, 1}});
 
+      // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
+      // 构造须在配置专精之后、派发命中之前（与 SkillBehaviorGuardTests 口径一致）。
+      if (skill_id == 5u) {
+        auto &vicEffects =
+            registry.get_or_emplace<ActiveEffectsComponent>(target);
+        BuffEffect mark{
+            .id = "FateMark",
+            .name = "Fate Mark",
+            .type = BuffType::DefenseDown,
+            .kind = BuffKind::FateMark,
+            .duration = 5.0f,
+            .remaining = 5.0f,
+            .stacks = 5,
+            .max_stacks = 5,
+            .is_debuff = true};
+        vicEffects.AddOrRefresh(mark);
+      }
+
       const auto before = registry.storage<SkillExecution>().size();
       sknm::DispatchSkillHit(registry, caster, target, skill_id,
                              static_cast<uint64_t>(5000 + skill_id));
@@ -182,8 +200,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       entt::registry registry;
       const auto caster = sknm::CreateCaster(registry, 2000.0f);
       sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
-      if (skill_id == 3u || skill_id == 4u) {
-        // 技能 3 与技能 4 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
+      if (skill_id == 3u || skill_id == 4u || skill_id == 5u) {
+        // 技能 3、4、5 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
         sknm::ConfigureSpecialization(registry, caster, skill_id,
                                       {{order[0], 1}});
       } else {
