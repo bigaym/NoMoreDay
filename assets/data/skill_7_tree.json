@@ -202,7 +202,7 @@
           "y": 2.14,
           "prerequisites": [
             {
-              "node_id": 700,
+              "node_id": 701,
               "required_points": 3
             }
           ]

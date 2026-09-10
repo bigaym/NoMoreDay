@@ -30,4 +30,13 @@ public:
       DamageType type);
 };
 
+// Type E 抗性上限压制聚合（实现位于 DamageMitigationService.cpp）。
+// 遍历 defender 的带来源技能归属减抗，返回需叠加到抗性上限压制上的聚合量；
+// 单实体 (Apply) 与批处理 (CalculateBatch) 路径共用，声明集中于此，
+// 避免 DamagePipeline.cpp 自行前向声明导致签名漂移。
+float AggregateSkillScopedResistCapSuppression(entt::registry &registry,
+                                               entt::entity defender,
+                                               uint32_t skill_id,
+                                               DamageType type);
+
 } // namespace NoMoreDay

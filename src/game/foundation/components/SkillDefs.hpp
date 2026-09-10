@@ -915,20 +915,6 @@ struct PhantomFlashComponent {
   Tag enchant_tag = Tag::None;      // Selected transmuter element
 };
 
-struct MindBladeAI {
-  entt::entity target = entt::null;
-  float retarget_timer = 0.0f;
-  float attack_timer = 0.0f;
-  float base_interval = 0.3f;
-  float range = 400.0f;
-};
-
-struct MindBladeComponent {
-  entt::entity owner = entt::null;
-  float intelligence_scaling = 1.0f;
-  int stack_count = 0;
-};
-
 // --- SUMMON SYSTEM COMPONENTS ---
 
 namespace SummonArchetype {
@@ -1265,7 +1251,7 @@ struct ChannelingComponent {
   float bonus_damage_mult = 1.0f;
   float bonus_crit_chance = 0.0f;
   float bonus_armor_pen = 0.0f;
-  bool synergy_lock = false; // Skill 7 node 730
+  bool synergy_lock = false; // 兼容保留：旧 synergy 锁定标记（技能7 旧 730 已废弃，改由 754 机制承接）
 };
 
 } // namespace NoMoreDay

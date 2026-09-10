@@ -76,6 +76,12 @@ bool SkillMechanicsRegistry::LoadFromFile(const std::string &path) {
 float SkillMechanicsRegistry::GetFloat(uint32_t skill_id, uint32_t node_id,
                                        const std::string &key,
                                        float default_value) const {
+  return GetFloatImpl(skill_id, node_id, key, default_value);
+}
+
+float SkillMechanicsRegistry::GetFloatImpl(uint32_t skill_id, uint32_t node_id,
+                                           std::string_view key,
+                                           float default_value) const {
   const auto skillIt = m_nodes.find(skill_id);
   if (skillIt == m_nodes.end()) {
     return default_value;

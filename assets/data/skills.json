@@ -4237,15 +4237,15 @@
     {
       "id": 7,
       "name_key": "心剑·无影",
-      "desc_key": "高频引导发射极细剑气。",
-      "mana_cost": 15.0,
-      "cooldown": 4.0,
+      "desc_key": "在光标位置不断撕裂空间，每 0.3 秒爆发一次无形的剑气切割。",
+      "mana_cost": 0.0,
+      "cooldown": 1.0,
       "tags": [
-        "Physical",
         "Spell",
-        "Projectile",
-        "Hit",
-        "sword_skill"
+        "Channeled",
+        "Physical",
+        "Area",
+        "SwordSkill"
       ],
       "base_damage": 30.0,
       "weapon_damage_mult": 0.6,
@@ -4257,7 +4257,7 @@
           "id": 700,
           "name_key": "神识凝聚",
           "desc_key": "引导消耗降低 10%...40%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -1.96,
           "y": 2.06,
           "prerequisites": [
@@ -4304,7 +4304,7 @@
           "id": 703,
           "name_key": "心念映射",
           "desc_key": "引导时的视野范围或追踪范围增加 10%...40%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 1.94,
           "y": -2.26,
           "prerequisites": [
@@ -4336,7 +4336,7 @@
           "id": 711,
           "name_key": "碎空爆",
           "desc_key": "*{需求: 心流叠加 3/5}* 引导期间不再持续造成伤害，而是将所有伤害积蓄。停止引导时，在光标处引爆一次极其恐怖的坍缩爆炸（基于引导层数计算范围和倍率）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": -2.22,
           "y": -1.78,
           "prerequisites": [
@@ -4352,7 +4352,7 @@
           "id": 712,
           "name_key": "虚无牵引",
           "desc_key": "*{需求: 碎空爆}* `碎空爆` 蓄力期间产生强大的引力场，将周围 200...600 半径内的所有轻/中型敌人缓慢拖拽至中心。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.8,
           "y": -0.42,
           "prerequisites": [
@@ -4368,7 +4368,7 @@
           "id": 713,
           "name_key": "精神透支",
           "desc_key": "*{需求: 碎空爆}* `碎空爆` 蓄力层数叠满的速度增加 20%...60%，但满层后若继续引导，每秒流失你最大生命值的 5%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -0.68,
           "y": -2.2,
           "prerequisites": [
@@ -4399,7 +4399,7 @@
           "id": 715,
           "name_key": "破绽洞察",
           "desc_key": "*{需求: 裂空 3/4}* 处于撕裂中心极小范围内的敌人，受到的暴击伤害倍率额外增加 20%...60%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -0.32,
           "y": 3.56,
           "prerequisites": [
@@ -4414,7 +4414,7 @@
           "id": 730,
           "name_key": "神识多开",
           "desc_key": "*{需求: 裂空 2/4}* 引导时，不仅在光标位置撕裂，还会随机在屏幕内的另一名敌人脚下生成一个较小的追踪撕裂场（造成 50% 基础伤害）。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 1.94,
           "y": 2.34,
           "prerequisites": [
@@ -4430,7 +4430,7 @@
           "id": 731,
           "name_key": "千面阵",
           "desc_key": "*{需求: 神识多开}* 额外生成的低倍率追踪撕裂数量再增加 1...3 个。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 2.32,
           "y": 3.68,
           "prerequisites": [
@@ -4446,7 +4446,7 @@
           "id": 732,
           "name_key": "步影随行",
           "desc_key": "*{需求: 神识多开}* 引导时你可以进行微步移动（移速保留且固定为正常移速的 30%），但此时引导的基础法力消耗增加 50%。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 2.8,
           "y": 1.26,
           "prerequisites": [
@@ -4462,7 +4462,7 @@
           "id": 733,
           "name_key": "御剑神游",
           "desc_key": "*{需求: 步影随行}* 处于“御剑步”状态时，神识多开和千面阵生成的额外小撕裂场的半径增加 20%...60%，且造成 100% 基础伤害。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 1.4,
           "y": 3,
           "prerequisites": [
@@ -4508,12 +4508,12 @@
           "id": 750,
           "name_key": "引力坍缩",
           "desc_key": "*{需求: 无影无形 3/5}* 每次撕裂有 25%...100% 几率产生微拉扯效果，将撕裂外围的轻中型敌人向中心扯动。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.28,
           "y": 2.14,
           "prerequisites": [
             {
-              "node_id": 700,
+              "node_id": 701,
               "required_points": 3
             }
           ],
@@ -4524,7 +4524,7 @@
           "id": 751,
           "name_key": "空间粉碎",
           "desc_key": "*{需求: 引力坍缩 2/4}* 每次撕裂命中有 60%...180% 几率施加护甲击碎（超过100%的部分额外施加1层），且护甲击碎 10 层以上的敌人护甲效率额外降低 15%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.22,
           "y": 1.42,
           "prerequisites": [
@@ -4540,7 +4540,7 @@
           "id": 752,
           "name_key": "深渊侵蚀",
           "desc_key": "*{需求: 空间粉碎}* 被击中时附加 1...3 层流血状态，且处于粉碎圈内的敌人受到的所有流血伤害加速爆发 20%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.98,
           "y": 1.6,
           "prerequisites": [
@@ -4601,7 +4601,7 @@
           "id": 770,
           "name_key": "天外冰晶",
           "desc_key": "*{需求: 心念映射 2/4}* 物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。在光标处凝结出巨大冰刺并碎裂。命中附带寒冷，并且碎裂的冰片会像强力投射物一样向外飞出。*与 [神雷天罡] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 3.46,
           "y": -2.73,
           "prerequisites": [
@@ -4617,7 +4617,7 @@
           "id": 771,
           "name_key": "极寒碎骨",
           "desc_key": "*{需求: 天外冰晶}* 冰刺碎裂命中冻结敌人时，造成的击碎伤害提升 20%...60%，且碎冰弹片必定强制穿透并施加 1 层寒冷。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -1.66,
           "y": -2.15,
           "prerequisites": [
@@ -4663,7 +4663,7 @@
           "id": 774,
           "name_key": "异常切割",
           "desc_key": "*{需求: 任意 Transmuter}* 每次冰刺或雷柱对带有对应异常状态（寒冷/感电）的敌人造成伤害时，基础伤害总增 (More) 10%...30%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 4.02,
           "y": 1.63,
           "prerequisites": [
@@ -4683,7 +4683,7 @@
           "id": 775,
           "name_key": "心念灭抗",
           "desc_key": "*{需求: 任意 Transmuter}* 处于空间撕裂中心范围内的敌人，其对应元素抗性上限被压制 3%...12%（冰晶→冰霜抗性上限，神雷→闪电抗性上限），此效果可影响 Boss 级敌人。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 0.21,
           "y": -3.01,
           "prerequisites": [
@@ -4701,17 +4701,33 @@
         "skill_id": 7,
         "min_nodes": 28,
         "max_nodes": 28,
-        "max_transmuters": 2,
+        "max_transmuters": 1,
         "max_triggers": 1,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
           770,
-          750
+          772
         ],
         "nodes": [
           {
-            "node_id": 713,
+            "node_id": 711,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 714,
             "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -4727,8 +4743,8 @@
             }
           },
           {
-            "node_id": 714,
-            "role": "Keystone",
+            "node_id": 730,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -4743,8 +4759,8 @@
             }
           },
           {
-            "node_id": 730,
-            "role": "Synergy",
+            "node_id": 732,
+            "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -4760,7 +4776,7 @@
           },
           {
             "node_id": 734,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -4775,23 +4791,7 @@
             }
           },
           {
-            "node_id": 750,
-            "role": "Transmuter",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 752,
+            "node_id": 753,
             "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -4807,8 +4807,8 @@
             }
           },
           {
-            "node_id": 753,
-            "role": "Keystone",
+            "node_id": 754,
+            "role": "Synergy",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -4823,11 +4823,11 @@
             }
           },
           {
-            "node_id": 754,
-            "role": "Keystone",
+            "node_id": 755,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
+            "affects_sword_intent": true,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -4852,12 +4852,13 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
-            "node_id": 771,
-            "role": "Passive",
-            "resist_model": "TypeE_CapSuppression",
+            "node_id": 772,
+            "role": "Transmuter",
+            "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
@@ -4868,12 +4869,13 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
-            "node_id": 772,
-            "role": "Keystone",
-            "resist_model": "None",
+            "node_id": 775,
+            "role": "Passive",
+            "resist_model": "TypeE_CapSuppression",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,

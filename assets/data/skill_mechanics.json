@@ -603,5 +603,125 @@
       "relocate_mana_ratio": 0.50,
       "reset_duration_ratio": 0.50
     }
+  },
+  "7": {
+    "0": {
+      "tick_interval": 0.3,
+      "max_channel_time": 5.0,
+      "mana_cost_per_sec": 15.0,
+      "base_radius": 60.0,
+      "base_range": 350.0
+    },
+    "700": {
+      "mana_reduction_pct_per_point": 0.10
+    },
+    "701": {
+      "phys_damage_pct_per_point": 0.10
+    },
+    "702": {
+      "radius_pct_per_point": 0.10
+    },
+    "703": {
+      "range_pct_per_point": 0.10
+    },
+    "710": {
+      "more_per_stack": 0.05,
+      "stack_interval": 0.5,
+      "max_stacks": 4
+    },
+    "711": {
+      "detonation_damage_mult": 6.0,
+      "detonation_radius": 120.0,
+      "detonation_radius_per_stack": 0.15
+    },
+    "712": {
+      "pull_radius": 200.0,
+      "pull_radius_per_point": 133.33,
+      "pull_strength": 180.0
+    },
+    "713": {
+      "charge_speed_pct_per_point": 0.20,
+      "self_damage_pct_per_sec": 0.05
+    },
+    "714": {
+      "echo_effectiveness": 0.35
+    },
+    "715": {
+      "crit_dmg_pct_per_point": 0.20,
+      "center_radius": 80.0
+    },
+    "730": {
+      "secondary_damage_pct": 0.50,
+      "secondary_count": 1
+    },
+    "731": {
+      "secondary_count_per_point": 1
+    },
+    "732": {
+      "move_speed_scale": 0.30,
+      "mana_penalty_pct": 0.50
+    },
+    "733": {
+      "secondary_radius_pct_per_point": 0.20,
+      "secondary_damage_pct": 1.00
+    },
+    "734": {
+      "blink_mana_cost": 30.0,
+      "blink_distance": 250.0,
+      "speed_bonus_pct": 0.15,
+      "speed_bonus_duration": 2.0
+    },
+    "735": {
+      "isolated_more_pct_per_point": 0.15,
+      "isolation_radius": 120.0
+    },
+    "750": {
+      "pull_chance_pct_per_point": 0.25,
+      "pull_radius": 200.0,
+      "pull_strength": 150.0
+    },
+    "751": {
+      "shred_chance_pct_per_point": 0.60,
+      "high_stack_threshold": 10,
+      "high_stack_armor_reduction_pct": 0.15
+    },
+    "752": {
+      "bleed_stacks_per_point": 1,
+      "bleed_burst_speedup_pct": 0.20
+    },
+    "753": {
+      "max_intent_per_sec": 2.0,
+      "more_per_intent": 0.20
+    },
+    "754": {
+      "pierce_effectiveness": 0.30
+    },
+    "755": {
+      "mana_restore_per_kill_per_point": 3.0,
+      "elite_intent_restore": 1
+    },
+    "770": {
+      "shard_count": 5,
+      "shard_damage_pct": 0.30,
+      "shard_speed": 400.0
+    },
+    "771": {
+      "shatter_damage_pct_per_point": 0.20
+    },
+    "772": {
+      "pillar_interval": 0.5,
+      "pillar_damage_mult": 2.0,
+      "shock_field_duration": 2.0
+    },
+    "773": {
+      "main_target_more_pct_per_point": 0.15,
+      "shock_crit_pct_per_point": 0.05
+    },
+    "774": {
+      "ailment_more_pct_per_point": 0.10
+    },
+    "775": {
+      "cap_suppression_pct_per_point": 0.03
+    }
   }
 }

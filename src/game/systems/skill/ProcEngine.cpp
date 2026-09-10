@@ -62,6 +62,8 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
             if (rule.listen_event != event.type || rule.current_cooldown > 0.0f) continue;
             // 需暴击的规则（如 335 巨剑裂空）仅接受暴击命中事件
             if (rule.requires_crit && !event.isCrit) continue;
+            // 击杀来源技能过滤: 0=任意来源 (如 714 寂灭仅接受 skill_id==7 的击杀)
+            if (rule.required_skill_id != 0 && event.skill_id != rule.required_skill_id) continue;
             if (rule.event_tag_filter != Tag::None && (event.tags & rule.event_tag_filter) != rule.event_tag_filter) continue;
 
             // 幻影闪反击规则状态门控：若已触发或反击窗口已关闭则跳过
@@ -169,7 +171,8 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
                     if (counterResult.total_damage > 0.0f) {
                         CombatSystem::ApplyDamage(reg, act.target_entity,
                                                   counterResult.total_damage, listener,
-                                                  counterResult.is_crit);
+                                                  counterResult.is_crit, true, nullptr,
+                                                  act.skill_id);
                     }
                     LOG_INFO("ProcEngine: Defensive counter resolved: victim={} attacker={} damage={}",
                              (uint32_t)listener, (uint32_t)act.target_entity, counterResult.total_damage);

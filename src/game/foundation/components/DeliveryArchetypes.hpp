@@ -147,9 +147,35 @@ struct BeamChannelComponent {
   Vector2 target_pos{0.0f, 0.0f};
   bool is_empowered = false;
   float bonus_damage_mult = 1.0f;
+
+  // 技能7 (心剑·无影) 交付层运行时状态：POD，由本系统独占读写
+  bool interrupt_requested = false;        // 734 神游脱战：输入层登记打断请求
+  Vector2 interrupt_target{0.0f, 0.0f};    // 734 瞬移方向目标点
+  float charge_timer = 0.0f;               // 710/711 叠层计时
+  uint8_t charge_stacks = 0;               // 710/711 当前蓄积层数
+  float pillar_timer = 0.0f;               // 772 落雷计时
+  float intent_timer = 0.0f;               // 753 剑意消耗计时
+  int intent_stacks = 0;                   // 753 本次引导已消耗剑意层数
+  float shard_timer = 0.0f;                // 770 冰片生成计时
 };
 static_assert(std::is_standard_layout_v<BeamChannelComponent>);
 static_assert(std::is_trivially_destructible_v<BeamChannelComponent>);
+
+// ============================================================================
+// 技能7 神雷天罡 (772): 落雷遗留的感电区域，由交付层自管理脉冲
+// ============================================================================
+struct ShockFieldComponent {
+  entt::entity owner = entt::null;
+  uint32_t skill_id = 7;
+  Vector2 center{0.0f, 0.0f};
+  float radius = 60.0f;
+  float remaining = 2.0f;
+  float tick_interval = 0.5f;
+  float tick_timer = 0.0f;
+  float damage = 0.0f;
+};
+static_assert(std::is_standard_layout_v<ShockFieldComponent>);
+static_assert(std::is_trivially_destructible_v<ShockFieldComponent>);
 
 // ============================================================================
 // 原型 8: 位移冲刺与机动闪避 (MobilityDelivery)

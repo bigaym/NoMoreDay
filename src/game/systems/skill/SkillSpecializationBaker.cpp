@@ -34,6 +34,11 @@ void SkillSpecializationBaker::Bake(
   if (skill_id == 5) {
     out_profile.effective_mana_cost = 20.0f; // 持续引导基础每秒法耗 20 点
   }
+  if (skill_id == 7) {
+    // 心剑·无影持续引导基础每秒法耗，数值外置于技能级键 mana_cost_per_sec
+    out_profile.effective_mana_cost =
+        data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "mana_cost_per_sec", 15.0f);
+  }
   out_profile.effective_tags = SkillSystem::GetEffectiveSkillTags(registry, caster, skill_id);
   out_profile.projectile_count = static_cast<int>(skillData->GetParam("projectile_count", 1.0f));
   if (out_profile.projectile_count <= 0) {
@@ -91,7 +96,11 @@ void SkillSpecializationBaker::Bake(
   case 7: // 心剑·无影
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BeamChannel);
     del.duration = 5.0f;
-    del.sub_interval = 0.12f;
+    del.sub_interval = 0.3f;
+    // 射程基准外置于技能级键 base_range，交付层缺省回退同键同默认值。
+    // 703 心念映射会在该基准上按 range_pct_per_point 放大；若此处缺省，
+    // 703 将回落到公式中的 200 基线，导致点满反而比 0 点射程更短。
+    del.range = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_range", 350.0f);
     break;
   case 8: // 御剑·回旋
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
@@ -727,23 +736,77 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     break;
   }
 
-  case 7: // 心剑·无影
-    if (node_id == 713) {
-      del.feature_flags |= 1; // 天人合一
-    } else if (node_id == 730) {
-      del.feature_flags |= 2; // 射线神识吸附 MindLock
-    } else if (node_id == 750) {
-      out_profile.more_damage_mult *= 1.25f;
-      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Void;
+  case 7: { // 心剑·无影
+    const auto &mech = data::SkillMechanicsRegistry::Get();
+    if (node_id == 700) { // 神识凝聚: 引导法耗 -10..40%
+      const float red =
+          mech.GetFloat(7, 700, "mana_reduction_pct_per_point", 0.10f) * static_cast<float>(points);
+      out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - red);
+    } else if (node_id == 701) { // 无影无形: 基础物理伤害 +10..50%
+      out_profile.more_damage_mult *=
+          (1.0f + mech.GetFloat(7, 701, "phys_damage_pct_per_point", 0.10f) * static_cast<float>(points));
+    } else if (node_id == 702) { // 裂空: 基础范围半径 +10..40%
+      // 显式以技能级 base_radius 为基准重算，保证不依赖技能数据默认值且幂等
+      out_profile.area_radius =
+          mech.GetFloat(7, 0, "base_radius", 60.0f) *
+          (1.0f + mech.GetFloat(7, 702, "radius_pct_per_point", 0.10f) * static_cast<float>(points));
+    } else if (node_id == 703) { // 心念映射: 视野/追踪范围 +10..40%
+      del.range = (del.range > 0.0f ? del.range : 200.0f) *
+                  (1.0f + mech.GetFloat(7, 703, "range_pct_per_point", 0.10f) * static_cast<float>(points));
+    } else if (node_id == 710) { // 心流叠加: 叠层增伤由交付层按层数动态读取
+      del.feature_flags |= 1;
+    } else if (node_id == 711) { // 碎空爆 (Keystone): 蓄力引爆
+      del.feature_flags |= 2;
+    } else if (node_id == 712) { // 虚无牵引: 蓄力拖拽
       del.feature_flags |= 4;
-    } else if (node_id == 752) {
-      out_profile.more_damage_mult *= 1.5f;
-      del.feature_flags |= 8; // 万法归一
-    } else if (node_id == 770) {
-      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Lightning;
+    } else if (node_id == 713) { // 精神透支: 蓄力加速 + 满层自伤
+      del.feature_flags |= 8;
+    } else if (node_id == 715) { // 破绽洞察: 中心暴击伤害
       del.feature_flags |= 16;
+    } else if (node_id == 730) { // 神识多开: 额外追踪撕裂
+      del.feature_flags |= 32;
+    } else if (node_id == 731) { // 千面阵: 额外追踪撕裂数量
+      del.feature_flags |= 64;
+    } else if (node_id == 732) { // 步影随行 (Keystone): 微步移动 + 引导法耗提升
+      out_profile.effective_mana_cost *= (1.0f + mech.GetFloat(7, 732, "mana_penalty_pct", 0.50f));
+      del.feature_flags |= 128;
+    } else if (node_id == 733) { // 御剑神游: 小撕裂半径与伤害
+      del.feature_flags |= 256;
+    } else if (node_id == 734) { // 神游脱战: 瞬移打断
+      del.feature_flags |= 512;
+    } else if (node_id == 735) { // 精准切割: 孤立目标增伤
+      del.feature_flags |= 1024;
+    } else if (node_id == 750) { // 引力坍缩: 概率微牵引
+      del.feature_flags |= 2048;
+    } else if (node_id == 751) { // 空间粉碎: 护甲击碎
+      del.feature_flags |= 4096;
+    } else if (node_id == 752) { // 深渊侵蚀: 流血与爆发加速
+      del.feature_flags |= 8192;
+    } else if (node_id == 753) { // 意念风暴: 消耗剑意增伤
+      del.feature_flags |= 16384;
+    } else if (node_id == 754) { // 剑意化无 (Synergy): 飞剑瞬移穿刺
+      del.feature_flags |= 32768;
+    } else if (node_id == 755) { // 心念反哺: 击杀回蓝 / 精英回剑意
+      del.feature_flags |= 65536;
+    } else if (node_id == 770) { // 天外冰晶 (Transmuter): 物理转冰霜
+      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Cold;
+      del.feature_flags |= 131072;
+    } else if (node_id == 771) { // 极寒碎骨: 击碎增伤
+      del.feature_flags |= 262144;
+    } else if (node_id == 772) { // 神雷天罡 (Transmuter): 物理转闪电 + 落雷间隔
+      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Lightning;
+      // 落雷间隔由交付层直接读取 mechanics(7,772,"pillar_interval")；
+      // delivery.sub_interval 只有技能5的引导频率组合会消费，对技能7无消费方，故不再写入。
+      del.feature_flags |= 524288;
+    } else if (node_id == 773) { // 天劫落雷: 主目标增伤与感电暴击
+      del.feature_flags |= 1048576;
+    } else if (node_id == 774) { // 异常切割: 异常目标增伤
+      del.feature_flags |= 2097152;
+    } else if (node_id == 775) { // 心念灭抗: 抗性上限压制
+      del.feature_flags |= 4194304;
     }
     break;
+  }
 
   case 8: // 御剑·回旋
     if (node_id == 812) {
@@ -837,6 +900,12 @@ void SkillSpecializationBaker::SyncTriggerRules(
         if (node_id == 452) {
           rule.listen_event = CombatEventType::OnDodge;
           rule.target_mode = TriggerTargetPolicy::Attacker;
+        } else if (skill_id == 7 && node_id == 714) {
+          // 寂灭: 碎空爆直接击杀的敌人在死亡位置触发小型万剑归宗
+          rule.listen_event = CombatEventType::OnKill;
+          rule.target_mode = TriggerTargetPolicy::Victim;
+          // 仅接受技能7造成的击杀，避免其他技能/召唤物/持续伤害击杀误触发
+          rule.required_skill_id = 7;
         } else {
           rule.listen_event = CombatEventType::OnSkillHit;
           rule.target_mode = TriggerTargetPolicy::Victim;

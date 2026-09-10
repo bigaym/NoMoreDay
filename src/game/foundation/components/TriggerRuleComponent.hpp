@@ -36,6 +36,9 @@ struct TriggerRule {
     uint32_t cooldown_refund_skill_id = 0;
     float cooldown_refund_amount = 0.0f;
     bool requires_crit = false; // 仅暴击命中事件触发 (如 335 巨剑裂空)
+    // OnKill 事件的击杀来源技能过滤: 0=任意来源，非0 时仅接受 evt.skill_id 匹配的击杀。
+    // 用于 714 寂灭等"指定技能击杀才触发"的规则，避免其他技能/召唤物/持续伤害误触发。
+    uint32_t required_skill_id = 0;
 };
 static_assert(std::is_standard_layout_v<TriggerRule>);
 static_assert(std::is_trivially_destructible_v<TriggerRule>);

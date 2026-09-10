@@ -2,6 +2,7 @@
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/foundation/components/AdvancedAffixComponents.hpp"
 #include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Projectile.hpp"
@@ -135,6 +136,8 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
     case 7:
       REQUIRE(registry.all_of<ChannelingComponent>(caster));
       CHECK(registry.get<ChannelingComponent>(caster).skill_id == 7);
+      REQUIRE(registry.all_of<BeamChannelComponent>(caster));
+      CHECK(registry.get<BeamChannelComponent>(caster).skill_id == 7u);
       break;
     case 8:
       CHECK(test::skill_keynode_matrix::integration::HasBoomerangProjectiles(

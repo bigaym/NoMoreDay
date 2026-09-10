@@ -1325,7 +1325,7 @@ DamageExecutionResult DamagePipeline::Execute(entt::registry &registry,
     execution.target_killed = CombatSystem::ApplyDamage(
         registry, request.defender, execution.damage.total_damage,
         effective_apply_attacker, execution.damage.is_crit, show_vfx,
-        &apply_result);
+        &apply_result, request.skill_id);
   }
   execution.final_applied_damage = apply_result.health_applied;
   execution.barrier_absorbed = apply_result.barrier_absorbed;
@@ -1436,6 +1436,14 @@ void DamagePipeline::CalculateBatch(
         registry, defender, skill_id, type);
   };
 
+  // Type E 抗性上限压制聚合 (技能7 心念灭抗 775)，与单实体路径 (Apply) 共用实现：
+  // 返回需从 RESISTANCE_MAX 扣除的压制量 (绝对值小数)。
+  auto debuff_resist_cap_suppression = [&](entt::entity defender,
+                                           DamageType type) -> float {
+    return AggregateSkillScopedResistCapSuppression(registry, defender, skill_id,
+                                                    type);
+  };
+
   auto process_range = [&](size_t start, size_t end) {
     using batch_type = xsimd::batch<float>;
     size_t inc = batch_type::size;
@@ -1451,6 +1459,8 @@ void DamagePipeline::CalculateBatch(
         alignas(32) std::array<float, batch_type::size> endgame_dr_delta_data;
         alignas(32) std::array<float, batch_type::size>
             endgame_damage_taken_mult_data;
+        alignas(32) std::array<float, batch_type::size>
+            cap_suppression_batch_data; // Type E 抗性上限压制
         alignas(32) std::array<float, batch_type::size> final_dmg_sum;
         final_dmg_sum.fill(0.0f);
 
@@ -1461,6 +1471,7 @@ void DamagePipeline::CalculateBatch(
             endgame_armor_delta_data[k] = 0.0f;
             endgame_dr_delta_data[k] = 0.0f;
             endgame_damage_taken_mult_data[k] = 1.0f;
+            cap_suppression_batch_data[k] = 0.0f;
             continue;
           }
           const auto endgame =
@@ -1489,6 +1500,9 @@ void DamagePipeline::CalculateBatch(
                 (ds ? ds->resistances[j] : 0.0f) + endgame_res_delta_data[k] +
                 debuff_resist_aggregate(defenders[i + k],
                                         static_cast<DamageType>(j));
+            // Type E：逐目标聚合抗性上限压制量 (元素按当前伤害类型过滤)
+            cap_suppression_batch_data[k] = debuff_resist_cap_suppression(
+                defenders[i + k], static_cast<DamageType>(j));
             armor_batch_data[k] =
                 (j == 0 && ds) ? (ds->armor + endgame_armor_delta_data[k]) : 0.0f;
             level_batch_data[k] = (j == 0 && ds) ? (float)ds->cached_area_level
@@ -1498,10 +1512,16 @@ void DamagePipeline::CalculateBatch(
           using namespace NoMoreDay::Constants::Combat::Pipeline;
           auto amt_v = batch_type(base_amt);
           auto raw_res_v = batch_type::load_aligned(res_batch_data.data());
-          // Robust clamp via select to avoid namespace issues with min/max
+          // Type E：有效抗性上限 = max(RESISTANCE_MIN, RESISTANCE_MAX - cap)。
+          // 仍以 select 实现 clamp，避免引入 xsimd::min/max 的命名空间歧义。
+          auto cap_v =
+              batch_type::load_aligned(cap_suppression_batch_data.data());
+          auto effective_max_v = batch_type(RESISTANCE_MAX) - cap_v;
+          effective_max_v =
+              xsimd::select(effective_max_v < batch_type(RESISTANCE_MIN),
+                            batch_type(RESISTANCE_MIN), effective_max_v);
           auto res_v = xsimd::select(
-              raw_res_v > batch_type(RESISTANCE_MAX),
-              batch_type(RESISTANCE_MAX),
+              raw_res_v > effective_max_v, effective_max_v,
               xsimd::select(raw_res_v < batch_type(RESISTANCE_MIN),
                             batch_type(RESISTANCE_MIN), raw_res_v));
           auto current_v = amt_v * (batch_type(1.0f) - res_v);
@@ -1599,7 +1619,12 @@ void DamagePipeline::CalculateBatch(
             res += debuff_resist_aggregate(defender,
                                            static_cast<DamageType>(j));
             res += endgameResDelta;
-            res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
+            // Type E：标量回退路径同样扣除抗性上限压制
+            const float cap_suppression = debuff_resist_cap_suppression(
+                defender, static_cast<DamageType>(j));
+            const float effective_max =
+                std::max(RESISTANCE_MIN, RESISTANCE_MAX - cap_suppression);
+            res = std::clamp(res, RESISTANCE_MIN, effective_max);
             float after_res = amt * (1.0f - res);
             if (j == 0) {
               float effective_armor = armor - snap.armor_pen;
@@ -1753,7 +1778,7 @@ void DamagePipeline::CalculateBatch(
 
       CombatSystem::DamageApplyResult apply_result;
       CombatSystem::ApplyDamage(registry, res.target, final_damage, attacker,
-                                res.is_crit, true, &apply_result);
+                                res.is_crit, true, &apply_result, skill_id);
       const float final_applied_damage = apply_result.health_applied;
       const EventAttackerContext event_attacker = ResolveEventAttackerContext(
           registry, attacker, source_entity, summon_attribution);

@@ -502,12 +502,12 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
 // 调用方需保证 target 生命值已置 0、且不含 PlayerTag（玩家死亡走 ApplyDamage 内的独立流程）。
 void CombatSystem::KillEnemy(entt::registry &registry, entt::entity target,
                              entt::entity attacker, float overkill,
-                             float rawDamage) {
+                             float rawDamage, uint32_t skill_id) {
   registry.emplace_or_replace<KilledTag>(target, attacker);
 
   // --- Event System: OnKill ---
   CombatEvent kill_evt =
-      CombatEventFactory::CreateOnKill(attacker, target, overkill);
+      CombatEventFactory::CreateOnKill(attacker, target, overkill, skill_id);
   CombatEventDispatcher::Dispatch(registry, kill_evt);
 
   // --- Monster Affix System: OnDeath ---
@@ -531,7 +531,8 @@ void CombatSystem::KillEnemy(entt::registry &registry, entt::entity target,
 bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
                                float amount, entt::entity attacker, bool isCrit,
                                bool showVFX,
-                               DamageApplyResult *applyResult) {
+                               DamageApplyResult *applyResult,
+                               uint32_t skill_id) {
   auto commitApplyResult = [&](float healthApplied, float barrierAbsorbed,
                                bool wasPrevented) {
     if (!applyResult) {
@@ -755,7 +756,7 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
       return true;
     }
 
-    CombatSystem::KillEnemy(registry, target, attacker, overkill, amount);
+    CombatSystem::KillEnemy(registry, target, attacker, overkill, amount, skill_id);
 
     commitApplyResult(healthDamageApplied, barrierDamage, false);
     return true;

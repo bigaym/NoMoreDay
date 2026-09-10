@@ -925,7 +925,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
       {4u, 452u},
       {5u, 513u},
       {6u, 635u},
-      {7u, 713u},
+      {7u, 714u},
       {8u, 831u},
       {9u, 951u},
   }};

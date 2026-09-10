@@ -110,7 +110,7 @@ inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
       {4, {412, 414, 433, 434, 435, 452, 454, 455, 470, 472, 474}},
       {5, {513, 515, 533, 534, 550, 553, 554, 555, 570, 572, 574}},
       {6, {613, 614, 633, 634, 635, 652, 653, 670, 672, 674}},
-      {7, {713, 730, 750, 752, 770}},
+      {7, {711, 714, 732, 753, 754, 755, 770, 772, 775}},
       {8, {813, 830, 831, 852, 870, 871}},
       {9, {913, 930, 950, 951, 952, 970, 971, 972}},
       {10, {1002, 1004, 1005, 1007, 1008, 1009, 1011, 1013, 1017, 1021, 1022, 1025}},
@@ -290,7 +290,8 @@ AsAllocatedPoints(const std::vector<uint32_t> &nodes, int points = 1) {
 // 冒烟施放配置：技能 3 契约 max_transmuters=1，370/372 互斥，剔除 372 仅保留火转质 370；
 // 技能 4 契约 max_transmuters=1，472/474 互斥，剔除 474 仅保留雷转质 472；
 // 技能 5 契约 max_transmuters=1，570/572 互斥，剔除 572 仅保留火转质 570；
-// 技能 6 契约 max_transmuters=1，670/672 互斥，剔除 672 仅保留火转质 670
+// 技能 6 契约 max_transmuters=1，670/672 互斥，剔除 672 仅保留火转质 670；
+// 技能 7 契约 max_transmuters=1，770/772 互斥，剔除 772 仅保留天外冰晶 770
 inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
                                             const std::vector<uint32_t> &nodes) {
   auto result = nodes;
@@ -302,6 +303,8 @@ inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
     result.erase(std::remove(result.begin(), result.end(), 572u), result.end());
   } else if (skill_id == 6u) {
     result.erase(std::remove(result.begin(), result.end(), 672u), result.end());
+  } else if (skill_id == 7u) {
+    result.erase(std::remove(result.begin(), result.end(), 772u), result.end());
   }
   return result;
 }

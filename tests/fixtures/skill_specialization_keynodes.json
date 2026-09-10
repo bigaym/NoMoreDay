@@ -33,7 +33,7 @@
     },
     {
       "skill_id": 7,
-      "key_nodes": [713, 730, 750, 752, 770],
+      "key_nodes": [711, 714, 732, 753, 754, 755, 770, 772, 775],
       "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
     },
     {

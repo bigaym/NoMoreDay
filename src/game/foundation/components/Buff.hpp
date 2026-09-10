@@ -101,6 +101,15 @@ struct BuffEffect {
     // 0 = 无归属，减抗/增益对全体伤害生效；非 0 = 仅该技能的伤害受益。
     // 由施加方写入，DamagePipeline 在读取抗性时按当前伤害请求的 skill_id 过滤。
     int source_skill_id = 0;
+
+    // Type E 抗性"上限"压制 (技能7 心念灭抗 775)：处于撕裂中心的敌人对应元素
+    // 抗性上限被压制 3%...12% (每点 3%)。0 表示无压制；单位为绝对值小数 (如 0.12)，
+    // 与 CombatStats.resistances[] 同尺度，结算时从 RESISTANCE_MAX 中扣除。
+    // 由交付层写入，DamageMitigationService 结算时消费；本结构体不负责施加逻辑。
+    float resist_cap_suppression = 0.0f;
+    // 被压制的元素：Tag::None 表示全元素生效，否则仅对匹配的伤害元素生效
+    // (如 Tag::Cold / Tag::Lightning)。以 Tag 存储避免热路径字符串比较。
+    Tag resist_cap_element = Tag::None;
 };
 
 // Custom serialization for BuffEffect to handle entity
@@ -114,7 +123,9 @@ inline void to_json(nlohmann::json& j, const BuffEffect& b) {
         {"ailment_type", b.ailment_type},
         {"ailment_power", b.ailment_power},
         {"source_skill_id", b.source_skill_id},
-        {"kind", b.kind}
+        {"kind", b.kind},
+        {"resist_cap_suppression", b.resist_cap_suppression},
+        {"resist_cap_element", static_cast<uint64_t>(b.resist_cap_element)}
     };
     // source entity is not serialized here as it's runtime transient usually, 
     // or requires UUID mapping which complexifies simple struct serialization.
@@ -142,6 +153,12 @@ inline void from_json(const nlohmann::json& j, BuffEffect& b) {
     if (j.contains("source_skill_id")) j.at("source_skill_id").get_to(b.source_skill_id);
     // 可选字段：旧存档无此字段时默认 kind=None（无数值类别，热路径查找不命中）
     if (j.contains("kind")) j.at("kind").get_to(b.kind);
+    // 可选字段：旧存档无此字段时默认无抗性上限压制 (Type E 默认关闭；element 默认 None=全元素)
+    if (j.contains("resist_cap_suppression"))
+        j.at("resist_cap_suppression").get_to(b.resist_cap_suppression);
+    if (j.contains("resist_cap_element"))
+        b.resist_cap_element = static_cast<Tag>(
+            j.at("resist_cap_element").get<uint64_t>());
     b.source = entt::null;
 }
 
@@ -162,6 +179,9 @@ struct ActiveEffectsComponent {
                 effect.modifiers = new_effect.modifiers;
                 // 刷新时更新来源技能归属：同 id 效果通常由同一技能重施，取最新归属
                 effect.source_skill_id = new_effect.source_skill_id;
+                // Type E 抗性上限压制随刷新同步，避免重施后仍沿用旧的压制值/元素
+                effect.resist_cap_suppression = new_effect.resist_cap_suppression;
+                effect.resist_cap_element = new_effect.resist_cap_element;
                 
                 // Handle Stacking
                 if (effect.stacks < effect.max_stacks) {

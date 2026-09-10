@@ -201,13 +201,15 @@ inline CombatEvent CreateTakeDamage(
 }
 
 inline CombatEvent CreateOnKill(
-    entt::entity killer, entt::entity victim, float overkill = 0.0f
+    entt::entity killer, entt::entity victim, float overkill = 0.0f,
+    uint32_t skill_id = 0
 ) {
     CombatEvent evt;
     evt.type = CombatEventType::OnKill;
     evt.source = killer;
     evt.target = victim;
     evt.value = overkill;
+    evt.skill_id = skill_id; // 击杀来源技能ID (0=非技能/未知)，供 OnKill 规则按来源过滤
     return evt;
 }
 

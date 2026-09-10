@@ -18,7 +18,63 @@ float ClampMoreToMultiplier(float more) {
   return std::max(0.0f, 1.0f + more);
 }
 
+// DamageType -> 伤害元素 Tag 映射，供 Type E 抗性上限压制的元素归属过滤使用。
+// 整数 switch，无字符串构造/比较，满足战斗热路径要求 (code_standard §2.1/§7.2)。
+Tag ElementTagOf(DamageType type) {
+  switch (type) {
+  case DamageType::Physical:
+    return Tag::Physical;
+  case DamageType::Fire:
+    return Tag::Fire;
+  case DamageType::Cold:
+    return Tag::Cold;
+  case DamageType::Lightning:
+    return Tag::Lightning;
+  case DamageType::Poison:
+    return Tag::Poison;
+  case DamageType::Shadow:
+    return Tag::Shadow;
+  default:
+    return Tag::None;
+  }
+}
+
 } // namespace
+
+// Type E 抗性上限压制 (技能7 心念灭抗 775) 聚合量：
+// 与 ApplySkillScopedResistEffects 同构的 SkillOnly 过滤，但读取专用的
+// resist_cap_suppression 字段而非 StatModifier：
+//   - 仅统计 is_debuff 效果 (Type E 语义上必为减益)；
+//   - source_skill_id == 0 对全体伤害生效；!= 0 仅当 == 当前 skill_id 时生效；
+//   - resist_cap_element == Tag::None (全元素) 或 == 当前伤害元素时才计入；
+//   - 多个来源取 max 而非求和：上限压制是对抗性天花板的"收紧"，取最强压制
+//     最符合"上限"语义，可避免同一节点重复施加导致压制叠加、甚至令有效上限
+//     跌破 RESISTANCE_MIN；后续再以 max(RESISTANCE_MIN, ...) 兜底。
+// 单实体 (Apply) 与批处理 (CalculateBatch) 共用，定义于此、由 DamagePipeline 跨 TU 调用。
+float AggregateSkillScopedResistCapSuppression(entt::registry &registry,
+                                               entt::entity defender,
+                                               uint32_t skill_id,
+                                               DamageType type) {
+  if (!registry.valid(defender))
+    return 0.0f;
+  const auto *eff = registry.try_get<ActiveEffectsComponent>(defender);
+  if (eff == nullptr)
+    return 0.0f;
+  const Tag element_tag = ElementTagOf(type);
+  float suppression = 0.0f;
+  for (const auto &b : eff->effects) {
+    if (!b.is_debuff || b.resist_cap_suppression <= 0.0f)
+      continue;
+    if (b.source_skill_id != 0 &&
+        b.source_skill_id != static_cast<int>(skill_id))
+      continue;
+    if (b.resist_cap_element != Tag::None &&
+        b.resist_cap_element != element_tag)
+      continue;
+    suppression = std::max(suppression, b.resist_cap_suppression);
+  }
+  return suppression;
+}
 
 float DamageMitigationService::ApplySkillScopedResistEffects(
     entt::registry &registry, entt::entity defender, uint32_t skill_id,
@@ -132,7 +188,13 @@ float DamageMitigationService::Apply(
     }
     res += endgame.incoming_resistance_bonus;
     res -= endgame.outgoing_resistance_reduction;
-    res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
+    // Type E (技能7 心念灭抗 775)：抗性"上限"被动态压制。
+    // 有效上限 = max(下限, 上限 - 压制量)，确保扣除后不低于 RESISTANCE_MIN。
+    const float cap_suppression = AggregateSkillScopedResistCapSuppression(
+        registry, defender, skill_id, static_cast<DamageType>(type_idx));
+    const float effective_max =
+        std::max(RESISTANCE_MIN, RESISTANCE_MAX - cap_suppression);
+    res = std::clamp(res, RESISTANCE_MIN, effective_max);
   }
 
   damage_after_res *= (1.0f - res);

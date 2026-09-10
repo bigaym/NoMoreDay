@@ -1262,22 +1262,8 @@ void SkillSystem::Update(entt::registry &registry,
   // Update Flowing Thrust Phantom Shield (135 虚实相生: 离开残影区触发临时护盾)
   skills::UpdateFlowingThrustPhantomShield(registry, dt);
 
-  // Update Mind Blade (ID 7)
-  auto mind_blade_view =
-      registry.view<MindBladeComponent, MindBladeAI, Position>();
-  static thread_local std::vector<entt::entity> s_mb_to_destroy;
-  s_mb_to_destroy.clear();
-
-  for (auto entity : mind_blade_view) {
-    auto &mc = mind_blade_view.get<MindBladeComponent>(entity);
-    auto &ai = mind_blade_view.get<MindBladeAI>(entity);
-    if (!skills::MindBlade::Update(registry, entity, ai, mc, dt, grid)) {
-      s_mb_to_destroy.push_back(entity);
-    }
-  }
-  for (auto e : s_mb_to_destroy) {
-    registry.destroy(e);
-  }
+  // 技能7 已由 BeamChannelDeliverySystem 的 Part1 现代管线独占更新，
+  // 旧 MindBladeComponent / MindBladeAI 派发块随 WS3 一并移除。
 
   // Update Area Fields
   AreaFieldDeliverySystem::Update(registry, grid, dt);
@@ -2050,6 +2036,11 @@ void SkillSystem::HandleSkillInput(entt::registry &registry,
     if (chan->skill_id == slot.id) {
       chan->channel_timer = 0.25f; // Keep alive
       chan->target_pos = target_pos;
+      // 技能7 现代交付层：同步光束目标，供 Part1 BeamChannelComponent 分支读取
+      if (auto *beam = registry.try_get<BeamChannelComponent>(entity);
+          beam != nullptr && beam->skill_id == slot.id) {
+        beam->target_pos = target_pos;
+      }
       // Maybe handle ticking here if we want instant feedback?
       // No, update loop handles it.
       return;

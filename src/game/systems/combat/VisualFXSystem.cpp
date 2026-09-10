@@ -69,12 +69,20 @@ void VisualFXSystem::Initialize(entt::registry &registry) {
         if (evt.skill_id == 2) { // Rending Wave
           auto splash = InkEffectHelper::CreateInkSplash(p, 8, 15.0f, 150.0f);
           particleSys.EmitBatch(splash);
-        } else if (evt.skill_id == 7) { // Mind Blade
-          auto splash = InkEffectHelper::CreateInkSplash(p, 8, 15.0f, 150.0f);
+        } else if (evt.skill_id == 7) { // 心剑·无影：空间撕裂风格命中反馈
+          auto splash = InkEffectHelper::CreateInkSplash(p, 6, 12.0f, 120.0f);
           for (auto &part : splash) {
-            part.color = GOLD;
+            part.color = Color{150, 190, 255, 200};
             particleSys.Emit(part);
           }
+          for (int i = 0; i < 4; ++i) {
+            auto spark = InkEffectHelper::CreateSpark(
+                p, {static_cast<float>(GetRandomValue(-70, 70)),
+                    static_cast<float>(GetRandomValue(-70, 70))},
+                Color{210, 180, 255, 220}, 2.2f);
+            particleSys.Emit(spark);
+          }
+          RenderSystem::AddDistortionSource(p.x, p.y, 22.0f, 0.18f);
         }
         // General Hit (if no specific logic, or always?)
         else if (CombatEventFactory::GetReportedDamage(evt) > 0.0f) {
