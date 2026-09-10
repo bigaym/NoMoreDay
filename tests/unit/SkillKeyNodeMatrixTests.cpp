@@ -140,6 +140,9 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
             .max_stacks = 5,
             .is_debuff = true};
         vicEffects.AddOrRefresh(mark);
+      } else if (skill_id == 6u) {
+        registry.emplace<KilledTag>(target, caster);
+        registry.emplace<ExecutedTag>(target);
       }
 
       const auto before = registry.storage<SkillExecution>().size();
@@ -200,8 +203,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       entt::registry registry;
       const auto caster = sknm::CreateCaster(registry, 2000.0f);
       sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
-      if (skill_id == 3u || skill_id == 4u || skill_id == 5u) {
-        // 技能 3、4、5 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
+      if (skill_id == 3u || skill_id == 4u || skill_id == 5u || skill_id == 6u) {
+        // 技能 3、4、5、6 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
         sknm::ConfigureSpecialization(registry, caster, skill_id,
                                       {{order[0], 1}});
       } else {

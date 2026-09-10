@@ -221,7 +221,9 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
       // 515 万剑归阵: 位于剑阵内时，集中轰击该剑阵区域且剑阵持续时间判定暂停
       if (beam.skill_id == 5) {
         const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5u);
-        if (profile && (profile->delivery.feature_flags & 256) != 0) {
+        const bool has_515 = profile ? ((profile->delivery.feature_flags & 256) != 0)
+                                     : (GetSkill5Point(registry, entity, 515) > 0);
+        if (has_515) {
           auto arrayView = registry.view<SwordArrayComponent, Position>();
           for (auto arrayEnt : arrayView) {
             auto &array = arrayView.get<SwordArrayComponent>(arrayEnt);
@@ -230,6 +232,10 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
               if (Vector2Distance(beam.target_pos, {arrPos.x, arrPos.y}) <= array.radius) {
                 targetPos = {arrPos.x, arrPos.y};
                 array.duration += beam.tick_interval; // 暂停剑阵持续时间判定
+                array.total_duration += beam.tick_interval;
+                if (auto *field = registry.try_get<AreaFieldComponent>(arrayEnt)) {
+                  field->remaining_duration += beam.tick_interval;
+                }
                 break;
               }
             }

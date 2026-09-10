@@ -38,7 +38,7 @@ inline bool HasArrayFlags(entt::registry &registry) {
   }
   const auto ent = *view.begin();
   const auto &array = view.get<SwordArrayComponent>(ent);
-  return array.has_slow && array.has_execute && array.gain_intent_on_tick;
+  return array.has_execute && array.gain_intent_on_tick;
 }
 
 inline bool HasBoomerangProjectiles(entt::registry &registry, int min_count) {
@@ -252,6 +252,9 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
           .max_stacks = 5,
           .is_debuff = true};
       vicEffects.AddOrRefresh(mark);
+    } else if (skill_id == 6u) {
+      registry.emplace<KilledTag>(target, caster);
+      registry.emplace<ExecutedTag>(target);
     }
 
     const auto before = registry.storage<SkillExecution>().size();
@@ -310,6 +313,9 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
           .max_stacks = 5,
           .is_debuff = true};
       vicEffects.AddOrRefresh(mark);
+    } else if (skill_id == 6u) {
+      registry.emplace<KilledTag>(target, caster);
+      registry.emplace<ExecutedTag>(target);
     }
 
     const auto before = registry.storage<SkillExecution>().size();

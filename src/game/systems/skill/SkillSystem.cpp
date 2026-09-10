@@ -854,6 +854,20 @@ void SkillSystem::InitHooks() {
                 }
               }
 
+              if (node_id == 635) {
+                // 635 阵斩回响 (Array Echo): 仅当绝命法场处决敌人时触发
+                const bool isExecuted = registry.valid(evt.target) &&
+                    registry.all_of<ExecutedTag>(evt.target);
+                if (!isExecuted) {
+#if COMBAT_TELEMETRY_ENABLED
+                  recordTriggerBlocked(parent_depth);
+#endif
+                  LogGuardBlocked(kDiagScopePolicy, evt.skill_id, node_id, caster,
+                                  "target not executed");
+                  continue;
+                }
+              }
+
               const uint32_t trigger_skill_id =
                   node_contract->trigger.trigger_skill_id;
               if (trigger_skill_id == 0) {
@@ -1213,6 +1227,14 @@ void SkillSystem::Update(entt::registry &registry,
       if (auto *stats = registry.try_get<CombatStats>(entity)) {
         stats->mana = std::min(stats->max_mana, stats->mana + formation.mana_regen_per_sword * static_cast<float>(formation.current_swords) * dt);
       }
+    }
+  }
+
+  // Update Sword Array Owner Buff Cooldown (ID 6 multi-array deduplication)
+  for (auto ownerEnt : registry.view<SwordArrayOwnerBuffState>()) {
+    auto &st = registry.get<SwordArrayOwnerBuffState>(ownerEnt);
+    if (st.tick_cooldown > 0.0f) {
+      st.tick_cooldown = std::max(0.0f, st.tick_cooldown - dt);
     }
   }
 
@@ -1872,7 +1894,28 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
                              ? bakedProfile->effective_charges
                              : data->max_charges;
 
-  if (slot.current_charges <= 0) {
+  bool isSwordArrayRelocate = false;
+  if (slot.id == 6) {
+    const bool has675 = bakedProfile ? ((bakedProfile->delivery.feature_flags & 8388608) != 0)
+                                     : (specialized && specialized->allocated_points.contains(675));
+    if (has675) {
+      size_t activeCount = 0;
+      int maxArrays = 1;
+      if (bakedProfile ? ((bakedProfile->delivery.feature_flags & 16) != 0) : (specialized && specialized->allocated_points.contains(610))) maxArrays = 2;
+      if (bakedProfile ? ((bakedProfile->delivery.feature_flags & 32) != 0) : (specialized && specialized->allocated_points.contains(611))) maxArrays = 3;
+
+      for (auto arrEnt : registry.view<SwordArrayComponent>()) {
+        if (registry.get<SwordArrayComponent>(arrEnt).owner == entity) {
+          activeCount++;
+        }
+      }
+      if (activeCount > 0 && (slot.current_charges <= 0 || activeCount >= static_cast<size_t>(maxArrays))) {
+        isSwordArrayRelocate = true;
+      }
+    }
+  }
+
+  if (slot.current_charges <= 0 && !isSwordArrayRelocate) {
     LOG_TRACE("TryCast: Skill {} has no charges ({} / {})", data->name_key,
               slot.current_charges, maxCharges);
     return false;
@@ -1885,6 +1928,9 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
                           100.0f
                     : 0.0f;
   float raw_mana_cost = bakedProfile ? bakedProfile->effective_mana_cost : data->mana_cost;
+  if (isSwordArrayRelocate) {
+    raw_mana_cost *= 0.5f; // 675: 消耗一半法力
+  }
   float base_cost = raw_mana_cost * (1.0f - std::min(0.9f, rcr));
 
   const auto shadowHook = CheckPreCastShadowDuplication(registry, entity, data, base_cost, stats);
@@ -1911,19 +1957,21 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     ExecutePreCastShadowDuplication(registry, entity, slot.id, target_pos, stats);
   }
 
-  if (slot.current_charges >= maxCharges) {
-    float cdr = StatsSystem::GetStatWithTags(registry, entity,
-                                             StatType::CooldownReduction,
-                                             data->tags, slot.id) /
-                100.0f;
-    float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
-    // Optimization: For Channeled skills with very long cooldowns (like 60s),
-    // we might NOT want to start cooldown here but when channeling ends?
-    // But preventing abuse is safer.
-    float raw_cooldown = bakedProfile ? bakedProfile->effective_cooldown : data->cooldown;
-    slot.cooldown = (raw_cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
+  if (!isSwordArrayRelocate) {
+    if (slot.current_charges >= maxCharges) {
+      float cdr = StatsSystem::GetStatWithTags(registry, entity,
+                                               StatType::CooldownReduction,
+                                               data->tags, slot.id) /
+                  100.0f;
+      float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
+      // Optimization: For Channeled skills with very long cooldowns (like 60s),
+      // we might NOT want to start cooldown here but when channeling ends?
+      // But preventing abuse is safer.
+      float raw_cooldown = bakedProfile ? bakedProfile->effective_cooldown : data->cooldown;
+      slot.cooldown = (raw_cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
+    }
+    slot.current_charges--;
   }
-  slot.current_charges--;
 
   const uint64_t cast_id = SkillSystem::NextCastId();
 

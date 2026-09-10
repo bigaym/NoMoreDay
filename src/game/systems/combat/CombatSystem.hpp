@@ -38,5 +38,18 @@ public:
      * @param showVFX 是否显示受击特效粒子。
      * @return 如果实体死亡（生命值 <= 0）则返回 true，否则返回 false。
      */
-    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false, bool showVFX = true, DamageApplyResult* applyResult = nullptr);
+static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false, bool showVFX = true, DamageApplyResult* applyResult = nullptr);
+
+    /**
+     * @brief 统一的敌人死亡处理链：打 KilledTag、派发 OnKill / OnOverkill、
+     *        触发词缀死亡效果 (MonsterAffixSystem::OnEnemyDeath) 并累加玩家击杀统计。
+     *        正常伤害致死与处决致死 (AreaFieldDeliverySystem 绝命法场) 共用。
+     * @param target 生命值已置 0 的敌人实体 (非 PlayerTag)。
+     * @param attacker 击杀者，仅当其携带 PlayerStats 时累加 killCount。
+     * @param overkill 溢出伤害量，仅用于 OnOverkill 事件 (处决路径传 0)。
+     * @param rawDamage 本次致死伤害量，仅用于 OnOverkill 事件。
+     */
+    static void KillEnemy(entt::registry& registry, entt::entity target,
+                          entt::entity attacker, float overkill = 0.0f,
+                          float rawDamage = 0.0f);
 };

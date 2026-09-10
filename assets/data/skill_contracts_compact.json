@@ -238,31 +238,42 @@
       "skill_id": 6,
       "min_nodes": 28,
       "max_nodes": 28,
-      "max_transmuters": 2,
+      "max_transmuters": 1,
       "max_triggers": 1,
       "has_sword_intent_node": true,
       "has_synergy_node": true,
       "transmuter_node_ids": [
         670,
-        671
+        672
       ],
       "synergy_node_ids": [
-        630
+        614
       ],
       "sword_intent_node_ids": [
         652
       ],
+      "keystone_node_ids": [
+        613,
+        633,
+        634,
+        653
+      ],
+      "passive_node_ids": [
+        674
+      ],
+      "keystone_exclusion_groups": {
+        "670": 1,
+        "672": 1
+      },
       "resist_models": {
-        "611": "TypeB_Shred",
-        "672": "TypeB_Shred"
+        "674": "TypeB_Shred"
       },
       "scope_policies": {
-        "611": "SkillOnly",
-        "672": "SkillOnly"
+        "674": "SkillOnly"
       },
       "trigger_nodes": [
         {
-          "node_id": 633,
+          "node_id": 635,
           "trigger_skill_id": 2,
           "effectiveness": 0.5,
           "internal_cooldown": 3.0,

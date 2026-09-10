@@ -27,6 +27,13 @@ enum class BuffId : uint8_t {
   PhantomFlashShadowHide,   // "phantom_flash_shadow_hide"
   SwordArraySlow,           // "array_slow"
   SwordArrayArmorShred,     // "array_armor_shred"
+  // 技能6 剑阵专属增益/减益（M-B 枚举化：原实现以字符串字面量直连，
+  // 名称保持与历史字面量逐字符一致以兼容存档与既有断言）
+  SwordArrayWeaken,         // "SwordArrayWeaken"（632 虚弱领域）
+  SwordArrayConnectionSlow, // "SwordArrayConnectionSlow"（613 千丝万缕连线减速）
+  SwordArrayCore,           // "SwordArrayCore"（650 阵眼全局增伤）
+  SwordArrayCDR,            // "SwordArrayCDR"（654 剑神领域 CDR）
+  SwordArrayCorrosion,      // "SwordArrayCorrosion"（674 法阵侵蚀降抗）
   HeavenlySwordFieldResist, // "heavenly_sword_field_resist"
   HeavenlySwordMeteorCore,  // "heavenly_sword_meteor_core"
   FlowingThrustElementBody, // "flowing_thrust_element_body"
@@ -48,6 +55,11 @@ inline constexpr std::array<std::string_view,
         "phantom_flash_shadow_hide", // PhantomFlashShadowHide
         "array_slow",                // SwordArraySlow
         "array_armor_shred",         // SwordArrayArmorShred
+        "SwordArrayWeaken",          // SwordArrayWeaken（632）
+        "SwordArrayConnectionSlow",  // SwordArrayConnectionSlow（613）
+        "SwordArrayCore",            // SwordArrayCore（650）
+        "SwordArrayCDR",             // SwordArrayCDR（654）
+        "SwordArrayCorrosion",       // SwordArrayCorrosion（674）
         "heavenly_sword_field_resist", // HeavenlySwordFieldResist
         "heavenly_sword_meteor_core",  // HeavenlySwordMeteorCore
         "flowing_thrust_element_body", // FlowingThrustElementBody

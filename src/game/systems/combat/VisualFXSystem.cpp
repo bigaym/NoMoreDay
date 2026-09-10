@@ -193,9 +193,10 @@ void VisualFXSystem::Update(entt::registry &registry, float dt) {
     const auto &pos = array_view.get<Position>(entity);
 
     // Fade in / out based on duration (from SwordArray :: Update we see duration decreases to 0)
-    // Assume max duration was 5.0f. Use simple crossfade based on remaining time.
     const float remaining = arrayInfo.duration;
-    const float fadeIn = std::clamp((5.0f - remaining) / 0.3f, 0.0f, 1.0f);
+    const float total = (arrayInfo.total_duration > 0.0f) ? std::max(arrayInfo.total_duration, remaining) : std::max(5.0f, remaining);
+    const float elapsed = std::max(0.0f, total - remaining);
+    const float fadeIn = std::clamp(elapsed / 0.3f, 0.0f, 1.0f);
     const float fadeOut = std::clamp(remaining / 0.4f, 0.0f, 1.0f);
     const float visibility = std::min(fadeIn, fadeOut);
     

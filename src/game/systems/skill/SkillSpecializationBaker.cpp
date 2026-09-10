@@ -84,9 +84,9 @@ void SkillSpecializationBaker::Bake(
     break;
   case 6: // 剑阵·诛仙
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::AreaField);
-    out_profile.area_radius = 120.0f;
-    del.duration = 6.0f;
-    del.sub_interval = 0.3f;
+    out_profile.area_radius = 150.0f;
+    del.duration = 5.0f;
+    del.sub_interval = 0.5f;
     break;
   case 7: // 心剑·无影
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BeamChannel);
@@ -154,6 +154,13 @@ void SkillSpecializationBaker::Bake(
       } else if ((out_profile.delivery.feature_flags & 1) != 0) {
         // 311 无尽剑匣：上限翻倍
         out_profile.projectile_count *= 2;
+      }
+    } else if (skill_id == 6) {
+      // 互斥安全守卫: 焚天烈焰阵 (670) 与 九幽雷池 (672) 互斥
+      if ((out_profile.delivery.feature_flags & 262144) && (out_profile.delivery.feature_flags & 1048576)) {
+        out_profile.delivery.feature_flags &= ~1048576; // 保留优先转质 670，剔除 672
+        out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Lightning) | Tag::Fire;
+        out_profile.delivery.sub_interval = 0.5f;
       }
     }
   }
@@ -641,18 +648,84 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     break;
   }
 
-  case 6: // 剑阵·诛仙
-    if (node_id == 630) {
-      del.feature_flags |= 1; // 缓速领域
-    } else if (node_id == 631) {
-      del.feature_flags |= 2; // 破甲削抗
-    } else if (node_id == 633) {
-      out_profile.more_damage_mult *= 1.25f; // 斩杀增伤
+  case 6: { // 剑阵·诛仙
+    const auto &mech = data::SkillMechanicsRegistry::Get();
+    // 基础核心 (Base Tier)
+    if (node_id == 600) { // 灵气流转: 持续时间 +0.5s/点
+      del.duration += mech.GetFloat(6, 600, "duration_per_point", 0.5f) * static_cast<float>(points);
+    } else if (node_id == 601) { // 虚空法网: 基础半径增加 15%..60%
+      out_profile.area_radius *= (1.0f + mech.GetFloat(6, 601, "radius_pct_per_point", 0.15f) * static_cast<float>(points));
+    } else if (node_id == 602) { // 极刑: 阵内物理伤害增加 10%..50%
+      out_profile.more_damage_mult *= (1.0f + mech.GetFloat(6, 602, "phys_damage_pct_per_point", 0.10f) * static_cast<float>(points));
+    } else if (node_id == 603) { // 阵基稳固: 法力消耗降低 5%..20%，施法范围 +10%..40%
+      out_profile.effective_mana_cost *= (1.0f - mech.GetFloat(6, 603, "mana_reduction_pct_per_point", 0.05f) * static_cast<float>(points));
+      del.range = (del.range > 0.0f ? del.range : 400.0f) * (1.0f + mech.GetFloat(6, 603, "cast_range_pct_per_point", 0.10f) * static_cast<float>(points));
+    }
+    // 分支 A: 多阵联动与共鸣 (Link & Multi-Array)
+    else if (node_id == 610) { // 双生剑阵: 数量上限 +1，单个伤害 -15%
+      out_profile.more_damage_mult *= (1.0f - mech.GetFloat(6, 610, "damage_reduction_pct", 0.15f));
+      del.feature_flags |= 16;
+    } else if (node_id == 611) { // 三才阵: 数量上限再 +1，法力消耗 +30%
+      out_profile.effective_mana_cost *= (1.0f + mech.GetFloat(6, 611, "mana_increase_pct", 0.30f));
+      del.feature_flags |= 32;
+    } else if (node_id == 612) { // 剑气共鸣: 重叠 More 20%..60%
+      del.feature_flags |= 64;
+    } else if (node_id == 613) { // 千丝万缕 (Keystone): 能量连线
+      del.feature_flags |= 128;
+    } else if (node_id == 614) { // 流云穿阵 (Synergy): 位移引爆 150%
+      del.feature_flags |= 256;
+    } else if (node_id == 615) { // 御剑阵威: 御剑步状态频率 +20%..60%
+      del.feature_flags |= 512;
+    }
+    // 分支 B: 禁魔领域与禁锢 (Debuff & Execution)
+    else if (node_id == 630) { // 迟缓剑压: 减速 10%..40%
+      del.feature_flags |= 1;
+    } else if (node_id == 631) { // 破甲剑意: 每次判定 50%..200% 施加护甲击碎
+      del.feature_flags |= 2;
+    } else if (node_id == 632) { // 虚弱领域: 敌人伤害 Less 6%..18%
+      del.feature_flags |= 1024;
+    } else if (node_id == 633) { // 绝命法场 (Keystone): 处决 <12% 非Boss敌人，对Boss伤害 More 20%
       del.feature_flags |= 4;
-    } else if (node_id == 652) {
-      del.feature_flags |= 8; // 神识归一 剑意回复
+    } else if (node_id == 634) { // 剑阵牢笼 (Keystone): 实体剑墙，半径固定缩小 30%
+      out_profile.area_radius *= (1.0f - mech.GetFloat(6, 634, "radius_penalty_pct", 0.30f));
+      del.feature_flags |= 2048;
+    } else if (node_id == 635) { // 阵斩回响 (Trigger): 处决触发裂空斩
+      del.feature_flags |= 4096;
+    }
+    // 分支 C: 阵眼核心与自身增幅 (Buff & Focus)
+    else if (node_id == 650) { // 阵眼: 站在阵内全局伤害 +15%..60%
+      del.feature_flags |= 8192;
+    } else if (node_id == 651) { // 灵力泉涌: 处于阵内每秒回蓝 2..8
+      del.feature_flags |= 16384;
+    } else if (node_id == 652) { // 意念合一: 阵内每秒 33%..100% 几率自然生成 1 层剑意
+      del.feature_flags |= 8;
+    } else if (node_id == 653) { // 随身剑垒 (Keystone): 随身光环，伤害降低 50%
+      out_profile.more_damage_mult *= (1.0f - mech.GetFloat(6, 653, "damage_reduction_pct", 0.50f));
+      del.feature_flags |= 32768;
+    } else if (node_id == 654) { // 剑神领域: 光环覆盖期间 CDR +10%..30%
+      del.feature_flags |= 65536;
+    } else if (node_id == 655) { // 法阵回护: 阵内每秒智力 50%..150% 护盾
+      del.feature_flags |= 131072;
+    }
+    // 分支 D: 灵根元素阵地 (Elemental Zone)
+    else if (node_id == 670) { // 焚天烈焰阵 (Transmuter): 转火 [Fire]，熔岩必附烧灼
+      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Fire;
+      del.feature_flags |= 262144;
+    } else if (node_id == 671) { // 炼狱余火: 点燃伤害 +20%..60%，离阵燃烧 3s
+      del.feature_flags |= 524288;
+    } else if (node_id == 672) { // 九幽雷池 (Transmuter): 转雷 [Lightning]，每 1s 随机落雷
+      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Lightning;
+      del.sub_interval = mech.GetFloat(6, 672, "lightning_interval", 1.0f);
+      del.feature_flags |= 1048576;
+    } else if (node_id == 673) { // 连珠落雷: 目标 +1..3，电弧
+      del.feature_flags |= 2097152;
+    } else if (node_id == 674) { // 法阵侵蚀: 每秒 1..4 层降抗 (TypeB)
+      del.feature_flags |= 4194304;
+    } else if (node_id == 675) { // 移形换阵: 重按挪阵
+      del.feature_flags |= 8388608;
     }
     break;
+  }
 
   case 7: // 心剑·无影
     if (node_id == 713) {

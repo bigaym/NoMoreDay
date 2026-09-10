@@ -147,8 +147,9 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
     }
 
     const float moveSpeed = isGiant ? 8.0f : 12.0f;
-    pos.x += (targetX - pos.x) * moveSpeed * dt;
-    pos.y += (targetY - pos.y) * moveSpeed * dt;
+    const float moveFactor = std::min(1.0f, moveSpeed * dt);
+    pos.x += (targetX - pos.x) * moveFactor;
+    pos.y += (targetY - pos.y) * moveFactor;
 
     float effectiveDt = dt;
     if (formation && formation->sword_step_haste > 0.0f) {
@@ -166,7 +167,7 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
         const auto &arr = arrayView.get<SwordArrayComponent>(arrEnt);
         if (arr.owner == summon.owner) {
           const auto &arrPos = arrayView.get<Position>(arrEnt);
-          const float d2 = Vector2DistanceSqr({ownerPos->x, ownerPos->y}, {arrPos.x, arrPos.y});
+          const float d2 = Vector2DistanceSqr({pos.x, pos.y}, {arrPos.x, arrPos.y});
           if (d2 <= arr.radius * arr.radius) {
             effectiveDt *= 1.50f;
             break;

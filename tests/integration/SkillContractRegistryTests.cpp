@@ -241,7 +241,7 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
   registry.LoadFromJson("assets/data/skills.json");
 
   const std::array<uint32_t, 9> expected_trigger_nodes = {
-      134, 254, 335, 452, 513, 633, 713, 831, 951};
+      134, 254, 335, 452, 513, 635, 713, 831, 951};
 
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     CAPTURE(skill_id);
@@ -255,9 +255,9 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
     CHECK(tree->nodes.size() <= contract->max_nodes);
     CHECK(contract->min_nodes <= contract->max_nodes);
     CHECK(contract->max_triggers == 1);
-    // 技能 3（灵剑决）、技能 4（剑气护体）、技能 5（万剑归宗）互斥收束为 1
+    // 技能 3（灵剑决）、技能 4（剑气护体）、技能 5（万剑归宗）、技能 6（剑阵·诛仙）互斥收束为 1
     CHECK(contract->max_transmuters ==
-          ((skill_id == 3 || skill_id == 4 || skill_id == 5) ? 1 : 2));
+          ((skill_id == 3 || skill_id == 4 || skill_id == 5 || skill_id == 6) ? 1 : 2));
 
     int trigger_count = 0;
     int synergy_count = 0;

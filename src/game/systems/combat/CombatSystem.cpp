@@ -498,6 +498,36 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
 #endif
 }
 
+// 统一的敌人死亡处理链：正常伤害致死与处决致死 (绝命法场) 共用同一语义。
+// 调用方需保证 target 生命值已置 0、且不含 PlayerTag（玩家死亡走 ApplyDamage 内的独立流程）。
+void CombatSystem::KillEnemy(entt::registry &registry, entt::entity target,
+                             entt::entity attacker, float overkill,
+                             float rawDamage) {
+  registry.emplace_or_replace<KilledTag>(target, attacker);
+
+  // --- Event System: OnKill ---
+  CombatEvent kill_evt =
+      CombatEventFactory::CreateOnKill(attacker, target, overkill);
+  CombatEventDispatcher::Dispatch(registry, kill_evt);
+
+  // --- Monster Affix System: OnDeath ---
+  NoMoreDay::MonsterAffixSystem::OnEnemyDeath(registry, target);
+
+  // --- Event System: OnOverkill (if significant overkill damage) ---
+  if (overkill > 1.0f) {
+    CombatEvent overkill_evt = CombatEventFactory::CreateOnOverkill(
+        attacker, target, overkill, rawDamage);
+    CombatEventDispatcher::Dispatch(registry, overkill_evt);
+  }
+
+  // 处理击杀奖励 (Moved relevant parts to XPAwardingSystem)
+  // Note: Actual item dropping is handled by DropSystem
+  if (registry.valid(attacker) && registry.all_of<PlayerStats>(attacker)) {
+    auto &playerStats = registry.get<PlayerStats>(attacker);
+    playerStats.killCount++;
+  }
+}
+
 bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
                                float amount, entt::entity attacker, bool isCrit,
                                bool showVFX,
@@ -725,29 +755,7 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
       return true;
     }
 
-    registry.emplace<KilledTag>(target, attacker);
-
-    // --- Event System: OnKill ---
-    CombatEvent kill_evt =
-        CombatEventFactory::CreateOnKill(attacker, target, overkill);
-    CombatEventDispatcher::Dispatch(registry, kill_evt);
-
-    // --- Monster Affix System: OnDeath ---
-    NoMoreDay::MonsterAffixSystem::OnEnemyDeath(registry, target);
-
-    // --- Event System: OnOverkill (if significant overkill damage) ---
-    if (overkill > 1.0f) {
-      CombatEvent overkill_evt = CombatEventFactory::CreateOnOverkill(
-          attacker, target, overkill, amount);
-      CombatEventDispatcher::Dispatch(registry, overkill_evt);
-    }
-
-    // 处理击杀奖励 (Moved relevant parts to XPAwardingSystem)
-    // Note: Actual item dropping is handled by DropSystem
-    if (registry.valid(attacker) && registry.all_of<PlayerStats>(attacker)) {
-      auto &playerStats = registry.get<PlayerStats>(attacker);
-      playerStats.killCount++;
-    }
+    CombatSystem::KillEnemy(registry, target, attacker, overkill, amount);
 
     commitApplyResult(healthDamageApplied, barrierDamage, false);
     return true;

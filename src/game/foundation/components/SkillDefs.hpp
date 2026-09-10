@@ -1078,9 +1078,11 @@ struct BladeFormationComponent {
 
 struct SwordArrayComponent {
   float duration = 5.0f;
+  float total_duration = 5.0f;
   float radius = 150.0f;
   float damage_interval = 0.5f;
   float damage_timer = 0.0f;
+  float buff_timer = 0.0f;
   entt::entity owner = entt::null;
   bool is_empowered = false;
   uint64_t cast_id = 0;
@@ -1090,11 +1092,62 @@ struct SwordArrayComponent {
 
   // Talent Flags (contract-aligned key nodes)
   bool has_slow = false;             // Talent 630
-  bool has_armor_shred = false;      // Talent 631 / 671
+  float slow_magnitude = 0.30f;      // Talent 630 (10%..40%)
+  float slow_duration = 2.0f;        // Talent 630
+  bool has_armor_shred = false;      // Talent 631
+  float armor_shred_chance = 0.50f;  // Talent 631 (50%..200%)
+  float shred_duration = 4.0f;       // Talent 631
+  float shred_armor_per_stack = 10.0f;// Talent 631
+  int shred_max_stacks = 10;         // Talent 631
   bool has_execute = false;          // Talent 633
+  float execute_health_threshold_ratio = 0.12f; // Talent 633 (12% per design)
+  float boss_more_damage = 1.0f;     // Talent 633 (+20% for Boss)
+  float damage_more_mult = 1.0f;     // 从烘焙 profile 继承的总增伤乘数，供 613/614 等硬编码效果力消费，与 650 主伤害路径一致
   bool gain_intent_on_tick = false;  // Talent 652
-  float execute_health_threshold_ratio = 0.15f;
-  float execute_damage_max_health_ratio = 0.10f;
+  float intent_gen_chance = 0.333f;  // Talent 652 (33%..100%)
+
+  // Branch A
+  int max_arrays = 1;                // Base: 1, 610: +1, 611: +1
+  float resonance_more_mult = 1.0f;  // Talent 612
+  bool has_chain_connection = false; // Talent 613 (千丝万缕)
+  bool has_dash_detonation = false;  // Talent 614 (流云穿阵)
+  float sword_step_frequency_bonus = 0.0f; // Talent 615
+
+  // Branch B
+  float weaken_less_damage = 0.0f;   // Talent 632 (6%..18% Less)
+  bool has_cage = false;             // Talent 634 (剑阵牢笼)
+
+  // Branch C
+  float core_buff_more_damage = 0.0f;// Talent 650 (15%..60% More)
+  float mana_regen_per_sec = 0.0f;   // Talent 651 (2..8/s)
+  bool is_mobile_aura = false;       // Talent 653 (随身剑垒)
+  float cdr_buff = 0.0f;             // Talent 654 (10%..30%)
+  float ward_int_mult_per_sec = 0.0f;// Talent 655 (50%..150% Int)
+
+  // Branch D
+  bool is_fire_field = false;        // Talent 670
+  int burn_stacks = 2;               // Talent 670
+  float burn_duration = 3.0f;        // Talent 670
+  float base_ignite_magnitude = 15.0f; // Talent 670
+  float ignite_more_damage = 0.0f;   // Talent 671
+  bool is_lightning_pool = false;    // Talent 672
+  int lightning_targets = 2;         // Talent 672 (2-3), Talent 673 (+1..3)
+  bool has_chain_lightning = false;  // Talent 673
+  float chain_lightning_damage_pct = 0.50f; // Talent 673
+  float corrosion_stacks_per_sec = 0.0f; // Talent 674
+  float corrosion_resist_per_stack = 2.0f; // Talent 674
+  int corrosion_max_stacks = 10;     // Talent 674
+  float corrosion_linger_duration = 3.0f; // Talent 674
+  bool allow_relocate = false;       // Talent 675
+  Tag effective_tag = Tag::Physical;
+};
+
+// 标记目标被技能处决斩杀 (例如 633 绝命法场处决)
+struct ExecutedTag {};
+
+// 剑阵拥有者增益节拍状态 (避免多阵重叠导致每秒增益重复结算)
+struct SwordArrayOwnerBuffState {
+  float tick_cooldown = 0.0f;
 };
 
 /**

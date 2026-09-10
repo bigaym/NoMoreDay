@@ -497,5 +497,111 @@
     "575": {
       "ailment_chance_pct_per_point": 0.30
     }
+  },
+  "6": {
+    "600": {
+      "duration_per_point": 0.5
+    },
+    "601": {
+      "radius_pct_per_point": 0.15
+    },
+    "602": {
+      "phys_damage_pct_per_point": 0.10
+    },
+    "603": {
+      "mana_reduction_pct_per_point": 0.05,
+      "cast_range_pct_per_point": 0.10
+    },
+    "610": {
+      "max_arrays_bonus": 1,
+      "damage_reduction_pct": 0.15
+    },
+    "611": {
+      "max_arrays_bonus": 1,
+      "mana_increase_pct": 0.30
+    },
+    "612": {
+      "resonance_more_per_point": 0.20
+    },
+    "613": {
+      "chain_slow_magnitude": 0.50
+    },
+    "614": {
+      "dash_detonation_damage_pct": 1.50
+    },
+    "615": {
+      "freq_bonus_per_point": 0.20
+    },
+    "630": {
+      "slow_pct_per_point": 0.10,
+      "slow_duration": 2.0
+    },
+    "631": {
+      "shred_chance_per_point": 0.50,
+      "shred_duration": 4.0,
+      "shred_armor_per_stack": 10.0,
+      "shred_max_stacks": 10.0
+    },
+    "632": {
+      "weaken_less_per_point": 0.06
+    },
+    "633": {
+      "execute_threshold_ratio": 0.12,
+      "boss_more_damage_pct": 0.20
+    },
+    "634": {
+      "radius_penalty_pct": 0.30
+    },
+    "635": {
+      "echo_skill_id": 2,
+      "echo_effectiveness": 0.50,
+      "echo_icd": 3.0
+    },
+    "650": {
+      "global_damage_more_per_point": 0.15
+    },
+    "651": {
+      "mana_regen_per_point": 2.0
+    },
+    "652": {
+      "intent_chance_per_point": 0.333333
+    },
+    "653": {
+      "damage_reduction_pct": 0.50
+    },
+    "654": {
+      "cdr_pct_per_point": 0.10
+    },
+    "655": {
+      "ward_int_pct_per_point": 0.50
+    },
+    "670": {
+      "burn_stacks": 2,
+      "burn_duration": 3.0,
+      "base_ignite_magnitude": 15.0
+    },
+    "671": {
+      "ignite_more_per_point": 0.20,
+      "linger_burn_duration": 3.0
+    },
+    "672": {
+      "lightning_interval": 1.0,
+      "base_targets": 2,
+      "strike_damage_mult": 2.5
+    },
+    "673": {
+      "targets_per_point": 1,
+      "chain_damage_pct": 0.50
+    },
+    "674": {
+      "shred_per_stack": 2.0,
+      "max_stacks": 10.0,
+      "stacks_per_second_per_point": 1.0,
+      "debuff_linger": 3.0
+    },
+    "675": {
+      "relocate_mana_ratio": 0.50,
+      "reset_duration_ratio": 0.50
+    }
   }
 }

@@ -445,8 +445,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(array.has_slow);
     CHECK(array.has_execute);
     CHECK(array.gain_intent_on_tick);
-    CHECK(array.execute_health_threshold_ratio == doctest::Approx(0.15f));
-    CHECK(array.execute_damage_max_health_ratio == doctest::Approx(0.10f));
+    CHECK(array.execute_health_threshold_ratio == doctest::Approx(0.12f));
   }
 
   SUBCASE("Skill 9 key nodes set PhantomFlash runtime fields") {
@@ -925,7 +924,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
       {3u, 335u},
       {4u, 452u},
       {5u, 513u},
-      {6u, 633u},
+      {6u, 635u},
       {7u, 713u},
       {8u, 831u},
       {9u, 951u},
@@ -961,6 +960,10 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
         .is_debuff = true
       };
       vicEffects.AddOrRefresh(mark);
+    } else if (skill_id == 6u) {
+      // 635 阵斩回响要求目标被绝命法场处决
+      registry.emplace<KilledTag>(target, caster);
+      registry.emplace<ExecutedTag>(target);
     }
 
     const auto before = registry.storage<SkillExecution>().size();
