@@ -6,6 +6,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
@@ -323,19 +324,19 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 8;
     active.specialized_slots[0].allocated_points[870] = 1;
-    active.specialized_slots[0].allocated_points[871] = 1;
+    active.specialized_slots[0].allocated_points[872] = 1;
 
     auto *tree = const_cast<SkillTreeDefinition *>(SkillRegistry::Get().GetSkillTree(8));
     REQUIRE(tree != nullptr);
     auto it870 = tree->nodes.find(870);
-    auto it871 = tree->nodes.find(871);
+    auto it872 = tree->nodes.find(872);
     REQUIRE(it870 != tree->nodes.end());
-    REQUIRE(it871 != tree->nodes.end());
+    REQUIRE(it872 != tree->nodes.end());
 
     const Tag old870 = it870->second.add_tags;
-    const Tag old871 = it871->second.add_tags;
+    const Tag old872 = it872->second.add_tags;
     it870->second.add_tags = Tag::Fire;
-    it871->second.add_tags = Tag::Cold;
+    it872->second.add_tags = Tag::Cold;
 
     auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
     runtime.active_transmuter_node_by_skill[8] = 870;
@@ -344,7 +345,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     CHECK(HasTag(tags, Tag::Fire));
     CHECK_FALSE(HasTag(tags, Tag::Cold));
 
-    runtime.active_transmuter_node_by_skill[8] = 871;
+    runtime.active_transmuter_node_by_skill[8] = 872;
     tags = SkillSystem::GetEffectiveSkillTags(registry, player, 8);
     CHECK_FALSE(HasTag(tags, Tag::Fire));
     CHECK(HasTag(tags, Tag::Cold));
@@ -355,7 +356,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     CHECK_FALSE(HasTag(tags, Tag::Cold));
 
     it870->second.add_tags = old870;
-    it871->second.add_tags = old871;
+    it872->second.add_tags = old872;
   }
 }
 
@@ -926,7 +927,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
       {5u, 513u},
       {6u, 635u},
       {7u, 714u},
-      {8u, 831u},
+      {8u, 855u},
       {9u, 951u},
   }};
 
@@ -964,11 +965,16 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
       // 635 阵斩回响要求目标被绝命法场处决
       registry.emplace<KilledTag>(target, caster);
       registry.emplace<ExecutedTag>(target);
+    } else if (skill_id == 8u) {
+      // 855 巨剑共鸣运行时要求施法者已专精技能3 的 330 巨剑降临
+      test::skill_keynode_matrix::ConfigureSpecialization(
+          registry, caster, 3u, {{330u, 1}}, /*specialized_slot=*/1);
     }
 
     const auto before = registry.storage<SkillExecution>().size();
-    // 技能 3 的 335 规则 requires_crit=true，仅暴击命中事件触发；其余技能普通命中即可
-    const bool requires_crit = (skill_id == 3u);
+    // 技能 3 的 335、技能 8 的 855 规则 requires_crit=true，仅暴击命中触发；
+    // 其余技能普通命中即可
+    const bool requires_crit = (skill_id == 3u || skill_id == 8u);
     test::skill_keynode_matrix::DispatchSkillHit(
         registry, caster, target, skill_id,
         static_cast<uint64_t>(9900 + skill_id), Tag::Hit | Tag::Melee,
@@ -981,14 +987,69 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
     REQUIRE(runtime != nullptr);
     CHECK(runtime->trigger_cooldowns.contains(trigger_node));
 
-    if (skill_id == 3u) {
-      // 335 巨剑裂空：契约 requires_crit=true（仅暴击命中事件触发）
+    if (skill_id == 3u || skill_id == 8u) {
+      // 335 巨剑裂空 / 855 巨剑共鸣：契约 requires_crit=true（仅暴击命中触发）
       const auto *node_contract =
           skill_registry.GetNodeContract(skill_id, trigger_node);
       REQUIRE(node_contract != nullptr);
       CHECK(node_contract->trigger.requires_crit);
     }
   }
+}
+
+// 855 巨剑共鸣的 ProcEngine 前置门控: 施法者必须在技能3 点出 330 巨剑降临，
+// 且命中事件为暴击，规则才允许触发。
+TEST_CASE("[Unit] SkillBehaviorGuard - 855 requires skill3 node 330 and crit") {
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+
+  auto runScenario = [](bool allocateSourceNode, bool isCrit,
+                        uint32_t source_skill_id = 8u) {
+    entt::registry registry;
+    CombatEventDispatcher::Clear();
+    SkillSystem::ShutdownHooks();
+    SkillSystem::InitHooks();
+
+    const auto caster =
+        test::skill_keynode_matrix::CreateCaster(registry, 800.0f);
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry);
+
+    // 构造 855 的 ProcEngine 规则（等价 SyncTriggerRules 产物 + 来源节点门控）
+    auto &triggers = registry.get_or_emplace<TriggerRuleComponent>(caster);
+    TriggerRule rule;
+    rule.rule_id = 855u;
+    rule.listen_event = CombatEventType::OnSkillHit;
+    rule.cast_skill_id = 3u;
+    rule.effectiveness = 0.5f;
+    rule.internal_cooldown = 3.0f;
+    rule.requires_crit = true;
+    rule.required_skill_id = 8u;
+    rule.required_source_node_id = 330u;
+    rule.required_source_skill_id = 3u;
+    rule.base_chance = 1.0f;
+    rule.use_proc_scaling = false;
+    REQUIRE(triggers.AddRule(rule));
+
+    if (allocateSourceNode) {
+      test::skill_keynode_matrix::ConfigureSpecialization(
+          registry, caster, 3u, {{330u, 1}}, /*specialized_slot=*/1);
+    }
+
+    const auto before = registry.storage<SkillExecution>().size();
+    test::skill_keynode_matrix::DispatchSkillHit(
+        registry, caster, target, source_skill_id, 8550u, Tag::Hit | Tag::Melee,
+        isCrit);
+    return registry.storage<SkillExecution>().size() > before;
+  };
+
+  // 未点出 330：即使暴击也不触发（前置节点校验拦截）
+  CHECK_FALSE(runScenario(false, true));
+  // 已点出 330：非暴击不触发（requires_crit 拦截）
+  CHECK_FALSE(runScenario(true, false));
+  // 已点出 330 且暴击：触发
+  CHECK(runScenario(true, true));
+  // 其它技能暴击命中不触发（required_skill_id 门控，防跨技能误触发）
+  CHECK_FALSE(runScenario(true, true, 1u));
 }
 
 TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observable outcomes") {

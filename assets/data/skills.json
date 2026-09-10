@@ -4894,15 +4894,17 @@
     {
       "id": 8,
       "name_key": "御剑·回旋",
-      "desc_key": "掷出飞剑并在一段距离后折返。",
-      "mana_cost": 20.0,
-      "cooldown": 4.0,
+      "desc_key": "掷出一柄跟随鼠标光标方向飞行的飞剑，在到达最远端后会立刻折返回你手中。飞出和折返均会造成物理攻击伤害，能穿透敌人。",
+      "mana_cost": 8.0,
+      "cooldown": 0.0,
       "tags": [
         "Physical",
         "Attack",
         "Projectile",
         "Hit",
-        "sword_skill"
+        "Return",
+        "Dexterity",
+        "SwordSkill"
       ],
       "base_damage": 25.0,
       "weapon_damage_mult": 1.4,
@@ -4911,17 +4913,16 @@
       "icon_id": 2830780204,
       "params": {
         "speed": 400.0,
-        "return_timer": 0.45,
+        "max_distance": 300.0,
         "radius": 40.0,
-        "pull_strength": 300.0,
-        "gravity_strength": 500.0
+        "pull_strength": 300.0
       },
       "talent_tree": [
         {
           "id": 800,
           "name_key": "轻巧",
           "desc_key": "基础法力消耗降低 1...4 点，攻击速度增加 4%...16%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -3.36,
           "y": -1.64,
           "prerequisites": [
@@ -4930,14 +4931,20 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            {
+              "type": 17,
+              "mode": 1,
+              "value": 4.0
+            }
+          ],
           "icon_id": 374819484
         },
         {
           "id": 801,
           "name_key": "疾速",
           "desc_key": "飞剑的飞行速度增加 15%...60%，同时提高等比例的飞行最远距离。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.83,
           "y": 1.73,
           "prerequisites": [
@@ -4961,13 +4968,20 @@
               "required_points": 1
             }
           ],
+          "stat_modifiers": [
+            {
+              "type": 15,
+              "mode": 0,
+              "value": 2.0
+            }
+          ],
           "icon_id": 408374722
         },
         {
           "id": 803,
           "name_key": "回力感应",
           "desc_key": "飞剑折返时的判定体积或伤害提升 10%...40%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 3,
           "y": 2.4,
           "prerequisites": [
@@ -4983,7 +4997,7 @@
           "id": 810,
           "name_key": "滞空切割",
           "desc_key": "*{需求: 疾速 3/4}* 飞剑在到达最远端时不再立刻折返，而是在该位置高速旋转滞留 0.8s，期间每 0.2s 造成区域持续切割伤害，随后再收回。",
-          "max_points": 3,
+          "max_points": 1,
           "x": -1.95,
           "y": 1.83,
           "prerequisites": [
@@ -4998,7 +5012,7 @@
           "id": 811,
           "name_key": "放血",
           "desc_key": "*{需求: 滞空切割}* 飞剑的每一次击中都有 25%...100% 几率施加一层“流血”。",
-          "max_points": 3,
+          "max_points": 4,
           "x": -2.38,
           "y": 1.5,
           "prerequisites": [
@@ -5013,7 +5027,7 @@
           "id": 812,
           "name_key": "撕裂伤口",
           "desc_key": "*{需求: 放血 2/4}* 对“流血”状态敌人的暴击倍率增加 15%...60%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": -2.58,
           "y": 1.58,
           "prerequisites": [
@@ -5029,7 +5043,7 @@
           "id": 813,
           "name_key": "剑鸣",
           "desc_key": "*{需求: 滞空切割}* 飞剑滞留旋转的每次切割产生音爆，有 30%...90% 几率施加护甲击碎 (Armor Shred)，且使被影响敌人身上的护甲击碎持续时间延长 1 秒。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 0.31,
           "y": 3.18,
           "prerequisites": [
@@ -5090,7 +5104,7 @@
           "id": 831,
           "name_key": "无尽刃舞",
           "desc_key": "*{需求: 幻影回旋}* 侧翼飞剑的发射偏移角度缩小 10%...30%（更容易全中同一个目标），且每柄剑穿透敌人时伤害不再衰减。",
-          "max_points": 5,
+          "max_points": 3,
           "x": -2.47,
           "y": -1.73,
           "prerequisites": [
@@ -5106,7 +5120,7 @@
           "id": 832,
           "name_key": "接剑",
           "desc_key": "*{需求: 锋锐 2/5}* 当你接住折返的任何一柄飞剑时，回复 2...6 点法力。",
-          "max_points": 1,
+          "max_points": 3,
           "x": 1.15,
           "y": -2.8,
           "prerequisites": [
@@ -5121,7 +5135,7 @@
           "id": 833,
           "name_key": "连环劲",
           "desc_key": "*{需求: 接剑 2/3}* 接住飞剑后的 2 秒内，你下一次掷出该技能的攻击速度提升 15%...45%，可无限叠加刷新。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 1.5,
           "y": -2.31,
           "prerequisites": [
@@ -5182,7 +5196,7 @@
           "id": 851,
           "name_key": "重力网",
           "desc_key": "*{需求: 磁力场}* 牵引范围和飞剑的判定体积增加 15%...60%。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 1.08,
           "y": -2.69,
           "prerequisites": [
@@ -5198,7 +5212,7 @@
           "id": 852,
           "name_key": "意随剑舞",
           "desc_key": "*{需求: 磁力场}* 飞剑每次在折返时命中敌人，有 15%...45% 的几率为自身叠加 1 层剑意。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 2.98,
           "y": -0.78,
           "prerequisites": [
@@ -5259,7 +5273,7 @@
           "id": 870,
           "name_key": "劫灰路径",
           "desc_key": "*{需求: 回力感应 2/4}* 将基础物理伤害完全转化为 **火焰 (Fire)**，获得 [Fire] 标签。飞剑来回飞行路线会残留持续 3s 的燃烧火焰路径。*与 [电磁回旋] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 1.34,
           "y": 3.46,
           "prerequisites": [
@@ -5275,7 +5289,7 @@
           "id": 871,
           "name_key": "燎原之势",
           "desc_key": "*{需求: 劫灰路径}* 处于燃烧路径上的敌人受到的火焰伤害总增 (More) 15%...45%，并降低其火焰抗性。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 2.62,
           "y": 1.93,
           "prerequisites": [
@@ -5291,7 +5305,7 @@
           "id": 872,
           "name_key": "电磁回旋",
           "desc_key": "*{需求: 回力感应 2/4}* 将基础物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。飞剑带有极强电磁场，能直接无视大部分地形障碍穿过，并在沿途对四周不断发射自动索敌的电弧。*与 [劫灰路径] 互斥。*",
-          "max_points": 5,
+          "max_points": 1,
           "x": 3.08,
           "y": -1.56,
           "prerequisites": [
@@ -5322,7 +5336,7 @@
           "id": 874,
           "name_key": "元素尾迹",
           "desc_key": "*{需求: 任意 Transmuter}* 路径残留的宽度和持续时间增加 15%...45%。",
-          "max_points": 5,
+          "max_points": 3,
           "x": 4.03,
           "y": -1.37,
           "prerequisites": [
@@ -5342,7 +5356,7 @@
           "id": 875,
           "name_key": "灵根破壁",
           "desc_key": "*{需求: 任意 Transmuter}* 飞剑击中处于元素路径或残留区域内的敌人时，本次攻击的对应元素穿透提升 6%...24%，仅适用于本技能。",
-          "max_points": 5,
+          "max_points": 4,
           "x": 1.13,
           "y": -2.45,
           "prerequisites": [
@@ -5362,7 +5376,7 @@
           "id": 876,
           "name_key": "元素护体",
           "desc_key": "*{需求: 元素尾迹}* 当你站在自己铺设的元素路径（火焰/闪电区域）上时，获得 15% 对应元素的绝对伤害减免。",
-          "max_points": 5,
+          "max_points": 1,
           "x": 4.23,
           "y": 1.11,
           "prerequisites": [
@@ -5380,22 +5394,22 @@
         "skill_id": 8,
         "min_nodes": 29,
         "max_nodes": 29,
-        "max_transmuters": 2,
+        "max_transmuters": 1,
         "max_triggers": 1,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
           870,
-          871
+          872
         ],
         "nodes": [
           {
-            "node_id": 813,
-            "role": "Passive",
+            "node_id": 810,
+            "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
-            "affects_sword_step": true,
+            "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
@@ -5407,7 +5421,7 @@
           },
           {
             "node_id": 814,
-            "role": "Keystone",
+            "role": "Synergy",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -5439,7 +5453,7 @@
           },
           {
             "node_id": 830,
-            "role": "Synergy",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -5454,28 +5468,12 @@
             }
           },
           {
-            "node_id": 831,
-            "role": "Trigger",
+            "node_id": 834,
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 3,
-              "effectiveness": 0.5,
-              "range_mult": 1.0,
-              "internal_cooldown": 3.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 832,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
+            "affects_sword_step": true,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
@@ -5487,7 +5485,7 @@
           },
           {
             "node_id": 835,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -5503,7 +5501,7 @@
           },
           {
             "node_id": 850,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -5551,18 +5549,18 @@
           },
           {
             "node_id": 855,
-            "role": "Keystone",
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
+              "trigger_skill_id": 3,
+              "effectiveness": 0.5,
               "range_mult": 1.0,
-              "internal_cooldown": 0.0,
+              "internal_cooldown": 3.0,
               "consumes_mana": false,
-              "requires_crit": false
+              "requires_crit": true
             }
           },
           {
@@ -5579,12 +5577,30 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
-            "node_id": 871,
+            "node_id": 872,
             "role": "Transmuter",
             "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            },
+            "keystone_exclusion_group": 1
+          },
+          {
+            "node_id": 875,
+            "role": "Passive",
+            "resist_model": "TypeA_Penetration",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
@@ -5598,9 +5614,9 @@
             }
           },
           {
-            "node_id": 872,
+            "node_id": 876,
             "role": "Passive",
-            "resist_model": "TypeA_Penetration",
+            "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,

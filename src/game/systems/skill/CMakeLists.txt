@@ -15,6 +15,7 @@ add_library(NoMoreDayGameSkill STATIC
     BladeMasteryService.cpp
     BladeResourceService.cpp
     BoomerangDeliverySystem.cpp
+    ElementPathSystem.cpp
     MobilityDeliverySystem.cpp
     OrbitingSentinelDeliverySystem.cpp
     ProcEngine.cpp

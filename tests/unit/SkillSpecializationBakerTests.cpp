@@ -240,16 +240,56 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
     CHECK(profile.more_damage_mult == doctest::Approx(1.20f));
   }
 
-  // Skill 8 nodes 830 pull_radius without clobbering range 300
+  // Skill 8 飞行参数唯一事实源为 skills.json params(speed 400 / max_distance 300)
   {
     SpecializedSkill spec;
     spec.skill_id = 8;
-    spec.allocated_points[830] = 1;
     BakedSkillProfile profile{};
     SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
-    CHECK(profile.delivery.pull_radius == 100.0f);
-    CHECK(profile.delivery.range == 300.0f); // Default flight range preserved
-    CHECK((profile.delivery.feature_flags & 4) != 0);
+    CHECK(profile.delivery.speed == doctest::Approx(400.0f));
+    CHECK(profile.delivery.range == doctest::Approx(300.0f));
+    CHECK(profile.delivery.sub_count == 0);
+  }
+
+  // Skill 8 专职字段：830 侧刃、854 巨剑、800 法耗、801 速度/距离、803 折返、810 悬停、
+  //                832 接刃回蓝、833 接刃攻速、834 剑步、851 牵引半径、853 剑意尺度
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 8;
+    spec.allocated_points[800] = 4; // 8 - 4 = 4 法力
+    spec.allocated_points[801] = 4; // +60% 速度/距离
+    spec.allocated_points[803] = 4; // 1 + 0.40 折返倍率
+    spec.allocated_points[810] = 1; // 悬停 0.8s
+    spec.allocated_points[830] = 1; // 两侧刃
+    spec.allocated_points[832] = 3; // 接刃回蓝 6
+    spec.allocated_points[833] = 3; // 接刃攻速 +45%
+    spec.allocated_points[834] = 3; // 剑步 +1.5s
+    spec.allocated_points[851] = 4; // 牵引半径 *1.60
+    spec.allocated_points[853] = 3; // 剑意尺度 +6%
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(4.0f));
+    CHECK(profile.delivery.speed == doctest::Approx(640.0f));
+    CHECK(profile.delivery.range == doctest::Approx(480.0f));
+    CHECK(profile.delivery.return_damage_mult == doctest::Approx(1.40f));
+    CHECK(profile.delivery.duration == doctest::Approx(0.8f));
+    CHECK(profile.delivery.sub_count == 2);
+    CHECK(profile.delivery.catch_mana == doctest::Approx(6.0f));
+    CHECK(profile.delivery.combo_attack_speed == doctest::Approx(45.0f));
+    CHECK(profile.delivery.step_extend_sec == doctest::Approx(1.5f));
+    CHECK(profile.delivery.pull_radius_mult == doctest::Approx(1.60f));
+    CHECK(profile.delivery.intent_scaling == doctest::Approx(0.06f));
+  }
+
+  // Skill 8 854 巨剑模式：取消侧刃并开启 5% 护甲转基础物伤
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 8;
+    spec.allocated_points[854] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
+    CHECK(profile.delivery.sub_count == 0);
+    CHECK(profile.delivery.giant_armor_scale == doctest::Approx(0.05f));
   }
 }
 

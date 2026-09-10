@@ -1,5 +1,7 @@
 #include "game/application/states/GameplayStateInternal.hpp"
 
+#include "game/systems/skill/ElementPathSystem.hpp" // 技能8 元素路径
+
 namespace NoMoreDay {
 
 
@@ -369,6 +371,8 @@ bool GameplayState::OnUpdate(float dt) {
     NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
     MovementStanceSystem::Update(registry, dt);
     ProjectileSystem::Update(registry, m_spatialGrid, dt);
+    // 技能8 元素路径：衰减、拖尾与雷路径电弧（在飞剑交付之后结算）
+    NoMoreDay::element_path::Update(registry, dt);
     NoMoreDay::systems::GhostSystem::Update(registry, dt);
     NoMoreDay::render::PopupRenderer::Get().Update(dt);
     const auto &renderConfig =

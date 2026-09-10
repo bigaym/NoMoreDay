@@ -61,6 +61,10 @@ constexpr uint32_t ResidualElements = 175;
 
 struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
   static constexpr uint32_t kSkillId = 1;
+  // 技能8 御剑·回旋 协同节点: 拔血流云 (814)。流云刺命中悬停切割区内的
+  // 敌人时引爆其全部流血层数，故效果由技能1 命中触发、门控在技能8 上。
+  static constexpr uint32_t kBloodRipSynergySkillId = 8;
+  static constexpr uint32_t kBloodRipSynergyNode = 814;
 
   static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
     auto *pos = registry.try_get<Position>(owner);
@@ -383,6 +387,92 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         }
         if (b.type == BuffType::Freeze || b.type == BuffType::SpeedDown || b.id.find("Cold") != std::string::npos || b.id.find("Chill") != std::string::npos || b.id.find("Slow") != std::string::npos) {
           victimHasCold = true;
+        }
+      }
+    }
+
+    // 814 拔血流云 (技能8 协同): 流云刺命中处于"御剑·回旋悬停切割区"内的
+    // 敌人时，拔出其身上全部流血层数，并立即结算一次等量的物理真实伤害。
+    // 前置: 施法者已在技能8 点出 814；目标在任一技能8 悬停飞剑的有效半径内。
+    if (SkillSystem::HasAllocatedNode(reg, actualAttacker,
+                                      kBloodRipSynergySkillId,
+                                      kBloodRipSynergyNode)) {
+      if (auto *vicEffects = reg.try_get<ActiveEffectsComponent>(victim)) {
+        const auto *vicPos = reg.try_get<Position>(victim);
+        if (vicPos != nullptr) {
+          // 有效半径取悬停飞剑自身的碰撞半径 (Projectile.radius)，即其滞空
+          // 切割的作用范围；无 Projectile 时回退到默认半径。
+          constexpr float kHoverZoneRadiusDefault = 40.0f;
+          bool insideHoverZone = false;
+          auto boomerangView = reg.view<BoomerangComponent>();
+          for (const auto boomerang : boomerangView) {
+            const auto &bc = boomerangView.get<BoomerangComponent>(boomerang);
+            if (bc.skill_id != kBloodRipSynergySkillId ||
+                bc.phase != BoomerangPhase::HoverApex) {
+              continue;
+            }
+            const auto *proj = reg.try_get<Projectile>(boomerang);
+            const float radius =
+                proj ? std::max(1.0f, proj->radius) : kHoverZoneRadiusDefault;
+            const float dx = vicPos->x - bc.apex_position.x;
+            const float dy = vicPos->y - bc.apex_position.y;
+            if (dx * dx + dy * dy <= radius * radius) {
+              insideHoverZone = true;
+              break;
+            }
+          }
+
+          if (insideHoverZone) {
+            // 剩余流血总额 = Σ(单层单跳伤害 × 层数 × 剩余跳数)，与
+            // AilmentTickDriver 的 PerStack 结算口径保持一致。
+            constexpr float kBleedTickIntervalDefault = 0.5f;
+            float bleedBurst = 0.0f;
+            bool consumedBleed = false;
+            for (const auto &b : vicEffects->effects) {
+              // AilmentEngine 的 Bleed 契约统一写入 BuffType::Bleed，走整数比较
+              const bool isBleed = b.type == BuffType::Bleed;
+              if (!isBleed || b.remaining <= 0.0f || b.tick_damage <= 0.0f) {
+                continue;
+              }
+              const float interval =
+                  (b.tick_interval > 0.0f && b.tick_interval < 1.0e9f)
+                      ? b.tick_interval
+                      : kBleedTickIntervalDefault;
+              const int remainingTicks =
+                  std::max(1, static_cast<int>(std::floor(b.remaining / interval)));
+              bleedBurst += b.tick_damage *
+                            static_cast<float>(std::max(1, b.stacks)) *
+                            static_cast<float>(remainingTicks);
+              consumedBleed = true;
+            }
+
+            if (consumedBleed && bleedBurst > 0.0f) {
+              // 拔除全部流血层数，后续 152 等"对流血目标"判定同步失效。
+              for (auto it = vicEffects->effects.begin();
+                   it != vicEffects->effects.end();) {
+                if (it->type == BuffType::Bleed) {
+                  it = vicEffects->effects.erase(it);
+                } else {
+                  ++it;
+                }
+              }
+              victimHasBleed = false;
+              reg.get_or_emplace<StatsDirty>(victim);
+
+              // 物理真实伤害: skip_mitigation 绕过护甲/减伤；附加
+              // DamageOverTime/SecondaryHit 防止本次爆发再次派发 OnSkillHit
+              // 造成触发链递归 (与 173 碎裂的标签口径一致)。
+              DamageRequest burstReq;
+              burstReq.attacker = actualAttacker;
+              burstReq.defender = victim;
+              burstReq.skill_id = kSkillId;
+              burstReq.base_pool.Add(Tag::Physical, bleedBurst);
+              burstReq.additional_tags =
+                  Tag::Physical | Tag::DamageOverTime | Tag::SecondaryHit;
+              burstReq.skip_mitigation = true;
+              (void)DamagePipeline::Execute(reg, burstReq, actualAttacker, true);
+            }
+          }
         }
       }
     }

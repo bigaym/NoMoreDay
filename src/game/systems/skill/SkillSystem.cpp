@@ -1914,6 +1914,15 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
                           100.0f
                     : 0.0f;
   float raw_mana_cost = bakedProfile ? bakedProfile->effective_mana_cost : data->mana_cost;
+  // 834 御剑接踵: 接刃后获得的 FreeCast 使来源技能的下次施放免蓝，施放即消耗
+  if (auto *effects = registry.try_get<ActiveEffectsComponent>(entity)) {
+    if (const auto *freeCast = effects->GetByKind(BuffKind::FreeCast);
+        freeCast != nullptr &&
+        (freeCast->source_skill_id == 0 || freeCast->source_skill_id == slot.id)) {
+      raw_mana_cost = 0.0f;
+      effects->RemoveByKind(BuffKind::FreeCast);
+    }
+  }
   if (isSwordArrayRelocate) {
     raw_mana_cost *= 0.5f; // 675: 消耗一半法力
   }
@@ -2330,7 +2339,9 @@ Tag SkillSystem::GetEffectiveSkillTags(entt::registry &registry,
           selected_transmuter != 0 && node_id != selected_transmuter) {
         continue;
       }
-      if (node_contract && node_contract->keystone_exclusion_group != 0) {
+      // 透变节点已由 selected_transmuter 过滤，互斥组过滤只作用于密钥节点
+      if (node_contract && node_contract->keystone_exclusion_group != 0 &&
+          node_contract->role != SpecNodeRole::Transmuter) {
         const uint32_t selected_keystone = ResolveActiveKeystoneByGroup(
             spec, skill_id, node_contract->keystone_exclusion_group);
         if (selected_keystone != 0 && selected_keystone != node_id) {
@@ -2443,6 +2454,27 @@ bool SkillSystem::IsNodeExcludedByMutualKeystone(
       ResolveActiveKeystoneByGroup(*specialized, skill_id,
                                    node_contract->keystone_exclusion_group);
   return selected_node != 0 && selected_node != node_id;
+}
+
+bool SkillSystem::HasAllocatedNode(const entt::registry &registry,
+                                   entt::entity entity, uint32_t skill_id,
+                                   uint32_t node_id) {
+  if (!registry.valid(entity)) {
+    return false;
+  }
+  const auto *active = registry.try_get<ActiveSkillsComponent>(entity);
+  if (!active) {
+    return false;
+  }
+  for (const auto &slot : active->specialized_slots) {
+    if (slot.skill_id != skill_id) {
+      continue;
+    }
+    const auto it = slot.allocated_points.find(node_id);
+    // 找到对应技能的专精槽即返回，避免同名节点在其他技能上被误判命中。
+    return it != slot.allocated_points.end() && it->second > 0;
+  }
+  return false;
 }
 
 bool SkillSystem::GainSwordIntent(entt::registry &registry, entt::entity entity,

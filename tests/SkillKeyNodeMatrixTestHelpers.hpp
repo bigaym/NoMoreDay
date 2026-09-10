@@ -111,7 +111,7 @@ inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
       {5, {513, 515, 533, 534, 550, 553, 554, 555, 570, 572, 574}},
       {6, {613, 614, 633, 634, 635, 652, 653, 670, 672, 674}},
       {7, {711, 714, 732, 753, 754, 755, 770, 772, 775}},
-      {8, {813, 830, 831, 852, 870, 871}},
+      {8, {810, 814, 815, 834, 852, 854, 855, 870, 872, 875}},
       {9, {913, 930, 950, 951, 952, 970, 971, 972}},
       {10, {1002, 1004, 1005, 1007, 1008, 1009, 1011, 1013, 1017, 1021, 1022, 1025}},
       {11, {1101, 1102, 1107, 1109, 1111, 1113, 1115, 1117, 1120}},
@@ -291,7 +291,8 @@ AsAllocatedPoints(const std::vector<uint32_t> &nodes, int points = 1) {
 // 技能 4 契约 max_transmuters=1，472/474 互斥，剔除 474 仅保留雷转质 472；
 // 技能 5 契约 max_transmuters=1，570/572 互斥，剔除 572 仅保留火转质 570；
 // 技能 6 契约 max_transmuters=1，670/672 互斥，剔除 672 仅保留火转质 670；
-// 技能 7 契约 max_transmuters=1，770/772 互斥，剔除 772 仅保留天外冰晶 770
+// 技能 7 契约 max_transmuters=1，770/772 互斥，剔除 772 仅保留天外冰晶 770；
+// 技能 8 契约 max_transmuters=1，870/872 互斥，剔除 872 仅保留劫灰路径 870。
 inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
                                             const std::vector<uint32_t> &nodes) {
   auto result = nodes;
@@ -305,6 +306,10 @@ inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
     result.erase(std::remove(result.begin(), result.end(), 672u), result.end());
   } else if (skill_id == 7u) {
     result.erase(std::remove(result.begin(), result.end(), 772u), result.end());
+  } else if (skill_id == 8u) {
+    // 872 与 870 互斥，剔除以保留劫灰路径；854 巨阙压制侧刃，冒烟配置一并去除
+    result.erase(std::remove(result.begin(), result.end(), 872u), result.end());
+    result.erase(std::remove(result.begin(), result.end(), 854u), result.end());
   }
   return result;
 }
@@ -349,6 +354,17 @@ inline void ConfigureSpecialization(
   spec.allocated_points.clear();
   for (const auto &[node_id, points] : allocated_points) {
     spec.allocated_points[node_id] = points;
+  }
+}
+
+// 触发守卫矩阵的技能专属前置：技能8 855 巨剑共鸣要求施法者已专精技能3 的
+// 330 巨剑降临（写在另一个 specialization slot，避免覆盖被触发技能自身）。
+inline void ConfigureTriggerSourcePrerequisites(entt::registry &registry,
+                                                entt::entity caster,
+                                                uint32_t skill_id) {
+  if (skill_id == 8u) {
+    ConfigureSpecialization(registry, caster, 3u, {{330u, 1}},
+                            /*specialized_slot=*/1);
   }
 }
 

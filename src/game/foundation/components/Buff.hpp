@@ -60,6 +60,7 @@ enum class BuffKind : uint16_t {
     None = 0,
     QiBrand, // 剑气烙印 (技能2 节点250)：目标受暴击伤害加深
     FateMark, // 天降命印 (技能5 节点512)：目标受万剑归宗伤害增加
+    FreeCast, // 免蓝施放 (技能8 节点834 御剑接踵)：下次施放来源技能不消耗法力
 };
 
 struct BuffEffect {
@@ -270,6 +271,12 @@ struct ActiveEffectsComponent {
             }
         }
         return nullptr;
+    }
+
+    // 数值类别移除：与 GetByKind 配套的整数比较路径，避免字符串键
+    void RemoveByKind(BuffKind kind) {
+        std::erase_if(effects,
+                      [&](const auto& effect) { return effect.kind == kind; });
     }
     
     void Update(float dt) {

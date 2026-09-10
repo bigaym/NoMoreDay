@@ -104,9 +104,11 @@ void SkillSpecializationBaker::Bake(
     break;
   case 8: // 御剑·回旋
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
-    del.speed = 500.0f;
-    del.range = 300.0f;
-    del.duration = 0.3f;
+    // 飞行速度与最远距离以技能级 params 为唯一事实源，禁止在交付层硬编码 500/300
+    del.speed = skillData->GetParam("speed", 400.0f);
+    del.range = skillData->GetParam("max_distance", 300.0f);
+    // 滞空时长默认为 0（未点 810 立即折返），由 810 覆写为 0.8s
+    del.duration = 0.0f;
     break;
   case 9: // 绝影绝剑
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::Mobility);
@@ -808,39 +810,96 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     break;
   }
 
-  case 8: // 御剑·回旋
-    if (node_id == 812) {
-      out_profile.more_damage_mult *= (1.0f + 0.1f * static_cast<float>(points));
-      del.feature_flags |= 1;
-    } else if (node_id == 813) {
-      del.sub_count = 2; // 幻影回旋
-      del.feature_flags |= 2;
-    } else if (node_id == 830) {
-      del.pull_radius = 100.0f; // 磁力牵引
-      del.feature_flags |= 4;
-    } else if (node_id == 831) {
-      del.feature_flags |= 8; // 接剑
-    } else if (node_id == 832) {
-      del.pull_radius = 150.0f; // 重力场
-      del.feature_flags |= 16;
-    } else if (node_id == 833) {
-      del.pull_radius = 200.0f; // 黑洞牵引
-      del.feature_flags |= 32;
-    } else if (node_id == 850) {
-      del.duration = 1.5f; // 延长停滞切割时间
-      del.feature_flags |= 64;
-    } else if (node_id == 851) {
-      del.feature_flags |= 128; // 流血
-    } else if (node_id == 852) {
-      del.feature_flags |= 256; // 撕裂
-    } else if (node_id == 870) {
+  case 8: { // 御剑·回旋 — 语义以设计 §3.8 为准，旧版 812/813/830-833 映射已废弃
+    const auto &mech8 = data::SkillMechanicsRegistry::Get();
+    if (node_id == 800) { // 轻巧: 基础法力消耗 -1/点，攻速 +4%/点由 stat_modifiers 承担
+      out_profile.effective_mana_cost =
+          std::max(0.0f, out_profile.effective_mana_cost - 1.0f * static_cast<float>(points));
+      del.feature_flags |= 1u;
+    } else if (node_id == 801) { // 疾速: 飞行速度与最远距离同比例 +15%/点
+      const float mult = 1.0f + 0.15f * static_cast<float>(points);
+      del.speed *= mult;
+      del.range *= mult;
+      del.feature_flags |= 2u;
+    } else if (node_id == 802) { // 锋锐: 附加物理点伤与暴击率由 stat_modifiers 承担
+      del.feature_flags |= 4u;
+    } else if (node_id == 803) { // 回力感应: 折返伤害 +10%/点
+      del.return_damage_mult = 1.0f + 0.10f * static_cast<float>(points);
+      del.feature_flags |= 8u;
+    } else if (node_id == 810) { // 滞空切割: 顶点滞留时长
+      del.duration = mech8.GetFloat(8, 810, "hover_duration", 0.8f);
+      del.feature_flags |= 16u;
+    } else if (node_id == 811) { // 放血: 命中施加一层流血的概率 +25%/点
+      del.bleed_chance = 0.25f * static_cast<float>(points);
+      del.feature_flags |= 32u;
+    } else if (node_id == 812) { // 撕裂伤口: 对流血目标额外暴击倍率 +15%/点
+      del.crit_mult_vs_bleeding = 0.15f * static_cast<float>(points);
+      del.feature_flags |= 64u;
+    } else if (node_id == 813) { // 剑鸣: 护甲击碎概率/延长由行为层按 mechanics(8,813) 读取
+      del.feature_flags |= 128u;
+    } else if (node_id == 814) { // 拔血流云: Synergy，由 ProcEngine(WS-D) 消费
+      del.feature_flags |= 256u;
+    } else if (node_id == 815) { // 风眼: 本次飞行流血总伤转治疗
+      del.heal_bleed_pct = 1.0f;
+      del.feature_flags |= 512u;
+    } else if (node_id == 830) { // 幻影回旋: 额外 2 柄侧翼虚影剑
+      del.sub_count = 2;
+      del.feature_flags |= 1024u;
+    } else if (node_id == 831) { // 无尽刃舞: 侧翼扇形角 -10%/点，穿透不衰减
+      del.side_angle_mult = 1.0f - 0.10f * static_cast<float>(points);
+      del.feature_flags |= 2048u;
+    } else if (node_id == 832) { // 接剑: 接刃回蓝 2/点
+      del.catch_mana = 2.0f * static_cast<float>(points);
+      del.feature_flags |= 4096u;
+    } else if (node_id == 833) { // 连环劲: 接刃后下次施放攻速 +15%/点
+      // BuffEffect 的 PercentAdd 以百分点为单位，与 stat_modifiers 口径一致
+      del.combo_attack_speed = 15.0f * static_cast<float>(points);
+      del.feature_flags |= 8192u;
+    } else if (node_id == 834) { // 御剑接踵: 御剑步延长 0.5s/点
+      del.step_extend_sec = 0.5f * static_cast<float>(points);
+      del.feature_flags |= 16384u;
+    } else if (node_id == 835) { // 回旋游步: 无直接参数，标记供接刃层消费
+      del.feature_flags |= 32768u;
+    } else if (node_id == 850) { // 磁力场: 折返牵引，参数从技能 params 读取
+      del.feature_flags |= 65536u;
+    } else if (node_id == 851) { // 重力网: 牵引范围与判定体积 +15%/点
+      del.pull_radius_mult = 1.0f + 0.15f * static_cast<float>(points);
+      del.feature_flags |= 131072u;
+    } else if (node_id == 852) { // 意随剑舞: 折返命中获得剑意概率 +15%/点
+      del.intent_gain_chance = 0.15f * static_cast<float>(points);
+      del.feature_flags |= 262144u;
+    } else if (node_id == 853) { // 心剑合一: 每层剑意速度/命中盒 +2%/点（供交付层读取）
+      del.intent_scaling = 0.02f * static_cast<float>(points);
+      del.feature_flags |= 524288u;
+    } else if (node_id == 854) { // 巨阙: 禁用侧刃，总护甲 5% 转基础物理，命中硬直
+      del.sub_count = 0;
+      del.giant_armor_scale = 0.05f;
+      del.feature_flags |= 1048576u;
+    } else if (node_id == 870) { // 劫灰路径: 物理转火焰
       out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Fire;
-      del.feature_flags |= 512;
-    } else if (node_id == 871) {
+      del.feature_flags |= 2097152u;
+    } else if (node_id == 871) { // 燎原之势: 燃烧路径受击增伤 +15%/点
+      del.path_amp = 0.15f * static_cast<float>(points);
+      del.feature_flags |= 4194304u;
+    } else if (node_id == 872) { // 电磁回旋: 物理转闪电
       out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Lightning;
-      del.feature_flags |= 1024;
+      del.feature_flags |= 8388608u;
+    } else if (node_id == 873) { // 高压电弧: 电弧频率 +30%/点
+      del.arc_freq_mult = 1.0f + 0.30f * static_cast<float>(points);
+      del.feature_flags |= 16777216u;
+    } else if (node_id == 874) { // 元素尾迹: 路径宽度与持续时间 +15%/点
+      del.path_width_mult = 1.0f + 0.15f * static_cast<float>(points);
+      del.path_duration_mult = del.path_width_mult;
+      del.feature_flags |= 33554432u;
+    } else if (node_id == 875) { // 灵根破壁: 本技能元素穿透 +6%/点
+      del.path_pen = 0.06f * static_cast<float>(points);
+      del.feature_flags |= 67108864u;
+    } else if (node_id == 876) { // 元素护体: 元素路径内绝对减伤
+      del.element_shield_pct = 0.15f;
+      del.feature_flags |= 134217728u;
     }
     break;
+  }
 
   case 9: // 绝影绝剑
     if (node_id == 930) {
@@ -906,6 +965,14 @@ void SkillSpecializationBaker::SyncTriggerRules(
           rule.target_mode = TriggerTargetPolicy::Victim;
           // 仅接受技能7造成的击杀，避免其他技能/召唤物/持续伤害击杀误触发
           rule.required_skill_id = 7;
+        } else if (skill_id == 8 && node_id == 855) {
+          // 巨剑共鸣: 仅技能8巨剑投掷暴击可触发（required_skill_id=8），
+          // 并需施法者已在技能3(灵剑决)点出 330 巨剑降临
+          rule.listen_event = CombatEventType::OnSkillHit;
+          rule.target_mode = TriggerTargetPolicy::Victim;
+          rule.required_skill_id = 8;
+          rule.required_source_node_id = 330;
+          rule.required_source_skill_id = 3;
         } else {
           rule.listen_event = CombatEventType::OnSkillHit;
           rule.target_mode = TriggerTargetPolicy::Victim;

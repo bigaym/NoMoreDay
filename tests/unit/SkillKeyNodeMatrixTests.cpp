@@ -123,6 +123,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       const auto target = sknm::CreateTarget(registry, {8.0f, 0.0f});
       sknm::ConfigureSpecialization(registry, caster, skill_id,
                                     {{trigger_node, 1}});
+      // 855 巨剑共鸣需要施法者已专精技能3 的 330 巨剑降临
+      sknm::ConfigureTriggerSourcePrerequisites(registry, caster, skill_id);
 
       // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
       // 构造须在配置专精之后、派发命中之前（与 SkillBehaviorGuardTests 口径一致）。
@@ -146,8 +148,10 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       }
 
       const auto before = registry.storage<SkillExecution>().size();
+      // 技能8 855 契约 requires_crit=true，需以暴击命中派发
       sknm::DispatchSkillHit(registry, caster, target, skill_id,
-                             static_cast<uint64_t>(5000 + skill_id));
+                             static_cast<uint64_t>(5000 + skill_id),
+                             Tag::Hit | Tag::Melee, skill_id == 8u);
       const auto after_first = registry.storage<SkillExecution>().size();
       CHECK(after_first > before);
 
@@ -157,7 +161,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       REQUIRE(runtime->trigger_cooldowns.contains(trigger_node));
 
       sknm::DispatchSkillHit(registry, caster, target, skill_id,
-                             static_cast<uint64_t>(5000 + skill_id));
+                             static_cast<uint64_t>(5000 + skill_id),
+                             Tag::Hit | Tag::Melee, skill_id == 8u);
       const auto after_second = registry.storage<SkillExecution>().size();
       CHECK(after_second == after_first);
     }
@@ -177,6 +182,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       const auto target = sknm::CreateTarget(registry, {8.0f, 0.0f});
       sknm::ConfigureSpecialization(registry, caster, skill_id,
                                     {{trigger_node, 1}});
+      // 855 巨剑共鸣需要施法者已专精技能3 的 330 巨剑降临
+      sknm::ConfigureTriggerSourcePrerequisites(registry, caster, skill_id);
 
       auto parent_exec_entity = registry.create();
       auto &parent_exec = registry.emplace<SkillExecution>(parent_exec_entity);
@@ -204,8 +211,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       const auto caster = sknm::CreateCaster(registry, 2000.0f);
       sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
       if (skill_id == 3u || skill_id == 4u || skill_id == 5u || skill_id == 6u ||
-          skill_id == 7u) {
-        // 技能 3、4、5、6、7 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
+          skill_id == 7u || skill_id == 8u) {
+        // 技能 3、4、5、6、7、8 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
         sknm::ConfigureSpecialization(registry, caster, skill_id,
                                       {{order[0], 1}});
       } else {

@@ -31,6 +31,8 @@ enum class Tag : uint64_t {
     SwordSkill = 1ULL << 22,
     Teleport = 1ULL << 23,
     Defense = 1ULL << 24,
+    Return = 1ULL << 25,
+    Dexterity = 1ULL << 26,
 
     // --- Mechanism Tags (32-47) ---
     Hit = 1ULL << 32,
@@ -73,7 +75,7 @@ struct TagInfo {
     std::string_view id;
 };
 
-static constexpr std::array<TagInfo, 31> kTagInfoTable = {{
+static constexpr std::array<TagInfo, 33> kTagInfoTable = {{
     {Tag::Physical, "Physical"},
     {Tag::Fire, "Fire"},
     {Tag::Cold, "Cold"},
@@ -90,6 +92,8 @@ static constexpr std::array<TagInfo, 31> kTagInfoTable = {{
     {Tag::SwordSkill, "SwordSkill"},
     {Tag::Teleport, "Teleport"},
     {Tag::Defense, "Defense"},
+    {Tag::Return, "Return"},
+    {Tag::Dexterity, "Dexterity"},
     {Tag::Hit, "Hit"},
     {Tag::Critical, "Critical"},
     {Tag::DamageOverTime, "DamageOverTime"},
@@ -131,6 +135,8 @@ constexpr std::string_view GetTagName(Tag tag) {
         case Tag::SwordSkill: return "SwordSkill";
         case Tag::Teleport: return "Teleport";
         case Tag::Defense: return "Defense";
+        case Tag::Return: return "Return";
+        case Tag::Dexterity: return "Dexterity";
         case Tag::Hit: return "Hit";
         case Tag::Critical: return "Critical";
         case Tag::DamageOverTime: return "DamageOverTime";
@@ -168,6 +174,8 @@ constexpr std::optional<Tag> TagFromString(std::string_view name) {
     if (name == "SwordSkill") return Tag::SwordSkill;
     if (name == "Teleport") return Tag::Teleport;
     if (name == "Defense") return Tag::Defense;
+    if (name == "Return") return Tag::Return;
+    if (name == "Dexterity") return Tag::Dexterity;
     if (name == "Hit") return Tag::Hit;
     if (name == "Critical") return Tag::Critical;
     if (name == "DamageOverTime") return Tag::DamageOverTime;

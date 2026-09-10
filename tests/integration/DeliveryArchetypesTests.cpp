@@ -77,11 +77,11 @@ TEST_CASE("[Integration] DeliveryArchetypes - Boomerang State Machine") {
   bc.owner = owner;
   bc.skill_id = 8;
   bc.phase = BoomerangPhase::Outward;
-  bc.returnTimer = 0.1f;
+  bc.max_distance = 40.0f;
   bc.hover_duration = 0.2f;
   bc.catch_by_owner = true;
 
-  // Step 1: Reaches apex
+  // Step 1: Reaches apex（技能8 以 max_distance 判定折返）
   BoomerangDeliverySystem::Update(registry, grid, 0.15f);
   CHECK(bc.phase == BoomerangPhase::HoverApex);
 
@@ -89,11 +89,10 @@ TEST_CASE("[Integration] DeliveryArchetypes - Boomerang State Machine") {
   BoomerangDeliverySystem::Update(registry, grid, 0.25f);
   CHECK(bc.phase == BoomerangPhase::Returning);
 
-  // Step 3: Close enough to owner, caught and triggers cooldown refund
+  // Step 3: Close enough to owner, caught and destroyed
   registry.get<Position>(proj).x = 10.0f; // within catch threshold (32px)
   BoomerangDeliverySystem::Update(registry, grid, 0.01f);
   CHECK_FALSE(registry.valid(proj)); // destroyed on catch
-  CHECK(active.slots[0].cooldown < 2.0f); // refunded cooldown
 }
 
 TEST_CASE("[Integration] DeliveryArchetypes - Orbiting Sentinel Rotation") {

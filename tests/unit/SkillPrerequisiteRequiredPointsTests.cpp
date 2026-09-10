@@ -3,6 +3,9 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <entt/entt.hpp>
+#include <queue>
+#include <unordered_map>
+#include <vector>
 
 namespace NoMoreDay {
 
@@ -143,6 +146,57 @@ TEST_CASE("[Unit] TalentNode JSON - display_lines parse quantitative tooltip met
   CHECK(node.display_lines[0].is_percent);
   CHECK(node.display_lines[0].displayCategory == DisplayLineCategory::Duration);
   CHECK(node.display_lines[1].displayCategory == DisplayLineCategory::Frequency);
+}
+
+// 技能 8 全节点可分配性回归：前置 required_points 必须被前置节点自身 max_points 覆盖，
+// 且依赖图无环，避免“前置永远点不满导致后继永久锁定”的加点死锁（审查 C3）。
+TEST_CASE("[Unit] SkillSpecialization - skill 8 tree satisfies allocability and acyclicity") {
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+
+  constexpr uint32_t kSkillId = 8;
+  const SkillTreeDefinition *tree = SkillRegistry::Get().GetSkillTree(kSkillId);
+  REQUIRE(tree != nullptr);
+  REQUIRE(tree->nodes.size() == 29);
+
+  std::unordered_map<uint32_t, uint32_t> indegree;
+  std::unordered_map<uint32_t, std::vector<uint32_t>> dependents;
+  for (const auto &[node_id, node] : tree->nodes) {
+    indegree.emplace(node_id, 0);
+  }
+  for (const auto &[node_id, node] : tree->nodes) {
+    for (const auto &pre : node.prerequisites) {
+      if (pre.node_id == 0) {
+        continue; // 根节点的 0 哨兵前置不属于树内依赖
+      }
+      CAPTURE(node_id);
+      CAPTURE(pre.node_id);
+      CAPTURE(pre.required_points);
+      const auto pre_it = tree->nodes.find(pre.node_id);
+      REQUIRE(pre_it != tree->nodes.end());
+      CHECK(pre_it->second.max_points >= pre.required_points);
+      dependents[pre.node_id].push_back(node_id);
+      ++indegree[node_id];
+    }
+  }
+
+  std::queue<uint32_t> ready;
+  for (const auto &[node_id, degree] : indegree) {
+    if (degree == 0) {
+      ready.push(node_id);
+    }
+  }
+  size_t processed = 0;
+  while (!ready.empty()) {
+    const uint32_t current = ready.front();
+    ready.pop();
+    ++processed;
+    for (const uint32_t next : dependents[current]) {
+      if (--indegree[next] == 0) {
+        ready.push(next);
+      }
+    }
+  }
+  CHECK(processed == tree->nodes.size());
 }
 
 } // namespace NoMoreDay

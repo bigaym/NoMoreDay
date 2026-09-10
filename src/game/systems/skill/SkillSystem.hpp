@@ -179,6 +179,16 @@ public:
                                                entt::entity entity,
                                                uint32_t skill_id,
                                                uint32_t node_id);
+    /**
+     * @brief 施法者是否在指定技能上点出（分配点数 > 0）了某个专精节点。
+     *
+     * 供 ProcEngine 触发前置校验使用：如技能8 855 巨剑共鸣要求施法者已在
+     * 技能3 点出 330 巨剑降临后才允许触发。
+     */
+    static bool HasAllocatedNode(const entt::registry& registry,
+                                 entt::entity entity,
+                                 uint32_t skill_id,
+                                 uint32_t node_id);
     static bool GainSwordIntent(entt::registry& registry,
                                 entt::entity entity,
                                 int amount,

@@ -39,6 +39,10 @@ struct TriggerRule {
     // OnKill 事件的击杀来源技能过滤: 0=任意来源，非0 时仅接受 evt.skill_id 匹配的击杀。
     // 用于 714 寂灭等"指定技能击杀才触发"的规则，避免其他技能/召唤物/持续伤害误触发。
     uint32_t required_skill_id = 0;
+    // 触发前置: 施法者必须在 0(来源技能自身) 或 required_source_skill_id 上点出该节点。
+    // 技能8 855 巨剑共鸣要求技能3(灵剑决)点出 330 巨剑降临后才允许触发。
+    uint32_t required_source_node_id = 0;
+    uint32_t required_source_skill_id = 0;
 };
 static_assert(std::is_standard_layout_v<TriggerRule>);
 static_assert(std::is_trivially_destructible_v<TriggerRule>);

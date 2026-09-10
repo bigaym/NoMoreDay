@@ -1,11 +1,13 @@
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/foundation/components/Buff.hpp" // ActiveEffectsComponent (减抗来源过滤)
+#include "game/foundation/components/Common.hpp" // Position (元素路径归属判定)
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp" // 253 physical_ignore_res_pct
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/ElementPathSystem.hpp" // 871/875/876 元素路径
 #include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
@@ -13,6 +15,9 @@
 
 namespace NoMoreDay {
 namespace {
+
+// 御剑·回旋技能 ID：元素路径系列节点 (871/875/876) 的抗性修正如挂于本技能。
+constexpr uint32_t kSkill8Id = 8u;
 
 float ClampMoreToMultiplier(float more) {
   return std::max(0.0f, 1.0f + more);
@@ -186,6 +191,25 @@ float DamageMitigationService::Apply(
         }
       }
     }
+    // 技能8 灵根破壁 (Node 875)：飞剑命中处于施法者自身元素路径内的敌人时，
+    // 本次攻击的对应元素穿透提升 (SkillOnly 语义由契约 scope_policies 保证)。
+    // 仅技能8、路径穿透非零且目标确在路径内时生效，技能1..7/9 行为不变。
+    if (skill_id == kSkill8Id && registry.valid(attacker) &&
+        registry.valid(defender)) {
+      const Tag path_element = ElementTagOf(static_cast<DamageType>(type_idx));
+      if (path_element != Tag::None) {
+        const float path_pen =
+            element_path::PenetrationFor(registry, attacker, path_element);
+        if (path_pen > 0.0f) {
+          const auto *defender_pos = registry.try_get<Position>(defender);
+          if (defender_pos != nullptr &&
+              element_path::IsInside(registry, attacker, path_element,
+                                     {defender_pos->x, defender_pos->y})) {
+            res -= path_pen;
+          }
+        }
+      }
+    }
     res += endgame.incoming_resistance_bonus;
     res -= endgame.outgoing_resistance_reduction;
     // Type E (技能7 心念灭抗 775)：抗性"上限"被动态压制。
@@ -198,6 +222,36 @@ float DamageMitigationService::Apply(
   }
 
   damage_after_res *= (1.0f - res);
+
+  // 技能8 燎原之势 (Node 871)：目标处于施法者的元素路径内时，受到的对应元素
+  // 伤害总增 (More) 乘算 (1 + amp)。仅技能8、路径增幅非零且目标在路径内时生效。
+  // 技能8 元素护体 (Node 876)：施法者站在自身对应元素路径上时，受到的该元素
+  // 伤害绝对减伤乘算 (1 - pct)。仅防守方拥有路径与已投入节点时生效。
+  {
+    const Tag path_element = ElementTagOf(static_cast<DamageType>(type_idx));
+    if (path_element != Tag::None) {
+      if (skill_id == kSkill8Id && registry.valid(attacker) &&
+          registry.valid(defender)) {
+        const float path_amp =
+            element_path::AmpAgainst(registry, attacker, path_element);
+        if (path_amp > 0.0f) {
+          const auto *defender_pos = registry.try_get<Position>(defender);
+          if (defender_pos != nullptr &&
+              element_path::IsInside(registry, attacker, path_element,
+                                     {defender_pos->x, defender_pos->y})) {
+            damage_after_res *= (1.0f + path_amp);
+          }
+        }
+      }
+      if (registry.valid(defender)) {
+        const float shield_pct =
+            element_path::ShieldReductionFor(registry, defender, path_element);
+        if (shield_pct > 0.0f) {
+          damage_after_res *= (1.0f - shield_pct);
+        }
+      }
+    }
+  }
 
   if (final_type == Tag::Physical && defender_stats) {
     float armor = defender_stats->armor + endgame.incoming_armor_bonus;

@@ -586,6 +586,27 @@ struct BakedDeliveryParams {
   float bonus_crit = 0.0f;         // 额外暴击率加成 (如 552)
   float bonus_crit_damage = 0.0f;  // 额外暴击伤害加成 (如 332)
 
+  // 技能 8 御剑·回旋专项参数: 唯一写入方为 SkillSpecializationBaker case8,
+  // 唯一读取方为 BladeBoomerang 行为与 BoomerangDeliverySystem, 避免参数双源。
+  float return_damage_mult = 1.0f;     // 803 回力感应: 折返阶段伤害倍率
+  float bleed_chance = 0.0f;           // 811 放血: 命中施加 1 层流血的概率 [0,1]
+  float crit_mult_vs_bleeding = 0.0f;  // 812 撕裂伤口: 对流血目标额外暴击伤害
+  float side_angle_mult = 1.0f;        // 831 无尽刃舞: 侧刃扇形角缩放 (可降至 0.3)
+  float catch_mana = 0.0f;             // 832 接剑: 接刃回蓝
+  float combo_attack_speed = 0.0f;     // 833 连环劲: 接刃后下次施放攻速加成比例
+  float step_extend_sec = 0.0f;        // 834 御剑接踵: 御剑步延长秒数
+  float pull_radius_mult = 1.0f;       // 851 重力网: 牵引半径与刀刃命中盒缩放
+  float intent_gain_chance = 0.0f;     // 852 意随剑舞: 折返命中获得剑意的概率 [0,1]
+  float intent_scaling = 0.0f;         // 853 心剑合一: 每层剑意的速度/命中盒加成比例
+  float giant_armor_scale = 0.0f;      // 854 巨阙: 总护甲转化基础物理伤害比例 [0,1]
+  float heal_bleed_pct = 0.0f;         // 815 风眼: 该次飞行流血总伤转化治疗比例 [0,1]
+  float path_width_mult = 1.0f;        // 874 元素尾迹: 元素路径宽度倍率
+  float path_duration_mult = 1.0f;     // 874 元素尾迹: 元素路径持续时间倍率
+  float path_pen = 0.0f;               // 875 灵根破壁: 本技能元素穿透 [0,1]
+  float path_amp = 0.0f;               // 871 燎原之势: 燃烧路径受击增伤 [0,1]
+  float arc_freq_mult = 1.0f;          // 873 高压电弧: 电弧触发频率倍率
+  float element_shield_pct = 0.0f;     // 876 元素护体: 元素路径内绝对减伤 [0,1]
+
   bool operator==(const BakedDeliveryParams &) const = default;
 };
 static_assert(std::is_standard_layout_v<BakedDeliveryParams>);

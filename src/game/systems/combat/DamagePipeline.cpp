@@ -110,8 +110,11 @@ DefenseResolution ResolveDefenseResolution(
       static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),
       resolution.effective_dodge);
 
+  // 必中/必闪边缘保护：MSVC 的 uniform_real_distribution 偶发返回上界 1.0，
+  // 使 100% 概率判定 < 1.0 失败；此处对 >=1.0 的概率直接判定生效。
   if (resolution.effective_dodge > 0.0f &&
-      utils::ThreadSafeRandom::GetFloat01() < resolution.effective_dodge) {
+      (resolution.effective_dodge >= 1.0f ||
+       utils::ThreadSafeRandom::GetFloat01() < resolution.effective_dodge)) {
     resolution.dodged = true;
     COMBAT_DEFENSE_LOG(
         "[DefenseChain] step=1 attacker={} defender={} dodged=true",
@@ -131,7 +134,8 @@ DefenseResolution ResolveDefenseResolution(
       block_chance);
 
   if (block_chance > 0.0f &&
-      utils::ThreadSafeRandom::GetFloat01() < block_chance) {
+      (block_chance >= 1.0f ||
+       utils::ThreadSafeRandom::GetFloat01() < block_chance)) {
     resolution.blocked = true;
     resolution.block_amount = defender_stats->block_amount;
     resolution.block_effectiveness = ResolveBlockEffectiveness(*defender_stats);
@@ -1116,6 +1120,27 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
           // 的字符串构造与逐字符比较 (code_standard §2.1/§7.2)
           if (const auto *brand = effects->GetByKind(BuffKind::QiBrand)) {
             extra_crit_mult += 0.04f * static_cast<float>(brand->stacks);
+          }
+        }
+      }
+
+      // Skill 8 御剑·回旋 812 撕裂伤口 - 对流血目标增加暴击倍率。
+      // 行为层命中回调发生在伤害结算之后，无法影响本次伤害，故在此按技能域条件注入；
+      // 仅在 skill_id == 8 时进入，不影响其他技能路径。
+      if (skill_id == 8 && registry.valid(defender)) {
+        if (const auto *effects = registry.try_get<ActiveEffectsComponent>(defender)) {
+          bool bleeding = false;
+          for (const auto &effect : effects->effects) {
+            // AilmentEngine 的 Bleed 契约统一写入 BuffType::Bleed，走整数比较
+            if (effect.type == BuffType::Bleed) {
+              bleeding = true;
+              break;
+            }
+          }
+          if (bleeding) {
+            if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, attacker, 8)) {
+              extra_crit_mult += profile->delivery.crit_mult_vs_bleeding;
+            }
           }
         }
       }

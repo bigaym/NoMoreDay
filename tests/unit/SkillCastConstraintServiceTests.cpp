@@ -30,10 +30,11 @@ std::vector<uint32_t> CollectNodeIdsByRole(
 TEST_CASE("[Unit] SkillCastConstraintService - Contract guard evaluation") {
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
 
-  SUBCASE("Mutual transmuters collapse to contract preferred node") {
+  SUBCASE("Skill 8 mutually exclusive transmuters exceed max_transmuters") {
     constexpr uint32_t kSkillId = 8;
     const auto *contract = SkillRegistry::Get().GetSkillContract(kSkillId);
     REQUIRE(contract != nullptr);
+    REQUIRE(contract->max_transmuters == 1);
     REQUIRE(contract->transmuter_node_ids[0] != 0);
     REQUIRE(contract->transmuter_node_ids[1] != 0);
 
@@ -41,6 +42,26 @@ TEST_CASE("[Unit] SkillCastConstraintService - Contract guard evaluation") {
     specialized.skill_id = kSkillId;
     specialized.allocated_points[contract->transmuter_node_ids[0]] = 1;
     specialized.allocated_points[contract->transmuter_node_ids[1]] = 1;
+
+    std::vector<uint32_t> allocatedTransmuters;
+    std::vector<uint32_t> allocatedTriggers;
+    CHECK_FALSE(skill::ValidateContractCastConstraints(
+        SkillRegistry::Get(), contract, &specialized, kSkillId,
+        &allocatedTransmuters, &allocatedTriggers));
+
+    REQUIRE(allocatedTransmuters.size() == 2);
+    CHECK(allocatedTriggers.empty());
+  }
+
+  SUBCASE("Single allocated transmuter passes contract guard") {
+    constexpr uint32_t kSkillId = 8;
+    const auto *contract = SkillRegistry::Get().GetSkillContract(kSkillId);
+    REQUIRE(contract != nullptr);
+    REQUIRE(contract->transmuter_node_ids[0] != 0);
+
+    SpecializedSkill specialized;
+    specialized.skill_id = kSkillId;
+    specialized.allocated_points[contract->transmuter_node_ids[0]] = 1;
 
     std::vector<uint32_t> allocatedTransmuters;
     std::vector<uint32_t> allocatedTriggers;

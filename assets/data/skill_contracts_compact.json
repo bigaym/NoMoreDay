@@ -165,13 +165,13 @@
         434,
         470
       ],
-       "keystone_exclusion_groups": {
-         "472": 1,
-         "474": 1
-       },
-       "resist_models": {
-         "476": "TypeC_Exposure"
-       },
+      "keystone_exclusion_groups": {
+        "472": 1,
+        "474": 1
+      },
+      "resist_models": {
+        "476": "TypeC_Exposure"
+      },
       "scope_policies": {
         "476": "SkillOnly"
       },
@@ -331,36 +331,49 @@
       "skill_id": 8,
       "min_nodes": 29,
       "max_nodes": 29,
-      "max_transmuters": 2,
+      "max_transmuters": 1,
       "max_triggers": 1,
       "has_sword_intent_node": true,
       "has_synergy_node": true,
       "transmuter_node_ids": [
         870,
-        871
+        872
       ],
       "synergy_node_ids": [
-        830
+        814
       ],
       "sword_intent_node_ids": [
         852
       ],
       "sword_step_node_ids": [
-        813
+        834
+      ],
+      "keystone_node_ids": [
+        810,
+        815,
+        854
+      ],
+      "keystone_exclusion_groups": {
+        "870": 1,
+        "872": 1
+      },
+      "passive_node_ids": [
+        875
       ],
       "resist_models": {
-        "872": "TypeA_Penetration"
+        "875": "TypeA_Penetration"
       },
       "scope_policies": {
-        "872": "SkillOnly"
+        "875": "SkillOnly"
       },
       "trigger_nodes": [
         {
-          "node_id": 831,
+          "node_id": 855,
           "trigger_skill_id": 3,
           "effectiveness": 0.5,
           "internal_cooldown": 3.0,
-          "consumes_mana": false
+          "consumes_mana": false,
+          "requires_crit": true
         }
       ]
     },
@@ -462,7 +475,7 @@
         {
           "node_id": 1005,
           "trigger_skill_id": 0,
-          "effectiveness": 0.10,
+          "effectiveness": 0.1,
           "internal_cooldown": 0.5
         },
         {
@@ -537,7 +550,7 @@
         {
           "node_id": 1111,
           "trigger_skill_id": 11,
-          "effectiveness": 0.10,
+          "effectiveness": 0.1,
           "internal_cooldown": 4.0,
           "consumes_mana": false
         }

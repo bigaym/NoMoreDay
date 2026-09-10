@@ -72,7 +72,6 @@ struct BoomerangComponent {
   float max_distance = 300.0f;
   float hover_duration = 0.3f;
   float hover_timer = 0.0f;
-  float return_speed_accel = 800.0f;
   float pull_radius = 0.0f;    // 顶点黑洞牵引半径
   float pull_strength = 0.0f;  // 顶点牵引力度
   bool catch_by_owner = true;  // 接剑回调触发
@@ -82,8 +81,29 @@ struct BoomerangComponent {
   float returnTimer = 0.5f;
   float returnSpeed = 0.0f;
   entt::entity returnTarget = entt::null;
-  float returning_damage_mult = 1.0f; // 折返阶段伤害系数 (Node 230: 0.70f, Node 231: More 增伤)
-  bool stun_on_apex_end = false;      // 顶点黑洞消散时击晕 (Node 233)
+  float returning_damage_mult = 1.0f; // 折返阶段伤害系数 (技能2 Node 230/231; 技能8 Node 803)
+  bool stun_on_apex_end = false;      // 顶点黑洞消散时击晕 (技能2 Node 233)
+
+  // 技能 8 御剑·回旋运行时状态
+  float bleed_damage_pool = 0.0f;        // 815 风眼: 该次飞行施加的流血伤害累计
+  bool returning_kill_occurred = false;  // 835 回旋游步: 折返阶段是否击杀过目标
+  float path_spawn_timer = 0.0f;         // 元素路径生成节流计时 (870/872)
+
+  // 元素路径运行时参数: Tag::None 表示不生成路径; 由 Baker/行为层写入, 交付系统按段生成
+  Tag element_path_tag = Tag::None;   // 870 火 / 872 雷
+  float path_width_mult = 1.0f;       // 874 元素尾迹
+  float path_duration_mult = 1.0f;    // 874 元素尾迹
+  float path_amp = 0.0f;              // 871 燎原之势
+  float path_pen = 0.0f;              // 875 灵根破壁
+  float arc_freq_mult = 1.0f;         // 873 高压电弧
+
+  // 接刃系参数 (832/833/834/815/835/851/853), 由行为层 Spawn 时写入, 交付系统接刃时消费
+  float catch_mana = 0.0f;            // 832 接剑
+  float combo_attack_speed = 0.0f;    // 833 连环劲
+  float step_extend_sec = 0.0f;       // 834 御剑接踵
+  float heal_bleed_pct = 0.0f;        // 815 风眼
+  float pull_radius_mult = 1.0f;      // 851 重力网
+  float side_angle_mult = 1.0f;       // 831 无尽刃舞
 };
 static_assert(std::is_standard_layout_v<BoomerangComponent>);
 static_assert(std::is_trivially_destructible_v<BoomerangComponent>);

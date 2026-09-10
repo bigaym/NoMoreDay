@@ -6,6 +6,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/FlowingThrustComponents.hpp"
+#include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
@@ -68,6 +69,55 @@ entt::entity MakeEnemy(entt::registry &registry, float x, float y, float health 
   MakeDeterministic(stats);
   registry.emplace<HealthComponent>(enemy, health, health);
   return enemy;
+}
+
+// 814 拔血流云：技能8 专精槽（另一槽位）点出 814。
+constexpr uint32_t kBloodRipSkillId = 8;
+constexpr uint32_t kBloodRipNode = 814;
+
+void AddSkill8BloodRip(entt::registry &registry, entt::entity player) {
+  auto &active = registry.get<ActiveSkillsComponent>(player);
+  active.specialized_slots[1].skill_id = kBloodRipSkillId;
+  active.specialized_slots[1].allocated_points[kBloodRipNode] = 1;
+}
+
+// 生成一把技能8、处于悬停顶点的回旋飞剑，radius 即滞空切割有效半径。
+entt::entity MakeHoverBoomerang(entt::registry &registry, Vector2 apex,
+                                float radius) {
+  auto e = registry.create();
+  auto &bc = registry.emplace<BoomerangComponent>(e);
+  bc.skill_id = kBloodRipSkillId;
+  bc.phase = BoomerangPhase::HoverApex;
+  bc.apex_position = apex;
+  registry.emplace<Projectile>(e).radius = radius;
+  return e;
+}
+
+bool ApplyBleed(entt::registry &registry, entt::entity source,
+                entt::entity target, float magnitude, float duration,
+                int stacks) {
+  systems::AilmentApplyRequest req;
+  req.ailment = AilmentType::Bleed;
+  req.source = source;
+  req.magnitude = magnitude;
+  req.duration = duration;
+  req.stacks = stacks;
+  return systems::AilmentApplier::Apply(registry, target, req);
+}
+
+bool VictimHasBleed(const entt::registry &registry, entt::entity entity) {
+  const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
+  if (!effects) {
+    return false;
+  }
+  for (const auto &b : effects->effects) {
+    if ((b.type == BuffType::Bleed ||
+         b.id.find("Bleed") != std::string::npos) &&
+        b.remaining > 0.0f) {
+      return true;
+    }
+  }
+  return false;
 }
 
 // 153 饮血刃：流血 DoT tick 实际结算后，按 100% 治疗 DoT 施加者
@@ -304,6 +354,115 @@ TEST_CASE("[Unit] Skill - Flowing Thrust 173 Shatter hits all enemies in radius"
   CHECK(registry.get<HealthComponent>(far).current == doctest::Approx(10000.0f));
   // 冻结目标本身不被溅射
   CHECK(registry.get<HealthComponent>(victim).current == doctest::Approx(10000.0f));
+}
+
+// 814 拔血流云：流云刺命中悬停切割区内的流血敌人 → 拔除全部流血并结算物理真实爆发
+TEST_CASE("[Unit] Skill - Flowing Thrust 814 Blood Rip consumes bleed in hover zone") {
+  TestSetupScope scope;
+  LoadSkillMechanics();
+  SkillBehaviorRegistry::Initialize();
+
+  auto &ailments = systems::AilmentRegistry::Get();
+  ailments.ResetForTests();
+  REQUIRE(ailments.EnsureLoaded());
+
+  entt::registry registry;
+  auto player = MakePlayer(registry, 0.0f, 0.0f, {});
+  AddSkill8BloodRip(registry, player);
+
+  auto victim = MakeEnemy(registry, 100.0f, 0.0f, 10000.0f);
+  // 悬停飞剑顶点与目标重合，目标处于有效半径内
+  MakeHoverBoomerang(registry, {100.0f, 0.0f}, 40.0f);
+
+  REQUIRE(ApplyBleed(registry, player, victim, 10.0f, 4.0f, 2));
+
+  const float before = registry.get<HealthComponent>(victim).current;
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+  hitFunc(registry, player, victim, Tag::Physical, false);
+
+  // 爆发伤害已结算，且流血层数被完全拔除
+  CHECK(registry.get<HealthComponent>(victim).current < before);
+  CHECK_FALSE(VictimHasBleed(registry, victim));
+}
+
+// 814 对照组：不在悬停区或无流血时不爆发、不消耗
+TEST_CASE("[Unit] Skill - Flowing Thrust 814 no burst outside zone or without bleed") {
+  TestSetupScope scope;
+  LoadSkillMechanics();
+  SkillBehaviorRegistry::Initialize();
+
+  auto &ailments = systems::AilmentRegistry::Get();
+  ailments.ResetForTests();
+  REQUIRE(ailments.EnsureLoaded());
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+
+  // A：有流血但目标在悬停区外 → 不爆发、流血保留
+  {
+    entt::registry registry;
+    auto player = MakePlayer(registry, 0.0f, 0.0f, {});
+    AddSkill8BloodRip(registry, player);
+    auto victim = MakeEnemy(registry, 100.0f, 0.0f, 10000.0f);
+    MakeHoverBoomerang(registry, {500.0f, 0.0f}, 40.0f); // 悬停区在远处
+    REQUIRE(ApplyBleed(registry, player, victim, 10.0f, 4.0f, 2));
+
+    const float before = registry.get<HealthComponent>(victim).current;
+    hitFunc(registry, player, victim, Tag::Physical, false);
+    CHECK(registry.get<HealthComponent>(victim).current ==
+          doctest::Approx(before));
+    CHECK(VictimHasBleed(registry, victim));
+  }
+
+  // B：目标在悬停区内但无流血 → 不爆发
+  {
+    entt::registry registry;
+    auto player = MakePlayer(registry, 0.0f, 0.0f, {});
+    AddSkill8BloodRip(registry, player);
+    auto victim = MakeEnemy(registry, 100.0f, 0.0f, 10000.0f);
+    MakeHoverBoomerang(registry, {100.0f, 0.0f}, 40.0f);
+
+    const float before = registry.get<HealthComponent>(victim).current;
+    hitFunc(registry, player, victim, Tag::Physical, false);
+    CHECK(registry.get<HealthComponent>(victim).current ==
+          doctest::Approx(before));
+  }
+}
+
+// 814：爆发伤害随被拔除的流血层数增加
+TEST_CASE("[Unit] Skill - Flowing Thrust 814 burst scales with bleed stacks") {
+  TestSetupScope scope;
+  LoadSkillMechanics();
+  SkillBehaviorRegistry::Initialize();
+
+  auto &ailments = systems::AilmentRegistry::Get();
+  ailments.ResetForTests();
+  REQUIRE(ailments.EnsureLoaded());
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+
+  auto runBurst = [&](int stacks) {
+    entt::registry registry;
+    auto player = MakePlayer(registry, 0.0f, 0.0f, {});
+    AddSkill8BloodRip(registry, player);
+    auto victim = MakeEnemy(registry, 100.0f, 0.0f, 10000.0f);
+    MakeHoverBoomerang(registry, {100.0f, 0.0f}, 40.0f);
+    // Bleed 契约 RefreshPolicy::Independent：层数=独立实例数，逐层施加
+    for (int i = 0; i < stacks; ++i) {
+      REQUIRE(ApplyBleed(registry, player, victim, 10.0f, 4.0f, 1));
+    }
+
+    const float before = registry.get<HealthComponent>(victim).current;
+    hitFunc(registry, player, victim, Tag::Physical, false);
+    return before - registry.get<HealthComponent>(victim).current;
+  };
+
+  const float oneStack = runBurst(1);
+  const float twoStacks = runBurst(2);
+  CHECK(oneStack > 0.0f);
+  CHECK(twoStacks > oneStack);
 }
 
 } // namespace

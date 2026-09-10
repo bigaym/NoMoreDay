@@ -18,6 +18,7 @@
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/BoomerangDeliverySystem.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/SkillSpecializationBaker.hpp"
@@ -825,10 +826,11 @@ TEST_CASE("[Integration] SkillLogic - Specialized Behaviors") {
     bc.phase = BoomerangPhase::Outward;
     bc.returnTimer = 0.5f;
 
-    // Total time needed: 0.5s (timer) + 0.2s (hover) = 0.7s. 
+    // Total time needed: 0.5s (timer) + hover window = 0.8s.
     // Two updates to ensure state transitions (Outward -> HoverApex -> Returning)
-    ProjectileSystem::Update(registry, grid, 0.6f); // Outward -> HoverApex
-    ProjectileSystem::Update(registry, grid, 0.3f); // HoverApex -> Returning
+    // 单权威状态机：由交付系统推进，ProjectileSystem 不再处理回旋阶段
+    BoomerangDeliverySystem::Update(registry, grid, 0.6f); // Outward -> HoverApex
+    BoomerangDeliverySystem::Update(registry, grid, 0.3f); // HoverApex -> Returning
     CHECK(bc.phase == BoomerangPhase::Returning);
   }
 
@@ -941,7 +943,7 @@ TEST_CASE(
   active.specialized_slots[0].skill_id = 2;
   active.specialized_slots[0].allocated_points[230] = 1; // Rending boomerang
   active.specialized_slots[1].skill_id = 8;
-  active.specialized_slots[1].allocated_points[813] = 1; // Boomerang split
+  active.specialized_slots[1].allocated_points[830] = 1; // Boomerang side blades
 
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     CAPTURE(skill_id);
@@ -979,7 +981,7 @@ TEST_CASE(
     CHECK(registry.get<BladeFormationComponent>(player).has_giant_sword);
   }
 
-  SUBCASE("Blade Boomerang phantom spin branch emits multi projectiles") {
+  SUBCASE("Blade Boomerang side-blade branch emits multi projectiles") {
     SkillExecution exec;
     exec.skill_id = 8;
     exec.owner = player;
@@ -1031,7 +1033,7 @@ TEST_CASE("[Integration] SkillSystem - Boomerang Catch node restores resources")
   active.slots[0].id = 8;
   active.slots[0].cooldown = 2.0f;
   active.specialized_slots[0].skill_id = 8;
-  active.specialized_slots[0].allocated_points[831] = 2;
+  active.specialized_slots[0].allocated_points[832] = 2;
 
   auto projEnt = registry.create();
   registry.emplace<Position>(projEnt, 0.5f, 0.0f);
@@ -1046,11 +1048,12 @@ TEST_CASE("[Integration] SkillSystem - Boomerang Catch node restores resources")
   boom.owner = player;
   boom.phase = BoomerangPhase::Returning;
   boom.returnSpeed = 400.0f;
+  // 832 接剑回蓝：数值由烘培层写入，交付层只读组件字段
+  boom.catch_mana = 5.0f;
 
-  ProjectileSystem::Update(registry, grid, 0.016f);
+  BoomerangDeliverySystem::Update(registry, grid, 0.016f);
 
   CHECK(stats.mana > 10.0f);
-  CHECK(active.slots[0].cooldown < 2.0f);
   CHECK_FALSE(registry.valid(projEnt));
 }
 

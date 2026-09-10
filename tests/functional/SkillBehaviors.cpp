@@ -4,6 +4,7 @@
 #include "game/foundation/components/AdvancedAffixComponents.hpp"
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Projectile.hpp"
@@ -17,11 +18,14 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 
 namespace NoMoreDay {
+
+using doctest::Approx;
 
 TEST_CASE("[Functional] Skill - Blade Boomerang Specializations") {
     TestSetupScope scope;
@@ -38,10 +42,23 @@ TEST_CASE("[Functional] Skill - Blade Boomerang Specializations") {
     
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
 
-    SUBCASE("812 Po Kong - Speed Scaling") {
+    // 812：对流血目标的额外暴击伤害（按点数 15%/点）
+    SUBCASE("812 流血暴击增伤 - 数值烘焙") {
         auto& spec = active.specialized_slots[0];
         spec.skill_id = 8;
-        spec.allocated_points[812] = 3; 
+        spec.allocated_points[812] = 3;
+
+        BakedSkillProfile profile{};
+        SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile);
+        CHECK(profile.delivery.crit_mult_vs_bleeding == Approx(0.45f));
+    }
+
+    // 830/831：生成两把侧刃，并将扇形角收窄到 0.7 倍
+    SUBCASE("830 双侧刃与 831 扇形角 - 交付参数") {
+        auto& spec = active.specialized_slots[0];
+        spec.skill_id = 8;
+        spec.allocated_points[830] = 1;
+        spec.allocated_points[831] = 3;
 
         SkillExecution exec;
         exec.skill_id = 8;
@@ -52,15 +69,27 @@ TEST_CASE("[Functional] Skill - Blade Boomerang Specializations") {
         REQUIRE(castFunc != nullptr);
         castFunc(registry, player, exec);
 
-        auto view = registry.view<Projectile>();
-        bool found = false;
-        for (auto entity : view) {
-            auto& proj = view.get<Projectile>(entity);
-            CHECK(proj.snapshot.damage_multipliers[0] >= 1.0f);
-            found = true;
-            break;
+        int count = 0;
+        for (auto entity : registry.view<BoomerangComponent>()) {
+            auto& bc = registry.get<BoomerangComponent>(entity);
+            if (bc.owner != player) continue;
+            ++count;
+            CHECK(bc.side_angle_mult == Approx(0.70f));
         }
-        CHECK(found);
+        CHECK(count == 3);
+    }
+
+    // 832/833：接刃回蓝与接刃后攻速（按点数线性叠加）
+    SUBCASE("832/833 接刃资源 - 数值烘焙") {
+        auto& spec = active.specialized_slots[0];
+        spec.skill_id = 8;
+        spec.allocated_points[832] = 3;
+        spec.allocated_points[833] = 3;
+
+        BakedSkillProfile profile{};
+        SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile);
+        CHECK(profile.delivery.catch_mana == Approx(6.0f));
+        CHECK(profile.delivery.combo_attack_speed == Approx(45.0f));
     }
 }
 

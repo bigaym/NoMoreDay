@@ -62,6 +62,19 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
             if (rule.listen_event != event.type || rule.current_cooldown > 0.0f) continue;
             // 需暴击的规则（如 335 巨剑裂空）仅接受暴击命中事件
             if (rule.requires_crit && !event.isCrit) continue;
+            // 触发前置节点校验: 施法者必须在来源技能上点出指定节点才允许触发。
+            // 来源技能默认取本次事件的技能（event.skill_id），可用
+            // required_source_skill_id 显式指定。技能8 855 巨剑共鸣要求施法者
+            // 已在技能3(灵剑决)点出 330 巨剑降临。
+            if (rule.required_source_node_id != 0) {
+                const uint32_t source_skill = (rule.required_source_skill_id != 0)
+                                                  ? rule.required_source_skill_id
+                                                  : event.skill_id;
+                if (!SkillSystem::HasAllocatedNode(reg, listener, source_skill,
+                                                   rule.required_source_node_id)) {
+                    continue;
+                }
+            }
             // 击杀来源技能过滤: 0=任意来源 (如 714 寂灭仅接受 skill_id==7 的击杀)
             if (rule.required_skill_id != 0 && event.skill_id != rule.required_skill_id) continue;
             if (rule.event_tag_filter != Tag::None && (event.tags & rule.event_tag_filter) != rule.event_tag_filter) continue;

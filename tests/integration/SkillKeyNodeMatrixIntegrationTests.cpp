@@ -6,9 +6,11 @@
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <array>
 
@@ -140,8 +142,9 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
       CHECK(registry.get<BeamChannelComponent>(caster).skill_id == 7u);
       break;
     case 8:
+      // 冒烟配置不含 830 幻影回旋，故仅有主剑一柄弹体
       CHECK(test::skill_keynode_matrix::integration::HasBoomerangProjectiles(
-          registry, 3));
+          registry, 1));
       break;
     case 9:
       REQUIRE(registry.all_of<PhantomFlashComponent>(caster));
@@ -238,6 +241,11 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
     const auto target = sknm::CreateTarget(registry, {30.0f, 0.0f});
     sknm::ConfigureSpecialization(registry, caster, skill_id,
                                   {{trigger_node, 1}});
+    // 技能8 855 巨剑共鸣：需施法者已专精技能3节点330（巨剑术），且本次命中为暴击。
+    const bool is_crit = (skill_id == 8u);
+    if (is_crit) {
+      sknm::ConfigureSpecialization(registry, caster, 3u, {{330, 1}}, 1);
+    }
 
     // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
     // 构造须在配置专精之后、派发命中之前（与 unit 矩阵测试口径一致）。
@@ -262,7 +270,8 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
 
     const auto before = registry.storage<SkillExecution>().size();
     sknm::DispatchSkillHit(registry, caster, target, skill_id,
-                           static_cast<uint64_t>(7000 + skill_id));
+                           static_cast<uint64_t>(7000 + skill_id),
+                           Tag::Hit | Tag::Melee, is_crit);
     const auto after = registry.storage<SkillExecution>().size();
     CHECK(after > before);
 
@@ -299,6 +308,11 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
     const auto target = sknm::CreateTarget(registry, {16.0f, 0.0f});
     sknm::ConfigureSpecialization(registry, caster, skill_id,
                                   {{trigger_node, 1}});
+    // 技能8 855 巨剑共鸣：需施法者已专精技能3节点330且本次命中为暴击。
+    const bool is_crit = (skill_id == 8u);
+    if (is_crit) {
+      sknm::ConfigureSpecialization(registry, caster, 3u, {{330, 1}}, 1);
+    }
 
     // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
     // 构造须在配置专精之后、派发命中之前（与 unit 矩阵测试口径一致）。
@@ -323,7 +337,8 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
 
     const auto before = registry.storage<SkillExecution>().size();
     sknm::DispatchSkillHit(registry, caster, target, skill_id,
-                           static_cast<uint64_t>(8200 + skill_id));
+                           static_cast<uint64_t>(8200 + skill_id),
+                           Tag::Hit | Tag::Melee, is_crit);
     const auto after = registry.storage<SkillExecution>().size();
     CHECK(after > before);
     ++scenario_count;
@@ -363,15 +378,55 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
     systems::SpatialHashGrid grid(1024, 1024, 64);
     const auto caster = sknm::CreateCaster(registry, 1000.0f);
     sknm::ConfigureSkillSlot(registry, caster, 8, 0, 1);
-    sknm::ConfigureSpecialization(registry, caster, 8, {{871, 1}});
+    sknm::ConfigureSpecialization(registry, caster, 8, {{876, 1}});
+    // 生产链路里专精变更经由属性脏标记触发重烘培，测试需显式重烘培
+    SkillSystem::RebakeSkillProfiles(registry, caster);
     CHECK(SkillSystem::TryCast(registry, caster, 0, {120.0f, 0.0f}));
     test::skill_keynode_matrix::integration::RunTicks(registry, grid, 8, 0.08f);
-    CHECK(sknm::HasEffectById(registry, caster,
-                              BuffIdToString(BuffId::BladeBoomerangGuardQi)));
+    // 876 元素护体：守护语义烘培为元素绝对减伤比例，运行期由护卫管线消费
+    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 8u);
+    REQUIRE(profile != nullptr);
+    CHECK(profile->delivery.element_shield_pct > 0.0f);
     ++scenario_count;
   }
 
   CHECK(scenario_count >= 12);
+}
+
+// 834 御剑接踵消费侧：接刃获得的 FreeCast 让来源技能下次施放免蓝且只生效一次
+TEST_CASE("[Integration] SkillKeyNodeMatrix - 834 free cast is consumed once") {
+  entt::registry registry;
+  test::skill_keynode_matrix::integration::InitContext(registry);
+
+  const auto caster = sknm::CreateCaster(registry, 500.0f);
+  sknm::ConfigureSkillSlot(registry, caster, 8, 0, 3);
+  sknm::ConfigureSpecialization(registry, caster, 8, {{834, 3}});
+  SkillSystem::RebakeSkillProfiles(registry, caster);
+
+  auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(caster);
+  BuffEffect freeCast;
+  freeCast.id = "test_free_cast";
+  freeCast.kind = BuffKind::FreeCast;
+  freeCast.source_skill_id = 8u;
+  freeCast.duration = 5.0f;
+  freeCast.remaining = 5.0f;
+  effects.AddOrRefresh(freeCast);
+  REQUIRE(effects.GetByKind(BuffKind::FreeCast) != nullptr);
+
+  const float mana_before = registry.get<CombatStats>(caster).mana;
+  REQUIRE(SkillSystem::TryCast(registry, caster, 0, {20.0f, 0.0f}));
+  CHECK(registry.get<CombatStats>(caster).mana == doctest::Approx(mana_before));
+  CHECK(effects.GetByKind(BuffKind::FreeCast) == nullptr);
+
+  // 对照组：无 FreeCast 时施放正常消耗法力
+  const auto control = sknm::CreateCaster(registry, 500.0f);
+  sknm::ConfigureSkillSlot(registry, control, 8, 0, 3);
+  sknm::ConfigureSpecialization(registry, control, 8, {{834, 3}});
+  SkillSystem::RebakeSkillProfiles(registry, control);
+
+  const float control_mana_before = registry.get<CombatStats>(control).mana;
+  REQUIRE(SkillSystem::TryCast(registry, control, 0, {20.0f, 0.0f}));
+  CHECK(registry.get<CombatStats>(control).mana < control_mana_before);
 }
 
 } // namespace NoMoreDay

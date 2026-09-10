@@ -723,5 +723,44 @@
     "775": {
       "cap_suppression_pct_per_point": 0.03
     }
+  },
+  "8": {
+    "0": {
+      "bleed_magnitude": 10.0,
+      "bleed_duration": 4.0,
+      "shred_duration": 4.0
+    },
+    "802": {
+      "added_physical_per_point": 5.0
+    },
+    "810": {
+      "hover_duration": 0.8,
+      "hover_tick_interval": 0.2
+    },
+    "811": {
+      "magnitude": 10.0,
+      "duration": 4.0
+    },
+    "813": {
+      "shred_chance_pct_per_point": 0.30,
+      "shred_extend_sec": 1.0
+    },
+    "830": {
+      "side_angle_deg": 14.0,
+      "side_damage_pct": 0.70
+    },
+    "872": {
+      "arc_interval": 0.5,
+      "arc_radius": 180.0,
+      "arc_damage": 30.0
+    },
+    "873": {
+      "burst_damage": 60.0,
+      "burst_stun_duration": 0.5
+    },
+    "854": {
+      "giant_size_mult": 2.0,
+      "stun_duration": 1.5
+    }
   }
 }

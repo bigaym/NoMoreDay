@@ -41,6 +41,10 @@ enum class BuffId : uint8_t {
   LingJianHuTi,             // "ling_jian_hu_ti"
   SupportShield,            // "support_shield"
   AssassinBackstabBoost,    // "assassin_backstab_boost"
+  // 技能8 御剑·回旋接刃系增益（833/834/835）
+  BladeBoomerangCombo,      // "blade_boomerang_combo"（833 连环劲：接刃后短时攻速）
+  BladeBoomerangFreeCast,   // "blade_boomerang_free_cast"（834 御剑接踵：下次投掷免蓝）
+  BladeBoomerangSwift,      // "blade_boomerang_swift"（835 回旋游步：接刃后移速）
   Count,
 };
 
@@ -67,6 +71,9 @@ inline constexpr std::array<std::string_view,
         "ling_jian_hu_ti",             // LingJianHuTi
         "support_shield",              // SupportShield
         "assassin_backstab_boost",     // AssassinBackstabBoost
+        "blade_boomerang_combo",       // BladeBoomerangCombo（833）
+        "blade_boomerang_free_cast",   // BladeBoomerangFreeCast（834）
+        "blade_boomerang_swift",       // BladeBoomerangSwift（835）
 };
 
 [[nodiscard]] constexpr std::string_view BuffIdToString(BuffId id) noexcept {
