@@ -754,6 +754,12 @@ void AttributePipeline::Calculate(entt::registry &registry,
     registry.emplace<TitanGripTrait>(entity);
   if (auto *hp = registry.try_get<HealthComponent>(entity)) {
     hp->max = stats.max_health;
+    // 981 逆脉：锁血窗口内属性重算不得把被锁定的生命上限刷回满值，
+    // 否则禁疗失效且 983 死亡螺旋的"临时上限损失"恒为零。
+    if (const auto *trance = registry.try_get<PhantomTranceComponent>(entity);
+        trance != nullptr && IsDeathSealActive(*trance)) {
+      hp->max = stats.max_health * trance->params.death_seal_hp_cap_pct;
+    }
     if (hp->current > hp->max)
       hp->current = hp->max;
     stats.health = hp->current;

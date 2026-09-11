@@ -566,6 +566,50 @@ struct PayloadDefinition {
 };
 static_assert(std::is_standard_layout_v<PayloadDefinition>);
 
+// 技能 9 绝影绝剑专精参数: 唯一写入方为 SkillSpecializationBaker case9,
+// 唯一读取方为 PhantomTrance 行为, 避免数值双源。
+struct PhantomTranceParams {
+  float duration_sec = 3.0f;               // 975 延命后的形态时长
+  float move_speed_pct = 20.0f;            // 基础 20 + 902 身轻如燕追加
+  float dodge_pct = 0.0f;                  // 902 形态内闪避
+  float recovery_pct = 0.0f;               // 974 空明心境: 形态内冷却缩减
+  float burst_damage_mult = 1.0f;          // 976 气旋爆发: 结束爆发伤害/半径倍率
+  bool cheat_death_hold = false;           // 977 向死而生: 免死不提前结束
+  float rebirth_lost_pct = 0.0f;           // 978 浴血重生: 免死触发时按损失生命回复
+  float rebirth_flat_pct = 0.0f;           // 978 浴血重生: 未触发时按上限回复
+  float ward_pct = 0.0f;                   // 979 绝影护甲: 施放时获得上限比例护盾
+  bool void_body = false;                  // 980 虚灵之躯: 潜行/穿行/不可选中
+  float void_body_hp_cost_pct = 0.15f;     // 980 施放时消耗当前生命比例
+  float weaken_on_pass_pct = 0.0f;         // 913 灵流穿透: 穿行敌人获虚弱比例
+  float void_gift_mana_per_sec = 0.0f;     // 914 虚境馈赠: 形态内每秒回蓝
+  float void_gift_dr_pct = 0.0f;           // 914 虚境馈赠: 形态内全局减伤
+  bool death_seal = false;                 // 981 逆脉: 锁血禁疗增伤
+  float death_seal_hp_cap_pct = 0.33f;     // 981 锁血上限比例
+  float death_seal_damage_more_pct = 33.0f;// 981 形态内全局增伤
+  float last_stand_crit_pct = 0.0f;        // 982 孤注一掷: 每缺失 1% 生命的暴伤加成
+  int death_spiral_count = 0;              // 983 死亡螺旋: 每轮飞剑数
+  float death_spiral_damage_pct = 0.0f;    // 983 每柄伤害=临时损失上限*该值
+  float bloodthirst_pct = 0.0f;            // 984 嗜血本能: 结束时按期间伤害回复
+  float atk_cast_speed_pct = 0.0f;         // 934 剑随心动: 攻速/施法速度
+  bool blink = false;                      // 985 破空一闪: 瞬移至光标再入形态
+  bool echo_synergy = false;               // 993 影剑回响: 回旋命中追加影子回响
+  int intent_per_sec = 0;                  // 987 意随神行: 每秒剑意
+  float sword_step_dodge_pct = 0.0f;       // 988 御剑化影: 御剑步时形态闪避
+  float sword_step_drain_mult = 1.0f;      // 988 御剑步连击点流失倍率
+  float time_reversal_sec = 0.0f;          // 954 时光逆流: 结束返还其他技能冷却
+  float focus_mana_reduce_pct = 0.0f;      // 955 全神贯注: 形态内其他技能法耗降低
+  Tag transmuter_tag = Tag::None;          // 989 天山雪隐(Cold) / 972 疾空惊雷(Lightning)
+  float frost_amp_pct = 0.0f;              // 990 凛冬附魔: 对冰冻/冰缓目标增伤
+  float overload_speed_pct = 0.0f;         // 973 过载护盾: 雷盾期间移速/攻速
+  float enchant_pen_per_intent_pct = 0.0f; // 991 意念穿透: 每层剑意元素穿透
+  float enchant_pen_cap_pct = 40.0f;       // 991 穿透上限
+  bool enchant_refresh_on_kill = false;    // 992 灵气反哺: 对应异常击杀刷新附魔
+  float cooldown_flat_reduce = 0.0f;       // 986 缩地成寸: 基础冷却直接减免
+
+  bool operator==(const PhantomTranceParams &) const = default;
+};
+static_assert(std::is_standard_layout_v<PhantomTranceParams>);
+
 // 纯 POD 交付参数结构
 struct BakedDeliveryParams {
   uint8_t primary_archetype = 0;   // 对应 12 大 Delivery 原型枚举
@@ -606,6 +650,9 @@ struct BakedDeliveryParams {
   float path_amp = 0.0f;               // 871 燎原之势: 燃烧路径受击增伤 [0,1]
   float arc_freq_mult = 1.0f;          // 873 高压电弧: 电弧触发频率倍率
   float element_shield_pct = 0.0f;     // 876 元素护体: 元素路径内绝对减伤 [0,1]
+
+  // 技能 9 绝影绝剑专项参数（见 PhantomTranceParams）
+  PhantomTranceParams trance;
 
   bool operator==(const BakedDeliveryParams &) const = default;
 };
@@ -926,15 +973,31 @@ struct BladeWardComponent {
   float block_ward_amount = 0.0f;    // Talent 432 剑盾屏障: 格挡获取护盾 (10..30 Ward)
 };
 
-struct PhantomFlashComponent {
-  float counter_window = 0.5f;
-  float knockback_bonus = 0.0f;
-  bool triggered = false;
-  bool flow_reset = false;          // Talent 951
-  bool synergy_shadow_hide = false; // Talent 930
-  int intent_overflow = 0;          // Talent 952 points
-  Tag enchant_tag = Tag::None;      // Selected transmuter element
+// 技能 9 绝影绝剑运行时形态状态 (由 PhantomTrance 行为维护)
+struct PhantomTranceComponent {
+  entt::entity owner = entt::null;
+  uint64_t cast_id = 0;
+  PhantomTranceParams params{};
+  float duration = 3.0f;
+  float remaining = 3.0f;
+  float elapsed = 0.0f;
+  bool lethal_triggered = false;      // 免死已消耗
+  float damage_dealt_accum = 0.0f;    // 984 期间造成伤害统计
+  float intent_tick = 0.0f;           // 987 剑意累计
+  float mana_tick = 0.0f;             // 914 回蓝累计
+  float spiral_tick = 0.0f;           // 983 死亡螺旋节拍
+  float pulse_tick = 0.0f;            // 989/972 元素脉冲节拍
+  float weaken_tick = 0.0f;           // 913 穿行检测节拍
+  float last_stand_buff_value = 0.0f; // 982 最近一次写入的暴伤值
+  float enchant_remaining = 0.0f;     // 附魔窗口剩余
+  Tag enchant_tag = Tag::None;        // 附魔元素
+  bool ending = false;                // 正在执行结束结算
 };
+
+// 逆脉禁疗/锁血窗口判定 (治疗点与上限同步统一走此判定)
+inline bool IsDeathSealActive(const PhantomTranceComponent &pt) {
+  return pt.params.death_seal && pt.remaining > 0.0f && !pt.ending;
+}
 
 // --- SUMMON SYSTEM COMPONENTS ---
 

@@ -248,7 +248,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     CHECK(runtime->active_transmuter_node_by_skill.at(8) == 870);
   }
 
-  SUBCASE("Scope policy entry supports channel and PhantomFlash windows") {
+  SUBCASE("Scope policy GlobalWhileBuffActive requires the matching active window") {
     auto player = registry.create();
 
     CHECK(
@@ -256,21 +256,22 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     CHECK_FALSE(
         SkillSystem::CanApplyScopePolicy(registry, player, 1, 2, ScopePolicy::SkillOnly));
 
+    // 无进行中的窗口: 全局词条不生效
     CHECK_FALSE(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
 
+    // 引导/形态窗口激活且属于同一来源技能: 生效
     auto &chan = registry.emplace<ChannelingComponent>(player);
     chan.skill_id = 9;
     CHECK(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
-    registry.remove<ChannelingComponent>(player);
 
-    auto &pf = registry.emplace<PhantomFlashComponent>(player);
-    pf.counter_window = 0.25f;
-    pf.triggered = false;
-    CHECK(SkillSystem::CanApplyScopePolicy(
+    // 窗口属于其他来源技能: 不得越权生效
+    chan.skill_id = 8;
+    CHECK_FALSE(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
-    pf.triggered = true;
+
+    registry.remove<ChannelingComponent>(player);
     CHECK_FALSE(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
   }
@@ -449,21 +450,30 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(array.execute_health_threshold_ratio == doctest::Approx(0.12f));
   }
 
-  SUBCASE("Skill 9 key nodes set PhantomFlash runtime fields") {
+  SUBCASE("Skill 9 key nodes write PhantomTrance params and form effects") {
     auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
     registry.emplace<Position>(player, 0.0f, 0.0f);
-    registry.emplace<CombatStats>(player).mana = 200.0f;
+    auto &stats = registry.emplace<CombatStats>(player);
+    stats.max_health = 1000.0f;
+    stats.health = 1000.0f;
+    stats.mana = 200.0f;
+    stats.max_mana = 200.0f;
+    registry.emplace<HealthComponent>(player, 1000.0f, 1000.0f);
     registry.emplace<SwordIntentComponent>(player).stacks = 0;
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.slots[0].id = 9;
+    active.slots[0].current_charges = 5;
     active.specialized_slots[0].skill_id = 9;
-    active.specialized_slots[0].allocated_points[930] = 1;
-    active.specialized_slots[0].allocated_points[951] = 1;
-    active.specialized_slots[0].allocated_points[952] = 2;
-    active.specialized_slots[0].allocated_points[970] = 1;
+    active.specialized_slots[0].allocated_points[981] = 1; // 逆脉: 锁血/禁疗/增伤
+    active.specialized_slots[0].allocated_points[991] = 3; // 意念穿透: 每层剑意 3%
+    active.specialized_slots[0].allocated_points[987] = 1; // 意随神行: 每秒剑意
+    active.specialized_slots[0].allocated_points[989] = 1; // 天山雪隐: 冰转质
 
     auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
-    runtime.active_transmuter_node_by_skill[9] = 970;
+    runtime.active_transmuter_node_by_skill[9] = 989;
+    SkillSystem::RebakeSkillProfiles(registry, player);
 
     SkillExecution exec;
     exec.skill_id = 9;
@@ -474,16 +484,23 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     REQUIRE(cast != nullptr);
     cast(registry, player, exec);
 
-    const auto *pf = registry.try_get<PhantomFlashComponent>(player);
-    REQUIRE(pf != nullptr);
-    CHECK(pf->synergy_shadow_hide);
-    CHECK(pf->flow_reset);
-    CHECK(pf->intent_overflow == 2);
-    CHECK(pf->enchant_tag == Tag::Cold);
+    const auto *pt = registry.try_get<PhantomTranceComponent>(player);
+    REQUIRE(pt != nullptr);
+    CHECK(pt->params.death_seal);
+    CHECK(pt->params.transmuter_tag == Tag::Cold);
+    CHECK(pt->params.intent_per_sec == 1);
+    CHECK(pt->params.enchant_pen_per_intent_pct == doctest::Approx(0.03f));
+    CHECK(pt->params.enchant_pen_cap_pct == doctest::Approx(40.0f));
+    CHECK(pt->remaining > 0.0f);
 
-    const auto *intent = registry.try_get<SwordIntentComponent>(player);
-    REQUIRE(intent != nullptr);
-    CHECK(intent->stacks >= 1);
+    // 逆脉锁血: 运行时生命上限降至 33%，CombatStats 基准上限保持不变
+    CHECK(registry.get<HealthComponent>(player).max == doctest::Approx(330.0f));
+    CHECK(registry.get<CombatStats>(player).max_health == doctest::Approx(1000.0f));
+
+    const auto *effects = registry.try_get<ActiveEffectsComponent>(player);
+    REQUIRE(effects != nullptr);
+    CHECK(effects->Has(BuffId::PhantomTranceForm));
+    CHECK(effects->Has(BuffId::PhantomTranceDeathSeal));
   }
 
   SUBCASE("Skill 10 branch transmuters change SevenStarSlash cast radius") {
@@ -928,7 +945,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
       {6u, 635u},
       {7u, 714u},
       {8u, 855u},
-      {9u, 951u},
+      {9u, 935u},
   }};
 
   for (const auto &[skill_id, trigger_node] : trigger_matrix) {
@@ -969,6 +986,20 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
       // 855 巨剑共鸣运行时要求施法者已专精技能3 的 330 巨剑降临
       test::skill_keynode_matrix::ConfigureSpecialization(
           registry, caster, 3u, {{330u, 1}}, /*specialized_slot=*/1);
+    } else if (skill_id == 9u) {
+      // 935 逆命反噬自带 20% 概率且限定逆脉窗口：显式烘焙规则并锁定概率，
+      // 否则触发结果不可确定。
+      test::skill_keynode_matrix::ConfigureSkillSlot(registry, caster, 9u, 0, 1);
+      test::skill_keynode_matrix::ConfigureTriggerSourcePrerequisites(
+          registry, caster, 9u);
+      SkillSystem::RebakeSkillProfiles(registry, caster);
+      if (auto *trig = registry.try_get<TriggerRuleComponent>(caster)) {
+        for (auto &rule : trig->rules) {
+          if (rule.rule_id == trigger_node) {
+            rule.base_chance = 1.0f;
+          }
+        }
+      }
     }
 
     const auto before = registry.storage<SkillExecution>().size();

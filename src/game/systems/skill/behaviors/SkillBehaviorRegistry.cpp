@@ -45,7 +45,7 @@ namespace skills {
     void RegisterSwordArray();
     void RegisterMindBlade();
     void RegisterBladeBoomerang();
-    void RegisterPhantomFlash();
+    void RegisterPhantomTrance();
     void RegisterSevenStarSlash();
     void RegisterHeavenlySwordDescent();
     void RegisterBloodSea();
@@ -65,7 +65,7 @@ void SkillBehaviorRegistry::Initialize() {
     skills::RegisterSwordArray();
     skills::RegisterMindBlade();
     skills::RegisterBladeBoomerang();
-    skills::RegisterPhantomFlash();
+    skills::RegisterPhantomTrance();
     skills::RegisterSevenStarSlash();
     skills::RegisterHeavenlySwordDescent();
     skills::RegisterBloodSea();

@@ -3,6 +3,7 @@
 #include <entt/entt.hpp>
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/SkillDefs.hpp" // PhantomTranceComponent / IsDeathSealActive
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay {
@@ -24,22 +25,28 @@ public:
             
             auto& stats = view.get<CombatStats>(entity);
             bool isPlayer = registry.all_of<PlayerTag>(entity);
-            
+
+            // 981 逆脉: 锁血禁疗窗口内禁止自然回复并冻结生命上限同步
+            const auto* trance = registry.try_get<PhantomTranceComponent>(entity);
+            const bool deathSealActive = trance && IsDeathSealActive(*trance);
+
             float effectiveHealthRegen = stats.health_regen;
             float effectiveManaRegen = stats.mana_regen;
 
             // 1. 处理生命回复
             if (registry.all_of<HealthComponent>(entity)) {
                 auto& hp = registry.get<HealthComponent>(entity);
-                
-                // 同步最大生命值
-                hp.max = stats.max_health;
 
-                if (hp.current < hp.max && effectiveHealthRegen > 0.0f) {
-                    hp.current += effectiveHealthRegen * dt;
-                    if (hp.current > hp.max) hp.current = hp.max;
+                if (!deathSealActive) {
+                    // 同步最大生命值
+                    hp.max = stats.max_health;
+
+                    if (hp.current < hp.max && effectiveHealthRegen > 0.0f) {
+                        hp.current += effectiveHealthRegen * dt;
+                        if (hp.current > hp.max) hp.current = hp.max;
+                    }
                 }
-                
+
                 // 同步回 stats 供 UI 读取
                 stats.health = hp.current;
 
@@ -55,7 +62,7 @@ public:
                     }
                 }
             } else {
-                if (stats.health < stats.max_health && effectiveHealthRegen > 0.0f) {
+                if (!deathSealActive && stats.health < stats.max_health && effectiveHealthRegen > 0.0f) {
                     stats.health += effectiveHealthRegen * dt;
                     if (stats.health > stats.max_health) stats.health = stats.max_health;
                 }

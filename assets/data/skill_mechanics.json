@@ -762,5 +762,90 @@
       "giant_size_mult": 2.0,
       "stun_duration": 1.5
     }
+  },
+  "9": {
+    "0": {
+      "form_duration": 3.0,
+      "form_move_pct": 20.0,
+      "burst_radius": 160.0,
+      "burst_weapon_mult": 1.5,
+      "enchant_duration": 4.0,
+      "enchant_added_pct": 0.5,
+      "ward_duration": 2.0,
+      "weaken_duration": 3.0,
+      "spiral_interval": 0.5,
+      "echo_chance": 0.4,
+      "echo_effectiveness": 0.5,
+      "echo_icd": 0.5
+    },
+    "975": {
+      "duration_per_point": 0.25
+    },
+    "976": {
+      "burst_per_point": 0.15
+    },
+    "902": {
+      "move_per_point": 10,
+      "dodge_per_point": 10
+    },
+    "974": {
+      "recovery_per_point": 10
+    },
+    "978": {
+      "rebirth_lost_per_point": 0.15,
+      "rebirth_flat_per_point": 0.05
+    },
+    "979": {
+      "ward_per_point": 0.10
+    },
+    "913": {
+      "weaken_per_point": 0.06
+    },
+    "914": {
+      "mana_per_point": 2,
+      "dr_per_point": 0.10
+    },
+    "982": {
+      "crit_per_missing_per_point": 1
+    },
+    "983": {
+      "spiral_count_per_point": 1,
+      "spiral_damage_pct": 0.08
+    },
+    "984": {
+      "heal_pct": 0.05
+    },
+    "934": {
+      "speed_per_point": 5
+    },
+    "986": {
+      "cd_per_point": 1
+    },
+    "987": {
+      "intent_per_point": 1
+    },
+    "988": {
+      "dodge_per_point": 10,
+      "drain_mult": 0.5
+    },
+    "954": {
+      "refund_sec": 3
+    },
+    "955": {
+      "cost_per_point": 0.20
+    },
+    "990": {
+      "amp_per_point": 0.15
+    },
+    "973": {
+      "speed_per_point": 0.10,
+      "on_hit_chain_chance": 0.30,
+      "on_hit_chain_pct": 0.40,
+      "on_hit_chain_icd": 0.50
+    },
+    "991": {
+      "pen_per_intent_per_point": 1,
+      "pen_cap_pct": 40
+    }
   }
 }

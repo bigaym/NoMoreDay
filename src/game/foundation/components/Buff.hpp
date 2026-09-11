@@ -279,10 +279,16 @@ struct ActiveEffectsComponent {
                       [&](const auto& effect) { return effect.kind == kind; });
     }
     
-    void Update(float dt) {
+    // swordStepDrainMult: 御剑步（988 御剑化影）自然衰减倍率，仅影响 SwordStep。
+    void Update(float dt, float swordStepDrainMult = 1.0f) {
         std::erase_if(effects, [&](auto& effect) {
             if (effect.duration < 0) return false; // Infinite
-            effect.remaining -= dt;
+            if (swordStepDrainMult != 1.0f &&
+                effect.id == BuffIdToString(BuffId::SwordStep)) {
+                effect.remaining -= dt * swordStepDrainMult;
+            } else {
+                effect.remaining -= dt;
+            }
             return effect.remaining <= 0;
         });
     }

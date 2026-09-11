@@ -111,6 +111,22 @@ ExtractNodeConstantsFromCpp(const std::filesystem::path &cppPath) {
     }
   }
 
+  // 新版行为（如 PhantomTrance）不再声明散列的 constexpr 常量，而是以
+  // `constexpr std::array<uint32_t, N> kXxxNodes = {...}` 汇总全部专精节点；
+  // 这里兼容解析该形式，保持“行为引用节点必须存在于数据表”的守卫意图。
+  std::regex arrayRe(R"(constexpr\s+std::array\s*<\s*uint32_t\s*,\s*[0-9]+\s*>\s+([A-Za-z_][A-Za-z0-9_]*Nodes)\s*=\s*\{([^}]*)\})");
+  std::regex arrayNumRe(R"([0-9]+)");
+  auto ab = std::sregex_iterator(content.begin(), content.end(), arrayRe);
+  auto ae = std::sregex_iterator();
+  for (auto ait = ab; ait != ae; ++ait) {
+    const std::string body = (*ait)[2].str();
+    auto nb = std::sregex_iterator(body.begin(), body.end(), arrayNumRe);
+    auto ne = std::sregex_iterator();
+    for (auto nit = nb; nit != ne; ++nit) {
+      constants.push_back(static_cast<uint32_t>(std::stoul((*nit)[0].str())));
+    }
+  }
+
   return constants;
 }
 
@@ -264,7 +280,7 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in specialization data tab
       "src/game/systems/skill/behaviors/SwordArray.cpp",
       "src/game/systems/skill/behaviors/MindBlade.cpp",
       "src/game/systems/skill/behaviors/BladeBoomerang.cpp",
-      "src/game/systems/skill/behaviors/PhantomFlash.cpp",
+      "src/game/systems/skill/behaviors/PhantomTrance.cpp",
       "src/game/systems/skill/behaviors/SevenStarSlash.cpp"};
 
   for (const auto &relativeFile : behaviorFiles) {

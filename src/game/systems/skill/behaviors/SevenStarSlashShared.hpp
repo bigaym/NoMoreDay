@@ -20,7 +20,6 @@ inline constexpr uint32_t kSevenStarSlashSkillId = 10;
 inline constexpr uint32_t kFlowingThrustSkillId = 1;
 inline constexpr uint32_t kRendingWaveSkillId = 2;
 inline constexpr uint32_t kBladeBoomerangSkillId = 8;
-inline constexpr uint32_t kPhantomFlashSkillId = 9;
 
 inline constexpr uint32_t kNodeRevolvingEdge = 1010;
 inline constexpr uint32_t kNodeDipperReturn = 1014;
@@ -110,7 +109,6 @@ inline void ResetSkillCooldown(entt::registry &registry, entt::entity owner,
 inline void RefundMovementCooldownsPercent(entt::registry &registry,
                                            entt::entity owner, float pct) {
   RefundSkillCooldownPercent(registry, owner, kFlowingThrustSkillId, pct);
-  RefundSkillCooldownPercent(registry, owner, kPhantomFlashSkillId, pct);
 }
 
 inline void RestoreSkillCharge(entt::registry &registry, entt::entity owner,

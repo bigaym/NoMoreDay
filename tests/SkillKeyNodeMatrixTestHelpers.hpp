@@ -112,7 +112,7 @@ inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
       {6, {613, 614, 633, 634, 635, 652, 653, 670, 672, 674}},
       {7, {711, 714, 732, 753, 754, 755, 770, 772, 775}},
       {8, {810, 814, 815, 834, 852, 854, 855, 870, 872, 875}},
-      {9, {913, 930, 950, 951, 952, 970, 971, 972}},
+      {9, {935, 954, 972, 977, 980, 981, 984, 985, 987, 988, 989, 991, 992, 993}},
       {10, {1002, 1004, 1005, 1007, 1008, 1009, 1011, 1013, 1017, 1021, 1022, 1025}},
       {11, {1101, 1102, 1107, 1109, 1111, 1113, 1115, 1117, 1120}},
       {12, {1202, 1207, 1209, 1211, 1213, 1217, 1220, 1221, 1222, 1224}},
@@ -292,7 +292,8 @@ AsAllocatedPoints(const std::vector<uint32_t> &nodes, int points = 1) {
 // 技能 5 契约 max_transmuters=1，570/572 互斥，剔除 572 仅保留火转质 570；
 // 技能 6 契约 max_transmuters=1，670/672 互斥，剔除 672 仅保留火转质 670；
 // 技能 7 契约 max_transmuters=1，770/772 互斥，剔除 772 仅保留天外冰晶 770；
-// 技能 8 契约 max_transmuters=1，870/872 互斥，剔除 872 仅保留劫灰路径 870。
+// 技能 8 契约 max_transmuters=1，870/872 互斥，剔除 872 仅保留劫灰路径 870；
+// 技能 9 契约 max_transmuters=1，989/972 互斥，剔除 972 仅保留冰转质路径 989。
 inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
                                             const std::vector<uint32_t> &nodes) {
   auto result = nodes;
@@ -310,6 +311,9 @@ inline std::vector<uint32_t> CastSmokeNodes(uint32_t skill_id,
     // 872 与 870 互斥，剔除以保留劫灰路径；854 巨阙压制侧刃，冒烟配置一并去除
     result.erase(std::remove(result.begin(), result.end(), 872u), result.end());
     result.erase(std::remove(result.begin(), result.end(), 854u), result.end());
+  } else if (skill_id == 9u) {
+    // 989 与 972 互斥，剔除以保留冰转质路径
+    result.erase(std::remove(result.begin(), result.end(), 972u), result.end());
   }
   return result;
 }
@@ -365,6 +369,11 @@ inline void ConfigureTriggerSourcePrerequisites(entt::registry &registry,
   if (skill_id == 8u) {
     ConfigureSpecialization(registry, caster, 3u, {{330u, 1}},
                             /*specialized_slot=*/1);
+  } else if (skill_id == 9u) {
+    // 935 逆命反噬只在逆脉（DeathSeal）窗口内派发
+    auto &trance = registry.emplace<PhantomTranceComponent>(caster);
+    trance.params.death_seal = true;
+    trance.remaining = 1.0f;
   }
 }
 
@@ -392,10 +401,12 @@ inline void DispatchSkillHit(entt::registry &registry, entt::entity caster,
                              entt::entity target, uint32_t skill_id,
                              uint64_t cast_id,
                              Tag tags = Tag::Hit | Tag::Melee,
-                             bool is_crit = false) {
-  CombatEventDispatcher::Dispatch(
-      registry, CombatEventFactory::CreateSkillHit(caster, target, skill_id, tags,
-                                                   is_crit, cast_id));
+                             bool is_crit = false,
+                             uint8_t trigger_depth = 0) {
+  CombatEvent evt = CombatEventFactory::CreateSkillHit(
+      caster, target, skill_id, tags, is_crit, cast_id);
+  evt.trigger_depth = trigger_depth;
+  CombatEventDispatcher::Dispatch(registry, evt);
 }
 
 inline bool HasEffectById(const entt::registry &registry, entt::entity entity,

@@ -241,7 +241,10 @@ void HandleCatch(entt::registry &registry, entt::entity blade,
   // 815 风眼：本次飞行累计流血伤害按比例转化为治疗
   if (bc.heal_bleed_pct > 0.0f && bc.bleed_damage_pool > 0.0f) {
     const float heal = bc.heal_bleed_pct * bc.bleed_damage_pool;
-    if (heal > 0.0f) {
+    // 981 逆脉禁疗：窗口内禁止一切生命回复。
+    const auto *trance = registry.try_get<PhantomTranceComponent>(owner);
+    const bool death_seal_active = trance != nullptr && IsDeathSealActive(*trance);
+    if (heal > 0.0f && !death_seal_active) {
       if (auto *hp = registry.try_get<HealthComponent>(owner)) {
         hp->current = std::min(hp->max, hp->current + heal);
       }

@@ -24,7 +24,13 @@ enum class BuffId : uint8_t {
   BladeBoomerangBleed,      // "blade_boomerang_bleed"
   BladeBoomerangGuardQi,    // "blade_boomerang_guard_qi"
   BloodSeaMiasma,           // "blood_sea_miasma"
-  PhantomFlashShadowHide,   // "phantom_flash_shadow_hide"
+  // 技能9 绝影绝剑形态增益（M-B 枚举化，替代旧 phantom_flash_shadow_hide）
+  PhantomTranceForm,        // "phantom_trance_form"（移速/闪避/CDR/减伤/攻速合集）
+  PhantomTranceDeathSeal,   // "phantom_trance_death_seal"（981 逆脉增伤）
+  PhantomTranceLastStand,   // "phantom_trance_last_stand"（982 孤注一掷动态暴伤）
+  PhantomTranceEnchant,     // "phantom_trance_enchant"（991 附魔元素穿透）
+  PhantomTranceWeaken,      // "phantom_trance_weaken"（913 灵流穿透诅咒）
+  PhantomTranceStealth,     // "phantom_trance_stealth"（980 虚灵之躯潜行）
   SwordArraySlow,           // "array_slow"
   SwordArrayArmorShred,     // "array_armor_shred"
   // 技能6 剑阵专属增益/减益（M-B 枚举化：原实现以字符串字面量直连，
@@ -56,7 +62,12 @@ inline constexpr std::array<std::string_view,
         "blade_boomerang_bleed",     // BladeBoomerangBleed
         "blade_boomerang_guard_qi",  // BladeBoomerangGuardQi
         "blood_sea_miasma",          // BloodSeaMiasma
-        "phantom_flash_shadow_hide", // PhantomFlashShadowHide
+        "phantom_trance_form",       // PhantomTranceForm
+        "phantom_trance_death_seal", // PhantomTranceDeathSeal
+        "phantom_trance_last_stand", // PhantomTranceLastStand
+        "phantom_trance_enchant",    // PhantomTranceEnchant
+        "phantom_trance_weaken",     // PhantomTranceWeaken
+        "phantom_trance_stealth",    // PhantomTranceStealth
         "array_slow",                // SwordArraySlow
         "array_armor_shred",         // SwordArrayArmorShred
         "SwordArrayWeaken",          // SwordArrayWeaken（632）

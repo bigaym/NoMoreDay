@@ -1,4 +1,5 @@
 #include "TestCommon.hpp"
+#include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
@@ -414,59 +415,84 @@ TEST_CASE("[Unit] Skill TriggerRule - Zero Entity Leak on Completed Trigger Cast
   CHECK(registry.view<SkillExecution>().empty());
 }
 
-TEST_CASE("[Unit] Skill TriggerRule - Phantom Flash Counter Single Trigger per Window (No Same-Frame Multi-Hit)") {
+TEST_CASE("[Unit] Skill TriggerRule - 935 逆命反噬 respects DeathSeal window, melee filter and ICD") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  CombatEventDispatcher::Clear();
+  SkillSystem::InitHooks();
 
   entt::registry registry;
 
-  const auto player = registry.create();
-  registry.emplace<Position>(player, 0.0f, 0.0f);
-  auto &playerStats = registry.emplace<CombatStats>(player);
-  playerStats.damage_multipliers[(int)DamageType::Physical] = 1.0f;
-  auto &pf = registry.emplace<PhantomFlashComponent>(player);
-  pf.counter_window = 1.0f;
-  pf.triggered = false;
+  const auto caster = registry.create();
+  registry.emplace<PlayerTag>(caster);
+  registry.emplace<Position>(caster, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(caster);
+  auto &active = registry.emplace<ActiveSkillsComponent>(caster);
+  active.slots[0].id = 9;
+  active.specialized_slots[0].skill_id = 9;
+  active.specialized_slots[0].allocated_points[935] = 1;
+  SkillSystem::RebakeSkillProfiles(registry, caster);
+
+  auto *triggers = registry.try_get<TriggerRuleComponent>(caster);
+  REQUIRE(triggers != nullptr);
+  REQUIRE(triggers->HasRule(935));
+  TriggerRule *rule = nullptr;
+  for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+    if (triggers->rules[i].rule_id == 935) {
+      rule = &triggers->rules[i];
+    }
+  }
+  REQUIRE(rule != nullptr);
+  // 契约默认值: 20% 概率 + 0.5s 内置冷却
+  CHECK(rule->base_chance == doctest::Approx(0.2f));
+  CHECK(rule->internal_cooldown == doctest::Approx(0.5f));
 
   const auto enemy = registry.create();
+  registry.emplace<EnemyTag>(enemy);
   registry.emplace<Position>(enemy, 10.0f, 0.0f);
-  auto &enemyStats = registry.emplace<CombatStats>(enemy);
-  enemyStats.armor = 0.0f;
-  enemyStats.damage_reduction = 0.0f;
-  auto &enemyHp = registry.emplace<HealthComponent>(enemy);
-  enemyHp.max = 1000.0f;
-  enemyHp.current = 1000.0f;
+  registry.emplace<CombatStats>(enemy);
+  registry.emplace<HealthComponent>(enemy, 1000.0f, 1000.0f);
 
-  // First hit received by player
-  CombatEvent hit1;
-  hit1.type = CombatEventType::OnTakeDamage;
-  hit1.source = player;
-  hit1.target = enemy; // Attacker is enemy
-  hit1.trigger_depth = 0;
+  const auto hit = [&](Tag tags) {
+    return CombatEventFactory::CreateSkillHit(caster, enemy, 8, tags, false, 0);
+  };
 
-  ProcEngine::DispatchEvent(registry, player, hit1);
+  // 注入必触发概率, 使 ICD/窗口/近战过滤的断言确定性化
+  rule->base_chance = 1.0f;
 
-  // Counter must be triggered
-  CHECK(pf.triggered == true);
-  const float hpAfterFirstCounter = enemyHp.current;
-  CHECK(hpAfterFirstCounter < 1000.0f);
+  // 未进入逆脉窗口: 不触发
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown == doctest::Approx(0.0f));
 
-  // Second hit received by player in the exact same frame / window
-  CombatEvent hit2;
-  hit2.type = CombatEventType::OnTakeDamage;
-  hit2.source = player;
-  hit2.target = enemy;
-  hit2.trigger_depth = 0;
+  // 进入逆脉窗口
+  auto &pt = registry.emplace<PhantomTranceComponent>(caster);
+  pt.remaining = 1.0f;
+  pt.params.death_seal = true;
 
-  ProcEngine::DispatchEvent(registry, player, hit2);
+  // 首次近战命中: 触发并进入 ICD
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown > 0.0f);
+  const float cooldownAfterFirst = rule->current_cooldown;
 
-  // Counter must NOT trigger again (enemy HP unchanged)
-  CHECK(enemyHp.current == doctest::Approx(hpAfterFirstCounter));
+  // 同一窗口内再次近战命中: ICD 生效, 不得重复触发
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown == doctest::Approx(cooldownAfterFirst));
 
-  // TriggerRule 9 must be cleared from TriggerRuleComponent
-  if (auto *trig = registry.try_get<TriggerRuleComponent>(player)) {
-    CHECK_FALSE(trig->HasRule(9));
-  }
+  // ICD 结束后可再次触发
+  ProcEngine::UpdateCooldowns(registry, 0.6f);
+  CHECK(rule->current_cooldown == doctest::Approx(0.0f));
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown > 0.0f);
+
+  // 非近战命中: 即使概率 100% 也不触发
+  ProcEngine::UpdateCooldowns(registry, 0.6f);
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Projectile));
+  CHECK(rule->current_cooldown == doctest::Approx(0.0f));
+
+  // 退出逆脉窗口: 不触发
+  pt.params.death_seal = false;
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown == doctest::Approx(0.0f));
 }
 
 } // namespace NoMoreDay

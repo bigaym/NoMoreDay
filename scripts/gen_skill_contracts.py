@@ -60,6 +60,12 @@ VALID_COST_AFFIX = {
     "HeavyMomentum",
 }
 
+VALID_TRIGGER_WINDOW = {
+    "None",
+    "PhantomTrance",
+    "DeathSeal",
+}
+
 
 def _load_json(path: Path) -> Any:
     try:
@@ -349,6 +355,22 @@ def _build_contract_for_skill(
             "consumes_mana": bool(trigger_obj.get("consumes_mana", False)),
             "requires_crit": bool(trigger_obj.get("requires_crit", False)),
         }
+        # 仅当 compact 显式声明时写出新增触发字段，默认 base_chance=1.0、
+        # requires_melee_hit=false、requires_window="None"，从而不影响其他技能既有契约
+        if "base_chance" in trigger_obj:
+            trigger_nodes[node_id]["base_chance"] = float(trigger_obj["base_chance"])
+        if "requires_melee_hit" in trigger_obj:
+            trigger_nodes[node_id]["requires_melee_hit"] = bool(
+                trigger_obj["requires_melee_hit"]
+            )
+        if "requires_window" in trigger_obj:
+            required_window = str(trigger_obj["requires_window"])
+            if required_window not in VALID_TRIGGER_WINDOW:
+                raise ValueError(
+                    f"skill {skill_id}.trigger_nodes[{node_id}].requires_window "
+                    f"has invalid value: {required_window}"
+                )
+            trigger_nodes[node_id]["required_window"] = required_window
     if len(trigger_nodes) > max_triggers:
         raise ValueError(
             f"skill {skill_id} has {len(trigger_nodes)} trigger nodes beyond max_triggers={max_triggers}"

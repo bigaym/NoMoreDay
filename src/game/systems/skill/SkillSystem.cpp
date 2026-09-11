@@ -20,11 +20,13 @@
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/combat/AilmentEngine.hpp"
 #include "game/contracts/impl/ProcBudgetManager.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
@@ -42,7 +44,7 @@
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
 #include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
-#include "game/systems/skill/behaviors/PhantomFlash.hpp" // Added
+#include "game/systems/skill/behaviors/PhantomTrance.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include "game/systems/skill/behaviors/SwordArray.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
@@ -77,6 +79,8 @@ constexpr const char *kDiagScopePolicy = "SKILL_GUARD_SCOPE_POLICY";
 constexpr const char *kDiagTriggerSkillUnavailable =
     "SKILL_GUARD_TRIGGER_SKILL_UNAVAILABLE";
 constexpr const char *kDiagTriggerManaBlocked = "SKILL_GUARD_TRIGGER_MANA";
+// 973 过载护盾 on-hit 连锁闪电的内置冷却标记 Buff id。
+constexpr const char *kOverloadIcdBuffId = "phantom_trance_overload_icd";
 
 uint8_t ResolveCurrentQualityTier() {
   auto &qualityManager = render::core::QualityTierManager::Get();
@@ -728,6 +732,35 @@ void SkillSystem::InitHooks() {
           }
         }
 
+        // 附魔窗口：绝影绝剑形态结束后，近战命中按附魔元素概率施加控制。
+        // 0.3 为当前策划近似值，后续可改为数据驱动。
+        if (HasTag(evt.tags, Tag::Melee) && registry.valid(evt.target)) {
+          const auto *pt = registry.try_get<PhantomTranceComponent>(caster);
+          if (pt != nullptr && pt->enchant_remaining > 0.0f &&
+              pt->enchant_tag != Tag::None) {
+            systems::AilmentApplyRequest enchantAilment{};
+            enchantAilment.source = caster;
+            enchantAilment.stacks = 1;
+            if (pt->enchant_tag == Tag::Cold) {
+              enchantAilment.ailment = AilmentType::Freeze;
+              enchantAilment.magnitude = 1.0f;
+              enchantAilment.duration = 1.5f;
+            } else if (pt->enchant_tag == Tag::Lightning) {
+              enchantAilment.ailment = AilmentType::Shock;
+              enchantAilment.magnitude = 15.0f;
+              enchantAilment.duration = 4.0f;
+            }
+            if (enchantAilment.ailment != AilmentType::None) {
+              const float enchantRoll =
+                  static_cast<float>(GetRandomValue(0, 1000)) / 1000.0f;
+              if (enchantRoll < 0.3f) {
+                (void)systems::AilmentApplier::Apply(registry, evt.target,
+                                                     enchantAilment);
+              }
+            }
+          }
+        }
+
         // Contract-driven trigger handling with guard rails.
         if (evt.skill_id != 0) {
           auto *active = registry.try_get<ActiveSkillsComponent>(caster);
@@ -818,19 +851,6 @@ void SkillSystem::InitHooks() {
                 LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id, caster,
                                 "max trigger depth reached");
                 continue;
-              }
-              // Counter window should not recursively dispatch trigger chains.
-              if (const auto *pf =
-                      registry.try_get<PhantomFlashComponent>(caster)) {
-                if (pf->counter_window > 0.0f && !pf->triggered) {
-#if COMBAT_TELEMETRY_ENABLED
-                  recordTriggerBlocked(parent_depth);
-#endif
-                  LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id,
-                                  caster,
-                                  "counter window suppresses trigger chain");
-                  continue;
-                }
               }
 
               if (node_id == 513) {
@@ -992,6 +1012,70 @@ void SkillSystem::InitHooks() {
         if (!registry.valid(evt.source))
           return;
         ProcEngine::DispatchEvent(registry, evt.source, evt);
+
+        // 973 过载护盾：疾空惊雷形态内「受击」概率反击连锁闪电并施加感电。
+        // 设计语义为受击触发；以受击者身上的无属性标记 Buff 作为内置冷却
+        // (默认 0.5s，可从 skill_mechanics 读取)，随通用 Buff 生命周期自然过期。
+        const auto *pt = registry.try_get<PhantomTranceComponent>(evt.source);
+        if (pt == nullptr || pt->remaining <= 0.0f ||
+            pt->params.overload_speed_pct <= 0.0f || !registry.valid(evt.target) ||
+            evt.source == evt.target) {
+          return;
+        }
+        auto *victim_effects = registry.try_get<ActiveEffectsComponent>(evt.source);
+        if (victim_effects != nullptr) {
+          for (const auto &effect : victim_effects->effects) {
+            if (effect.id == kOverloadIcdBuffId && effect.remaining > 0.0f) {
+              return;
+            }
+          }
+        }
+        const auto &mechanics = data::SkillMechanicsRegistry::Get();
+        const float chain_chance =
+            mechanics.GetFloat(9, 973, "on_hit_chain_chance", 0.3f);
+        const float chain_pct = mechanics.GetFloat(9, 973, "on_hit_chain_pct", 0.4f);
+        const float chain_icd = mechanics.GetFloat(9, 973, "on_hit_chain_icd", 0.5f);
+        const float chain_roll =
+            static_cast<float>(GetRandomValue(0, 1000)) / 1000.0f;
+        if (chain_roll >= chain_chance) {
+          return;
+        }
+        const auto *stats = registry.try_get<CombatStats>(evt.source);
+        const float base_damage =
+            stats ? (stats->min_weapon_damage + stats->max_weapon_damage) * 0.5f
+                  : 0.0f;
+        if (base_damage > 0.0f) {
+          DamagePool pool;
+          pool.Add(Tag::Lightning, base_damage * chain_pct);
+          DamageRequest chain_request;
+          chain_request.attacker = evt.source;
+          chain_request.defender = evt.target;
+          chain_request.skill_id = skills::PhantomTrance::kSkillId;
+          chain_request.base_pool = pool;
+          // 二次命中标记：避免连锁伤害再次驱动近战附魔/过载/剑步回蓝。
+          chain_request.additional_tags = Tag::Hit | Tag::SecondaryHit;
+          (void)ResolveDamage(registry, chain_request, evt.source);
+        }
+        systems::AilmentApplyRequest chain_shock{};
+        chain_shock.ailment = AilmentType::Shock;
+        chain_shock.source = evt.source;
+        chain_shock.magnitude = 15.0f;
+        chain_shock.duration = 4.0f;
+        chain_shock.stacks = 1;
+        (void)systems::AilmentApplier::Apply(registry, evt.target, chain_shock);
+
+        BuffEffect icd_marker;
+        icd_marker.id = kOverloadIcdBuffId;
+        icd_marker.name = "Overload";
+        icd_marker.type = BuffType::None;
+        icd_marker.duration = chain_icd;
+        icd_marker.remaining = chain_icd;
+        icd_marker.source = evt.source;
+        auto &effects_ref =
+            (victim_effects != nullptr)
+                ? *victim_effects
+                : registry.get_or_emplace<ActiveEffectsComponent>(evt.source);
+        effects_ref.AddOrRefresh(icd_marker);
       },
       50);
 
@@ -1188,9 +1272,15 @@ void SkillSystem::Update(entt::registry &registry,
   for (auto entity : phase_view) {
     const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
     const auto *swift = effects ? effects->Get(BuffId::SwordStep) : nullptr;
-    if (swift == nullptr || swift->remaining <= 0.0f) {
-      s_phase_to_remove.push_back(entity);
+    if (swift != nullptr && swift->remaining > 0.0f) {
+      continue;
     }
+    // 980 虚灵之躯：形态持续期间相位由形态承载，形态结束后由本清理收回。
+    if (const auto *trance = registry.try_get<PhantomTranceComponent>(entity);
+        trance != nullptr && trance->params.void_body && trance->remaining > 0.0f) {
+      continue;
+    }
+    s_phase_to_remove.push_back(entity);
   }
   for (auto entity : s_phase_to_remove) {
     registry.remove<PhaseTag>(entity);
@@ -1337,11 +1427,11 @@ void SkillSystem::Update(entt::registry &registry,
     // We just need to sync them or let them be independent.
   }
 
-  // Update Phantom Flash
+  // Update Phantom Trance（绝影形态与附魔窗口）
   std::vector<entt::entity> pf_to_remove;
-  auto pf_view = registry.view<PhantomFlashComponent>();
-  pf_view.each([&](entt::entity entity, PhantomFlashComponent &pf) {
-    if (skills::PhantomFlash::Update(registry, entity, pf, dt)) {
+  auto pf_view = registry.view<PhantomTranceComponent>();
+  pf_view.each([&](entt::entity entity, PhantomTranceComponent &pt) {
+    if (skills::PhantomTrance::Update(registry, entity, pt, dt)) {
       pf_to_remove.push_back(entity);
     }
   });
@@ -1350,19 +1440,8 @@ void SkillSystem::Update(entt::registry &registry,
     SkillExecutionContext phantomExitContext = BuildSkillVfxContextFromEvent(
         registry, e, 9u, 0u, ResolveEntityWorldPosition(registry, e));
     EmitSkillVfxEvent(phantomExitContext, SkillVfxEventType::BuffExit, 1.0f);
-    if (auto *mods = registry.try_get<SkillModifierComponent>(e)) {
-      mods->damage_modifiers.erase(
-          std::remove_if(mods->damage_modifiers.begin(),
-                         mods->damage_modifiers.end(),
-                         [](const DamageModifier &mod) {
-                           return mod.type == ModifierType::GainExtra &&
-                                  mod.source_tag == Tag::Physical &&
-                                  (mod.target_tag == Tag::Cold ||
-                                   mod.target_tag == Tag::Lightning);
-                         }),
-          mods->damage_modifiers.end());
-    }
-    registry.remove<PhantomFlashComponent>(e);
+    // 附魔尾附 GainExtra 由行为精确清理，此处不再全局清除。
+    registry.remove<PhantomTranceComponent>(e);
   }
 }
 
@@ -1590,8 +1669,13 @@ bool SkillSystem::TriggerCast(entt::registry &registry, entt::entity caster,
         FindSpecializedSkillContext(active, skill_id);
     if (specialized) {
       for (const auto &[node_id, points] : specialized->allocated_points) {
-        if (points > 0 && node_id < 128) {
-          exec.active_nodes.set(node_id);
+        if (points <= 0) {
+          continue;
+        }
+        // 与 PopulateActiveNodesFromSpecialized 一致：节点号对 100 取模得到位序号。
+        const uint32_t bit_idx = node_id % 100;
+        if (bit_idx < 128) {
+          exec.active_nodes.set(bit_idx);
         }
       }
     }
@@ -1927,6 +2011,15 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     raw_mana_cost *= 0.5f; // 675: 消耗一半法力
   }
   float base_cost = raw_mana_cost * (1.0f - std::min(0.9f, rcr));
+
+  // 955 绝影：形态期间，释放其他技能的法力消耗降低。
+  if (slot.id != 9) {
+    const auto *pt = registry.try_get<PhantomTranceComponent>(entity);
+    if (pt != nullptr && pt->remaining > 0.0f && !pt->ending &&
+        pt->params.focus_mana_reduce_pct > 0.0f) {
+      base_cost *= std::max(0.0f, 1.0f - pt->params.focus_mana_reduce_pct);
+    }
+  }
 
   const auto shadowHook = CheckPreCastShadowDuplication(registry, entity, data, base_cost, stats);
 
@@ -2411,9 +2504,11 @@ bool SkillSystem::CanApplyScopePolicy(const entt::registry &registry,
         return true;
       }
     }
-    if (source_skill_id == 9) {
-      if (const auto *pf = registry.try_get<PhantomFlashComponent>(entity)) {
-        return pf->counter_window > 0.0f && !pf->triggered;
+    // 技能9 绝影形态/附魔窗口同样视为 buff 激活（991 意念穿透等节点）。
+    if (const auto *trance = registry.try_get<PhantomTranceComponent>(entity)) {
+      if (source_skill_id == 9 &&
+          (trance->remaining > 0.0f || trance->enchant_remaining > 0.0f)) {
+        return true;
       }
     }
     return false;

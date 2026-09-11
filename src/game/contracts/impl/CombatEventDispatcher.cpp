@@ -127,6 +127,12 @@ void CombatEventDispatcher::Init() {
             auto* hp = registry.try_get<HealthComponent>(evt.source);
             if (!hp) return;
 
+            // 981 逆脉禁疗：窗口内禁止一切生命回复（含装备 life_on_hit）。
+            if (const auto* trance = registry.try_get<PhantomTranceComponent>(evt.source);
+                trance != nullptr && IsDeathSealActive(*trance)) {
+                return;
+            }
+
             const float lifeMissing = std::max(0.0f, hp->max - hp->current);
             const float lifeGain = std::min(lifeMissing, stats->life_on_hit);
             if (lifeGain > 0.0f &&

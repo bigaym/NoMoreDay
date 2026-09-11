@@ -5635,64 +5635,60 @@
     {
       "id": 9,
       "name_key": "绝影绝剑",
-      "desc_key": "看破状态，受到攻击立即反击。",
+      "desc_key": "立即进入绝影无形，持续 3 秒；期间移速提高 20%，受到致命伤害时锁血为 1 并提前结束。结束时爆发无形剑气。",
       "mana_cost": 30.0,
-      "cooldown": 1.0,
+      "cooldown": 15.0,
       "tags": [
-        "Physical",
-        "Attack",
-        "Melee",
+        "Buff",
+        "Defense",
         "Movement",
-        "Hit",
-        "sword_skill"
+        "SwordSkill"
       ],
       "base_damage": 50.0,
       "weapon_damage_mult": 3.0,
       "added_damage_effectiveness": 1.0,
-      "charge_count": 1,
       "icon_id": 698747719,
       "params": {
-        "dash_speed": 500.0,
-        "dash_dist": 50.0
+        "burst_radius": 160.0
       },
       "talent_tree": [
         {
-          "id": 900,
-          "name_key": "识破",
-          "desc_key": "反击伤害增加 20%...100%。",
-          "max_points": 5,
-          "x": -1.78,
-          "y": -1.48,
+          "id": 975,
+          "name_key": "延命",
+          "desc_key": "绝影之境的基础持续时间增加 0.25s...1.0s。",
+          "max_points": 4,
+          "x": -4.0,
+          "y": 2.6,
           "prerequisites": [
             {
               "node_id": 0,
               "required_points": 1
             }
           ],
-          "icon_id": 2498670791
+          "icon_id": 2413649863
         },
         {
-          "id": 901,
-          "name_key": "残心",
-          "desc_key": "反击姿态持续时间增加 0.2s/0.4s/0.6s。",
-          "max_points": 3,
-          "x": -1.57,
-          "y": 2.08,
+          "id": 976,
+          "name_key": "气旋爆发",
+          "desc_key": "结束时爆发的无形剑气基础伤害和爆炸范围增加 15%...60%。",
+          "max_points": 4,
+          "x": -1.3,
+          "y": 2.6,
           "prerequisites": [
             {
               "node_id": 0,
               "required_points": 1
             }
           ],
-          "icon_id": 2481893172
+          "icon_id": 2430427482
         },
         {
           "id": 902,
           "name_key": "身轻如燕",
           "desc_key": "绝影状态持续期间，额外移动速度增加 10%...30%，直接闪避率（Dodge）增加 10%...30%。",
           "max_points": 3,
-          "x": 1.75,
-          "y": -1.92,
+          "x": 1.3,
+          "y": 2.6,
           "prerequisites": [
             {
               "node_id": 0,
@@ -5702,75 +5698,90 @@
           "icon_id": 2532226029
         },
         {
-          "id": 903,
-          "name_key": "神速反制",
-          "desc_key": "反击后攻速移速提升。",
-          "max_points": 3,
-          "x": 3.08,
-          "y": 1.68,
+          "id": 974,
+          "name_key": "空明心境",
+          "desc_key": "绝影期间的法力回复或冷却回复提升 10%...40%。",
+          "max_points": 4,
+          "x": 4.0,
+          "y": 2.6,
           "prerequisites": [
             {
               "node_id": 0,
               "required_points": 1
             }
           ],
-          "icon_id": 2515448410
+          "icon_id": 2396872244
         },
         {
-          "id": 910,
-          "name_key": "震慑剑压",
-          "desc_key": "反击造成眩晕。",
-          "max_points": 3,
-          "x": -3.18,
-          "y": -0.07,
-          "prerequisites": [
-            {
-              "node_id": 900,
-              "required_points": 3
-            }
-          ],
-          "icon_id": 250322750
-        },
-        {
-          "id": 911,
-          "name_key": "气劲爆发",
-          "desc_key": "反击获得 1...5 层剑意。",
-          "max_points": 5,
-          "x": -1.41,
-          "y": -2.15,
-          "prerequisites": [
-            {
-              "node_id": 900,
-              "required_points": 1
-            }
-          ],
-          "icon_id": 267100369
-        },
-        {
-          "id": 912,
-          "name_key": "影杀连斩",
-          "desc_key": "反击造成 3 次 150% 斩击。",
+          "id": 977,
+          "name_key": "向死而生",
+          "desc_key": "触发免死（生命值降至 1）时不再提前结束状态，而是强制保持无敌的绝影状态直到技能的基础持续时间自然耗尽。",
           "max_points": 1,
-          "x": -2.58,
-          "y": -0.14,
+          "x": -4.6,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 910,
+              "node_id": 975,
+              "required_points": 2
+            }
+          ],
+          "icon_id": 2447205101
+        },
+        {
+          "id": 978,
+          "name_key": "浴血重生",
+          "desc_key": "如果在状态期间触发了免死，结束绝影时为你回复所损失最大生命值的 15%...60%（瞬间回血）。如果未触发免死，则结束后只回复 5%...20% 最大生命值。",
+          "max_points": 4,
+          "x": -4.6,
+          "y": 0.4,
+          "prerequisites": [
+            {
+              "node_id": 977,
               "required_points": 1
             }
           ],
-          "icon_id": 216767512
+          "icon_id": 2195540816
+        },
+        {
+          "id": 979,
+          "name_key": "绝影护甲",
+          "desc_key": "开启绝影的瞬间，立即获得相当于你最大生命值 10%...30% 的护盾 (Ward)，持续 2 秒。",
+          "max_points": 3,
+          "x": -3.3,
+          "y": 1.5,
+          "prerequisites": [
+            {
+              "node_id": 975,
+              "required_points": 4
+            }
+          ],
+          "icon_id": 2212318435
+        },
+        {
+          "id": 980,
+          "name_key": "虚灵之躯",
+          "desc_key": "开启期间你无法被敌人选为目标（获得隐身 / Stealth 效果），且可以无视碰撞直接穿过敌人，但在开启瞬间会消耗你 15% 的当前生命值。",
+          "max_points": 1,
+          "x": -3.3,
+          "y": 0.4,
+          "prerequisites": [
+            {
+              "node_id": 979,
+              "required_points": 2
+            }
+          ],
+          "icon_id": 81413727
         },
         {
           "id": 913,
           "name_key": "灵流穿透",
           "desc_key": "绝影期间每穿透一个敌人，就对其施加一层持续 3 秒的“衰弱”诅咒，使其造成的伤害降低 6%...18%。",
           "max_points": 3,
-          "x": -1.13,
-          "y": -2.81,
+          "x": -4.6,
+          "y": -0.7,
           "prerequisites": [
             {
-              "node_id": 912,
+              "node_id": 980,
               "required_points": 1
             }
           ],
@@ -5781,87 +5792,87 @@
           "name_key": "虚境馈赠",
           "desc_key": "绝影状态持续期间，每秒回复 2...6 点法力，且额外获得 10%...30% 的全域伤害减免。",
           "max_points": 3,
-          "x": -1.91,
-          "y": -2.27,
+          "x": -3.3,
+          "y": -0.7,
           "prerequisites": [
             {
-              "node_id": 911,
-              "required_points": 2
+              "node_id": 979,
+              "required_points": 1
             }
           ],
           "icon_id": 317433226
         },
         {
-          "id": 930,
-          "name_key": "影遁",
-          "desc_key": "反击后隐身 1.5s。",
+          "id": 981,
+          "name_key": "逆脉",
+          "desc_key": "开启时立刻将你的生命值上限暂时锁定为最大生命值的 33%（如果当前血量高于此值则同步按比例扣除），并在持续期间无法通过任何手段恢复生命值。作为代价，在绝影状态下，你造成的全局伤害总增 (More) 33%。",
           "max_points": 1,
-          "x": 2.98,
-          "y": -1.13,
+          "x": -1.3,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 902,
+              "node_id": 976,
+              "required_points": 3
+            }
+          ],
+          "icon_id": 64636108
+        },
+        {
+          "id": 982,
+          "name_key": "孤注一掷",
+          "desc_key": "处于 `逆脉` 状态下当前生命值越低伤害越高：每缺失 1% 的最大生命值，你的暴击伤害倍率增加 1%...4%。",
+          "max_points": 4,
+          "x": -2.0,
+          "y": 0.4,
+          "prerequisites": [
+            {
+              "node_id": 981,
               "required_points": 1
             }
           ],
-          "icon_id": 48697132
+          "icon_id": 114968965
         },
         {
-          "id": 931,
-          "name_key": "幽影长存",
-          "desc_key": "隐身时间增加。",
+          "id": 983,
+          "name_key": "死亡螺旋",
+          "desc_key": "处于 `逆脉` 状态时，每 0.5 秒会自动从你周身向四周发射 1...3 柄高穿透的意念死剑，造成基于你生命值上限临时流失量的额外伤害。",
           "max_points": 3,
-          "x": 0.84,
-          "y": -2.58,
+          "x": -0.6,
+          "y": 0.4,
           "prerequisites": [
             {
-              "node_id": 930,
-              "required_points": 2
-            }
-          ],
-          "icon_id": 65474751
-        },
-        {
-          "id": 932,
-          "name_key": "致命奇袭",
-          "desc_key": "破隐一击暴击率 +20%...100%，伤害 More +30%。",
-          "max_points": 5,
-          "x": -3.51,
-          "y": -1.88,
-          "prerequisites": [
-            {
-              "node_id": 930,
+              "node_id": 981,
               "required_points": 1
             }
           ],
-          "icon_id": 82252370
+          "icon_id": 98191346
         },
         {
-          "id": 933,
-          "name_key": "影之双生",
-          "desc_key": "反击时自动施放 [裂空斩]（分身）。",
+          "id": 984,
+          "name_key": "嗜血本能",
+          "desc_key": "当极危的 `逆脉` 状态结束时，结算这 3 秒内你对敌人造成的所有伤害，并将其中的 5% 化作巨波治疗为你回血（此效果无视 `逆脉` 的禁疗规则，可直接将血线抬满）。",
           "max_points": 1,
-          "x": 4.84,
-          "y": -0.22,
+          "x": -1.3,
+          "y": -0.7,
           "prerequisites": [
             {
-              "node_id": 930,
+              "node_id": 981,
               "required_points": 1
             }
           ],
-          "icon_id": 99029989
+          "icon_id": 14303251
         },
         {
           "id": 934,
           "name_key": "剑随心动",
           "desc_key": "`逆脉` 状态下进一步增加你的攻击速度和施法速度 5%...15%。",
           "max_points": 3,
-          "x": 2.79,
-          "y": -0.15,
+          "x": -2.0,
+          "y": -0.7,
           "prerequisites": [
             {
-              "node_id": 931,
-              "required_points": 1
+              "node_id": 982,
+              "required_points": 2
             }
           ],
           "icon_id": 4276553952
@@ -5871,94 +5882,87 @@
           "name_key": "逆命反噬",
           "desc_key": "在 `逆脉` 状态下每次近战攻击命中敌人，有 20% 几率自发向距离最近的敌人投掷一枚无消耗的 [御剑·回旋] 飞剑（使用已专精版本，单次触发有 0.5s 冷却）。",
           "max_points": 1,
-          "x": 3.19,
-          "y": -2.32,
+          "x": -2.0,
+          "y": -1.8,
           "prerequisites": [
             {
-              "node_id": 934,
-              "required_points": 2
+              "node_id": 982,
+              "required_points": 3
             }
           ],
           "icon_id": 4293331571
         },
         {
-          "id": 950,
-          "name_key": "灵动之躯",
-          "desc_key": "使用后闪避率提升。",
-          "max_points": 5,
-          "x": 2.8,
-          "y": 0.87,
+          "id": 985,
+          "name_key": "破空一闪",
+          "desc_key": "开启此技能时不再原地散去形体，而是立刻向光标方向进行一段极其迅捷的瞬移（使其附带位移标签 [Movement]），并于落点处进入绝影无形境界。",
+          "max_points": 1,
+          "x": 0.4,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 903,
+              "node_id": 976,
               "required_points": 2
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 34,
-              "mode": 1,
-              "value": 10.0
-            }
-          ],
-          "icon_id": 2531387386
+          "icon_id": 4292492928
         },
         {
-          "id": 951,
-          "name_key": "流光重置",
-          "desc_key": "闪避成功有几率重置冷却。",
-          "max_points": 1,
-          "x": 0.29,
-          "y": 3.38,
+          "id": 986,
+          "name_key": "缩地成寸",
+          "desc_key": "该技能的基础冷却时间直接缩短 1s...4s。",
+          "max_points": 4,
+          "x": 0.4,
+          "y": 0.4,
           "prerequisites": [
             {
-              "node_id": 950,
-              "required_points": 3
-            }
-          ],
-          "icon_id": 2548165005
-        },
-        {
-          "id": 952,
-          "name_key": "气劲充盈",
-          "desc_key": "重置时回蓝。",
-          "max_points": 3,
-          "x": 2.45,
-          "y": 2.25,
-          "prerequisites": [
-            {
-              "node_id": 951,
+              "node_id": 985,
               "required_points": 1
             }
           ],
-          "icon_id": 2497832148
+          "icon_id": 47858489
         },
         {
-          "id": 953,
-          "name_key": "影之舞",
-          "desc_key": "额外充能+1，闪避几率回充能。",
-          "max_points": 1,
-          "x": 3.04,
-          "y": 1.65,
+          "id": 987,
+          "name_key": "意随神行",
+          "desc_key": "开启绝影状态下，你的剑心达到空明状态，每秒自动缓慢生成 1...3 层剑意。",
+          "max_points": 3,
+          "x": 1.3,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 950,
+              "node_id": 902,
               "required_points": 2
             }
           ],
-          "icon_id": 2514609767
+          "icon_id": 31080870
+        },
+        {
+          "id": 988,
+          "name_key": "御剑化影",
+          "desc_key": "当破空一闪作为位移技能触发了“御剑步”状态时，该期间的绝影闪避率额外提升 10%...30%，且御剑步连击点自然流失速度减半。",
+          "max_points": 3,
+          "x": 0.4,
+          "y": -0.7,
+          "prerequisites": [
+            {
+              "node_id": 985,
+              "required_points": 1
+            }
+          ],
+          "icon_id": 215634679
         },
         {
           "id": 954,
           "name_key": "时光逆流",
-          "desc_key": "绝影状态结束时（无论是被打破还是自然耗尽），你身上**所有其他处于冷却中的技能**的剩余冷却时间立刻缩短 3 秒，是极佳的技能循环发动机。",
+          "desc_key": "绝影状态结束时（无论是被打破还是自然耗尽），你身上所有其他处于冷却中的技能的剩余冷却时间立刻缩短 3 秒，是极佳的技能循环发动机。",
           "max_points": 1,
-          "x": 1.86,
-          "y": 2.47,
+          "x": 1.3,
+          "y": 0.4,
           "prerequisites": [
             {
-              "node_id": 953,
-              "required_points": 1
+              "node_id": 987,
+              "required_points": 3
             }
           ],
           "icon_id": 2464276910
@@ -5968,57 +5972,57 @@
           "name_key": "全神贯注",
           "desc_key": "在绝影短短几秒内，为了让你能肆意倾泻火力，施放其他任何技能的法力消耗降低 20%...60%。",
           "max_points": 3,
-          "x": 2.54,
-          "y": -1.43,
+          "x": 1.3,
+          "y": -0.7,
           "prerequisites": [
             {
-              "node_id": 953,
+              "node_id": 954,
               "required_points": 1
             }
           ],
           "icon_id": 2481054529
         },
         {
-          "id": 970,
-          "name_key": "元素护盾",
-          "desc_key": "",
-          "max_points": 3,
-          "x": 0.08,
-          "y": 3.45,
+          "id": 989,
+          "name_key": "天山雪隐",
+          "desc_key": "结束时的爆发变为冰霜新星。绝影期间完全免疫冰冻且必定引发冰缓；爆发结束后 4 秒内，你的所有近战攻击额外附加基础物理伤害 50% 的 冰霜 (Cold) 伤害，并有极大概率冻结敌人。与 [疾空惊雷] 互斥。",
+          "max_points": 1,
+          "x": 3.4,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 901,
-              "required_points": 3
+              "node_id": 974,
+              "required_points": 2
             }
           ],
-          "icon_id": 2329761768
+          "icon_id": 198857060
         },
         {
-          "id": 971,
-          "name_key": "天罚反震",
-          "desc_key": "反击触发元素爆炸 (200% 范围伤害)。",
-          "max_points": 1,
-          "x": -2.59,
-          "y": 0.84,
+          "id": 990,
+          "name_key": "凛冬附魔",
+          "desc_key": "处于天山雪隐冰霜附魔持续期间，你对冻结或冰缓的敌人造成的全局伤害增加 15%...45%（仅对冰冻/冰缓目标生效）。",
+          "max_points": 3,
+          "x": 3.4,
+          "y": 0.4,
           "prerequisites": [
             {
-              "node_id": 901,
-              "required_points": 3
+              "node_id": 989,
+              "required_points": 1
             }
           ],
-          "icon_id": 2346539387
+          "icon_id": 4275568214
         },
         {
           "id": 972,
           "name_key": "疾空惊雷",
-          "desc_key": "结束时的爆发变为连环落雷。绝影期间被一层雷电护盾包裹，每秒电击一次靠近的敌人获取雷电抗性；爆发结束后 4 秒内，所有近战攻击额外附加基础物理伤害 50% 的 **闪电 (Lightning)** 伤害，并必定施加感电。*与 [天山雪隐] 互斥。*",
+          "desc_key": "结束时的爆发变为连环落雷。绝影期间被一层雷电护盾包裹，每秒电击一次靠近的敌人获取雷电抗性；爆发结束后 4 秒内，所有近战攻击额外附加基础物理伤害 50% 的 闪电 (Lightning) 伤害，并必定施加感电。与 [天山雪隐] 互斥。",
           "max_points": 1,
-          "x": -3.32,
-          "y": 2.01,
+          "x": 4.6,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 971,
-              "required_points": 1
+              "node_id": 974,
+              "required_points": 2
             }
           ],
           "icon_id": 2363317006
@@ -6028,149 +6032,78 @@
           "name_key": "过载护盾",
           "desc_key": "处于疾空惊雷包裹期间，移动与攻击速度额外增加 10%...30%，受击有 30% 几率释放连环弹射闪电。",
           "max_points": 3,
-          "x": 2.17,
-          "y": 2.63,
+          "x": 4.6,
+          "y": 0.4,
           "prerequisites": [
             {
-              "node_id": 970,
+              "node_id": 972,
               "required_points": 1
             }
           ],
           "icon_id": 2380094625
         },
         {
-          "id": 974,
-          "name_key": "空明心境",
-          "desc_key": "绝影期间的法力回复和冷却回复提升 10%...40%。",
+          "id": 991,
+          "name_key": "意念穿透",
+          "desc_key": "在元素附魔增益期间，你每拥有 1 层剑意，获得 1%...4% 对应元素穿透，穿透上限为 40%（全局：仅在当前附魔增益期间生效）。",
           "max_points": 4,
-          "x": -3.29,
-          "y": 2.29,
+          "x": 4.0,
+          "y": -0.7,
           "prerequisites": [
             {
-              "node_id": 950,
-              "required_points": 2
-            },
-            {
-              "node_id": 970,
+              "node_id": 974,
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
-          "icon_id": 2396872244
+          "icon_id": 4292345833
+        },
+        {
+          "id": 992,
+          "name_key": "灵气反哺",
+          "desc_key": "击杀任何处于你当前附魔对应元素异常状态（冻伤、感电）下的敌人时，立即全额刷新自身当前元素附魔增益的 4s 持续时间。",
+          "max_points": 1,
+          "x": 4.0,
+          "y": -1.8,
+          "prerequisites": [
+            {
+              "node_id": 991,
+              "required_points": 3
+            }
+          ],
+          "icon_id": 4242012976
+        },
+        {
+          "id": 993,
+          "name_key": "影剑回响",
+          "desc_key": "绝影期间，你的 [御剑·回旋] 命中敌人时，有 40% 几率触发一次影子回响（以 50% 效果再次施放 [御剑·回旋]），内置冷却 0.5 秒。",
+          "max_points": 1,
+          "x": 2.0,
+          "y": -1.8,
+          "prerequisites": [
+            {
+              "node_id": 987,
+              "required_points": 1
+            }
+          ],
+          "icon_id": 4258790595
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 9,
-        "min_nodes": 26,
-        "max_nodes": 26,
-        "max_transmuters": 2,
+        "min_nodes": 29,
+        "max_nodes": 29,
+        "max_transmuters": 1,
         "max_triggers": 1,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
-          970,
-          950
+          989,
+          972
         ],
         "nodes": [
           {
-            "node_id": 912,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 913,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": true,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 930,
-            "role": "Synergy",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 933,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
             "node_id": 935,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 950,
-            "role": "Transmuter",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 951,
             "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -6178,43 +6111,14 @@
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 8,
-              "effectiveness": 0.6,
+              "effectiveness": 1.0,
               "range_mult": 1.0,
               "internal_cooldown": 0.5,
               "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 952,
-            "role": "Passive",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
-            }
-          },
-          {
-            "node_id": 953,
-            "role": "Keystone",
-            "resist_model": "None",
-            "scope_policy": "SkillOnly",
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
-              "consumes_mana": false,
-              "requires_crit": false
+              "requires_crit": false,
+              "base_chance": 0.2,
+              "requires_melee_hit": true,
+              "required_window": "DeathSeal"
             }
           },
           {
@@ -6234,8 +6138,25 @@
             }
           },
           {
-            "node_id": 970,
+            "node_id": 972,
             "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            },
+            "keystone_exclusion_group": 2
+          },
+          {
+            "node_id": 977,
+            "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -6250,10 +6171,10 @@
             }
           },
           {
-            "node_id": 971,
+            "node_id": 980,
             "role": "Keystone",
-            "resist_model": "TypeD_StatToPenetration",
-            "scope_policy": "GlobalWhileBuffActive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
@@ -6263,13 +6184,91 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            },
-            "keystone_exclusion_group": 2,
-            "cost_affix": "GlassCannonCrit"
+            }
           },
           {
-            "node_id": 972,
+            "node_id": 981,
             "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 984,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 985,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 987,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 988,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 989,
+            "role": "Transmuter",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -6283,6 +6282,54 @@
               "requires_crit": false
             },
             "keystone_exclusion_group": 2
+          },
+          {
+            "node_id": 991,
+            "role": "Passive",
+            "resist_model": "TypeD_StatToPenetration",
+            "scope_policy": "GlobalWhileBuffActive",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 992,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
+          },
+          {
+            "node_id": 993,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false,
+              "requires_crit": false
+            }
           }
         ]
       }

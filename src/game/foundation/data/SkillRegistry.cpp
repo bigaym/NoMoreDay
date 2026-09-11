@@ -154,6 +154,15 @@ std::optional<CostAffixPreset> ParseCostAffixPreset(const json &value) {
   return ParseEnumFromJson(value, kMap);
 }
 
+std::optional<TriggerWindow> ParseTriggerWindow(const json &value) {
+  static const std::unordered_map<std::string, TriggerWindow> kMap = {
+      {"None", TriggerWindow::None},
+      {"PhantomTrance", TriggerWindow::PhantomTrance},
+      {"DeathSeal", TriggerWindow::DeathSeal},
+  };
+  return ParseEnumFromJson(value, kMap);
+}
+
 uint8_t ClampToU8(int value, int fallback) {
   if (value < 0 || value > std::numeric_limits<uint8_t>::max()) {
     return static_cast<uint8_t>(fallback);
@@ -387,10 +396,19 @@ void ParseContractNode(const json &node_json, SkillContractDefinition &def) {
         trigger.value("range_mult", node.trigger.range_mult);
     node.trigger.internal_cooldown =
         trigger.value("internal_cooldown", node.trigger.internal_cooldown);
+    node.trigger.base_chance =
+        trigger.value("base_chance", node.trigger.base_chance);
     node.trigger.consumes_mana =
         trigger.value("consumes_mana", node.trigger.consumes_mana);
     node.trigger.requires_crit =
         trigger.value("requires_crit", node.trigger.requires_crit);
+    node.trigger.requires_melee_hit =
+        trigger.value("requires_melee_hit", node.trigger.requires_melee_hit);
+    if (trigger.contains("required_window")) {
+      if (auto window = ParseTriggerWindow(trigger.at("required_window"))) {
+        node.trigger.required_window = *window;
+      }
+    }
   }
 
   def.nodes[node_id] = node;

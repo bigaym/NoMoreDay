@@ -10,6 +10,7 @@
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Projectile.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
@@ -883,49 +884,89 @@ TEST_CASE("[Integration] Projectile - Snapshotting Logic") {
         doctest::Approx(1.5f));
 }
 
-TEST_CASE("[Integration] SkillSystem - Phantom Flash Counter Uses Pipeline") {
+TEST_CASE("[Integration] SkillSystem - 935 逆命反噬 trigger chain in DeathSeal window") {
   entt::registry registry;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
   CombatEventDispatcher::Clear();
   SkillSystem::InitHooks();
 
-  auto victim = registry.create();
-  registry.emplace<Position>(victim, 0.0f, 0.0f);
-  registry.emplace<CombatStats>(victim);
-  registry.emplace<HealthComponent>(victim, 100.0f, 100.0f);
-  auto &pf = registry.emplace<PhantomFlashComponent>(victim);
-  pf.counter_window = 0.5f;
-  pf.triggered = false;
+  auto caster = registry.create();
+  registry.emplace<PlayerTag>(caster);
+  registry.emplace<Position>(caster, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(caster);
+  auto &active = registry.emplace<ActiveSkillsComponent>(caster);
+  active.slots[0].id = 9;
+  active.specialized_slots[0].skill_id = 9;
+  active.specialized_slots[0].allocated_points[935] = 1;
+  SkillSystem::RebakeSkillProfiles(registry, caster);
 
-  auto attacker = registry.create();
-  registry.emplace<Position>(attacker, 5.0f, 0.0f);
-  registry.emplace<CombatStats>(attacker);
-  registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+  auto *triggers = registry.try_get<TriggerRuleComponent>(caster);
+  REQUIRE(triggers != nullptr);
+  REQUIRE(triggers->HasRule(935));
 
-  CombatEventDispatcher::Dispatch(
-      registry, CombatEventFactory::CreateTakeDamage(
-                    victim, attacker, 9, Tag::Melee, 10.0f, false));
+  const TriggerRule *rule = nullptr;
+  for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+    if (triggers->rules[i].rule_id == 935) {
+      rule = &triggers->rules[i];
+    }
+  }
+  REQUIRE(rule != nullptr);
+  // 契约映射: 20% 基础概率 / 近战限定 / 逆脉窗口 / 0.5s 内置冷却
+  CHECK(rule->base_chance == doctest::Approx(0.2f));
+  CHECK(rule->requires_melee_hit);
+  CHECK(rule->required_window == TriggerWindow::DeathSeal);
+  CHECK(rule->internal_cooldown == doctest::Approx(0.5f));
 
-  CHECK(pf.triggered);
-  CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
+  auto target = registry.create();
+  registry.emplace<EnemyTag>(target);
+  registry.emplace<Position>(target, 10.0f, 0.0f);
+  registry.emplace<HealthComponent>(target, 100000.0f, 100000.0f);
+  registry.emplace<CombatStats>(target);
 
-  auto victim2 = registry.create();
-  registry.emplace<Position>(victim2, 0.0f, 0.0f);
-  registry.emplace<CombatStats>(victim2);
-  auto &pf2 = registry.emplace<PhantomFlashComponent>(victim2);
-  pf2.counter_window = 0.5f;
-  pf2.triggered = false;
+  // 手动进入逆脉窗口: params.death_seal=true 且 remaining>0
+  auto &pt = registry.emplace<PhantomTranceComponent>(caster);
+  pt.remaining = 1.0f;
+  pt.params.death_seal = true;
 
-  auto noStatsAttacker = registry.create();
-  registry.emplace<Position>(noStatsAttacker, 5.0f, 0.0f);
-  registry.emplace<HealthComponent>(noStatsAttacker, 80.0f, 80.0f);
+  auto resetCooldowns = [&]() {
+    for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+      triggers->rules[i].current_cooldown = 0.0f;
+    }
+  };
+  auto countTriggersAfter = [&](Tag tags, int samples) {
+    int fired = 0;
+    for (int i = 0; i < samples; ++i) {
+      resetCooldowns();
+      CombatEventDispatcher::Dispatch(
+          registry, CombatEventFactory::CreateSkillHit(caster, target, 8, tags,
+                                                       false, 0));
+      for (uint8_t r = 0; r < triggers->rule_count; ++r) {
+        if (triggers->rules[r].rule_id == 935 &&
+            triggers->rules[r].current_cooldown > 0.0f) {
+          ++fired;
+        }
+      }
+    }
+    return fired;
+  };
 
-  CombatEventDispatcher::Dispatch(
-      registry, CombatEventFactory::CreateTakeDamage(
-                    victim2, noStatsAttacker, 9, Tag::Melee, 10.0f, false));
+  constexpr int kSamples = 400;
+  const int meleeFired = countTriggersAfter(Tag::Melee, kSamples);
+  // 20% 期望约 80 次; 二项分布 2σ 约 ±9, 放宽到 [40,130] 仍能拒绝“不触发/必触发”
+  CHECK(meleeFired > 40);
+  CHECK(meleeFired < 130);
 
-  CHECK(pf2.triggered);
-  CHECK(registry.get<HealthComponent>(noStatsAttacker).current ==
-        doctest::Approx(80.0f));
+  // 非近战命中不得触发
+  CHECK(countTriggersAfter(Tag::Projectile, kSamples) == 0);
+
+  // 非逆脉窗口(仅形态窗口)不得触发
+  pt.params.death_seal = false;
+  CHECK(countTriggersAfter(Tag::Melee, kSamples) == 0);
+
+  // 窗口彻底消失(remaining<=0)也不得触发
+  pt.params.death_seal = true;
+  pt.remaining = 0.0f;
+  CHECK(countTriggersAfter(Tag::Melee, kSamples) == 0);
 }
 
 TEST_CASE(
@@ -1001,7 +1042,7 @@ TEST_CASE(
     CHECK(count >= 3);
   }
 
-  SUBCASE("Phantom Flash main branch enters counter window") {
+  SUBCASE("Phantom Trance main branch enters form") {
     SkillExecution exec;
     exec.skill_id = 9;
     exec.owner = player;
@@ -1012,8 +1053,10 @@ TEST_CASE(
     REQUIRE(cast != nullptr);
     cast(registry, player, exec);
 
-    REQUIRE(registry.all_of<PhantomFlashComponent>(player));
-    CHECK(registry.get<PhantomFlashComponent>(player).counter_window > 0.0f);
+    REQUIRE(registry.all_of<PhantomTranceComponent>(player));
+    const auto &pt = registry.get<PhantomTranceComponent>(player);
+    CHECK(pt.remaining > 0.0f);
+    CHECK(pt.params.duration_sec == doctest::Approx(3.0f));
   }
 }
 
@@ -1387,7 +1430,7 @@ TEST_CASE("[Integration] SkillSystem - Key-node cast smoke matrix") {
       auto view = registry.view<SwordArrayComponent>();
       CHECK(view.begin() != view.end());
     } else if (skill_id == 9) {
-      CHECK(registry.all_of<PhantomFlashComponent>(caster));
+      CHECK(registry.all_of<PhantomTranceComponent>(caster));
     } else if (skill_id == 5 || skill_id == 7) {
       CHECK(registry.all_of<ChannelingComponent>(caster));
     } else if (skill_id == 8) {

@@ -4,6 +4,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/SkillDefs.hpp" // PhantomTranceComponent (988)
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
@@ -69,7 +70,14 @@ void EffectSystem::update(entt::registry &registry, float dt) {
   
   for (auto entity : buffView) {
       auto& activeEffects = buffView.get<ActiveEffectsComponent>(entity);
-      activeEffects.Update(dt);
+      // 988 御剑化影：绝影形态内御剑步衰减减半。
+      float swordStepDrainMult = 1.0f;
+      if (const auto* trance = registry.try_get<PhantomTranceComponent>(entity)) {
+          if (trance->remaining > 0.0f) {
+              swordStepDrainMult = trance->params.sword_step_drain_mult;
+          }
+      }
+      activeEffects.Update(dt, swordStepDrainMult);
       
       // 状态同步逻辑 (SyncStatusFlags)
       if (registry.any_of<PlayerTag>(entity)) {

@@ -7,6 +7,7 @@
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
@@ -147,8 +148,15 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
           registry, 1));
       break;
     case 9:
-      REQUIRE(registry.all_of<PhantomFlashComponent>(caster));
-      CHECK(registry.get<PhantomFlashComponent>(caster).flow_reset);
+      REQUIRE(registry.all_of<PhantomTranceComponent>(caster));
+      {
+        const auto &trance = registry.get<PhantomTranceComponent>(caster);
+        CHECK(trance.remaining > 0.0f);
+        CHECK(trance.params.duration_sec == doctest::Approx(3.0f));
+        // 冒烟节点含 981 逆脉与 980 虚灵之躯
+        CHECK(trance.params.death_seal);
+        CHECK(trance.params.void_body);
+      }
       break;
     case 10:
       CHECK(registry.any_of<InvulnerableComponent>(caster));
@@ -246,6 +254,19 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
     if (is_crit) {
       sknm::ConfigureSpecialization(registry, caster, 3u, {{330, 1}}, 1);
     }
+    // 935 逆命反噬需要逆脉（DeathSeal）窗口；同时显式烘培触发规则
+    sknm::ConfigureTriggerSourcePrerequisites(registry, caster, skill_id);
+    sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
+    SkillSystem::RebakeSkillProfiles(registry, caster);
+    // 935 基础概率 0.2 会引入随机性，触发矩阵只验证链路，这里置为必触发
+    if (auto *triggers = registry.try_get<TriggerRuleComponent>(caster)) {
+      for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+        if (triggers->rules[i].rule_id == trigger_node &&
+            triggers->rules[i].base_chance < 1.0f) {
+          triggers->rules[i].base_chance = 1.0f;
+        }
+      }
+    }
 
     // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
     // 构造须在配置专精之后、派发命中之前（与 unit 矩阵测试口径一致）。
@@ -312,6 +333,18 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guar
     const bool is_crit = (skill_id == 8u);
     if (is_crit) {
       sknm::ConfigureSpecialization(registry, caster, 3u, {{330, 1}}, 1);
+    }
+    // 935 逆命反噬需要逆脉（DeathSeal）窗口；同时显式烘培触发规则
+    sknm::ConfigureTriggerSourcePrerequisites(registry, caster, skill_id);
+    sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
+    SkillSystem::RebakeSkillProfiles(registry, caster);
+    if (auto *triggers = registry.try_get<TriggerRuleComponent>(caster)) {
+      for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+        if (triggers->rules[i].rule_id == trigger_node &&
+            triggers->rules[i].base_chance < 1.0f) {
+          triggers->rules[i].base_chance = 1.0f;
+        }
+      }
     }
 
     // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，

@@ -110,11 +110,14 @@ void SkillSpecializationBaker::Bake(
     // 滞空时长默认为 0（未点 810 立即折返），由 810 覆写为 0.8s
     del.duration = 0.0f;
     break;
-  case 9: // 绝影绝剑
+  case 9: // 绝影绝剑：Mobility 单原型；ReactiveWard 仅保留给技能4
     del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::Mobility);
-    del.secondary_archetype = static_cast<uint8_t>(DeliveryArchetype::ReactiveWard);
-    del.speed = 600.0f;
-    del.duration = 0.25f;
+    del.secondary_archetype = static_cast<uint8_t>(DeliveryArchetype::None);
+    // 突进基准速度取技能级 dash_speed（不再把 duration 当作旧版反击窗口）
+    del.speed = skillData->GetParam("dash_speed", 600.0f);
+    // duration 承载绝影形态时长语义，与 trance.duration_sec 同步；975 可在其上追加
+    del.duration = data::SkillMechanicsRegistry::Get().GetFloat(9, 0, "form_duration", 3.0f);
+    del.trance.duration_sec = del.duration;
     break;
   default:
     break;
@@ -150,6 +153,10 @@ void SkillSpecializationBaker::Bake(
           rule.cast_skill_id = node_contract->trigger.trigger_skill_id;
           rule.effectiveness = node_contract->trigger.effectiveness;
           rule.internal_cooldown = node_contract->trigger.internal_cooldown;
+          // 透传技能9 触发契约新增字段：基础概率 / 近战命中门槛 / 前置窗口
+          rule.base_chance = node_contract->trigger.base_chance;
+          rule.requires_melee_hit = node_contract->trigger.requires_melee_hit;
+          rule.required_window = node_contract->trigger.required_window;
           out_triggers->AddRule(rule);
         }
       }
@@ -901,22 +908,134 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     break;
   }
 
-  case 9: // 绝影绝剑
-    if (node_id == 930) {
-      del.feature_flags |= 1; // 影遁潜行
-    } else if (node_id == 950) {
-      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Lightning;
-      del.feature_flags |= 2;
-    } else if (node_id == 951) {
-      del.feature_flags |= 4; // 剑流重置
-    } else if (node_id == 952) {
-      del.sub_count = static_cast<uint8_t>(points); // 剑意溢出
-      del.feature_flags |= 8;
-    } else if (node_id == 970) {
-      out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Physical) | Tag::Cold;
-      del.feature_flags |= 16;
+  case 9: { // 绝影绝剑：形态参数统一写入 del.trance（与 PhantomTrance 行为单源）
+    const auto &mech9 = data::SkillMechanicsRegistry::Get();
+    if (node_id == 902) { // 身轻如燕: 形态内移速/闪避
+      del.trance.move_speed_pct +=
+          mech9.GetFloat(9, 902, "move_per_point", 10.0f) * static_cast<float>(points);
+      del.trance.dodge_pct +=
+          mech9.GetFloat(9, 902, "dodge_per_point", 10.0f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 2;
+    } else if (node_id == 913) { // 灵流穿透: 穿行敌人获虚弱
+      del.trance.weaken_on_pass_pct =
+          mech9.GetFloat(9, 913, "weaken_per_point", 0.06f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 8;
+    } else if (node_id == 914) { // 虚境馈赠: 形态内每秒回蓝/全局减伤
+      del.trance.void_gift_mana_per_sec =
+          mech9.GetFloat(9, 914, "mana_per_point", 2.0f) * static_cast<float>(points);
+      del.trance.void_gift_dr_pct =
+          mech9.GetFloat(9, 914, "dr_per_point", 0.10f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 9;
+    } else if (node_id == 934) { // 剑随心动: 攻速/施法速度
+      del.trance.atk_cast_speed_pct =
+          mech9.GetFloat(9, 934, "speed_per_point", 5.0f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 14;
+    } else if (node_id == 935) {
+      // 逆命反噬: 触发规则由 TriggerRuleComponent 承载（见 SyncTriggerRules），
+      // 形态侧无独立参数，仅登记标记位
+      del.feature_flags |= 1u << 28;
+    } else if (node_id == 954) { // 时光逆流: 结束返还其他技能冷却
+      del.trance.time_reversal_sec = mech9.GetFloat(9, 954, "refund_sec", 3.0f);
+      del.feature_flags |= 1u << 19;
+    } else if (node_id == 955) { // 全神贯注: 形态内其他技能法耗降低
+      del.trance.focus_mana_reduce_pct =
+          mech9.GetFloat(9, 955, "cost_per_point", 0.20f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 20;
+    } else if (node_id == 972) { // 疾空惊雷: 转闪电（989 已选 Cold 时不覆盖，Cold 优先）
+      if (del.trance.transmuter_tag != Tag::Cold) {
+        del.trance.transmuter_tag = Tag::Lightning;
+      }
+      del.feature_flags |= 1u << 23;
+    } else if (node_id == 973) { // 过载护盾: 雷盾期间移速/攻速
+      del.trance.overload_speed_pct =
+          mech9.GetFloat(9, 973, "speed_per_point", 0.10f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 24;
+    } else if (node_id == 974) { // 空明心境: 形态内冷却缩减
+      del.trance.recovery_pct =
+          mech9.GetFloat(9, 974, "recovery_per_point", 10.0f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 3;
+    } else if (node_id == 975) { // 延命: 延长绝影形态时长
+      del.trance.duration_sec =
+          mech9.GetFloat(9, 0, "form_duration", 3.0f) +
+          mech9.GetFloat(9, 975, "duration_per_point", 0.25f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 0;
+    } else if (node_id == 976) { // 气旋爆发: 结束爆发伤害/半径倍率
+      del.trance.burst_damage_mult =
+          1.0f + mech9.GetFloat(9, 976, "burst_per_point", 0.15f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 1;
+    } else if (node_id == 977) { // 向死而生: 免死不提前结束
+      del.trance.cheat_death_hold = true;
+      del.feature_flags |= 1u << 4;
+    } else if (node_id == 978) { // 浴血重生: 免死触发/未触发时回复
+      del.trance.rebirth_lost_pct =
+          mech9.GetFloat(9, 978, "rebirth_lost_per_point", 0.15f) * static_cast<float>(points);
+      del.trance.rebirth_flat_pct =
+          mech9.GetFloat(9, 978, "rebirth_flat_per_point", 0.05f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 5;
+    } else if (node_id == 979) { // 绝影护甲: 施放时获得上限比例护盾
+      del.trance.ward_pct =
+          mech9.GetFloat(9, 979, "ward_per_point", 0.10f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 6;
+    } else if (node_id == 980) { // 虚灵之躯: 潜行/穿行/不可选中
+      del.trance.void_body = true;
+      del.feature_flags |= 1u << 7;
+    } else if (node_id == 981) { // 逆脉: 锁血禁疗增伤
+      del.trance.death_seal = true;
+      del.feature_flags |= 1u << 10;
+    } else if (node_id == 982) { // 孤注一掷: 每缺失 1% 生命的暴伤加成（百分点/点，rank4=4%）
+      del.trance.last_stand_crit_pct =
+          mech9.GetFloat(9, 982, "crit_per_missing_per_point", 1.0f) *
+          static_cast<float>(points);
+      del.feature_flags |= 1u << 11;
+    } else if (node_id == 983) { // 死亡螺旋: 每轮飞剑数与单柄伤害
+      del.trance.death_spiral_count = static_cast<int>(
+          mech9.GetFloat(9, 983, "spiral_count_per_point", 1.0f) * static_cast<float>(points));
+      del.trance.death_spiral_damage_pct =
+          mech9.GetFloat(9, 983, "spiral_damage_pct", 0.08f);
+      del.feature_flags |= 1u << 12;
+    } else if (node_id == 984) { // 嗜血本能: 结束时按期间伤害回复
+      del.trance.bloodthirst_pct = mech9.GetFloat(9, 984, "heal_pct", 0.05f);
+      del.feature_flags |= 1u << 13;
+    } else if (node_id == 985) { // 破空一闪: 瞬移至光标再入形态
+      del.trance.blink = true;
+      del.feature_flags |= 1u << 15;
+    } else if (node_id == 986) { // 缩地成寸: 基础冷却直接减免
+      del.trance.cooldown_flat_reduce =
+          mech9.GetFloat(9, 986, "cd_per_point", 1.0f) * static_cast<float>(points);
+      out_profile.effective_cooldown = std::max(
+          1.0f, out_profile.effective_cooldown - del.trance.cooldown_flat_reduce);
+      del.feature_flags |= 1u << 16;
+    } else if (node_id == 987) { // 意随神行: 每秒剑意
+      del.trance.intent_per_sec = static_cast<int>(
+          mech9.GetFloat(9, 987, "intent_per_point", 1.0f) * static_cast<float>(points));
+      del.feature_flags |= 1u << 17;
+    } else if (node_id == 988) { // 御剑化影: 御剑步时形态闪避/连击点流失倍率
+      del.trance.sword_step_dodge_pct =
+          mech9.GetFloat(9, 988, "dodge_per_point", 10.0f) * static_cast<float>(points);
+      del.trance.sword_step_drain_mult = mech9.GetFloat(9, 988, "drain_mult", 0.5f);
+      del.feature_flags |= 1u << 18;
+    } else if (node_id == 989) { // 天山雪隐: 转冰霜（与 972 互斥，Cold 优先）
+      del.trance.transmuter_tag = Tag::Cold;
+      del.feature_flags |= 1u << 21;
+    } else if (node_id == 990) { // 凛冬附魔: 对冰冻/冰缓目标增伤
+      del.trance.frost_amp_pct =
+          mech9.GetFloat(9, 990, "amp_per_point", 0.15f) * static_cast<float>(points);
+      del.feature_flags |= 1u << 22;
+    } else if (node_id == 991) { // 意念穿透: 每层剑意元素穿透（存小数）
+      del.trance.enchant_pen_per_intent_pct =
+          mech9.GetFloat(9, 991, "pen_per_intent_per_point", 1.0f) *
+          static_cast<float>(points) * 0.01f;
+      del.trance.enchant_pen_cap_pct = mech9.GetFloat(9, 991, "pen_cap_pct", 40.0f);
+      del.feature_flags |= 1u << 25;
+    } else if (node_id == 992) { // 灵气反哺: 对应异常击杀刷新附魔
+      del.trance.enchant_refresh_on_kill = true;
+      del.feature_flags |= 1u << 26;
+    } else if (node_id == 993) { // 影剑回响: 触发器由行为层手写规则，仅置协同标记
+      del.trance.echo_synergy = true;
+      del.feature_flags |= 1u << 27;
     }
     break;
+  }
 
   default:
     break;
@@ -981,6 +1100,11 @@ void SkillSpecializationBaker::SyncTriggerRules(
         rule.cast_skill_id = node_contract->trigger.trigger_skill_id;
         rule.effectiveness = node_contract->trigger.effectiveness;
         rule.internal_cooldown = node_contract->trigger.internal_cooldown;
+        // 透传技能9 触发契约新增字段：基础概率 / 近战命中门槛 / 前置窗口
+        // 例如 935 逆命反噬: base_chance=0.2, requires_melee_hit=true, required_window=DeathSeal
+        rule.base_chance = node_contract->trigger.base_chance;
+        rule.requires_melee_hit = node_contract->trigger.requires_melee_hit;
+        rule.required_window = node_contract->trigger.required_window;
         triggers->AddRule(rule);
       }
     }

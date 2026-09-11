@@ -4,7 +4,6 @@
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/Common.hpp"
-#include "game/foundation/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
@@ -14,13 +13,14 @@
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/combat/AilmentEngine.hpp" // AilmentAdapter (990 凛冬附魔异常判定)
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/foundation/combat_v2/CombatV2RuntimeFacade.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
-#include "game/systems/skill/SkillSystem.hpp" // ShadowCast
+#include "game/systems/skill/SkillSystem.hpp" // GetTriggerEffectivenessForCast
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <array>
@@ -54,6 +54,36 @@ struct DefenseResolution {
 
 float ClampMoreToMultiplier(float more) {
   return std::max(0.0f, 1.0f + more);
+}
+
+// 990 凛冬附魔: 攻击者处于冰霜附魔窗口 (enchant_remaining>0 且 enchant_tag==Cold)
+// 时，对处于冰冻/冰缓状态的目标追加 frost_amp_pct 增伤。返回最终伤害系数，
+// 无加成返回 1.0；判定与 CombatSystem 的 992 击杀刷新口径保持一致。
+float ResolveFrostAmpMultiplier(entt::registry &registry, entt::entity attacker,
+                                entt::entity defender) {
+  if (!registry.valid(attacker) || !registry.valid(defender)) {
+    return 1.0f;
+  }
+  const auto *pt = registry.try_get<PhantomTranceComponent>(attacker);
+  if (pt == nullptr || pt->enchant_remaining <= 0.0f ||
+      pt->enchant_tag != Tag::Cold || pt->params.frost_amp_pct <= 0.0f) {
+    return 1.0f;
+  }
+  const auto *effects = registry.try_get<ActiveEffectsComponent>(defender);
+  if (effects == nullptr) {
+    return 1.0f;
+  }
+  for (const auto &effect : effects->effects) {
+    if (effect.remaining <= 0.0f) {
+      continue;
+    }
+    const auto ailment = systems::AilmentAdapter::TryMapLegacyBuff(effect);
+    if (ailment && (*ailment == AilmentType::Freeze ||
+                    *ailment == AilmentType::Chill)) {
+      return 1.0f + pt->params.frost_amp_pct;
+    }
+  }
+  return 1.0f;
 }
 
 bool ShouldResolveDefenseRolls(Tag hit_tags, bool skip_mitigation,
@@ -589,11 +619,6 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       if (const auto *chan = registry.try_get<ChannelingComponent>(attacker)) {
         if (chan->skill_id == source_skill_id) {
           return true;
-        }
-      }
-      if (source_skill_id == 9) {
-        if (const auto *pf = registry.try_get<PhantomFlashComponent>(attacker)) {
-          return pf->counter_window > 0.0f && !pf->triggered;
         }
       }
       return false;
@@ -1224,6 +1249,16 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     result.final_pool.values[i] *= suppressor_multiplier;
   }
 
+  // 990 凛冬附魔: 冰霜附魔窗口内对冰冻/冰缓目标最终伤害增伤 (仅结算一次)。
+  const float frost_amp_multiplier =
+      ResolveFrostAmpMultiplier(registry, attacker, defender);
+  if (frost_amp_multiplier != 1.0f) {
+    total_final_damage *= frost_amp_multiplier;
+    for (int i = 0; i < 6; ++i) {
+      result.final_pool.values[i] *= frost_amp_multiplier;
+    }
+  }
+
   COMBAT_DEFENSE_LOG(
       "[DefenseChain] attacker={} defender={} step=5 barrier=delegated "
       "step=6 hpDamage={:.4f} blocked={} blockMultiplier={:.4f}",
@@ -1231,29 +1266,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       total_final_damage, result.was_blocked ? "true" : "false",
       result.block_multiplier);
 
-  // --- Phantom Flash Counter Logic (Single Target) ---
+  // --- Blade Ward Defensive Logic (Single Target) ---
   if (!is_simulation && registry.valid(defender)) {
-    if (auto *pf = registry.try_get<PhantomFlashComponent>(defender)) {
-      if (pf->counter_window > 0.0f && !pf->triggered) {
-        pf->triggered = true;
-        total_final_damage = 0.0f; // Negate damage
-        result.final_pool.Clear(); // Clear pools
-
-        LOG_INFO("Phantom Flash: Counter Triggered by entity {}",
-                     (uint32_t)defender);
-
-        // Trigger Counter Attack (Visual/Logic)
-        if (registry.valid(attacker) && registry.all_of<Position>(attacker) &&
-            registry.all_of<Position>(defender)) {
-          const auto &attPos = registry.get<Position>(attacker);
-          const auto &defPos = registry.get<Position>(defender);
-          NoMoreDay::SkillSystem::ShadowCast(registry, defender, 2,
-                                             {defPos.x, defPos.y},
-                                             {attPos.x, attPos.y});
-        }
-      }
-    }
-
     // --- Blade Ward Interception Logic (Projectiles only, not already evaluated by ProjectileSystem) ---
     const bool is_physical_projectile =
         registry.valid(source_entity) && registry.all_of<Projectile>(source_entity);
@@ -1724,23 +1738,6 @@ void DamagePipeline::CalculateBatch(
 
       if (defense_resolution.blocked) {
         final_damage *= defense_resolution.block_multiplier;
-      }
-
-      // --- Phantom Flash Counter Logic ---
-      if (auto *pf = registry.try_get<PhantomFlashComponent>(res.target)) {
-        if (pf->counter_window > 0.0f && !pf->triggered) {
-          pf->triggered = true;
-          final_damage = 0.0f;
-
-          if (registry.valid(attacker) && registry.all_of<Position>(attacker) &&
-              registry.all_of<Position>(res.target)) {
-            const auto &attPos = registry.get<Position>(attacker);
-            const auto &defPos = registry.get<Position>(res.target);
-            NoMoreDay::SkillSystem::ShadowCast(registry, res.target, 2,
-                                               {defPos.x, defPos.y},
-                                               {attPos.x, attPos.y});
-          }
-        }
       }
 
       // --- Blade Ward Interception Logic (Projectiles only, not already evaluated by ProjectileSystem) ---

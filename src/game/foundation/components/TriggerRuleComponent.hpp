@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <entt/entity/entity.hpp>
 #include "game/contracts/CombatEvents.hpp"
+#include "game/foundation/data/SkillContract.hpp"
 #include "game/foundation/data/TagRegistry.hpp"
 
 namespace NoMoreDay {
@@ -36,6 +37,10 @@ struct TriggerRule {
     uint32_t cooldown_refund_skill_id = 0;
     float cooldown_refund_amount = 0.0f;
     bool requires_crit = false; // 仅暴击命中事件触发 (如 335 巨剑裂空)
+    // 仅近战命中事件触发 (如技能9 935 逆命反噬)
+    bool requires_melee_hit = false;
+    // 触发前置窗口: 施法者需处于对应形态/子窗口 (如技能9 绝影/逆脉)
+    TriggerWindow required_window = TriggerWindow::None;
     // OnKill 事件的击杀来源技能过滤: 0=任意来源，非0 时仅接受 evt.skill_id 匹配的击杀。
     // 用于 714 寂灭等"指定技能击杀才触发"的规则，避免其他技能/召唤物/持续伤害误触发。
     uint32_t required_skill_id = 0;

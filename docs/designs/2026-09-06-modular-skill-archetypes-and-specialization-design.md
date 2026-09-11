@@ -17,7 +17,7 @@
 
 1. **专精查询三权分立，热路径开销严重**：
    - 在 [`FlowingThrust.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/behaviors/FlowingThrust.cpp) 与 [`BladeFormation.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/behaviors/BladeFormation.cpp) 中，部分节点使用 `exec.active_nodes.test(NodeId % 100)` 查询，另一部分节点却在 `DoCast` 和 `DoHit` 中遍历 `ActiveSkillsComponent::specialized_slots` 进行 `allocated_points.find()`；
-   - 在 [`BladeBoomerang.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/behaviors/BladeBoomerang.cpp) 与 [`PhantomFlash.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/behaviors/PhantomFlash.cpp) 中，完全无视 `active_nodes`，每次施法都在热路径上执行多次 map 查找与线性扫描；
+   - 在 [`BladeBoomerang.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/behaviors/BladeBoomerang.cpp) 与 [`PhantomTrance.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/behaviors/PhantomTrance.cpp) 中，完全无视 `active_nodes`，每次施法都在热路径上执行多次 map 查找与线性扫描；
    - 技能 1 中仍残留大量被注释的遗留代码（如 `// ID 121: Jian Yi Ying Ying (Chance to gain Intent) - Legacy`）。
 2. **`BakedSkillProfile` 存在严重烘焙断层**：
    - 核心系统 [`SkillSystem.cpp:2203-2287`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/SkillSystem.cpp#L2203-L2287) 中的 `RebakeSkillProfiles` 目前**仅处理了装备修饰器（Item Skill Modifiers），完全遗漏了技能专精树（Talent Nodes）**；
@@ -231,7 +231,7 @@
   ```
 
 #### 原型 11：响应式护盾与反制屏障 (ReactiveWardDelivery)
-- **应用形态**：护体剑罡阻挡反击、绝影绝剑精确弹反窗口、荆棘反震。
+- **应用形态**：护体剑罡阻挡反击、绝影绝剑免死形态窗口（由 `PhantomTrance` 组件承载）、荆棘反震。
 - **POD 数据结构**：
   ```cpp
   struct ReactiveWardComponent {
@@ -359,7 +359,7 @@ static_assert(std::is_standard_layout_v<BakedSkillProfile>);
                     │ 6  │ 剑阵·诛仙          │ AreaField              │
                     │ 7  │ 心剑·无影          │ BeamChannel (Laser)    │
                     │ 8  │ 御剑·回旋          │ BoomerangProjectile    │
-                    │ 9  │ 绝影绝剑           │ Mobility + ReactiveWard│
+                    │ 9  │ 绝影绝剑           │ Mobility (绝影形态)    │
                     └────┴────────────────────┴────────────────────────┘
 ```
 
@@ -427,12 +427,13 @@ static_assert(std::is_standard_layout_v<BakedSkillProfile>);
   - 节点 850（滞空切割）：设置 `hover_duration = 1.5f`；
   - 节点 831（接剑）：挂载接取回调，回复剑意与冷却。
 
-### 5.9 技能 9：绝影绝剑 (PhantomFlash)
-- **原型组合**：`MobilityDelivery` (后撤) + `ReactiveWardDelivery` (弹反反制)。
+### 5.9 技能 9：绝影绝剑 (PhantomTrance)
+- **原型组合**：`MobilityDelivery` (3 秒绝影形态；破空一闪时附带瞬移) + `Buff` (免死/逆脉生存态 + 结束附魔窗口)。`ReactiveWardDelivery` 仅保留给技能 4 剑气护体，技能 9 不再使用。
 - **专精映射解耦**：
-  - 节点 910/913（反制连斩）：反弹成功后由 `ProcEngine` 触发斩击；
-  - 节点 930（影遁潜行）：受击反弹成功时注入 Buff；
-  - 节点 951（流光重置）：通过触发规则向 `ProcEngine` 派发冷却重置。
+  - 节点 935 `逆命反噬`：逆脉窗口内近战命中 20% 由 `ProcEngine` 触发技能 8 御剑·回旋（0.5s ICD）；
+  - 节点 993 `影剑回响`：绝影期间御剑·回旋命中 40% 触发一次 50% 效果的影子回响（行为层手写规则，不占触发器结构位）；
+  - 节点 954 `时光逆流`：绝影结束时按剩余冷却返还其他技能 3s；
+  - 免死/逆脉：`CombatSystem::ApplyDamage` 致命伤锁 1 血 + `PhantomTranceComponent` 资源循环；附魔窗口由 `SkillModifierComponent.damage_modifiers` 的 GainExtra 承载。
 
 ---
 
@@ -440,8 +441,8 @@ static_assert(std::is_standard_layout_v<BakedSkillProfile>);
 
 1. **非目标：不修改任何既有装备二进制存档格式**
    - 继续沿用 Section 13 二进制分段持久化，严禁改动 `ItemInstance` 192 字节 POD 结构；
-2. **非目标：不破坏 Compact Contract 自动化测试矩阵**
-   - 现有的 `SkillKeyNodeMatrixTests`、`SkillBehaviorGuardTests` 中对 1~12 号技能的关键节点契约（`ExpectedKeyNodesBySkill`）必须保持 100% 行为一致，零回归风险；
+2. **临时非目标（已到期）：Compact Contract 自动化测试矩阵的阶段性冻结**
+   - 该条款仅适用于模块化迁移阶段，不应被解读为「旧临时形态受保护」。技能 8（提交 `9f9ad255`）已确立「按玩法设计重写关键节点契约、同步更新 fixture/helper」的先例；技能 9 及其后续技能的设计性整改同理，允许更新 `SkillKeyNodeMatrixTests`、`SkillBehaviorGuardTests` 与 `ExpectedKeyNodesBySkill` 相关断言与夹具，但禁止通过弱化断言换取通过；
 3. **非目标：不引入运行时虚函数接口调用**
    - 坚决杜绝面向对象的 `ISkill` / `IModifier` 运行时多态，严格保证组件是 Standard Layout POD。
 
@@ -461,10 +462,10 @@ static_assert(std::is_standard_layout_v<BakedSkillProfile>);
 | `MindBlade.cpp` | 405 | ≤100 |
 | `BladeFormation.cpp` | 355 | ≤100 |
 | `BladeBoomerang.cpp` | 315 | ≤100 |
-| `PhantomFlash.cpp` | 237 | ≤100 |
+| `PhantomTrance.cpp` | 809 | ≤100 |
 | `BladeWard.cpp` | 219 | ≤100 |
 | `InfiniteBlades.cpp` | 159 | ≤100 |
-| **合计** | **3298** | **≤900** |
+| **合计** | **3870** | **≤900** |
 
 （159 行级的 `InfiniteBlades.cpp` 对 Barrage 装配模式同样适用 ≤100 绝对上限；各文件装配代码仅为其一部分，5 章"50 行以内参数装配代码"的描述与本表不冲突。）
 

@@ -1,14 +1,21 @@
 #pragma once
 
 #include "TestCommon.hpp"
+#include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Buff.hpp"
+#include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/BuffIds.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
+#include "game/systems/skill/behaviors/PhantomTrance.hpp"
+#include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay {
 namespace {
@@ -53,34 +60,67 @@ float RunSkill2DamageWithNodes(std::initializer_list<uint32_t> node_ids) {
 
 } // namespace
 
-TEST_CASE("[Unit] CombatAntiMeta - Cost affix modifies stats and surfaces in runtime") {
+TEST_CASE("[Unit] CombatAntiMeta - 991 penetration is capped regardless of sword intent stacks") {
   TestSetupScope scope;
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
 
   const auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 0.0f, 0.0f);
   auto &stats = registry.emplace<CombatStats>(player);
-  stats.crit_chance = 0.0f;
-  stats.attack_speed = 1.0f;
+  stats.max_health = 1000.0f;
+  stats.health = 1000.0f;
+  stats.mana = 200.0f;
+  stats.max_mana = 200.0f;
   stats.cached_area_level = 1;
+  registry.emplace<HealthComponent>(player, 1000.0f, 1000.0f);
 
   auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 9;
+  active.slots[0].current_charges = 5;
   active.specialized_slots[0].skill_id = 9;
-  active.specialized_slots[0].allocated_points[971] = 1;
+  active.specialized_slots[0].allocated_points[989] = 1; // 冰转质
+  active.specialized_slots[0].allocated_points[991] = 9; // 每层剑意 9% 元素穿透
+  auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+  runtime.active_transmuter_node_by_skill[9] = 989;
+  SkillSystem::RebakeSkillProfiles(registry, player);
 
-  auto &pf = registry.emplace<PhantomFlashComponent>(player);
-  pf.counter_window = 0.4f;
-  pf.triggered = false;
+  const auto enemy = registry.create();
+  registry.emplace<EnemyTag>(enemy);
+  registry.emplace<Position>(enemy, 50.0f, 0.0f);
+  registry.emplace<CombatStats>(enemy).cached_area_level = 1;
+  registry.emplace<HealthComponent>(enemy, 1000.0f, 1000.0f);
 
-  const float crit_chance =
-      StatsSystem::GetStatWithTags(registry, player, StatType::CritChance,
-                                   Tag::Hit, 9, entt::null);
-  const float attack_speed =
-      StatsSystem::GetStatWithTags(registry, player, StatType::AttackSpeed,
-                                   Tag::Hit, 9, entt::null);
+  SkillExecution exec;
+  exec.skill_id = 9;
+  exec.owner = player;
+  exec.target_pos = {50.0f, 0.0f};
+  auto cast = SkillBehaviorRegistry::GetCast(9);
+  REQUIRE(cast != nullptr);
+  cast(registry, player, exec);
 
-  CHECK(crit_chance == doctest::Approx(50.0f).epsilon(0.0001f));
-  CHECK(attack_speed == doctest::Approx(80.0f).epsilon(0.0001f));
+  auto *pt = registry.try_get<PhantomTranceComponent>(player);
+  REQUIRE(pt != nullptr);
+  CHECK(pt->params.transmuter_tag == Tag::Cold);
+  CHECK(pt->params.enchant_pen_per_intent_pct == doctest::Approx(0.09f));
+  CHECK(pt->params.enchant_pen_cap_pct == doctest::Approx(40.0f));
+
+  // 10 层剑意 × 9% = 90%，远超 40% 上限
+  registry.emplace<SwordIntentComponent>(player).stacks = 10;
+
+  // 形态自然结束 → 开启附魔窗口
+  (void)skills::PhantomTrance::Update(registry, player, *pt, 3.5f);
+  // 附魔窗口内刷新一次穿透
+  (void)skills::PhantomTrance::Update(registry, player, *pt, 0.1f);
+
+  const auto *effects = registry.try_get<ActiveEffectsComponent>(enemy);
+  REQUIRE(effects != nullptr);
+  const BuffEffect *shred = effects->Get(BuffId::PhantomTranceEnchant);
+  REQUIRE(shred != nullptr);
+  REQUIRE(!shred->modifiers.empty());
+  // 单节点堆叠不得突破 40% 穿透上限
+  CHECK(shred->modifiers.front().value == doctest::Approx(-40.0f));
 }
 
 TEST_CASE("[Unit] CombatAntiMeta - Diminishing returns clamps stacked same-source more") {

@@ -529,6 +529,15 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
     return false;
   }
 
+  // 989 天山雪隐: 持有 Cold 转质绝影形态的实体免疫冰冻
+  if (request.ailment == AilmentType::Freeze) {
+    const auto *pt = registry.try_get<PhantomTranceComponent>(target);
+    if (pt != nullptr && pt->remaining > 0.0f &&
+        pt->params.transmuter_tag == Tag::Cold) {
+      return false;
+    }
+  }
+
   auto &contracts = AilmentRegistry::Get();
   if (!contracts.EnsureLoaded()) {
     return false;
@@ -718,7 +727,14 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         // 的流云刺专精分配了 153，其造成的每一次流血 tick 都会按实际扣血量
         // 治疗施加者自身；该流血不限于流云刺 151 施加（血海等来源亦可），
         // 因为 153 的语义是"流云刺命中流血敌人后吸血"，伤害来源即为施放者。
-        if (*ailment == AilmentType::Bleed && result.damage.total_damage > 0.0f &&
+        // 981 逆脉: 锁血禁疗期间禁止任何来源的治疗
+        const auto *sourceTrance =
+            registry.try_get<PhantomTranceComponent>(effect.source);
+        const bool sourceDeathSeal =
+            sourceTrance != nullptr && IsDeathSealActive(*sourceTrance);
+
+        if (!sourceDeathSeal && *ailment == AilmentType::Bleed &&
+            result.damage.total_damage > 0.0f &&
             HasFlowingThrustBloodDrinker(registry, effect.source)) {
           const float lifestealRatio =
               data::SkillMechanicsRegistry::Get().GetFloat(1, 153, "lifesteal_ratio", 1.0f);

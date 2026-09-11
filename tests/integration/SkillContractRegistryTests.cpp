@@ -44,8 +44,9 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
   }
 
   SUBCASE("Skill 9 global scope policy") {
-    const auto *node = registry.GetNodeContract(9, 971);
+    const auto *node = registry.GetNodeContract(9, 991);
     REQUIRE(node != nullptr);
+    CHECK(node->role == SpecNodeRole::Passive);
     CHECK(node->scope_policy == ScopePolicy::GlobalWhileBuffActive);
     CHECK(node->resist_model == ResistModel::TypeD_StatToPenetration);
   }
@@ -68,13 +69,14 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(skill3NodeA->keystone_exclusion_group == 1);
     CHECK(skill3NodeB->keystone_exclusion_group == 1);
 
-    const auto *skill9NodeA = registry.GetNodeContract(9, 971);
+    const auto *skill9NodeA = registry.GetNodeContract(9, 989);
     const auto *skill9NodeB = registry.GetNodeContract(9, 972);
     REQUIRE(skill9NodeA != nullptr);
     REQUIRE(skill9NodeB != nullptr);
+    CHECK(skill9NodeA->role == SpecNodeRole::Transmuter);
+    CHECK(skill9NodeB->role == SpecNodeRole::Transmuter);
     CHECK(skill9NodeA->keystone_exclusion_group == 2);
     CHECK(skill9NodeB->keystone_exclusion_group == 2);
-    CHECK(skill9NodeA->cost_affix == CostAffixPreset::GlassCannonCrit);
   }
 
   SUBCASE("Skill 4 keystone/passive node contract is exact") {
@@ -145,6 +147,55 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(starfall->role == SpecNodeRole::Transmuter);
     CHECK(orbit->keystone_exclusion_group == 3);
     CHECK(starfall->keystone_exclusion_group == 3);
+  }
+
+  SUBCASE("Skill 9 Phantom Trance contract is materialized") {
+    const auto *tree = registry.GetSkillTree(9);
+    REQUIRE(tree != nullptr);
+    CHECK(tree->nodes.size() == 29);
+
+    const auto *contract = registry.GetSkillContract(9);
+    REQUIRE(contract != nullptr);
+    CHECK(contract->min_nodes == 29);
+    CHECK(contract->max_nodes == 29);
+    CHECK(contract->max_triggers == 1);
+    CHECK(contract->max_transmuters == 1);
+    CHECK(contract->has_sword_intent_node);
+    CHECK(contract->has_synergy_node);
+    CHECK(contract->transmuter_node_ids[0] == 989);
+    CHECK(contract->transmuter_node_ids[1] == 972);
+    const auto *synergy = registry.GetNodeContract(9, 993);
+    REQUIRE(synergy != nullptr);
+    CHECK(synergy->role == SpecNodeRole::Synergy);
+
+    const auto *trigger = registry.GetNodeContract(9, 935);
+    REQUIRE(trigger != nullptr);
+    CHECK(trigger->role == SpecNodeRole::Trigger);
+    CHECK(trigger->trigger.trigger_skill_id == 8);
+    CHECK(trigger->trigger.base_chance == doctest::Approx(0.2f));
+    CHECK(trigger->trigger.requires_melee_hit);
+    CHECK(trigger->trigger.required_window == TriggerWindow::DeathSeal);
+    CHECK(trigger->trigger.internal_cooldown == doctest::Approx(0.5f));
+
+    int transmuter_count = 0;
+    int keystone_count = 0;
+    int synergy_count = 0;
+    for (const auto &[node_id, _] : tree->nodes) {
+      const auto *node = registry.GetNodeContract(9, node_id);
+      if (!node) {
+        continue;
+      }
+      if (node->role == SpecNodeRole::Transmuter) {
+        ++transmuter_count;
+      } else if (node->role == SpecNodeRole::Keystone) {
+        ++keystone_count;
+      } else if (node->role == SpecNodeRole::Synergy) {
+        ++synergy_count;
+      }
+    }
+    CHECK(transmuter_count == 2);
+    CHECK(synergy_count == 1);
+    CHECK(keystone_count == 4);
   }
 
   SUBCASE("Skill 11 Heavenly Sword mastery contract is materialized") {
@@ -241,7 +292,7 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
   registry.LoadFromJson("assets/data/skills.json");
 
   const std::array<uint32_t, 9> expected_trigger_nodes = {
-      134, 254, 335, 452, 513, 635, 714, 855, 951};
+      134, 254, 335, 452, 513, 635, 714, 855, 935};
 
   for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
     CAPTURE(skill_id);
@@ -255,13 +306,9 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
     CHECK(tree->nodes.size() <= contract->max_nodes);
     CHECK(contract->min_nodes <= contract->max_nodes);
     CHECK(contract->max_triggers == 1);
-    // 技能 3（灵剑决）、技能 4（剑气护体）、技能 5（万剑归宗）、技能 6（剑阵·诛仙）、
-    // 技能 7（心剑·无影）、技能 8（御剑·回旋）互斥收束为 1
+    // 技能 3（灵剑决）~ 技能 9（绝影绝剑）互斥收束为 1
     CHECK(contract->max_transmuters ==
-          ((skill_id == 3 || skill_id == 4 || skill_id == 5 || skill_id == 6 ||
-            skill_id == 7 || skill_id == 8)
-               ? 1
-               : 2));
+          ((skill_id >= 3 && skill_id <= 9) ? 1 : 2));
 
     int trigger_count = 0;
     int synergy_count = 0;

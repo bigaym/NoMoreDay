@@ -5,6 +5,7 @@
 #include "game/foundation/components/Stats.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 
@@ -196,7 +197,7 @@ TEST_CASE("[Unit] EventConsistency - single target event damage equals applied d
   CHECK(capture.area.empty());
 }
 
-TEST_CASE("[Unit] EventConsistency - batch events use final_damage for every target") {
+TEST_CASE("[Unit] EventConsistency - cheat death keeps damage events and emits no death event") {
   struct CaseItem {
     const char *name;
     Tag hitTag;
@@ -215,13 +216,19 @@ TEST_CASE("[Unit] EventConsistency - batch events use final_damage for every tar
       entt::registry registry;
 
       const auto attacker = registry.create();
-      CreateAttacker(registry, attacker, 10000.0f, 2.0f);
+      CreateAttacker(registry, attacker, 10000.0f, 2.0f); // 必暴击
 
       const auto normalTarget = CreateTarget(registry, 500.0f);
-      const auto counterTarget = CreateTarget(registry, 500.0f);
-      auto &pf = registry.emplace<PhantomFlashComponent>(counterTarget);
-      pf.counter_window = 0.5f;
-      pf.triggered = false;
+
+      // 免死目标: 玩家 + 绝影形态, 生命不足以承受本次伤害
+      const auto lethalTarget = registry.create();
+      registry.emplace<PlayerTag>(lethalTarget);
+      registry.emplace<Position>(lethalTarget, 0.0f, 0.0f);
+      registry.emplace<HealthComponent>(lethalTarget, 50.0f, 50.0f);
+      registry.emplace<CombatStats>(lethalTarget).cached_area_level = 1;
+      auto &pt = registry.emplace<PhantomTranceComponent>(lethalTarget);
+      pt.remaining = 1.0f;
+      pt.params.death_seal = true;
 
       DamagePool basePool;
       basePool.Add(Tag::Physical, 80.0f);
@@ -229,31 +236,34 @@ TEST_CASE("[Unit] EventConsistency - batch events use final_damage for every tar
       EventCaptureScope captureScope;
 
       const float normalBefore = registry.get<HealthComponent>(normalTarget).current;
-      const float counterBefore =
-          registry.get<HealthComponent>(counterTarget).current;
-      const std::vector<entt::entity> defenders = {normalTarget, counterTarget};
+      const std::vector<entt::entity> defenders = {normalTarget, lethalTarget};
       DamagePipeline::CalculateBatch(registry, attacker, defenders, 940002,
                                      basePool, item.hitTag);
       const float normalApplied =
           normalBefore - registry.get<HealthComponent>(normalTarget).current;
-      const float counterApplied =
-          counterBefore - registry.get<HealthComponent>(counterTarget).current;
+      // 普通目标未过量承受, 实际扣血即本次结算伤害
+      const float rawDamage = normalApplied;
+      const float lethalApplied = std::min(50.0f, rawDamage);
 
       CHECK(normalApplied > 0.0f);
-      CHECK(counterApplied == doctest::Approx(0.0f).epsilon(0.0001f));
-
       const auto &normalCapture = CaptureFor(captureScope.captures, normalTarget);
       ExpectSingleValue(normalCapture.deal, normalApplied);
       ExpectSingleValue(normalCapture.take, normalApplied);
       ExpectSingleValue(normalCapture.crit, normalApplied);
       ExpectHitEvent(normalCapture, item.kind, normalApplied);
 
-      const auto &counterCapture =
-          CaptureFor(captureScope.captures, counterTarget);
-      ExpectSingleValue(counterCapture.deal, counterApplied);
-      ExpectSingleValue(counterCapture.take, counterApplied);
-      ExpectSingleValue(counterCapture.crit, counterApplied);
-      ExpectHitEvent(counterCapture, item.kind, counterApplied);
+      // 免死目标: 生命保留 1, 免死标记为已消耗, 不进入任何死亡流程
+      const auto &lethalHp = registry.get<HealthComponent>(lethalTarget);
+      CHECK(lethalHp.current == doctest::Approx(1.0f));
+      CHECK(pt.lethal_triggered);
+      CHECK_FALSE(registry.all_of<KilledTag>(lethalTarget));
+      CHECK(registry.valid(lethalTarget));
+
+      // 伤害事件仍按实际扣血(lethalApplied)派发, 且 deal/take/命中事件一致
+      const auto &lethalCapture = CaptureFor(captureScope.captures, lethalTarget);
+      ExpectSingleValue(lethalCapture.deal, rawDamage, lethalApplied);
+      ExpectSingleValue(lethalCapture.take, rawDamage, lethalApplied);
+      ExpectHitEvent(lethalCapture, item.kind, rawDamage, lethalApplied);
     }
   }
 }

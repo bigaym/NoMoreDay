@@ -234,6 +234,13 @@ float ApplyHealing(entt::registry &registry, const entt::entity owner,
     return 0.0f;
   }
 
+  // 981 逆脉: 锁血禁疗期间禁止一切治疗 (含血海吸血/回复)
+  if (const auto *pt = registry.try_get<PhantomTranceComponent>(owner)) {
+    if (IsDeathSealActive(*pt)) {
+      return 0.0f;
+    }
+  }
+
   const float previous = stats->health;
   stats->health = std::min(stats->max_health, stats->health + attempted_heal);
   const float actual = stats->health - previous;

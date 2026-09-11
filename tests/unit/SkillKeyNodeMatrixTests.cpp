@@ -1,4 +1,5 @@
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
+#include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <array>
@@ -125,6 +126,18 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
                                     {{trigger_node, 1}});
       // 855 巨剑共鸣需要施法者已专精技能3 的 330 巨剑降临
       sknm::ConfigureTriggerSourcePrerequisites(registry, caster, skill_id);
+      // 装备槽 + Rebake 才会把专精节点物化为 ProcEngine 触发规则
+      sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
+      SkillSystem::RebakeSkillProfiles(registry, caster);
+      // 935 契约基础概率为 0.2，会引入随机性；守卫矩阵只验证冷却门控，这里置为必触发
+      if (auto *triggers = registry.try_get<TriggerRuleComponent>(caster)) {
+        for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+          if (triggers->rules[i].rule_id == trigger_node &&
+              triggers->rules[i].base_chance < 1.0f) {
+            triggers->rules[i].base_chance = 1.0f;
+          }
+        }
+      }
 
       // 513 天诛要求目标带满层命印：为技能 5 构造满层 FateMark 命印，
       // 构造须在配置专精之后、派发命中之前（与 SkillBehaviorGuardTests 口径一致）。
@@ -184,6 +197,16 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
                                     {{trigger_node, 1}});
       // 855 巨剑共鸣需要施法者已专精技能3 的 330 巨剑降临
       sknm::ConfigureTriggerSourcePrerequisites(registry, caster, skill_id);
+      sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
+      SkillSystem::RebakeSkillProfiles(registry, caster);
+      if (auto *triggers = registry.try_get<TriggerRuleComponent>(caster)) {
+        for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+          if (triggers->rules[i].rule_id == trigger_node &&
+              triggers->rules[i].base_chance < 1.0f) {
+            triggers->rules[i].base_chance = 1.0f;
+          }
+        }
+      }
 
       auto parent_exec_entity = registry.create();
       auto &parent_exec = registry.emplace<SkillExecution>(parent_exec_entity);
@@ -194,7 +217,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
 
       const auto before = registry.storage<SkillExecution>().size();
       sknm::DispatchSkillHit(registry, caster, target, skill_id,
-                             parent_exec.cast_id);
+                             parent_exec.cast_id, Tag::Hit | Tag::Melee, false,
+                             /*trigger_depth=*/2);
       const auto after = registry.storage<SkillExecution>().size();
       CHECK(after == before);
     }
@@ -211,8 +235,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
       const auto caster = sknm::CreateCaster(registry, 2000.0f);
       sknm::ConfigureSkillSlot(registry, caster, skill_id, 0, 1);
       if (skill_id == 3u || skill_id == 4u || skill_id == 5u || skill_id == 6u ||
-          skill_id == 7u || skill_id == 8u) {
-        // 技能 3、4、5、6、7、8 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
+          skill_id == 7u || skill_id == 8u || skill_id == 9u) {
+        // 技能 3~9 契约 max_transmuters=1：双点互斥被拦截，单点偏好节点验证激活
         sknm::ConfigureSpecialization(registry, caster, skill_id,
                                       {{order[0], 1}});
       } else {

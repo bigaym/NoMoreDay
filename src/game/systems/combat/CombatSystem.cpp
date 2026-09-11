@@ -5,6 +5,7 @@
 #include "core/utils/Branchless.hpp"
 #include "game/application/scene/SceneManager.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp" // 992 附魔刷新时长
 #include "engine/render/CoordSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
@@ -19,6 +20,7 @@
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/AilmentEngine.hpp" // AilmentAdapter (992 击杀刷新附魔)
 #include "game/contracts/CombatFormula.hpp" // Added
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
@@ -366,11 +368,17 @@ void CombatSystem::update(entt::registry &registry,
                       healAmount += finalDamage * stats->life_steal;
 
                     if (healAmount > 0.0f) {
-                      auto &attackerHp = registry.get<HealthComponent>(entity);
-                      attackerHp.current += healAmount;
-                      if (attackerHp.current > attackerHp.max)
-                        attackerHp.current = attackerHp.max;
-                      // 可选：在这里添加治疗飘字或特效
+                      // 981 逆脉禁疗：窗口内禁止一切生命回复（含本路径的生命偷取）。
+                      const auto *healTrance =
+                          registry.try_get<NoMoreDay::PhantomTranceComponent>(entity);
+                      if (healTrance == nullptr ||
+                          !NoMoreDay::IsDeathSealActive(*healTrance)) {
+                        auto &attackerHp = registry.get<HealthComponent>(entity);
+                        attackerHp.current += healAmount;
+                        if (attackerHp.current > attackerHp.max)
+                          attackerHp.current = attackerHp.max;
+                        // 可选：在这里添加治疗飘字或特效
+                      }
                     }
                   }
                 } else { // 如果目标没有生命值组件
@@ -503,6 +511,41 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
 void CombatSystem::KillEnemy(entt::registry &registry, entt::entity target,
                              entt::entity attacker, float overkill,
                              float rawDamage, uint32_t skill_id) {
+  // --- 技能9 992 灵气反哺: 附魔窗口内以对应元素异常击杀刷新附魔 ---
+  // 附魔窗口以 enchant_remaining>0 表示；击杀目标带 Cold 转质的冰冻/冰缓
+  // 或 Lightning 转质的感电时，附魔窗口重置为配置时长。
+  if (registry.valid(attacker)) {
+    if (auto *pt = registry.try_get<NoMoreDay::PhantomTranceComponent>(attacker)) {
+      if (pt->enchant_remaining > 0.0f && pt->params.enchant_refresh_on_kill) {
+        bool matched = false;
+        if (const auto *effects =
+                registry.try_get<NoMoreDay::ActiveEffectsComponent>(target)) {
+          for (const auto &effect : effects->effects) {
+            if (effect.remaining <= 0.0f) continue;
+            const auto ailment =
+                NoMoreDay::systems::AilmentAdapter::TryMapLegacyBuff(effect);
+            if (!ailment) continue;
+            if (pt->enchant_tag == NoMoreDay::Tag::Cold &&
+                (*ailment == NoMoreDay::AilmentType::Freeze ||
+                 *ailment == NoMoreDay::AilmentType::Chill)) {
+              matched = true;
+              break;
+            }
+            if (pt->enchant_tag == NoMoreDay::Tag::Lightning &&
+                *ailment == NoMoreDay::AilmentType::Shock) {
+              matched = true;
+              break;
+            }
+          }
+        }
+        if (matched) {
+          pt->enchant_remaining = NoMoreDay::data::SkillMechanicsRegistry::Get().GetFloat(
+              9, 0, "enchant_duration", 4.0f);
+        }
+      }
+    }
+  }
+
   registry.emplace_or_replace<KilledTag>(target, attacker);
 
   // --- Event System: OnKill ---
@@ -547,52 +590,6 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
   if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
     commitApplyResult(0.0f, 0.0f, true);
     return false;
-  }
-
-  // --- Phantom Flash Riposte ---
-  if (auto *pf = registry.try_get<NoMoreDay::PhantomFlashComponent>(target)) {
-    if (!pf->triggered) {
-      pf->triggered = true;
-      LOG_INFO("Phantom Flash triggered! Riposte on entity {}",
-               (uint32_t)attacker);
-
-      if (registry.valid(attacker) && registry.all_of<Position>(attacker)) {
-        const auto &aPos = registry.get<Position>(attacker);
-        const auto &tPos = registry.get<Position>(target);
-
-        // Teleport behind attacker (approx)
-        Vector2 dir = Vector2Normalize(
-            Vector2Subtract({tPos.x, tPos.y}, {aPos.x, aPos.y}));
-        Vector2 ripostePos =
-            Vector2Add({aPos.x, aPos.y}, Vector2Scale(dir, 20.0f));
-
-        auto &targetPosComp = registry.get<Position>(target);
-        targetPosComp.x = ripostePos.x;
-        targetPosComp.y = ripostePos.y;
-
-        // Shadow Riposte (Cast Flowing Thrust ID 1 as riposte)
-        NoMoreDay::SkillSystem::ShadowCast(registry, target, 1, ripostePos,
-                                           {aPos.x, aPos.y});
-
-        // Apply Stealth (Invisibility / Aggro Drop)
-        auto &effects =
-            registry.get_or_emplace<NoMoreDay::ActiveEffectsComponent>(target);
-        NoMoreDay::BuffEffect stealth;
-        stealth.id = "stealth";
-        stealth.name = "Stealth";
-        stealth.description = "Invisible to enemies";
-        stealth.type = NoMoreDay::BuffType::None;
-        stealth.duration = 2.0f;
-        stealth.remaining = 2.0f;
-        // Optionally add a visual modifier or tag
-        effects.AddOrRefresh(stealth);
-
-        LOG_INFO("Phantom Flash: Entity {} entered Stealth", (uint32_t)target);
-      }
-
-      commitApplyResult(0.0f, 0.0f, true);
-      return false; // Damage blocked
-    }
   }
 
   // Interrupt movement stance on damage
@@ -646,6 +643,16 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
           ? (std::min)(healthBeforeDamage, (std::max)(0.0f, remainingDamage))
           : 0.0f;
 
+  // 984 嗜血本能: 统计绝影形态期间累计造成的实际生命伤害
+  if (healthDamageApplied > 0.0f && registry.valid(attacker)) {
+    if (auto *attackerTrance =
+            registry.try_get<NoMoreDay::PhantomTranceComponent>(attacker)) {
+      if (attackerTrance->remaining > 0.0f) {
+        attackerTrance->damage_dealt_accum += healthDamageApplied;
+      }
+    }
+  }
+
   // --- Unified Damage Popup (Gated by showVFX for performance) ---
   if (showVFX && registry.all_of<Position>(target)) {
     const auto &tPos = registry.get<Position>(target);
@@ -660,6 +667,26 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
   }
 
   if (hp.current <= 0) {
+    // --- 技能9 绝影绝剑 975/977/978: 免死 (向死而生) ---
+    // 绝影形态内首次致命伤害被挡下：生命保留 1 点，标记免死已消耗。
+    // 未点出 977 向死而生时立即结束形态 (remaining=0，下一帧由行为结算)；
+    // 点出后维持形态继续战斗。免死仅对玩家的绝影形态生效。
+    if (registry.all_of<PlayerTag>(target)) {
+      if (auto *pt = registry.try_get<NoMoreDay::PhantomTranceComponent>(target)) {
+        if (pt->remaining > 0.0f && !pt->lethal_triggered) {
+          pt->lethal_triggered = true;
+          hp.current = (std::min)(hp.max, 1.0f); // 血量保留 1 点
+          if (!pt->params.cheat_death_hold) {
+            pt->remaining = 0.0f;
+          }
+          LOG_INFO("Phantom Trance cheat death prevented lethal damage for entity {}",
+                   (uint32_t)target);
+          commitApplyResult(healthDamageApplied, barrierDamage, true);
+          return false; // Death prevented
+        }
+      }
+    }
+
     // --- Blade Formation: Immortality (Node 353) ---
     if (auto *formation =
             registry.try_get<NoMoreDay::BladeFormationComponent>(target)) {

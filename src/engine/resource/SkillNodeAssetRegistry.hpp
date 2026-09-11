@@ -262,6 +262,25 @@ namespace assets::skill_nodes {
     inline constexpr TextureAsset node_972 = { "skill_node_972"_hs, "assets/textures/skill_nodes/skill_nodes_972.png" };
     inline constexpr TextureAsset node_973 = { "skill_node_973"_hs, "assets/textures/skill_nodes/skill_nodes_973.png" };
     inline constexpr TextureAsset node_974 = { "skill_node_974"_hs, "assets/textures/skill_nodes/skill_nodes_974.png" };
+    inline constexpr TextureAsset node_975 = { "skill_node_975"_hs, "assets/textures/skill_nodes/skill_nodes_975.png" };
+    inline constexpr TextureAsset node_976 = { "skill_node_976"_hs, "assets/textures/skill_nodes/skill_nodes_976.png" };
+    inline constexpr TextureAsset node_977 = { "skill_node_977"_hs, "assets/textures/skill_nodes/skill_nodes_977.png" };
+    inline constexpr TextureAsset node_978 = { "skill_node_978"_hs, "assets/textures/skill_nodes/skill_nodes_978.png" };
+    inline constexpr TextureAsset node_979 = { "skill_node_979"_hs, "assets/textures/skill_nodes/skill_nodes_979.png" };
+    inline constexpr TextureAsset node_980 = { "skill_node_980"_hs, "assets/textures/skill_nodes/skill_nodes_980.png" };
+    inline constexpr TextureAsset node_981 = { "skill_node_981"_hs, "assets/textures/skill_nodes/skill_nodes_981.png" };
+    inline constexpr TextureAsset node_982 = { "skill_node_982"_hs, "assets/textures/skill_nodes/skill_nodes_982.png" };
+    inline constexpr TextureAsset node_983 = { "skill_node_983"_hs, "assets/textures/skill_nodes/skill_nodes_983.png" };
+    inline constexpr TextureAsset node_984 = { "skill_node_984"_hs, "assets/textures/skill_nodes/skill_nodes_984.png" };
+    inline constexpr TextureAsset node_985 = { "skill_node_985"_hs, "assets/textures/skill_nodes/skill_nodes_985.png" };
+    inline constexpr TextureAsset node_986 = { "skill_node_986"_hs, "assets/textures/skill_nodes/skill_nodes_986.png" };
+    inline constexpr TextureAsset node_987 = { "skill_node_987"_hs, "assets/textures/skill_nodes/skill_nodes_987.png" };
+    inline constexpr TextureAsset node_988 = { "skill_node_988"_hs, "assets/textures/skill_nodes/skill_nodes_988.png" };
+    inline constexpr TextureAsset node_989 = { "skill_node_989"_hs, "assets/textures/skill_nodes/skill_nodes_989.png" };
+    inline constexpr TextureAsset node_990 = { "skill_node_990"_hs, "assets/textures/skill_nodes/skill_nodes_990.png" };
+    inline constexpr TextureAsset node_991 = { "skill_node_991"_hs, "assets/textures/skill_nodes/skill_nodes_991.png" };
+    inline constexpr TextureAsset node_992 = { "skill_node_992"_hs, "assets/textures/skill_nodes/skill_nodes_992.png" };
+    inline constexpr TextureAsset node_993 = { "skill_node_993"_hs, "assets/textures/skill_nodes/skill_nodes_993.png" };
     inline constexpr TextureAsset node_1000 = { "skill_node_1000"_hs, "assets/textures/skill_nodes/skill_nodes_1000.png" };
     inline constexpr TextureAsset node_1001 = { "skill_node_1001"_hs, "assets/textures/skill_nodes/skill_nodes_1001.png" };
     inline constexpr TextureAsset node_1002 = { "skill_node_1002"_hs, "assets/textures/skill_nodes/skill_nodes_1002.png" };
@@ -345,7 +364,7 @@ namespace assets::skill_nodes {
         const TextureAsset* asset;
     };
 
-    constexpr std::array<const TextureAsset*, 328> All = {
+    constexpr std::array<const TextureAsset*, 347> All = {
         &node_100,
         &node_101,
         &node_102,
@@ -598,6 +617,25 @@ namespace assets::skill_nodes {
         &node_972,
         &node_973,
         &node_974,
+        &node_975,
+        &node_976,
+        &node_977,
+        &node_978,
+        &node_979,
+        &node_980,
+        &node_981,
+        &node_982,
+        &node_983,
+        &node_984,
+        &node_985,
+        &node_986,
+        &node_987,
+        &node_988,
+        &node_989,
+        &node_990,
+        &node_991,
+        &node_992,
+        &node_993,
         &node_1000,
         &node_1001,
         &node_1002,
@@ -676,7 +714,7 @@ namespace assets::skill_nodes {
         &node_1224
     };
 
-    constexpr std::array<SkillNodeIconEntry, 328> ByNodeId = {
+    constexpr std::array<SkillNodeIconEntry, 347> ByNodeId = {
         SkillNodeIconEntry{100u, node_100.id, &node_100},
         SkillNodeIconEntry{101u, node_101.id, &node_101},
         SkillNodeIconEntry{102u, node_102.id, &node_102},
@@ -929,6 +967,25 @@ namespace assets::skill_nodes {
         SkillNodeIconEntry{972u, node_972.id, &node_972},
         SkillNodeIconEntry{973u, node_973.id, &node_973},
         SkillNodeIconEntry{974u, node_974.id, &node_974},
+        SkillNodeIconEntry{975u, node_975.id, &node_975},
+        SkillNodeIconEntry{976u, node_976.id, &node_976},
+        SkillNodeIconEntry{977u, node_977.id, &node_977},
+        SkillNodeIconEntry{978u, node_978.id, &node_978},
+        SkillNodeIconEntry{979u, node_979.id, &node_979},
+        SkillNodeIconEntry{980u, node_980.id, &node_980},
+        SkillNodeIconEntry{981u, node_981.id, &node_981},
+        SkillNodeIconEntry{982u, node_982.id, &node_982},
+        SkillNodeIconEntry{983u, node_983.id, &node_983},
+        SkillNodeIconEntry{984u, node_984.id, &node_984},
+        SkillNodeIconEntry{985u, node_985.id, &node_985},
+        SkillNodeIconEntry{986u, node_986.id, &node_986},
+        SkillNodeIconEntry{987u, node_987.id, &node_987},
+        SkillNodeIconEntry{988u, node_988.id, &node_988},
+        SkillNodeIconEntry{989u, node_989.id, &node_989},
+        SkillNodeIconEntry{990u, node_990.id, &node_990},
+        SkillNodeIconEntry{991u, node_991.id, &node_991},
+        SkillNodeIconEntry{992u, node_992.id, &node_992},
+        SkillNodeIconEntry{993u, node_993.id, &node_993},
         SkillNodeIconEntry{1000u, node_1000.id, &node_1000},
         SkillNodeIconEntry{1001u, node_1001.id, &node_1001},
         SkillNodeIconEntry{1002u, node_1002.id, &node_1002},

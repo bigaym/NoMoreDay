@@ -392,9 +392,11 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
             return true;
           }
         }
-        if (source_skill_id == 9) {
-          if (const auto *pf = registry.try_get<PhantomFlashComponent>(entity)) {
-            return pf->counter_window > 0.0f && !pf->triggered;
+        // 技能9 绝影形态/附魔窗口同样视为 buff 激活（991 意念穿透等节点）。
+        if (const auto *trance = registry.try_get<PhantomTranceComponent>(entity)) {
+          if (source_skill_id == 9 &&
+              (trance->remaining > 0.0f || trance->enchant_remaining > 0.0f)) {
+            return true;
           }
         }
         return false;
@@ -537,7 +539,14 @@ void StatsSystem::UpdateBuffs(entt::registry &registry, float dt) {
     auto &effects = view.get<ActiveEffectsComponent>(entity);
     size_t before = effects.effects.size();
 
-    effects.Update(dt);
+    // 988 御剑化影：绝影形态内御剑步衰减减半。
+    float swordStepDrainMult = 1.0f;
+    if (const auto *trance = registry.try_get<PhantomTranceComponent>(entity)) {
+      if (trance->remaining > 0.0f) {
+        swordStepDrainMult = trance->params.sword_step_drain_mult;
+      }
+    }
+    effects.Update(dt, swordStepDrainMult);
 
     if (effects.effects.size() != before) {
       registry.get_or_emplace<StatsDirty>(entity);

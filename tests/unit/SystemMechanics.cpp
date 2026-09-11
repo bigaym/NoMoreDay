@@ -60,19 +60,19 @@ TEST_CASE("[Unit] DefenseMechanics - Verification") {
   registry.emplace<HealthComponent>(defender, 100.0f, 100.0f);
   registry.emplace<CombatStats>(defender);
 
-  SUBCASE("Phantom Flash Counter") {
-    auto &pf = registry.emplace<PhantomFlashComponent>(defender);
-    pf.counter_window = 0.5f;
-    pf.triggered = false;
+  SUBCASE("逆脉形态近战命中不再触发旧反击格挡") {
+    // 防御方处于绝影逆脉形态: 旧反击窗口/格挡已删除, 伤害管线按全额结算且不改动生命
+    auto &pt = registry.emplace<PhantomTranceComponent>(defender);
+    pt.remaining = 1.0f;
+    pt.params.death_seal = true;
 
-     DamagePool pool;
+    DamagePool pool;
     pool.Add(Tag::Physical, 50.0f);
 
     auto result = DamagePipeline::Calculate(registry, attacker, defender, 0,
                                             pool, Tag::Melee, entt::null, true);
 
     CHECK(result.total_damage == doctest::Approx(50.0f));
-    CHECK(pf.triggered == false);
     CHECK(registry.get<HealthComponent>(defender).current == 100.0f);
   }
 
@@ -218,7 +218,7 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
     runtime.version = kSkillContractRuntimeVersion;
     runtime.active_transmuter_node_by_skill[8] = 870;
     runtime.trigger_cooldowns[134] = 1.25f;
-    runtime.trigger_cooldowns[971] = 0.5f;
+    runtime.trigger_cooldowns[991] = 0.5f;
 
     SaveManager sm;
     const auto snapshot = sm.createSnapshot(registry);
@@ -237,8 +237,8 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
     CHECK(restoredRuntime.active_transmuter_node_by_skill.at(8) == 870);
     REQUIRE(restoredRuntime.trigger_cooldowns.contains(134));
     CHECK(restoredRuntime.trigger_cooldowns.at(134) == doctest::Approx(1.25f));
-    REQUIRE(restoredRuntime.trigger_cooldowns.contains(971));
-    CHECK(restoredRuntime.trigger_cooldowns.at(971) == doctest::Approx(0.5f));
+    REQUIRE(restoredRuntime.trigger_cooldowns.contains(991));
+    CHECK(restoredRuntime.trigger_cooldowns.at(991) == doctest::Approx(0.5f));
 }
 
 TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {

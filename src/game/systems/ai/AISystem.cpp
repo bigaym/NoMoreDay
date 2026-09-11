@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/Buff.hpp" // ActiveEffectsComponent / BuffId (980 潜行)
 #include "game/foundation/components/EliteModifierComponents.hpp"
 #include "game/systems/ai/AIConstants.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
@@ -28,6 +29,14 @@ entt::entity AISystem::findNearestTarget(entt::registry &registry,
   for (auto entity : playerView) {
     if (entity == exclude)
       continue;
+
+    // 980 虚灵之躯: 带潜行 Buff 的实体不可被 AI 获取为目标
+    if (const auto *effects =
+            registry.try_get<NoMoreDay::ActiveEffectsComponent>(entity)) {
+      if (effects->Has(NoMoreDay::BuffId::PhantomTranceStealth)) {
+        continue;
+      }
+    }
 
     const auto &pos = playerView.get<Position>(entity);
     float dist = distance(sourcePos, pos);

@@ -1,11 +1,9 @@
 #include "game/systems/skill/ProcEngine.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
-#include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
+#include "game/foundation/data/TagRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include <array>
@@ -33,28 +31,6 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
     // 阶段一：在受控局部作用域内安全收集触发动作与目标信息
     {
         auto* triggerComp = reg.try_get<TriggerRuleComponent>(listener);
-        if ((!triggerComp || !triggerComp->HasRule(9)) && event.type == CombatEventType::OnTakeDamage) {
-            if (auto* pf = reg.try_get<PhantomFlashComponent>(listener)) {
-                if (pf->counter_window > 0.0f && !pf->triggered) {
-                    auto& trig = reg.get_or_emplace<TriggerRuleComponent>(listener);
-                    TriggerRule counterRule;
-                    counterRule.rule_id = 9;
-                    counterRule.listen_event = CombatEventType::OnTakeDamage;
-                    counterRule.target_mode = TriggerTargetPolicy::Attacker;
-                    counterRule.cast_skill_id = 9;
-                    counterRule.base_chance = 1.0f;
-                    counterRule.use_proc_scaling = false;
-                    counterRule.internal_cooldown = pf->counter_window;
-                    counterRule.effectiveness = pf->synergy_shadow_hide ? 1.2f : 1.0f;
-                    if (pf->flow_reset) {
-                        counterRule.cooldown_refund_skill_id = 8;
-                        counterRule.cooldown_refund_amount = 1.5f;
-                    }
-                    trig.AddRule(counterRule);
-                    triggerComp = &trig;
-                }
-            }
-        }
         if (!triggerComp || triggerComp->rule_count == 0) return;
 
         for (uint8_t i = 0; i < triggerComp->rule_count; ++i) {
@@ -77,16 +53,15 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
             }
             // 击杀来源技能过滤: 0=任意来源 (如 714 寂灭仅接受 skill_id==7 的击杀)
             if (rule.required_skill_id != 0 && event.skill_id != rule.required_skill_id) continue;
-            if (rule.event_tag_filter != Tag::None && (event.tags & rule.event_tag_filter) != rule.event_tag_filter) continue;
-
-            // 幻影闪反击规则状态门控：若已触发或反击窗口已关闭则跳过
-            if (rule.rule_id == 9) {
-                if (auto* pf = reg.try_get<PhantomFlashComponent>(listener)) {
-                    if (pf->triggered || pf->counter_window <= 0.0f) {
-                        continue;
-                    }
-                }
+            // 仅近战命中事件触发 (如技能9 935 逆命反噬)
+            if (rule.requires_melee_hit && !HasTag(event.tags, Tag::Melee)) continue;
+            // 触发前置窗口: 施法者需处于对应形态/子窗口 (如技能9 绝影形态/逆脉)
+            if (rule.required_window != TriggerWindow::None) {
+                const auto* pt = reg.try_get<PhantomTranceComponent>(listener);
+                if (!pt || pt->remaining <= 0.0f) continue;
+                if (rule.required_window == TriggerWindow::DeathSeal && !pt->params.death_seal) continue;
             }
+            if (rule.event_tag_filter != Tag::None && (event.tags & rule.event_tag_filter) != rule.event_tag_filter) continue;
 
             float real_chance = rule.base_chance;
             if (rule.use_proc_scaling && event.parent_skill_cd > 0.0f) {
@@ -98,7 +73,7 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
                                    ? 0.0f
                                    : utils::ThreadSafeRandom::GetFloat01();
             if (roll <= real_chance) {
-                rule.current_cooldown = (rule.rule_id == 9) ? 999.0f : rule.internal_cooldown; // 标记冷却（技能 9 立即闭锁防同帧重复）
+                rule.current_cooldown = rule.internal_cooldown; // 标记冷却
 
                 if (action_count < pending_actions.size()) {
                     const bool isDefensiveEvent =
@@ -157,41 +132,7 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
                 }
             }
         }
-        if (act.skill_id == 9 && event.type == CombatEventType::OnTakeDamage) {
-            auto* pf = reg.try_get<PhantomFlashComponent>(listener);
-            if (pf) {
-                pf->triggered = true;
-            }
-            if (auto* trigComp = reg.try_get<TriggerRuleComponent>(listener)) {
-                trigComp->RemoveRule(9);
-            }
-            if (reg.valid(act.target_entity) && reg.any_of<CombatStats>(act.target_entity)) {
-                if (auto* victim_stats = reg.try_get<CombatStats>(listener)) {
-                    if (victim_stats->damage_multipliers[0] <= 0.0f) {
-                        victim_stats->damage_multipliers[0] = 1.0f;
-                    }
-                    DamagePool counterPool;
-                    const float baseCounterDamage =
-                        (std::max)(25.0f, victim_stats->damage_multipliers[0] * 100.0f);
-                    const Tag counterTag =
-                        (pf && pf->enchant_tag != Tag::None) ? pf->enchant_tag : Tag::Physical;
-                    const float counterScale = (pf && pf->synergy_shadow_hide) ? 1.2f : 1.0f;
-                    counterPool.Add(counterTag, baseCounterDamage * counterScale * act.effectiveness);
-
-                    const auto counterResult = DamagePipeline::Calculate(
-                        reg, listener, act.target_entity, 9, counterPool,
-                        Tag::Hit | Tag::Melee);
-                    if (counterResult.total_damage > 0.0f) {
-                        CombatSystem::ApplyDamage(reg, act.target_entity,
-                                                  counterResult.total_damage, listener,
-                                                  counterResult.is_crit, true, nullptr,
-                                                  act.skill_id);
-                    }
-                    LOG_INFO("ProcEngine: Defensive counter resolved: victim={} attacker={} damage={}",
-                             (uint32_t)listener, (uint32_t)act.target_entity, counterResult.total_damage);
-                }
-            }
-        } else if (act.skill_id != 0) {
+        if (act.skill_id != 0) {
             SkillSystem::TriggerCast(reg, listener, act.skill_id, act.target_entity, act.target_pos, act.depth, act.effectiveness);
         }
     }
