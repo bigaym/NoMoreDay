@@ -459,6 +459,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
               DamagePool pool;
               pool.Add(Tag::Lightning, baseHit * formation->chain_damage_pct);
               DamageRequest req;
+              req.origin = DamageOrigin::SecondaryProc;
               req.attacker = attacker;
               req.defender = eEnt;
               req.skill_id = kSkillId;
@@ -544,6 +545,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         DamagePool pool;
         pool.Add(elemTag, baseHit * formation->burst_mult);
         DamageRequest detReq;
+        detReq.origin = DamageOrigin::SecondaryProc;
         detReq.attacker = attacker;
         detReq.defender = victim;
         detReq.skill_id = kSkillId;

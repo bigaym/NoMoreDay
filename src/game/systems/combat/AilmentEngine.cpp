@@ -523,6 +523,42 @@ bool AilmentAdapter::IsManagedAilmentId(std::string_view id,
   return true;
 }
 
+namespace {
+
+// P3-2: 为产生伤害的异常创建/刷新冻结快照载体。载体实体挂
+// DamageSnapshotComponent，tick 结算时作为 source_entity 被 DamagePipeline
+// 直接消费；因此施加之后再给攻方叠加增益，也不会改变该异常后续 tick 的数值。
+void SyncAilmentSnapshot(entt::registry &registry, entt::entity target,
+                         BuffEffect &effect, const AilmentContract &contract,
+                         entt::entity source) {
+  if (!registry.valid(source) || effect.tick_damage <= 0.0f ||
+      contract.damage_tag == Tag::None) {
+    return;
+  }
+
+  entt::entity holder = effect.snapshot_source;
+  if (!registry.valid(holder)) {
+    holder = registry.create();
+    damage::AilmentSnapshotHolderComponent marker;
+    marker.target = target;
+    registry.emplace<damage::AilmentSnapshotHolderComponent>(holder, marker);
+    effect.snapshot_source = holder;
+  }
+
+  // 将施加时点的叠层一并烘焙，保证 PerStack 口径与 tick 侧一致。
+  const float tickBase =
+      contract.damage_pool_policy == DamagePoolPolicy::PerStack
+          ? effect.tick_damage * static_cast<float>(std::max(1, effect.stacks))
+          : effect.tick_damage;
+  DamagePool pool;
+  pool.Add(contract.damage_tag, tickBase);
+  DamagePipeline::AttachSnapshotComponent(
+      registry, holder, source, 0, pool, Tag::DamageOverTime, holder, nullptr,
+      DamageOrigin::AilmentTick);
+}
+
+} // namespace
+
 bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
                            const AilmentApplyRequest &request) {
   if (!registry.valid(target) || request.ailment == AilmentType::None) {
@@ -584,6 +620,8 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
                                        instance);
       effect.stacks = 1;
       activeEffects.effects.push_back(effect);
+      SyncAilmentSnapshot(registry, target, activeEffects.effects.back(),
+                          *contract, request.source);
       return true;
     }
 
@@ -600,12 +638,14 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
       slot.managed_ailment = true;
       slot.ailment_type = AilmentTypeToStorage(request.ailment);
       slot.ailment_power = slot.tick_damage;
+      SyncAilmentSnapshot(registry, target, slot, *contract, request.source);
       return true;
     }
 
     if (contract->overwrite_policy == OverwritePolicy::Strongest &&
         magnitude <= slot.tick_damage) {
       SetRefresh(slot, RefreshPolicy::Refresh, duration);
+      SyncAilmentSnapshot(registry, target, slot, *contract, request.source);
       return true;
     }
 
@@ -614,6 +654,7 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
         BuildAilmentEffect(*contract, request, duration, magnitude, instance);
     replacement.stacks = 1;
     slot = replacement;
+    SyncAilmentSnapshot(registry, target, slot, *contract, request.source);
     return true;
   }
 
@@ -622,6 +663,8 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
     effect.stacks = std::min(static_cast<int>(incomingStacks),
                              static_cast<int>(contract->max_stacks));
     activeEffects.effects.push_back(effect);
+    SyncAilmentSnapshot(registry, target, activeEffects.effects.back(),
+                        *contract, request.source);
     return true;
   }
 
@@ -645,6 +688,7 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
   ApplyOverwrite(effect, contract->overwrite_policy, magnitude);
   effect.ailment_power = effect.tick_damage;
   SetRefresh(effect, contract->refresh_policy, duration);
+  SyncAilmentSnapshot(registry, target, effect, *contract, request.source);
 
   if (matchingIndices.size() > 1) {
     for (size_t i = matchingIndices.size(); i > 1; --i) {
@@ -660,6 +704,38 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
   auto &contracts = AilmentRegistry::Get();
   if (!contracts.EnsureLoaded()) {
     return;
+  }
+
+  // P3-2: 回收不再对应任何存活异常的 DoT 快照载体，避免实体句柄泄漏。
+  // EffectSystem 已先一步清理过期 BuffEffect，故此处以"载体句柄是否仍被
+  // 目标实体的某个 effect 引用"为唯一存活判据。
+  {
+    auto holderView = registry.view<damage::AilmentSnapshotHolderComponent>();
+    std::vector<entt::entity> staleHolders;
+    for (auto holder : holderView) {
+      const entt::entity holderTarget =
+          holderView.get<damage::AilmentSnapshotHolderComponent>(holder).target;
+      bool stillReferenced = false;
+      if (registry.valid(holderTarget)) {
+        if (auto *effects = registry.try_get<ActiveEffectsComponent>(
+                holderTarget)) {
+          for (const auto &effect : effects->effects) {
+            if (effect.snapshot_source == holder) {
+              stillReferenced = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!stillReferenced) {
+        staleHolders.push_back(holder);
+      }
+    }
+    for (entt::entity holder : staleHolders) {
+      if (registry.valid(holder)) {
+        registry.destroy(holder);
+      }
+    }
   }
 
   auto view = registry.view<ActiveEffectsComponent, HealthComponent, Position>();
@@ -713,11 +789,14 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         basePool.Add(damageTag, tickDamage);
 
         DamageRequest request;
+        request.origin = DamageOrigin::AilmentTick;
         request.attacker = effect.source;
         request.defender = entity;
         request.skill_id = 0;
         request.base_pool = basePool;
         request.additional_tags = Tag::DamageOverTime;
+        // P3-2: 优先消费施加时冻结的快照载体；caster 已销毁时快照仍可结算。
+        request.source_entity = effect.snapshot_source;
         const auto result =
             DamagePipeline::Execute(registry, request, effect.source, false);
 

@@ -1031,6 +1031,7 @@ private:
     voidPool.Add(Tag::Shadow, bonusDamage);
 
     DamageRequest request;
+    request.origin = DamageOrigin::ItemAffixProc;
     request.attacker = evt.source;
     request.defender = evt.target;
     request.skill_id = 0;

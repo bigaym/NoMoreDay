@@ -111,6 +111,11 @@ struct BuffEffect {
     // 被压制的元素：Tag::None 表示全元素生效，否则仅对匹配的伤害元素生效
     // (如 Tag::Cold / Tag::Lightning)。以 Tag 存储避免热路径字符串比较。
     Tag resist_cap_element = Tag::None;
+
+    // P3-2: DoT 冻结快照载体实体句柄（运行期字段，不序列化）。
+    // AilmentEngine 施加异常时创建载体并挂 DamageSnapshotComponent，tick 结算
+    // 时优先读取该快照，使施加后攻方增益不再影响本异常的每条 tick。
+    entt::entity snapshot_source = entt::null;
 };
 
 // Custom serialization for BuffEffect to handle entity
@@ -161,6 +166,8 @@ inline void from_json(const nlohmann::json& j, BuffEffect& b) {
         b.resist_cap_element = static_cast<Tag>(
             j.at("resist_cap_element").get<uint64_t>());
     b.source = entt::null;
+    // 快照载体为运行期实体句柄，读档后失效，重置为空。
+    b.snapshot_source = entt::null;
 }
 
 struct ActiveEffectsComponent {

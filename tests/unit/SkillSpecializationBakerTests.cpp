@@ -229,11 +229,11 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
     SpecializedSkill spec;
     spec.skill_id = 5;
     spec.allocated_points[502] = 2; // 2 * 10% = 20%
-    spec.allocated_points[555] = 2; // 2 * 20% = 40%
+    spec.allocated_points[555] = 2; // 2 * 0.2 = 0.4（分数制暴伤增量）
     spec.allocated_points[574] = 3; // 3 * 6.0 = 18.0
     BakedSkillProfile profile{};
     SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
-    CHECK(profile.delivery.bonus_crit_damage == doctest::Approx(40.0f));
+    CHECK(profile.delivery.bonus_crit_damage == doctest::Approx(0.4f));
     CHECK(profile.delivery.armor_pen == doctest::Approx(18.0f));
     CHECK(profile.delivery.speed == 300.0f); // Default speed NOT clobbered!
     CHECK(profile.delivery.range == 200.0f); // Default range NOT clobbered!
@@ -470,7 +470,8 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Skill 1 Flowing Thrust Detailed Bak
     BakedSkillProfile profile{};
     SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
 
-    CHECK(profile.delivery.bonus_crit == doctest::Approx(6.0f));
+    // 推导：node 102 每点 +2%，3 点 = 6% = 0.06（分数制）
+    CHECK(profile.delivery.bonus_crit == doctest::Approx(0.06f));
   }
 
   SUBCASE("Node 110 Thrust Rhythm reduces CD by 1s and damage by 15%") {
@@ -533,7 +534,8 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Skill 1 Flowing Thrust Detailed Bak
     // 未处于剑步时: 条件暴击不应注入无条件交付参数
     CHECK(profile.delivery.bonus_crit == doctest::Approx(0.0f));
     // 处于剑步时: 由 profile.riding_wind_bonus_crit 记录, 交付构造处检查剑步状态后注入
-    CHECK(profile.riding_wind_bonus_crit == doctest::Approx(24.0f));
+    // 推导：node 114 每点 +8%，3 点 = 24% = 0.24（分数制）
+    CHECK(profile.riding_wind_bonus_crit == doctest::Approx(0.24f));
   }
 
   SUBCASE("Node 130 sets afterimage sub_count and feature flag") {
@@ -587,7 +589,8 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Skill 1 Flowing Thrust Detailed Bak
     CHECK(profile.effective_cooldown == doctest::Approx(8.0f));
     CHECK(profile.effective_mana_cost == doctest::Approx(data->mana_cost * 2.0f));
     CHECK(profile.more_damage_mult == doctest::Approx(2.0f));
-    CHECK(profile.delivery.bonus_crit >= 100.0f);
+    // 推导：node 154 必暴 = 1.0（分数制）
+    CHECK(profile.delivery.bonus_crit >= 1.0f);
   }
 
   SUBCASE("Node 170 Hellfire transmuter converts Physical to Fire") {
@@ -1297,10 +1300,9 @@ TEST_CASE("[Unit] FlowingThrust - 173 BoneDeepFrost shatter on frozen victim") {
 
   // 溅射 = 1000 × 30% = 300 冰霜伤害
   const auto &shp = registry.get<HealthComponent>(splashTarget);
-  // 实路径 Execute 当前被 CombatV2 运行时桩拦截（桩实现 = pool × 1.05，见
-  // CombatV2RuntimeFacade::BuildCandidateResult），故实际结算为 300×1.05=315；
-  // 设计值 300 由下方 is_simulation 请求验证，此处验证的是"碎裂已按正确溅射量触发"
-  CHECK(shp.current == doctest::Approx(9685.0f));
+  // CandidateOnly 桩已删除，实路径按完整管线结算为 300，不再叠加旧桩的 5% 合成系数。
+  // 设计值 300 由下方 is_simulation 请求交叉验证。
+  CHECK(shp.current == doctest::Approx(9700.0f));
 
   // 复现 DoHit 溅射请求构造（skill_id=1，Cold 300，防递归标签），走 legacy 路径验证设计值
   DamageRequest splashReq;

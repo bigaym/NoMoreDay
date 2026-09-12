@@ -28,9 +28,10 @@ TEST_CASE("[Unit] DefenseMitigationChain - Dodge resolves first and zeros hit da
   req.additional_tags = Tag::Melee | Tag::Hit;
 
   const auto result = DamagePipeline::Calculate(registry, req);
-  CHECK(result.was_dodged == false);
+  // 完整管线会先结算闪避：命中被完全抵消，不再附加旧桩的 5% 合成伤害。
+  CHECK(result.was_dodged == true);
   CHECK(result.was_blocked == false);
-  CHECK(result.total_damage == doctest::Approx(126.0f).epsilon(0.0001f));
+  CHECK(result.total_damage == doctest::Approx(0.0f).epsilon(0.0001f));
 }
 
 TEST_CASE("[Unit] DefenseMitigationChain - Block reduces damage before mitigation chain settlement") {
@@ -57,9 +58,10 @@ TEST_CASE("[Unit] DefenseMitigationChain - Block reduces damage before mitigatio
 
   const auto result = DamagePipeline::Calculate(registry, req);
   CHECK(result.was_dodged == false);
-  CHECK(result.was_blocked == false);
-  CHECK(result.block_multiplier == doctest::Approx(1.0f));
-  CHECK(result.total_damage == doctest::Approx(84.0f).epsilon(0.0001f));
+  // 完整管线会结算格挡：有效格挡效率 0.25 ⇒ 承伤系数 0.75。
+  CHECK(result.was_blocked == true);
+  CHECK(result.block_multiplier == doctest::Approx(0.75f));
+  CHECK(result.total_damage == doctest::Approx(60.0f).epsilon(0.0001f));
 }
 
 TEST_CASE("[Unit] DefenseMitigationChain - Physical mitigation applies armor then global reduction") {
@@ -87,7 +89,8 @@ TEST_CASE("[Unit] DefenseMitigationChain - Physical mitigation applies armor the
   const auto result = DamagePipeline::Calculate(registry, req);
   CHECK(result.was_dodged == false);
   CHECK(result.was_blocked == false);
-  CHECK(result.total_damage == doctest::Approx(105.0f).epsilon(0.0001f));
+  // 完整防御链：护甲 50% 减免后再叠乘全局 20% 减免，100 × 0.5 × 0.8 = 40。
+  CHECK(result.total_damage == doctest::Approx(40.0f).epsilon(0.0001f));
 }
 
 } // namespace NoMoreDay

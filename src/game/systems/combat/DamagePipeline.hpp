@@ -2,6 +2,7 @@
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/contracts/DamagePipelineTypes.hpp"
+#include "game/systems/combat/damage/DamageSnapshot.hpp"
 #include <entt/entt.hpp>
 #include <taskflow/taskflow.hpp>
 #include <vector>
@@ -40,7 +41,17 @@ public:
 
   /**
    * @brief Optimized batch calculation for many targets.
+   *
+   * 契约说明（P4 审查跟踪项）：本 void 批量入口当前仅被测试/基准调用，生产
+   * 批量路径统一走 ResolveDamageBatch → CalculateBatchResults → 逐目标
+   * Calculate。二者语义不完全等价：本入口不复用单目标路径的 invulnerability
+   * 拦截、FrostAmp 增伤与 source_entity 快照（快照由 CreateSnapshot 在批内
+   * 自行构建）。因此本接口不应用于生产结算；如需生产批量，请使用
+   * ResolveDamageBatch。此处保留不改行为，仅明确契约边界。
    */
+  // 标记弃用仅为防误用：生产批量结算必须走 ResolveDamageBatch。
+  [[deprecated("Use DamageResolutionHooks::ResolveDamageBatch in production; "
+               "CalculateBatch is test/benchmark only")]]
   static void CalculateBatch(entt::registry &registry, entt::entity attacker,
                              const std::vector<entt::entity> &defenders,
                              uint32_t skill_id, const DamagePool &base_pool,
@@ -48,36 +59,55 @@ public:
                              entt::entity source_entity = entt::null,
                              tf::Executor *executor = nullptr);
 
-private:
-  struct alignas(32) AttackerSnapshot {
-    std::array<float, 6> base_damage = {0.0f}; // After Inc/More/Conversion
-    float crit_chance = 0.0f;
-    float crit_damage = 1.5f;
-    float armor_pen = 0.0f;
-    float accuracy = 1.0f;
-    Tag hit_tags = Tag::None;
-    float _padding[4] = {0.0f}; // Pad to 64 bytes (24+4+4+4+4+8 + 16 = 64)
-  };
-  static_assert(alignof(AttackerSnapshot) == 32,
-                "AttackerSnapshot must be 32-byte aligned for SIMD");
+  /**
+   * @brief Computes the per-target DamageResult for a damage request without
+   * applying damage. Used by the calculateBatch resolution hook so batch
+   * callers observe real results rather than an empty vector (P1-1).
+   */
+  static std::vector<DamageResult>
+  CalculateBatchResults(entt::registry &registry, const DamageRequest &request);
 
-  static AttackerSnapshot
+  // P3-3: 守方减伤分流可观测性。计数器按目标/向量块累计，主要用于测试断言
+  // 路径选择，不参与结算逻辑。
+  struct BatchKernelStats {
+    uint64_t scalar_targets = 0; // 走标量内核的目标数
+    uint64_t simd_blocks = 0;    // 走 SIMD 内核的向量块数
+    uint64_t simd_targets = 0;   // 走 SIMD 内核的目标数
+  };
+
+  [[nodiscard]] static BatchKernelStats GetBatchKernelStats();
+  static void ResetBatchKernelStats();
+
+  // P3-3 测试专用：强制守方减伤全部走标量内核，用于与 SIMD 内核做同输入
+  // 数值一致性对照。仅应由测试调用，生产默认 false。
+  static void SetForceScalarKernelForTests(bool force);
+
+  // 结算期延后动作：反击/受击触发在结算中途入队，最外层入口收尾统一派发，
+  // 杜绝结算中重入修改组件池。内部实现细节，公开仅为让门面同 TU 的队列助手引用。
+  struct DeferredCombatAction {
+    DamageRequest request;
+    entt::entity apply_attacker = entt::null;
+    bool show_vfx = true;
+  };
+
+  // P3-1: 从攻方构建紧凑快照 (静态乘区烘焙 + 动态条件规则)。
+  // P3-2: 投射物/DoT 挂载与批量内核复用同一实现。
+  static damage::AttackerSnapshot
   CreateSnapshot(entt::registry &registry, entt::entity attacker,
                  uint32_t skill_id, const DamagePool &base_pool, Tag hit_tags,
-                 entt::entity source_entity);
+                 entt::entity source_entity,
+                 const DamagePayloadContext *payload = nullptr,
+                 DamageOrigin origin = DamageOrigin::DirectSkillCast);
 
-  static DamagePool ApplyConversion(const DamagePool &pool,
-                                    const std::vector<DamageModifier> &mods);
+  // P3-2: 为实体挂载 DamageSnapshotComponent。holder 通常为投射物/DoT 载体；
+  // attacker 为参与快照演算的攻方实体 (可为 holder 自身)。值拷贝，无裸指针。
+  static void AttachSnapshotComponent(
+      entt::registry &registry, entt::entity holder, entt::entity attacker,
+      uint32_t skill_id, const DamagePool &base_pool, Tag hit_tags,
+      entt::entity source_entity, const DamagePayloadContext *payload = nullptr,
+      DamageOrigin origin = DamageOrigin::DirectSkillCast);
 
-  // Step 3 & 4: Apply Inc and More
-  static DamagePool ApplyMultipliers(const DamagePool &pool,
-                                     const std::vector<DamageModifier> &mods,
-                                     Tag hit_tags);
-
-  // Step 5: Final settlement (Crit & Defense)
-  static DamageResult Settle(const DamagePool &pool,
-                             const CombatStats &attacker_stats,
-                             const CombatStats &defender_stats, Tag hit_tags);
+private:
 };
 
 } // namespace NoMoreDay

@@ -336,9 +336,9 @@ TEST_CASE("[Functional] Skill - Seven Star Slash skips corpse targets but keeps 
 
     registry.emplace<EnemyTag>(liveEnemy);
     auto &liveCombat = registry.emplace<CombatStats>(liveEnemy);
-    liveCombat.max_health = 2000.0f;
-    liveCombat.health = 2000.0f;
-    registry.emplace<HealthComponent>(liveEnemy, 2000.0f, 2000.0f);
+    liveCombat.max_health = 20000.0f;
+    liveCombat.health = 20000.0f;
+    registry.emplace<HealthComponent>(liveEnemy, 20000.0f, 20000.0f);
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 10;
@@ -507,14 +507,14 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
             buildHarness({{1002, 4}, {1005, 3}, {1007, 1}, {1008, 3}}, 0u,
                          {24.0f, 52.0f});
 
-        std::unordered_map<entt::entity, int> hitsByTarget;
-        const uint32_t handlerId = CombatEventDispatcher::Register(
-            CombatEventType::OnDealDamage,
-            [&](entt::registry&, const CombatEvent& evt) {
-                if (evt.skill_id == 10) {
-                    hitsByTarget[evt.target]++;
-                }
-            });
+    std::unordered_map<entt::entity, int> hitsByTarget;
+    const uint32_t handlerId = CombatEventDispatcher::Register(
+        CombatEventType::OnDealDamage,
+        [&](entt::registry&, const CombatEvent& evt) {
+            if (evt.skill_id == 10) {
+                hitsByTarget[evt.target]++;
+            }
+        });
 
         SkillExecution exec;
         exec.skill_id = 10;

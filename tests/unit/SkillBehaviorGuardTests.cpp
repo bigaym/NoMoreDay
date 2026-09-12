@@ -420,7 +420,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(chan->conversion_tag == Tag::Fire);
     CHECK(chan->bonus_armor_pen == doctest::Approx(18.0f));
     CHECK(chan->bonus_damage_mult > 1.0f);
-    CHECK(chan->bonus_crit_chance >= 100.0f);
+    CHECK(chan->bonus_crit_chance >= 1.0f); // 必暴归一化 1.0 = 100%
   }
 
   SUBCASE("Skill 6 key-node mapping drives SwordArray flags") {
@@ -1995,7 +1995,11 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       grid.rebuild(registry.view<Position>(), registry);
       SkillSystem::Update(registry, grid, 0.01f);
 
-      auto &effects = registry.get<ActiveEffectsComponent>(target);
+      REQUIRE(registry.valid(target));
+      // 完整伤害管线可能已对目标造成伤害，只断言减抗 debuff 已挂载，不假设具体剩余血量。
+      auto *effectsPtr = registry.try_get<ActiveEffectsComponent>(target);
+      REQUIRE(effectsPtr != nullptr);
+      auto &effects = *effectsPtr;
       auto *debuff = effects.Get(BuffId::HeavenlySwordFieldResist);
       REQUIRE(debuff != nullptr);
       REQUIRE_FALSE(debuff->modifiers.empty());

@@ -181,4 +181,42 @@ TEST_CASE("[Performance] DamagePipeline - Batch Scaling") {
   CHECK(meanTimesMs[3] <= (meanTimesMs[0] * 12.0));
 }
 
+// P3-3: 两段式自适应分流的前后对比基准。覆盖标量段 (N<4)、半宽 SIMD 补齐段
+// (4..7)、原生批宽及其倍数 (8/50/200/500)。同一基准在分流改造前后各跑一次，
+// 用于证明分流未恶化 P3a 现状。
+TEST_CASE("[Performance] DamagePipeline - Adaptive Dispatch Scaling") {
+  TestSetupScope scope;
+  const std::array<int, 9> targetCounts = {1, 2, 3, 4, 5, 8, 50, 200, 500};
+  const DamagePool basePool = CreateBaseDamagePool();
+
+  for (const int targetCount : targetCounts) {
+    entt::registry registry;
+    const entt::entity attacker = CreateAttacker(registry);
+    std::vector<entt::entity> defenders;
+    defenders.reserve(static_cast<size_t>(targetCount));
+    for (int i = 0; i < targetCount; ++i) {
+      defenders.push_back(CreateDefender(registry, i));
+    }
+
+    tf::Executor executor;
+    for (int i = 0; i < kBatchWarmup; ++i) {
+      DamagePipeline::CalculateBatch(registry, attacker, defenders, kSkillId,
+                                     basePool, kHitTags, entt::null, &executor);
+    }
+
+    std::vector<double> samples;
+    const int iterations = (targetCount <= 8) ? 200 : 60;
+    samples.reserve(static_cast<size_t>(iterations));
+    for (int i = 0; i < iterations; ++i) {
+      ScopedTimer timer(samples);
+      DamagePipeline::CalculateBatch(registry, attacker, defenders, kSkillId,
+                                     basePool, kHitTags, entt::null, &executor);
+    }
+
+    const BenchmarkStats stats = CalculateStats(samples);
+    LOG_BENCHMARK("DamagePipeline Adaptive Dispatch", stats,
+                  std::to_string(targetCount) + " targets");
+  }
+}
+
 } // namespace NoMoreDay::tests

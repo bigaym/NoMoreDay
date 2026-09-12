@@ -43,26 +43,11 @@ namespace NoMoreDay::Constants
 
     namespace Conversion
     {
-      // 转换优先级顺序（单向：idx 小 -> idx 大）
-      // Physical(0) -> Lightning(3) -> Cold(2) -> Fire(1) -> Poison(4) -> Shadow(5)
-      constexpr std::array<int, 6> CONVERSION_ORDER = {0, 3, 2, 1, 4, 5};
-
-      // 最大递归深度（防止配置错误导致无限循环）
+      // 转换语义为快照式单遍：无级联、与规则顺序无关、互转确定（设计 §D2）。
+      // 原 CONVERSION_ORDER / IsValidConversion 的单向限制已废除——它会把
+      // 火转冰、电转物等合法逆向转换误判为非法并丢弃。仅保留自转跳过（静默）
+      // 由收集方处理，此处不再提供方向性判定。
       constexpr int MAX_CONVERSION_DEPTH = 3;
-
-      // 合法转换方向检查 (from_idx, to_idx) -> from 在 ORDER 中的位置必须 < to
-      inline constexpr bool IsValidConversion(int from_idx, int to_idx)
-      {
-        int from_pos = -1, to_pos = -1;
-        for (int i = 0; i < 6; ++i)
-        {
-          if (CONVERSION_ORDER[i] == from_idx)
-            from_pos = i;
-          if (CONVERSION_ORDER[i] == to_idx)
-            to_pos = i;
-        }
-        return from_pos < to_pos;
-      }
     } // namespace Conversion
 
     namespace System

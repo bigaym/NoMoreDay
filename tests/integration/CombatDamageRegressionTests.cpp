@@ -42,7 +42,7 @@ TEST_CASE("[Integration] CombatDamageRegression - Player melee HP delta matches 
   expectedReq.attacker = attacker;
   expectedReq.defender = target;
   expectedReq.skill_id = 0;
-  expectedReq.base_pool.Add(Tag::Physical, attackerStats.min_weapon_damage);
+  // 武器点伤与生产路径一致，由管线按 DirectSkillCast 注入，避免参考请求双算。
   expectedReq.additional_tags = Tag::Melee | Tag::Hit;
   expectedReq.is_simulation = false;
   const float expectedDamage =
@@ -91,7 +91,7 @@ TEST_CASE("[Integration] CombatDamageRegression - AI attack HP delta matches pip
   expectedReq.attacker = enemy;
   expectedReq.defender = target;
   expectedReq.skill_id = 0;
-  expectedReq.base_pool.Add(Tag::Physical, 45.0f);
+  // 武器点伤与生产路径一致，由管线按 DirectSkillCast 注入，避免参考请求双算。
   expectedReq.additional_tags = Tag::Melee | Tag::Hit;
   expectedReq.is_simulation = false;
   const float expectedDamage =

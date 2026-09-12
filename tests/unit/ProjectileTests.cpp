@@ -202,11 +202,7 @@ TEST_CASE("[Unit] Projectile - Static AoE Hitbox Multi-Hit Protection Across Upd
   };
   defaultHooks.calculateBatch = [](entt::registry &reg,
                                    const DamageRequest &req) {
-    DamagePipeline::CalculateBatch(
-        reg, req.attacker, std::vector<entt::entity>{req.defender},
-        req.skill_id, req.base_pool, req.additional_tags,
-        req.source_entity);
-    return std::vector<DamageResult>{};
+    return DamagePipeline::CalculateBatchResults(reg, req);
   };
   RegisterDamageResolutionHooks(defaultHooks);
 }

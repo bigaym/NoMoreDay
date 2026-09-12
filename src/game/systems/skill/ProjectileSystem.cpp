@@ -15,6 +15,7 @@
 #include "game/foundation/components/vfx/VisualGhostComponent.hpp"
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raylib.h"
 
@@ -120,18 +121,11 @@ void ProjectileSystem::Update(entt::registry &registry,
                      req.additional_tags = Tag::Hit | Tag::Melee;
                      req.source_entity = strikeEnt;
                      if (ds.has_payload) {
-                       // 有效载荷路径与投射物一致：武器基础伤害由 payload 携带
-                       // （base_damage_min/max 覆盖 weapon damage），base_pool
-                       // 必须留空——否则 DamagePipeline 会命中 CombatV2 候选运行时，
-                       // 而该运行时不消费 payload（more_damage / effective_tags 失效）
+                       // payload 路径：调用方以 base_damage_min/max 携带点伤，
+                       // base_pool 留空，由管线按 DirectSkillCast 规则消费 payload。
                        req.payload_context = ds.payload_context;
-                     } else {
-                       const auto &ownerStats = registry.get<CombatStats>(ds.owner);
-                       float baseDmg = std::max(20.0f, (ownerStats.min_weapon_damage + ownerStats.max_weapon_damage) * 0.5f);
-                       DamagePool pool;
-                       pool.Add(Tag::Physical, baseDmg);
-                       req.base_pool = pool;
                      }
+                     // 无 payload 时武器点伤由 DirectSkillCast 注入，调用点不预置。
                      (void)ResolveDamage(registry, req, ds.owner);
                    }
                    return true;
@@ -201,6 +195,7 @@ void ProjectileSystem::Update(entt::registry &registry,
                 DamagePool pool;
                 pool.Add(Tag::Physical, baseDmg);
                 DamageRequest req;
+                req.origin = DamageOrigin::SecondaryProc;
                 req.attacker = sd.attacker;
                 req.defender = target;
                 req.skill_id = sd.source_skill_id;
@@ -581,6 +576,36 @@ void ProjectileSystem::Update(entt::registry &registry,
 
   if (entities.empty()) return;
 
+  // P3-2: 并行模拟前串行冻结攻方快照。命中结算优先消费该组件，
+  // 使投射物在生成后即使攻方属性/增益变化，落地伤害仍保持发射时的数值。
+  // 注意：必须在此串行阶段写入 registry，避免并行 chunk 内的数据竞争。
+  for (entt::entity e : entities) {
+    if (!registry.valid(e)) continue;
+    if (registry.all_of<damage::DamageSnapshotComponent>(e)) continue;
+
+    Projectile *p = registry.try_get<Projectile>(e);
+    // 快照攻方必须是施法者而非投射物自身：投射物实体不携带 ActiveSkills/
+    // GlobalModifier 等攻方域组件，以自身演算会丢失专精点与动态条件 (B2)。
+    // owner 失效时回退投射物自身，保证孤儿投射物仍可结算。
+    const entt::entity attacker =
+        (p != nullptr && registry.valid(p->owner)) ? p->owner : e;
+    // 守卫按所选 attacker 判断：owner 无 CombatStats 时跳过快照，回退运行时
+    // 结算（与 AilmentEngine 以施法者为 source 的语义一致）。
+    if (!registry.all_of<CombatStats>(attacker)) continue;
+
+    uint32_t snap_skill_id = 0;
+    if (auto *sc = registry.try_get<SkillComponent>(e))
+      snap_skill_id = sc->skill_id;
+
+    const DamagePayloadContext *payload = nullptr;
+    if (p != nullptr && p->payload_context)
+      payload = &(*p->payload_context);
+
+    DamagePipeline::AttachSnapshotComponent(
+        registry, e, attacker, snap_skill_id, DamagePool{},
+        Tag::Projectile | Tag::Hit, e, payload);
+  }
+
   const int chunkSize = 64;
   const int numChunks = (int)((entities.size() + chunkSize - 1) / chunkSize);
   std::vector<std::vector<DeferredAction>> perTaskActions(numChunks);
@@ -673,6 +698,7 @@ void ProjectileSystem::Update(entt::registry &registry,
             DamagePool counterPool;
             counterPool.Add(elementTag, counterDmg);
             DamageRequest counterRequest;
+            counterRequest.origin = DamageOrigin::ThornsReflect;
             counterRequest.attacker = target;
             counterRequest.defender = act.instigator;
             counterRequest.skill_id = 4;
@@ -703,10 +729,15 @@ void ProjectileSystem::Update(entt::registry &registry,
 
       DamagePool base;
       Tag hit_tags = Tag::Projectile | Tag::Hit;
+      // 命中结算优先以真实施法者为攻击者，投射物仅在施法者不可用时兜底：
+      // 投射物常带复制来的 CombatStats，若以自身归因会丢失施法者的 ActiveSkills/
+      // GlobalModifier（专精点与条件 More 归零）。与上方 attach 阶段的
+      // attacker=owner 语义保持一致；source_entity 仍指向投射物以复用其快照。
       entt::entity attacker =
-          registry.valid(projEnt) && registry.all_of<CombatStats>(projEnt)
-              ? projEnt
-              : act.instigator;
+          (registry.valid(act.instigator) &&
+           registry.all_of<CombatStats>(act.instigator))
+              ? act.instigator
+              : projEnt;
 
       DamageRequest request;
       request.attacker = attacker;

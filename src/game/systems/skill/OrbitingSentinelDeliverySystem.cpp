@@ -101,6 +101,7 @@ void OrbitingSentinelDeliverySystem::Update(entt::registry &registry,
                 DamagePool pool;
                 pool.Add(Tag::Physical, baseDmg);
                 DamageRequest req;
+                req.origin = DamageOrigin::SecondaryProc;
                 req.attacker = sentinel.anchor_entity;
                 req.defender = enemy_ent;
                 req.skill_id = sentinel.skill_id;

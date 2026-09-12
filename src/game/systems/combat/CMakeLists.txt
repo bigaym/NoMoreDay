@@ -9,7 +9,7 @@
 # StatsSystem/DamageResolutionHooks) are NOT compiled here — they live in
 # NoMoreDayGameContracts (contracts/impl). DamagePipeline/CombatSystem go
 # through skill via hooks; hazard damage resolves against world.
-# Depends on skill/world/stats/combat_v2/contracts/data/utils + engine.
+# Depends on skill/world/stats/contracts/data/utils + engine.
 
 add_library(NoMoreDayGameCombat STATIC
     AilmentEngine.cpp
@@ -18,6 +18,8 @@ add_library(NoMoreDayGameCombat STATIC
     CombatSystem.cpp
     DamageMitigationService.cpp
     DamagePipeline.cpp
+    damage/DamageConditions.cpp
+    damage/DamageInterceptors.cpp
     EffectSystem.cpp
     EliteModifierSystem.cpp
     EndgameModifierContract.cpp
@@ -43,7 +45,6 @@ target_link_libraries(NoMoreDayGameCombat
     NoMoreDayGameData
     NoMoreDayGameUtils
     NoMoreDayGameStats
-    NoMoreDayGameCombatV2
     NoMoreDayGameSkill
     NoMoreDayGameWorld
     NoMoreDayEngine

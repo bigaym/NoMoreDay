@@ -15,7 +15,9 @@ public:
       Tag instance_tags, Tag final_type, float damage,
       const CombatStats *defender_stats,
       const systems::EndgameModifierAggregate &endgame, bool skip_mitigation,
-      bool was_blocked, float block_multiplier, entt::entity source_entity);
+      bool was_blocked, float block_multiplier, entt::entity source_entity,
+      // 单目标快照路径传入冻结的 armor_pen；<0 表示无覆盖，回退实时查询。
+      float armor_pen_override = -1.0f);
 
   // 减抗来源过滤 (SkillOnly scope) 聚合量：
   // ElementalErosion 等带来源技能归属 (source_skill_id != 0) 的 Flat 减抗 debuff

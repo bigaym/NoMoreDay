@@ -7,7 +7,7 @@
 # DamagePipelineTypes.hpp, DamageResolutionHooks.hpp) are carried by the
 # NoMoreDayGameContractsCore INTERFACE target in contracts/.
 #
-# This directory is added AFTER data/utils/stats/combat_v2 by the parent so it
+# This directory is added AFTER data/utils/stats by the parent so it
 # can PUBLIC-link those bottom sub-targets (design §5.3 Phase A, R3: the
 # contract layer sits above data). StatsSystem.cpp additionally references
 # engine render symbols (GPUParticleSystem) and registry/GroupRegistry.hpp from

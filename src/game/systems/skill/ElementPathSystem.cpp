@@ -94,6 +94,7 @@ void ApplyElementHit(entt::registry &registry, entt::entity owner,
   ctx.source_skill_id = kSkillId;
 
   DamageRequest req{};
+  req.origin = DamageOrigin::SecondaryProc;
   req.attacker = owner;
   req.defender = target;
   req.skill_id = kSkillId;

@@ -11,7 +11,7 @@
 #
 # INTERFACE libraries cannot contain sources: the DamageResolutionHooks.cpp
 # implementation lives in the NoMoreDayGameContracts STATIC library defined in
-# contracts/impl (added after data/utils/stats/combat_v2 so it can link them).
+# contracts/impl (added after data/utils/stats so it can link them).
 
 add_library(NoMoreDayGameContractsCore INTERFACE)
 

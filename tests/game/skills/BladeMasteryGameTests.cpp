@@ -86,7 +86,12 @@ TEST_CASE("[Game] Skill - Blade Mastery Audit Final Verification") {
         REQUIRE(skillData != nullptr);
         REQUIRE(nodeContract != nullptr);
 
-        const float expectedEcho = skillData->base_damage * nodeContract->trigger.effectiveness * 1.05f;
+        // 完整管线在 DirectSkillCast 下追加技能基础点伤与武器点伤（旧桩已删除，不再有 5% 合成系数）：
+        // echo = 技能基础(140) × 节点效果 × 消耗层数；注入 = 技能基础(140) + 武器均值(100) × 武器系数(1.0)。
+        const float weaponAvg = (stats.min_weapon_damage + stats.max_weapon_damage) * 0.5f;
+        const float expectedEcho =
+            skillData->base_damage * nodeContract->trigger.effectiveness +
+            (skillData->base_damage + weaponAvg * skillData->weapon_damage_mult);
 
         bool foundEcho = false;
         for (float d : damageDealt) {
@@ -156,7 +161,12 @@ TEST_CASE("[Game] Skill - Blade Mastery Audit Final Verification") {
         // averageWeaponDamage = 100, baseDamageMultiplier = 1.0, resource = 10
         const float flowBonusPerStack = skillData10->GetParam("flow_bonus_per_stack", 0.06f);
         const float baseSlashDamage = 100.0f * 1.0f * (skillData10->weapon_damage_mult + 10.0f * flowBonusPerStack);
-        const float expectedExtra = baseSlashDamage * nodeContract10->trigger.effectiveness * 1.05f;
+        // 追加斩击 = 基础斩击 × 节点效果；再叠加完整管线的技能基础与武器点伤注入：
+        // 注入 = 技能基础(90) + 武器均值(100) × 武器系数(1.8) = 270。
+        const float weaponAvg10 = (stats.min_weapon_damage + stats.max_weapon_damage) * 0.5f;
+        const float expectedExtra =
+            baseSlashDamage * nodeContract10->trigger.effectiveness +
+            (skillData10->base_damage + weaponAvg10 * skillData10->weapon_damage_mult);
         
         bool foundExtra = false;
         for (float d : damageDealt) {

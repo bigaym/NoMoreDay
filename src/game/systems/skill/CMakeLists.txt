@@ -5,7 +5,7 @@
 # SummonAISystem, SummonCombatBridge, SummonLifecycleSystem, SummonSystem.
 # TalentLayoutService lives in data. Skill talks to combat only through the
 # contract layer (design §5.4 middle band, hook inversion).
-# Depends on contracts-core/contracts/combat_v2/data/modifier + engine.
+# Depends on contracts-core/contracts/data/modifier + engine.
 
 add_library(NoMoreDayGameSkill STATIC
     AreaFieldDeliverySystem.cpp
@@ -45,7 +45,6 @@ target_link_libraries(NoMoreDayGameSkill
     NoMoreDayGameContractsCore
     NoMoreDayGameContracts
     NoMoreDayGameData
-    NoMoreDayGameCombatV2
     NoMoreDayGameModifier
     NoMoreDayEngine
     NoMoreDayCore

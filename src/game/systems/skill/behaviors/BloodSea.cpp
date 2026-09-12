@@ -290,6 +290,7 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
     }
 
     DamageRequest request;
+    request.origin = DamageOrigin::HazardEnvironment;
     request.attacker = field.owner;
     request.defender = target;
     request.skill_id = BloodSea::kSkillId;

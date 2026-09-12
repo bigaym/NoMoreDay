@@ -172,7 +172,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
     )
 
     add_test(NAME nmd.tests.combat.unit
-        COMMAND NoMoreDayTests --test-case=[Unit]*Combat*,[Unit]*ConditionIR*,[Unit]*TagDomainV2*,[Unit]*ModifierGraphV2*,[Unit]*DamageKernelV2*
+        COMMAND NoMoreDayTests --test-case=[Unit]*Combat*
     )
     set_tests_properties(nmd.tests.combat.unit PROPERTIES
         LABELS "unit;combat;module-gate"
@@ -181,7 +181,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
     )
 
     add_test(NAME nmd.tests.combat.integration
-        COMMAND NoMoreDayTests --test-case=[Integration]*Combat*,[Integration]*ModifierGraphV2*,[Integration]*DamageKernelParity*
+        COMMAND NoMoreDayTests --test-case=[Integration]*Combat*
     )
     set_tests_properties(nmd.tests.combat.integration PROPERTIES
         LABELS "integration;combat;module-gate"

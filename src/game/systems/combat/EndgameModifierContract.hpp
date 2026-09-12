@@ -2,9 +2,11 @@
 
 #include "game/foundation/components/EndgameModifiers.hpp"
 #include <array>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <entt/entt.hpp>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 
@@ -88,7 +90,11 @@ private:
   void LoadBuiltins();
 
   std::unordered_map<uint32_t, EndgameModifierContract> contracts_;
-  bool loaded_ = false;
+  // 批量结算可能在多线程下并发触发 EnsureLoaded：loaded_ 用原子读写，
+  // 首次加载由 load_mutex_ 串行化，避免并发写 contracts_。
+  // 注意：LoadFromFile/ResetForTests 仍为非并发管理接口，不得与结算并发调用。
+  std::atomic<bool> loaded_{false};
+  std::mutex load_mutex_;
 };
 
 } // namespace NoMoreDay::systems

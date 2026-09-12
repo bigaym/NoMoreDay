@@ -7,10 +7,6 @@
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/Combat.hpp"
 
-#ifndef COMBAT_LEGACY_CALC_ENABLED
-#define COMBAT_LEGACY_CALC_ENABLED 0
-#endif
-
 class CombatSystem {
 public:
     struct DamageApplyResult {
@@ -24,12 +20,6 @@ public:
 
     // 处理攻击输入、管理冷却时间并解决命中
     static void update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const Camera2D& camera, float dt);
-
-    /**
-     * @brief 计算减伤后的最终伤害。
-     */
-    [[deprecated("Use DamagePipeline::Calculate")]]
-    static float CalculateDamage(const NoMoreDay::CombatStats& attacker, const NoMoreDay::CombatStats& defender, float baseDamage, NoMoreDay::DamageType type);
 
     /**
      * @brief 对实体施加伤害，处理生命值减少和潜在的死亡。

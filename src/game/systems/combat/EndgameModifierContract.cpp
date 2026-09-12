@@ -31,11 +31,16 @@ EndgameModifierRegistry &EndgameModifierRegistry::Get() {
 }
 
 bool EndgameModifierRegistry::EnsureLoaded() {
-  if (loaded_) {
+  if (loaded_.load(std::memory_order_acquire)) {
+    return true;
+  }
+  // 首次加载可被多个结算线程同时触发：串行化加载，避免并发写 contracts_。
+  std::lock_guard<std::mutex> lock(load_mutex_);
+  if (loaded_.load(std::memory_order_relaxed)) {
     return true;
   }
   (void)LoadFromFile();
-  return loaded_;
+  return loaded_.load(std::memory_order_relaxed);
 }
 
 bool EndgameModifierRegistry::LoadFromFile(const std::string &path) {
@@ -46,7 +51,7 @@ bool EndgameModifierRegistry::LoadFromFile(const std::string &path) {
   if (!file.is_open()) {
     LOG_WARN("EndgameModifierRegistry: failed to open {}, fallback to builtins.",
              path);
-    loaded_ = true;
+    loaded_.store(true, std::memory_order_release);
     return false;
   }
 
@@ -55,7 +60,7 @@ bool EndgameModifierRegistry::LoadFromFile(const std::string &path) {
     file >> root;
   } catch (const std::exception &e) {
     LOG_ERROR("EndgameModifierRegistry: invalid json in {}: {}", path, e.what());
-    loaded_ = true;
+    loaded_.store(true, std::memory_order_release);
     return false;
   }
 
@@ -63,7 +68,7 @@ bool EndgameModifierRegistry::LoadFromFile(const std::string &path) {
   if (modifiersIt == root.end() || !modifiersIt->is_array()) {
     LOG_WARN("EndgameModifierRegistry: {} missing modifiers array, keep builtins.",
              path);
-    loaded_ = true;
+    loaded_.store(true, std::memory_order_release);
     return false;
   }
 
@@ -113,13 +118,13 @@ bool EndgameModifierRegistry::LoadFromFile(const std::string &path) {
     contracts_[contract.id] = contract;
   }
 
-  loaded_ = true;
+  loaded_.store(true, std::memory_order_release);
   return true;
 }
 
 void EndgameModifierRegistry::ResetForTests() {
   contracts_.clear();
-  loaded_ = false;
+  loaded_.store(false, std::memory_order_release);
 }
 
 const EndgameModifierContract *EndgameModifierRegistry::Find(uint32_t id) const {
@@ -134,7 +139,7 @@ EndgameModifierResolution EndgameModifierRegistry::ResolveForEntities(
     const entt::registry &registry, entt::entity source,
     entt::entity target) const {
   EndgameModifierResolution resolution;
-  if (!loaded_) {
+  if (!loaded_.load(std::memory_order_acquire)) {
     return resolution;
   }
 

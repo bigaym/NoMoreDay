@@ -891,6 +891,7 @@ void HeavenlySwordDescent::HandleLinkedHit(entt::registry &registry,
     ++field.echo_strikes_triggered;
 
     DamageRequest request;
+    request.origin = DamageOrigin::SecondaryProc;
     request.attacker = field.owner;
     request.defender = evt.target;
     request.skill_id = kSkillId;

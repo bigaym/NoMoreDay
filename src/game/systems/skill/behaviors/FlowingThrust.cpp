@@ -206,10 +206,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           ds.payload_context = {
               .base_damage_min = stats->min_weapon_damage,
               .base_damage_max = stats->max_weapon_damage,
-              .crit_chance = (stats->crit_chance +
+              .crit_chance = stats->crit_chance +
                               (profile ? profile->delivery.bonus_crit : 0.0f) +
-                              ridingWindCrit) /
-                             100.0f,
+                              ridingWindCrit,
               .crit_multiplier = stats->crit_damage,
               .more_damage = moreDamageMult,
               .effective_tags = profile ? profile->effective_tags : Tag::Physical,
@@ -302,10 +301,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       proj.payload_context = {
         .base_damage_min = stats->min_weapon_damage,
         .base_damage_max = stats->max_weapon_damage,
-        // payload crit_chance 约定为归一化小数 [0,1]，命中结算按 ×100 还原（见 DamagePipeline）
+        // payload crit_chance 与 CombatStats 统一为分数制 [0,1]
         .crit_chance =
-            (stats->crit_chance + (profile ? profile->delivery.bonus_crit : 0.0f) + ridingWindCrit) /
-            100.0f,
+            stats->crit_chance + (profile ? profile->delivery.bonus_crit : 0.0f) + ridingWindCrit,
         .crit_multiplier = stats->crit_damage,
         .more_damage = moreDamageMult,
         .effective_tags = profile ? profile->effective_tags : Tag::Physical,
@@ -463,6 +461,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
               // DamageOverTime/SecondaryHit 防止本次爆发再次派发 OnSkillHit
               // 造成触发链递归 (与 173 碎裂的标签口径一致)。
               DamageRequest burstReq;
+              burstReq.origin = DamageOrigin::SecondaryProc;
               burstReq.attacker = actualAttacker;
               burstReq.defender = victim;
               burstReq.skill_id = kSkillId;
@@ -639,6 +638,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                     // 溅射走 DamagePipeline 正常请求；带 DamageOverTime 标签：
                     // 不再派发 OnSkillHit，防止碎裂递归触发自身
                     DamageRequest req;
+                    req.origin = DamageOrigin::SecondaryProc;
                     req.attacker = actualAttacker;
                     req.defender = other;
                     req.skill_id = kSkillId;

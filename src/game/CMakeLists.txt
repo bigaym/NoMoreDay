@@ -6,14 +6,14 @@
 # NoMoreDayGame remains the target name referenced by check_module_boundaries.py
 # and CTest. The contract STATIC library (contracts/impl) is added early so it
 # can link the bottom sub-targets it sits above; the middle band comes next,
-# then combat (depends on skill/world/stats/combat_v2), then the top band
+# then combat (depends on skill/world/stats), then the top band
 # (scene/persistence/input/render/states/ui), which is the widest dependency fan.
 #
 # Skill behavior OBJECT files are linked PUBLIC so static registration objects
 # reach the final executable and test binaries.
 
 add_subdirectory(contracts)      # NoMoreDayGameContractsCore (INTERFACE)
-add_subdirectory(foundation)     # band: foundation (ui_shared/data/utils/stats/combat_v2)
+add_subdirectory(foundation)     # band: foundation (ui_shared/data/utils/stats)
 add_subdirectory(contracts/impl) # NoMoreDayGameContracts (STATIC)
 add_subdirectory(systems/modifier)   # NoMoreDayGameModifier (middle)
 add_subdirectory(systems/skill)      # NoMoreDayGameSkill (middle)
@@ -33,7 +33,7 @@ add_dependencies(NoMoreDayGame GenerateTags)
 target_precompile_headers(NoMoreDayGame PRIVATE ${CMAKE_SOURCE_DIR}/src/game/pch.hpp)
 
 # PUBLIC bottom-up order mirrors the add_subdirectory order: contracts above
-# data/utils/stats/combat_v2, middle band above combat, top band last,
+# data/utils/stats, middle band above combat, top band last,
 # aggregate above engine/skill behaviors.
 target_link_libraries(NoMoreDayGame PUBLIC
     NoMoreDayGameContractsCore
@@ -42,7 +42,6 @@ target_link_libraries(NoMoreDayGame PUBLIC
     NoMoreDayGameData
     NoMoreDayGameUtils
     NoMoreDayGameStats
-    NoMoreDayGameCombatV2
     NoMoreDayGameModifier
     NoMoreDayGameSkill
     NoMoreDayGameWorld

@@ -598,7 +598,8 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
       for (const auto &candidate : slashTargets) {
         float slashDamage = baseSlashDamage;
-        float critChanceBonus = 2.0f * static_cast<float>(specState.critChancePoints);
+        // 暴击率统一为分数制：每点 +2% = 0.02
+        float critChanceBonus = 0.02f * static_cast<float>(specState.critChancePoints);
         float critDamageBonus = 0.0f;
 
         if (isFinalSlash) {

@@ -1,4 +1,5 @@
 #include "game/systems/combat/DamageMitigationService.hpp"
+#include "game/systems/combat/damage/DamageTypes.hpp"
 #include "game/foundation/components/Buff.hpp" // ActiveEffectsComponent (减抗来源过滤)
 #include "game/foundation/components/Common.hpp" // Position (元素路径归属判定)
 #include "game/foundation/components/Projectile.hpp"
@@ -23,27 +24,6 @@ float ClampMoreToMultiplier(float more) {
   return std::max(0.0f, 1.0f + more);
 }
 
-// DamageType -> 伤害元素 Tag 映射，供 Type E 抗性上限压制的元素归属过滤使用。
-// 整数 switch，无字符串构造/比较，满足战斗热路径要求 (code_standard §2.1/§7.2)。
-Tag ElementTagOf(DamageType type) {
-  switch (type) {
-  case DamageType::Physical:
-    return Tag::Physical;
-  case DamageType::Fire:
-    return Tag::Fire;
-  case DamageType::Cold:
-    return Tag::Cold;
-  case DamageType::Lightning:
-    return Tag::Lightning;
-  case DamageType::Poison:
-    return Tag::Poison;
-  case DamageType::Shadow:
-    return Tag::Shadow;
-  default:
-    return Tag::None;
-  }
-}
-
 } // namespace
 
 // Type E 抗性上限压制 (技能7 心念灭抗 775) 聚合量：
@@ -65,7 +45,7 @@ float AggregateSkillScopedResistCapSuppression(entt::registry &registry,
   const auto *eff = registry.try_get<ActiveEffectsComponent>(defender);
   if (eff == nullptr)
     return 0.0f;
-  const Tag element_tag = ElementTagOf(type);
+  const Tag element_tag = damage::ElementTagOf(type);
   float suppression = 0.0f;
   for (const auto &b : eff->effects) {
     if (!b.is_debuff || b.resist_cap_suppression <= 0.0f)
@@ -119,10 +99,17 @@ float DamageMitigationService::Apply(
     Tag instance_tags, Tag final_type, float damage,
     const CombatStats *defender_stats,
     const systems::EndgameModifierAggregate &endgame, bool skip_mitigation,
-    bool was_blocked, float block_multiplier, entt::entity source_entity) {
+    bool was_blocked, float block_multiplier, entt::entity source_entity,
+    float armor_pen_override) {
   using namespace NoMoreDay::Constants::Combat::Pipeline;
 
   const int type_idx = std::countr_zero(static_cast<uint64_t>(final_type));
+  // final_type 是 Tag 位（池序），与 DamageType / resistances[] 索引仅 4/5
+  // 位 (Shadow/Poison) 互换，必须经 damage::PoolIndexTo* 映射后再消费。
+  const DamageType damage_type =
+      damage::PoolIndexToDamageType(static_cast<size_t>(type_idx));
+  const size_t resist_index =
+      damage::PoolIndexToResistIndex(static_cast<size_t>(type_idx));
   float damage_after_res = damage;
   if (skip_mitigation) {
     return damage_after_res;
@@ -134,10 +121,10 @@ float DamageMitigationService::Apply(
 
   float res = 0.0f;
   if (type_idx < ELEMENTAL_TYPE_COUNT) {
-    res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
+    res = defender_stats ? defender_stats->resistances[resist_index] : 0.0f;
     // 减抗来源过滤 (SkillOnly scope)：聚合当前伤害生效的 debuff 减抗并参与结算
     res += ApplySkillScopedResistEffects(
-        registry, defender, skill_id, static_cast<DamageType>(type_idx));
+        registry, defender, skill_id, damage_type);
     // 技能2 灵根亲和 (Node 274)：裂空斩及其触发效果的对应元素抗性穿透增加 5%...20%
     if (skill_id == 2 && registry.valid(attacker)) {
       const auto *profile = SkillSystem::GetBakedSkillProfile(registry, attacker, 2);
@@ -152,8 +139,8 @@ float DamageMitigationService::Apply(
         }
       }
       if (profile && (profile->delivery.feature_flags & (1 << 22)) != 0 && profile->delivery.armor_pen > 0.0f) {
-        if ((type_idx == static_cast<int>(DamageType::Cold) && HasTag(profile->effective_tags, Tag::Cold)) ||
-            (type_idx == static_cast<int>(DamageType::Lightning) && HasTag(profile->effective_tags, Tag::Lightning))) {
+        if ((damage_type == DamageType::Cold && HasTag(profile->effective_tags, Tag::Cold)) ||
+            (damage_type == DamageType::Lightning && HasTag(profile->effective_tags, Tag::Lightning))) {
           res -= (profile->delivery.armor_pen / 100.0f);
         }
       }
@@ -181,9 +168,9 @@ float DamageMitigationService::Apply(
           }
           if (profile && (profile->delivery.feature_flags & 33554432) != 0 &&
               profile->delivery.armor_pen > 0.0f) {
-            if ((type_idx == static_cast<int>(DamageType::Fire) &&
+            if ((damage_type == DamageType::Fire &&
                  HasTag(profile->effective_tags, Tag::Fire)) ||
-                (type_idx == static_cast<int>(DamageType::Cold) &&
+                (damage_type == DamageType::Cold &&
                  HasTag(profile->effective_tags, Tag::Cold))) {
               res -= (profile->delivery.armor_pen / 100.0f);
             }
@@ -196,7 +183,7 @@ float DamageMitigationService::Apply(
     // 仅技能8、路径穿透非零且目标确在路径内时生效，技能1..7/9 行为不变。
     if (skill_id == kSkill8Id && registry.valid(attacker) &&
         registry.valid(defender)) {
-      const Tag path_element = ElementTagOf(static_cast<DamageType>(type_idx));
+      const Tag path_element = damage::ElementTagOf(damage_type);
       if (path_element != Tag::None) {
         const float path_pen =
             element_path::PenetrationFor(registry, attacker, path_element);
@@ -215,7 +202,7 @@ float DamageMitigationService::Apply(
     // Type E (技能7 心念灭抗 775)：抗性"上限"被动态压制。
     // 有效上限 = max(下限, 上限 - 压制量)，确保扣除后不低于 RESISTANCE_MIN。
     const float cap_suppression = AggregateSkillScopedResistCapSuppression(
-        registry, defender, skill_id, static_cast<DamageType>(type_idx));
+        registry, defender, skill_id, damage_type);
     const float effective_max =
         std::max(RESISTANCE_MIN, RESISTANCE_MAX - cap_suppression);
     res = std::clamp(res, RESISTANCE_MIN, effective_max);
@@ -228,7 +215,7 @@ float DamageMitigationService::Apply(
   // 技能8 元素护体 (Node 876)：施法者站在自身对应元素路径上时，受到的该元素
   // 伤害绝对减伤乘算 (1 - pct)。仅防守方拥有路径与已投入节点时生效。
   {
-    const Tag path_element = ElementTagOf(static_cast<DamageType>(type_idx));
+    const Tag path_element = damage::ElementTagOf(damage_type);
     if (path_element != Tag::None) {
       if (skill_id == kSkill8Id && registry.valid(attacker) &&
           registry.valid(defender)) {
@@ -255,14 +242,20 @@ float DamageMitigationService::Apply(
 
   if (final_type == Tag::Physical && defender_stats) {
     float armor = defender_stats->armor + endgame.incoming_armor_bonus;
-    const float pen = StatsSystem::GetStatWithTags(
-        registry, attacker, StatType::ArmorPenetration, instance_tags, skill_id,
-        source_entity);
+    // 单目标快照路径由 DamagePipeline 传入冻结的 snapshot.armor_pen；
+    // armor_pen_override < 0 表示无覆盖，回退实时查询（批量/历史调用方语义不变）。
+    const float pen =
+        (armor_pen_override >= 0.0f)
+            ? armor_pen_override
+            : StatsSystem::GetStatWithTags(
+                  registry, attacker, StatType::ArmorPenetration, instance_tags,
+                  skill_id, source_entity);
     float effective_armor =
         armor - pen - endgame.outgoing_armor_reduction;
     // 技能2 湮灭波 (Node 253)：满层剑意巨波无视物理护甲/抗性。
     // 消费交付层显式布尔标志（253 分支设置、经 Projectile 传递），取代旧哨兵值
-    // snapshot.armor_pen>=500（穿透数值语义不得承载布尔标记，且被其它系统误读为穿透）
+    // snapshot.armor_pen>=500（穿透数值语义不得承载布尔标记）。snapshot.armor_pen
+    // 已由单目标快照路径经 armor_pen_override 正常消费，不再承载布尔语义。
     // 与死条件 arcWidth>=100（几何字段仅渲染消费）。无视比例数据驱动：
     // mech 253.physical_ignore_res_pct（默认 50）→ 保留一半有效护甲。
     if (skill_id == 2 && source_entity != entt::null && registry.valid(source_entity)) {

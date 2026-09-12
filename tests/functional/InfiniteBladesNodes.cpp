@@ -341,7 +341,7 @@ TEST_CASE("[Functional] Skill 5 - Intent Burst 554 & Multiplier 555 (H4)") {
 
   const auto *chan = registry.try_get<ChannelingComponent>(player);
   REQUIRE(chan != nullptr);
-  CHECK(chan->bonus_crit_chance >= 100.0f);
+  CHECK(chan->bonus_crit_chance >= 1.0f); // 必暴归一化 1.0 = 100%
   CHECK(chan->bonus_damage_mult > 1.0f); // 555 暴伤增幅
 }
 

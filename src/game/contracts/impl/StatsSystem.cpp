@@ -495,7 +495,14 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   }
 
   float result = dynamic_calc.Result();
-  
+
+  // 暴击率对外统一为分数制 [0,1]：内部仍以百分点空间叠加（基础值 ×100、修饰符为
+  // 百分点），在此边界换算，保证 GetStatWithTags 与 CombatStats / payload_context
+  // 的 crit_chance 单位一致，消除单/批路径百倍混用。
+  if (type == StatType::CritChance) {
+    result *= 0.01f;
+  }
+
   // --- Thread-Safe Cache Write ---
   {
 #if COMBAT_TELEMETRY_ENABLED

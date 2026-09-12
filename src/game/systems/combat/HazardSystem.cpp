@@ -417,6 +417,7 @@ void HazardSystem::DealAreaDamage(entt::registry &registry, Position center,
 
         if ((hitsPlayers && isPlayer) || (hitsEnemies && isEnemy)) {
           DamageRequest request;
+          request.origin = DamageOrigin::HazardEnvironment;
           request.attacker = owner;
           request.defender = target;
           request.skill_id = 0;

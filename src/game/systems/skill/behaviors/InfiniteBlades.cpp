@@ -112,7 +112,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
         for (auto &mult : proj.snapshot.damage_multipliers) {
           mult *= ctx.more_damage;
         }
-        proj.snapshot.crit_chance = 100.0f;
+        proj.snapshot.crit_chance = 1.0f; // 必爆（归一化）
         registry.emplace<CombatStats>(proj_ent, proj.snapshot);
       }
       registry.emplace<SkillComponent>(proj_ent, kSkillId, owner);
@@ -206,11 +206,11 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
           static_cast<int>(data::SkillMechanicsRegistry::Get().GetFloat(5, 554, "intent_cost", 10.0f) + 0.5f);
       if (intent && intent->stacks >= intentCost) {
         SkillSystem::ConsumeSwordIntent(registry, owner, intentCost, kSkillId);
-        chan.bonus_crit_chance += 100.0f;
+        chan.bonus_crit_chance += 1.0f; // 意气爆发必暴（归一化）
         chan.consume_intent = true;
         // 555 意念合一: 触发意气爆发时，暴伤额外提升
         if ((profile->delivery.feature_flags & 1048576) != 0) {
-          chan.bonus_damage_mult *= (1.0f + profile->delivery.bonus_crit_damage / 100.0f);
+          chan.bonus_damage_mult *= (1.0f + profile->delivery.bonus_crit_damage);
         }
       }
     }
@@ -330,6 +330,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
                 pool.Add(hit_tag != Tag::None ? hit_tag : Tag::Physical,
                          baseHit * data::SkillMechanicsRegistry::Get().GetFloat(5, 512, "full_stack_splash_pct", 0.20f));
                 DamageRequest req;
+                req.origin = DamageOrigin::SecondaryProc;
                 req.attacker = attacker;
                 req.defender = eEnt;
                 req.skill_id = kSkillId;
@@ -361,6 +362,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
           DamagePool pool;
           pool.Add(hit_tag != Tag::None ? hit_tag : Tag::Physical, baseHit * 0.15f);
           DamageRequest req;
+          req.origin = DamageOrigin::SecondaryProc;
           req.attacker = attacker;
           req.defender = eEnt;
           req.skill_id = kSkillId;

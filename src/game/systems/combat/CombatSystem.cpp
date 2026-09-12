@@ -2,7 +2,6 @@
 #include "game/foundation/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/systems/physics/PhysicsUtils.hpp"
-#include "core/utils/Branchless.hpp"
 #include "game/application/scene/SceneManager.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp" // 992 附魔刷新时长
@@ -21,7 +20,6 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/AilmentEngine.hpp" // AilmentAdapter (992 击杀刷新附魔)
-#include "game/contracts/CombatFormula.hpp" // Added
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -40,50 +38,13 @@ namespace {
 NoMoreDay::DamagePool BuildLegacyAttackBasePool(
     const NoMoreDay::CombatStats *stats, float baseDamage) {
   NoMoreDay::DamagePool basePool;
-  float physBase = (stats && stats->max_weapon_damage > 0.1f)
-                       ? stats->min_weapon_damage
-                       : baseDamage;
-  if (physBase > 0.0f) {
-    basePool.Add(NoMoreDay::Tag::Physical, physBase);
+  // 普攻属于 DirectSkillCast，武器点伤由 DamagePipeline 统一注入（均值）；
+  // 此处仅在无武器时提供回退基础值，避免调用点与管线重复累加武器伤害。
+  const bool hasWeapon = stats && stats->max_weapon_damage > 0.1f;
+  if (!hasWeapon && baseDamage > 0.0f) {
+    basePool.Add(NoMoreDay::Tag::Physical, baseDamage);
   }
   return basePool;
-}
-
-float LegacyDamageFormula(const NoMoreDay::CombatStats &attacker,
-                          const NoMoreDay::CombatStats &defender,
-                          float baseDamage, NoMoreDay::DamageType type) {
-  using namespace NoMoreDay;
-  using namespace NoMoreDay::utils;
-
-  float multiplier = attacker.damage_multipliers[(int)type];
-  float effectiveMult = SelectF(multiplier > 0.001f, multiplier, 1.0f);
-  float damage = baseDamage * effectiveMult;
-
-  float mitigation = 0.0f;
-  float effective_armor = defender.armor - attacker.armor_pen;
-  int area_level = defender.cached_area_level;
-  if (area_level < 1) {
-    area_level = 1;
-  }
-
-  float multiplier_val =
-      NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,
-                                                         area_level);
-  float physMitigation = 1.0f - multiplier_val;
-
-  float res = defender.resistances[(int)type];
-  using namespace NoMoreDay::Constants::Combat;
-  float elemMitigation = SelectF(res > Cap::RESISTANCE, Cap::RESISTANCE, res);
-
-  bool isPhysical = (type == DamageType::Physical);
-  mitigation = SelectF(isPhysical, physMitigation, elemMitigation);
-  damage *= (1.0f - mitigation);
-
-  float reduction = defender.damage_reduction;
-  reduction = SelectF(reduction > Cap::DR, Cap::DR, reduction);
-  float effective_dr = SelectF(reduction > 0.0f, reduction, 0.0f);
-  damage *= (1.0f - effective_dr);
-  return SelectF(damage > 0.0f, damage, 0.0f);
 }
 
 } // namespace
@@ -236,33 +197,6 @@ void CombatSystem::update(entt::registry &registry,
                 bool wasDodged = false;
                 bool wasBlocked = false;
 
-#if COMBAT_LEGACY_CALC_ENABLED
-                float totalDamage = 0.0f;
-                float physBase = (stats && stats->max_weapon_damage > 0.1f)
-                                     ? stats->min_weapon_damage
-                                     : baseDamage;
-                if (stats) {
-                  physBase +=
-                      stats->flat_damage[(int)NoMoreDay::DamageType::Physical];
-                }
-                totalDamage += LegacyDamageFormula(
-                    stats ? *stats : NoMoreDay::CombatStats{},
-                    registry.get_or_emplace<NoMoreDay::CombatStats>(target),
-                    physBase, NoMoreDay::DamageType::Physical);
-                if (stats) {
-                  using namespace NoMoreDay::Constants::Combat::Pipeline;
-                  for (int i = 1; i < ELEMENTAL_TYPE_COUNT; ++i) {
-                    if (stats->flat_damage[i] > 0.01f) {
-                      totalDamage += LegacyDamageFormula(
-                          *stats,
-                          registry.get_or_emplace<NoMoreDay::CombatStats>(
-                              target),
-                          stats->flat_damage[i], (NoMoreDay::DamageType)i);
-                    }
-                  }
-                }
-                finalDamage = totalDamage;
-#else
                 NoMoreDay::DamageRequest damageReq;
                 damageReq.attacker = entity;
                 damageReq.defender = target;
@@ -291,30 +225,6 @@ void CombatSystem::update(entt::registry &registry,
                 LOG_TRACE("Combat(Pipeline): BasePhys={:.1f}, FinalDmg={:.1f}, Target={}",
                           damageReq.base_pool.Get(NoMoreDay::Tag::Physical),
                           finalDamage, (uint32_t)target);
-#endif
-
-#if COMBAT_LEGACY_CALC_ENABLED
-                // 3. 暴击判定 (作用于最终总伤害)
-                if (stats && registry.all_of<NoMoreDay::CombatStats>(target)) {
-                  float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
-                  // 应用暴击率上限
-                  using namespace NoMoreDay::Constants::Combat;
-                  float effectiveCrit =
-                      (std::min)(stats->crit_chance, Cap::CRIT_CHANCE);
-                  if (roll < effectiveCrit) {
-                    isCrit = true;
-                    using namespace NoMoreDay::Constants::Combat;
-                    finalDamage *= (stats->crit_damage > 0.1f
-                                        ? stats->crit_damage
-                                        : System::CRIT_DAMAGE_FALLBACK);
-                  }
-                }
-
-                // --- Event System: OnSkillHit (Delayed) ---
-                CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
-                    entity, target, skillId, hitTags, isCrit);
-                CombatEventDispatcher::Dispatch(registry, hit_evt);
-#endif
 
                 // Apply Knockback after defense order confirms the hit was not
                 // dodged.
@@ -324,12 +234,7 @@ void CombatSystem::update(entt::registry &registry,
                 // Apply Damage
                 if (registry.all_of<HealthComponent>(target)) {
                   // 应用伤害逻辑（这会处理生命值减少和死亡并生成飘字）
-#if COMBAT_LEGACY_CALC_ENABLED
-                  bool targetDead = ApplyDamage(registry, target, finalDamage,
-                                                entity, isCrit);
-#else
                   bool targetDead = execution.target_killed;
-#endif
                   LOG_DEBUG("对 {} 造成 {:.1f} 伤害 (暴击: {}, 死亡: {})",
                             (uint32_t)target, finalDamage, isCrit, targetDead);
 
@@ -339,14 +244,10 @@ void CombatSystem::update(entt::registry &registry,
                     const auto &tStats =
                         registry.get<NoMoreDay::CombatStats>(target);
                     if (tStats.thorns > 0.0f) {
-#if COMBAT_LEGACY_CALC_ENABLED
-                      // 反伤给攻击者
-                      ApplyDamage(registry, entity, tStats.thorns, target,
-                                  false);
-#else
                       NoMoreDay::DamagePool thornsPool;
                       thornsPool.Add(NoMoreDay::Tag::Physical, tStats.thorns);
                       NoMoreDay::DamageRequest thornsReq;
+                      thornsReq.origin = NoMoreDay::DamageOrigin::ThornsReflect;
                       thornsReq.attacker = target;
                       thornsReq.defender = entity;
                       thornsReq.skill_id = 0;
@@ -355,7 +256,6 @@ void CombatSystem::update(entt::registry &registry,
                       thornsReq.thorns_like_damage = true;
                       (void)NoMoreDay::DamagePipeline::Execute(registry, thornsReq,
                                                                target);
-#endif
                       LOG_TRACE("Thorns: Entity {} took {:.1f} damage",
                                 (uint32_t)entity, tStats.thorns);
                     }
@@ -436,27 +336,15 @@ void CombatSystem::update(entt::registry &registry,
           eAttack.cooldownTimer = interval;
 
           // Calculate Damage
-          float basePhys =
-              eStats.min_weapon_damage +
-              (eStats.max_weapon_damage - eStats.min_weapon_damage) *
-                  ((float)GetRandomValue(0, 1000) / 1000.0f);
-
           float finalDamage = 0.0f;
           bool isCrit = false;
           bool wasDodged = false;
           bool wasBlocked = false;
-#if COMBAT_LEGACY_CALC_ENABLED
-          finalDamage = LegacyDamageFormula(
-              eStats, registry.get_or_emplace<NoMoreDay::CombatStats>(ai.target),
-              basePhys, NoMoreDay::DamageType::Physical);
-#else
-          NoMoreDay::DamagePool basePool;
-          basePool.Add(NoMoreDay::Tag::Physical, basePhys);
+          // 怪物普攻同样走 DirectSkillCast：武器点伤由管线注入，调用点不预置。
           NoMoreDay::DamageRequest damageReq;
           damageReq.attacker = enemy;
           damageReq.defender = ai.target;
           damageReq.skill_id = 0;
-          damageReq.base_pool = basePool;
           damageReq.additional_tags = NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
           auto execution =
               NoMoreDay::DamagePipeline::Execute(registry, damageReq, enemy);
@@ -464,7 +352,6 @@ void CombatSystem::update(entt::registry &registry,
           isCrit = execution.damage.is_crit;
           wasDodged = execution.damage.was_dodged;
           wasBlocked = execution.damage.was_blocked;
-#endif
 
           if (wasDodged) {
             if (registry.all_of<Position>(ai.target)) {
@@ -489,21 +376,6 @@ void CombatSystem::update(entt::registry &registry,
       }
     }
   }
-}
-
-float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
-                                    const NoMoreDay::CombatStats &defender,
-                                    float baseDamage,
-                                    NoMoreDay::DamageType type) {
-#if COMBAT_LEGACY_CALC_ENABLED
-  return LegacyDamageFormula(attacker, defender, baseDamage, type);
-#else
-  (void)attacker;
-  (void)defender;
-  (void)baseDamage;
-  (void)type;
-  return 0.0f;
-#endif
 }
 
 // 统一的敌人死亡处理链：正常伤害致死与处决致死 (绝命法场) 共用同一语义。

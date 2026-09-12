@@ -314,17 +314,19 @@ TEST_CASE("[Integration] SkillSystem - Heavenly Sword impact and cycle nodes clo
     REQUIRE(formationCast != nullptr);
     formationCast(registry, player, formationExec);
 
+    // 高血量确保目标在完整伤害管线下的技能冲击中存活，从而真正执行场域持续 tick
+    // 与节点效果路径（回鞘加成、异常刷新），避免目标提前死亡导致的空目标早退。
     const auto eliteTarget = registry.create();
     registry.emplace<Position>(eliteTarget, 20.0f, 0.0f);
     registry.emplace<EnemyTag>(eliteTarget);
-    registry.emplace<HealthComponent>(eliteTarget, 2000.0f, 2000.0f);
+    registry.emplace<HealthComponent>(eliteTarget, 2000000.0f, 2000000.0f);
     registry.emplace<CombatStats>(eliteTarget);
     registry.emplace<EnemyRarityComponent>(eliteTarget, EnemyRarityComponent::BOSS);
 
     const auto afflictedTarget = registry.create();
     registry.emplace<Position>(afflictedTarget, 24.0f, 0.0f);
     registry.emplace<EnemyTag>(afflictedTarget);
-    registry.emplace<HealthComponent>(afflictedTarget, 2000.0f, 2000.0f);
+    registry.emplace<HealthComponent>(afflictedTarget, 2000000.0f, 2000000.0f);
     registry.emplace<CombatStats>(afflictedTarget);
     auto &afflictedEffects = registry.emplace<ActiveEffectsComponent>(afflictedTarget);
     BuffEffect ignite;
@@ -1203,7 +1205,11 @@ TEST_CASE("[Integration] SkillSystem - BladeWard 412 is_solidified prevents swor
 }
 
 TEST_CASE("[Integration] SkillSystem - BladeWard 470 counter on Melee and Block") {
+  TestSetupScope scope;
   entt::registry registry;
+  // 与后续用例一致的夹具隔离：重置全局 Hook/单例，避免跨用例污染导致偶发失败。
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
 
   // Melee hit triggers counter
   {

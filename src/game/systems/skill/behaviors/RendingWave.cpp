@@ -152,7 +152,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
     if (consumedIntent > 0) {
       const float areaPct = mech.GetFloat(kSkillId, RendingWaveNodes::IntentBurst, "area_pct_per_intent", 8.0f) / 100.0f;
-      const float critPct = mech.GetFloat(kSkillId, RendingWaveNodes::IntentBurst, "crit_pct_per_intent", 3.0f);
+      const float critPct = mech.GetFloat(kSkillId, RendingWaveNodes::IntentBurst, "crit_pct_per_intent", 3.0f) / 100.0f;
       baseRadius *= (1.0f + areaPct * static_cast<float>(consumedIntent));
       extraCritChance += critPct * static_cast<float>(consumedIntent);
     }
@@ -218,7 +218,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       proj.payload_context = {
         .base_damage_min = stats->min_weapon_damage,
         .base_damage_max = stats->max_weapon_damage,
-        .crit_chance = (stats->crit_chance + extraCritChance) / 100.0f,
+        .crit_chance = stats->crit_chance + extraCritChance,
         .crit_multiplier = stats->crit_damage,
         // more_damage 须含玩家全局乘区 damage_multipliers[0] (与 SkillSystem 标准路径一致)，
         // 否则轨道伤害丢失全局增伤
@@ -341,7 +341,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       proj.payload_context = {
         .base_damage_min = stats->min_weapon_damage,
         .base_damage_max = stats->max_weapon_damage,
-        .crit_chance = (stats->crit_chance + extraCritChance) / 100.0f,
+        .crit_chance = stats->crit_chance + extraCritChance,
         .crit_multiplier = stats->crit_damage,
         // more_damage 须含玩家全局乘区 (与 SkillSystem 标准路径一致)，
         // 叠加节点 more (253 湮灭波等) 与局部效力系数，否则波刃伤害丢失全局增伤
@@ -441,7 +441,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       spProj.payload_context = {
         .base_damage_min = stats->min_weapon_damage,
         .base_damage_max = stats->max_weapon_damage,
-        .crit_chance = stats->crit_chance / 100.0f,
+        .crit_chance = stats->crit_chance,
         .crit_multiplier = stats->crit_damage,
         // 灵剑伤害同样并入玩家全局乘区，避免 215 伴飞攻击丢失全局增伤
         .more_damage = stats->damage_multipliers[0] * moreDamageMult * pursuitEff,
@@ -607,6 +607,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             DamagePool pool;
             pool.Add(Tag::Cold, baseDmg * shatterPct);
             DamageRequest req;
+            req.origin = DamageOrigin::SecondaryProc;
             req.attacker = actualAttacker;
             req.defender = enemyEnt;
             req.skill_id = kSkillId;
@@ -676,6 +677,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             DamagePool pool;
             pool.Add(Tag::Lightning, baseDmg * chainDmgPct);
             DamageRequest req;
+            req.origin = DamageOrigin::SecondaryProc;
             req.attacker = actualAttacker;
             req.defender = enemyEnt;
             req.skill_id = kSkillId;

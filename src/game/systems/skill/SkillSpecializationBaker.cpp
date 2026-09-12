@@ -242,7 +242,8 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - 0.15f * static_cast<float>(points));
     } else if (node_id == 102) {
       // 剑心洞明：基础暴击率增加 2%...10% (max 5)
-      del.bonus_crit += 2.0f * static_cast<float>(points);
+      // bonus_crit 统一为归一化 0..1（与 payload/CombatStats 口径一致）
+      del.bonus_crit += 0.02f * static_cast<float>(points);
     } else if (node_id == 103) {
       // 流云劲：伤害提升 10%...40% (max 4)
       out_profile.more_damage_mult *= (1.0f + 0.10f * static_cast<float>(points));
@@ -266,7 +267,8 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       del.feature_flags |= 4; // 疾风 / 御剑步
     } else if (node_id == 114) {
       // 御风而行：处于御剑步期间近战暴击 +8%...24% (条件生效, 运行时检查剑步状态)
-      out_profile.riding_wind_bonus_crit += 8.0f * static_cast<float>(points);
+      out_profile.riding_wind_bonus_crit +=
+          0.08f * static_cast<float>(points);
     } else if (node_id == 115) {
       // 无止境：击杀几率回复 1 充能 (max 3)
       del.feature_flags |= 16;
@@ -296,7 +298,7 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       out_profile.effective_cooldown = 8.0f;
       out_profile.effective_mana_cost *= 2.0f;
       out_profile.more_damage_mult *= 2.0f;
-      del.bonus_crit += 100.0f;
+      del.bonus_crit += 1.0f; // 必暴（归一化 1.0 = 100%）
     } else if (node_id == 155) {
       // 斩断因果：强化版击杀几率重置 CD 并回剑意 (max 3)
       del.feature_flags |= 128;
@@ -615,10 +617,11 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 553) { // 剑意回流: 击杀/连击回剑意
       del.feature_flags |= 262144;
     } else if (node_id == 554) { // 意气爆发: 满剑意消耗->100%暴击
-      del.bonus_crit = mech.GetFloat(5, 554, "crit_chance_bonus", 100.0f);
+      del.bonus_crit =
+          mech.GetFloat(5, 554, "crit_chance_bonus", 100.0f) * 0.01f;
       del.feature_flags |= 524288;
-    } else if (node_id == 555) { // 意念合一: 暴伤+20..80%
-      del.bonus_crit_damage += mech.GetFloat(5, 555, "crit_damage_pct_per_point", 0.20f) * static_cast<float>(points) * 100.0f;
+    } else if (node_id == 555) { // 意念合一: 暴伤+20..80%（分数制，直接累加到暴伤倍率）
+      del.bonus_crit_damage += mech.GetFloat(5, 555, "crit_damage_pct_per_point", 0.20f) * static_cast<float>(points);
       del.feature_flags |= 1048576;
     } else if (node_id == 570) { // 天火流星: 火焰转质 / 低频高伤
       auto conv = skills::ResolveElementalConversion(node_id, points);

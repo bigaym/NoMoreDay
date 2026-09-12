@@ -237,6 +237,7 @@ void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
     DamagePool pool;
     pool.Add(Tag::Physical, baseDamage);
     DamageRequest request;
+    request.origin = DamageOrigin::SecondaryProc;
     request.attacker = summon;
     request.defender = target;
     request.skill_id = summonComp->skill_id;

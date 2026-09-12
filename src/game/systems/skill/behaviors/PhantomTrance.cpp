@@ -319,7 +319,7 @@ void FireSpiralSwords(entt::registry &registry, entt::entity owner,
       proj.payload_context = {
           .base_damage_min = damage,
           .base_damage_max = damage,
-          .crit_chance = stats->crit_chance / 100.0f,
+          .crit_chance = stats->crit_chance,
           .crit_multiplier = stats->crit_damage,
           .more_damage = 1.0f,
           .effective_tags = Tag::Physical,

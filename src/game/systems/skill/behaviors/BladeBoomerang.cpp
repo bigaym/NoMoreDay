@@ -135,9 +135,9 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     }
 
     // 802 锋锐的暴击率走技能域属性修饰符，弹体快照必须显式读取技能域暴击
+    // GetStatWithTags(CritChance) 与 CombatStats/payload 统一为分数制 [0,1]
     float critChance = StatsSystem::GetStatWithTags(registry, owner, StatType::CritChance,
-                                                    effectiveTags, kSkillId, owner) /
-                       100.0f;
+                                                    effectiveTags, kSkillId, owner);
     if (critChance <= 0.0f) {
       // CombatStats::crit_chance 本身即归一化小数，仅在技能域统计不可用时回退
       critChance = stats->crit_chance;

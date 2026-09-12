@@ -1048,6 +1048,7 @@ void SkillSystem::InitHooks() {
           DamagePool pool;
           pool.Add(Tag::Lightning, base_damage * chain_pct);
           DamageRequest chain_request;
+          chain_request.origin = DamageOrigin::SecondaryProc;
           chain_request.attacker = evt.source;
           chain_request.defender = evt.target;
           chain_request.skill_id = skills::PhantomTrance::kSkillId;

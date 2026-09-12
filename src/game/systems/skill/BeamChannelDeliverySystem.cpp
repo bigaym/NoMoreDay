@@ -282,7 +282,8 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
     float c = stats ? stats->crit_chance : 0.0f;
     if (profile) c += profile->delivery.bonus_crit;
     if (has773 && isLightning && HasAilment(registry, victim, AilmentType::Shock)) {
-      c += mech.GetFloat(7u, 773u, "shock_crit_pct_per_point", 0.05f) * 100.0f *
+      // 统一分数制：mech 值本身即每点小数暴击率
+      c += mech.GetFloat(7u, 773u, "shock_crit_pct_per_point", 0.05f) *
            static_cast<float>(pts773);
     }
     return c;
@@ -375,7 +376,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
     DamagePayloadContext ctx{};
     ctx.base_damage_min = hitBaseDamage;
     ctx.base_damage_max = hitBaseDamage;
-    ctx.crit_chance = critChanceFor(victim) / 100.0f; // payload 约定归一化 [0,1]
+    ctx.crit_chance = critChanceFor(victim); // 统一分数制 [0,1]
     ctx.crit_multiplier = critMultFor(victim, centerHit);
     ctx.increased_damage = 0.0f;
     ctx.more_damage = computeMore(victim, isolated);
@@ -683,7 +684,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
         DamagePayloadContext ctx{};
         ctx.base_damage_min = baseDamage;
         ctx.base_damage_max = baseDamage;
-        ctx.crit_chance = (stats ? stats->crit_chance : 0.0f) / 100.0f;
+        ctx.crit_chance = stats ? stats->crit_chance : 0.0f;
         ctx.crit_multiplier = stats ? stats->crit_damage : 1.5f;
         // 冰片按 shard_damage_pct 缩放；更多伤取技能总 more
         ctx.more_damage = shardPct * (profile ? profile->more_damage_mult : 1.0f);
@@ -939,6 +940,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         DamagePool pool;
         pool.Add(Tag::Physical, baseDmg * giantSwordDamageMult); // 800% 物理伤害
         DamageRequest req;
+        req.origin = DamageOrigin::SecondaryProc;
         req.attacker = ent;
         req.defender = e;
         req.skill_id = 5u;
@@ -1216,7 +1218,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
             DamagePayloadContext ctx{};
             ctx.base_damage_min = stats->min_weapon_damage;
             ctx.base_damage_max = stats->max_weapon_damage;
-            ctx.crit_chance = (stats->crit_chance + bonus_crit) / 100.0f;
+            ctx.crit_chance = stats->crit_chance + bonus_crit;
             ctx.crit_multiplier = stats->crit_damage + bonus_crit_dmg;
             ctx.increased_damage = 0.0f;
             ctx.more_damage = 0.40f * beam.bonus_damage_mult; // 40% 基础物理伤害
@@ -1470,7 +1472,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
             DamagePayloadContext ctx{};
             ctx.base_damage_min = stats->min_weapon_damage;
             ctx.base_damage_max = stats->max_weapon_damage;
-            ctx.crit_chance = (stats->crit_chance + chan.bonus_crit_chance) / 100.0f; // payload crit_chance 归一化（统一单位）
+            ctx.crit_chance = stats->crit_chance + chan.bonus_crit_chance; // 统一分数制
             ctx.crit_multiplier = stats->crit_damage;
             ctx.increased_damage = 0.0f;
             ctx.more_damage = 0.35f * chan.bonus_damage_mult;

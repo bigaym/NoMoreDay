@@ -347,7 +347,8 @@ TEST_CASE("[Unit] MonsterAffix - Void on-hit behavior-op path applies bonus once
   const float expectedBonus =
       (std::max)(40.0f * MonsterAffixRegistry::Params::VOID_ON_HIT_BONUS_RATIO,
                  MonsterAffixRegistry::Params::VOID_ON_HIT_MIN_BONUS_DAMAGE);
-  CHECK(hp.current == doctest::Approx(100.0f - (expectedBonus * 1.05f)));
+  // 删除旧桩后按完整管线结算，虚空反伤只按参数结算一次，不再叠加 5% 合成系数。
+  CHECK(hp.current == doctest::Approx(100.0f - expectedBonus));
 }
 
 TEST_CASE("[Unit] MonsterAffix - Teleporter update behavior-op path still starts blink") {
@@ -639,8 +640,8 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor Damage Reduction") {
   auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool,
                                           Tag::Hit);
 
-  // Candidate-only runtime currently resolves this path to stub output.
-  CHECK(result.total_damage == doctest::Approx(105.0f));
+  // 删除 CandidateOnly 桩后走真实管线：超出阈值距离时抑制器提供 90% 减伤。
+  CHECK(result.total_damage == doctest::Approx(10.0f));
 
   // Move closer (within 300px)
   registry.replace<Position>(attacker, 200.0f, 200.0f); // Distance = 141px
@@ -648,7 +649,8 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor Damage Reduction") {
   result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool,
                                      Tag::Hit);
 
-  CHECK(result.total_damage == doctest::Approx(105.0f));
+  // 进入阈值内不再触发抑制减伤，保持基础 100 点。
+  CHECK(result.total_damage == doctest::Approx(100.0f));
 }
 
 TEST_CASE("[Unit] MonsterAffix - Suppressor update behavior-op path initializes suppressor component") {
@@ -680,7 +682,8 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor update behavior-op path initializes 
 
   const auto result =
       DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Hit);
-  CHECK(result.total_damage == doctest::Approx(105.0f));
+  // 抑制器在超出阈值距离时施加 90% 减伤：100 × 0.1 = 10。
+  CHECK(result.total_damage == doctest::Approx(10.0f));
 }
 
 TEST_CASE("[Unit] MonsterAffix - Avenger on-death behavior-op path grants nearby stack") {
@@ -781,7 +784,8 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor op-path update and damage reduction 
   const auto result =
       DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Hit);
 
-  CHECK(result.total_damage == doctest::Approx(105.0f));
+  // 抑制器在超出阈值距离时施加 90% 减伤：100 × 0.1 = 10。
+  CHECK(result.total_damage == doctest::Approx(10.0f));
 }
 
 TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and link-group damage apply exactly once") {
