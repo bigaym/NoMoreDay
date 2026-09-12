@@ -325,6 +325,7 @@ void ApplyMeteorCoreSlow(entt::registry &registry, const entt::entity target,
       std::string(BuffIdToString(BuffId::HeavenlySwordMeteorCore));
   debuff.name = "Heavenly Sword Meteor Core";
   debuff.type = BuffType::SpeedDown;
+  debuff.kind = BuffKind::Slow;
   debuff.duration = 2.0f;
   debuff.remaining = 2.0f;
   debuff.is_debuff = true;

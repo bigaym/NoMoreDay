@@ -541,23 +541,12 @@ void StatsSystem::update(entt::registry &registry) {
 }
 
 void StatsSystem::UpdateBuffs(entt::registry &registry, float dt) {
+  // 本函数只负责状态特效的视觉表现；ActiveEffectsComponent 的生命周期衰减
+  // （含 988 绝影形态御剑步减半与到期删除后的 StatsDirty 标记）统一由
+  // EffectSystem::update 承担，避免同一帧内对同一效果重复扣减 dt。
   auto view = registry.view<ActiveEffectsComponent>();
   for (auto entity : view) {
     auto &effects = view.get<ActiveEffectsComponent>(entity);
-    size_t before = effects.effects.size();
-
-    // 988 御剑化影：绝影形态内御剑步衰减减半。
-    float swordStepDrainMult = 1.0f;
-    if (const auto *trance = registry.try_get<PhantomTranceComponent>(entity)) {
-      if (trance->remaining > 0.0f) {
-        swordStepDrainMult = trance->params.sword_step_drain_mult;
-      }
-    }
-    effects.Update(dt, swordStepDrainMult);
-
-    if (effects.effects.size() != before) {
-      registry.get_or_emplace<StatsDirty>(entity);
-    }
 
     // Visuals for Status Effects
     if (registry.all_of<Position>(entity)) {

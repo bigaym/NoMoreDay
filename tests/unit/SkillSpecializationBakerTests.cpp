@@ -1393,5 +1393,69 @@ TEST_CASE("[Unit] FlowingThrust - 175 Residual Elements spread respects 1s ICD")
   CHECK(bIgnited);
 }
 
+// F7 回归：传染减速与 172 直击减速共用 id "FrostSlow"，刷新时 AddOrRefresh 会
+// 用新效果的 type/kind 覆盖旧值；若传染创建点漏写 type=SpeedDown，会把目标身上
+// 共享的减速清成 type=None，导致 275 扩散/835 净化/UI 等 type 消费方失效。
+TEST_CASE("[Unit] FlowingThrust - 175 spread slow keeps SpeedDown type on refresh") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+  (void)systems::AilmentRegistry::Get().EnsureLoaded();
+
+  entt::registry registry;
+  const auto player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  auto &pStats = registry.emplace<CombatStats>(player);
+  pStats.min_weapon_damage = 30.0f;
+  pStats.max_weapon_damage = 40.0f;
+  pStats.crit_chance = 0.0f;
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0] = SkillSlot{.id = 1, .cooldown = 0.0f, .current_charges = 2};
+  active.specialized_slots[0].skill_id = 1;
+  active.specialized_slots[0].allocated_points[175] = 5; // 传染几率 20%×5=100%
+
+  // 主目标携带寒冷减速（172 已施加的 FrostSlow：type=SpeedDown / kind=Slow）
+  const auto victim = registry.create();
+  registry.emplace<EnemyTag>(victim);
+  registry.emplace<Position>(victim, 0.0f, 0.0f);
+  registry.emplace<HealthComponent>(victim, 1000.0f, 1000.0f);
+  registry.emplace<CombatStats>(victim);
+  auto &vfx = registry.emplace<ActiveEffectsComponent>(victim);
+  vfx.AddOrRefresh(BuffEffect{.id = "FrostSlow",
+                              .name = "Frost Slow",
+                              .type = BuffType::SpeedDown,
+                              .kind = BuffKind::Slow,
+                              .duration = 2.5f,
+                              .remaining = 2.5f,
+                              .is_debuff = true});
+
+  // 附近目标已带同一 FrostSlow，传染刷新后其 type/kind 必须保持不变
+  const auto targetA = registry.create();
+  registry.emplace<EnemyTag>(targetA);
+  registry.emplace<Position>(targetA, 50.0f, 0.0f);
+  registry.emplace<HealthComponent>(targetA, 1000.0f, 1000.0f);
+  registry.emplace<CombatStats>(targetA);
+  auto &afx = registry.emplace<ActiveEffectsComponent>(targetA);
+  afx.AddOrRefresh(BuffEffect{.id = "FrostSlow",
+                              .name = "Frost Slow",
+                              .type = BuffType::SpeedDown,
+                              .kind = BuffKind::Slow,
+                              .duration = 2.5f,
+                              .remaining = 2.5f,
+                              .is_debuff = true});
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(1);
+  REQUIRE(hitFunc != nullptr);
+  hitFunc(registry, player, victim, Tag::Cold, false);
+
+  auto *fxA = registry.try_get<ActiveEffectsComponent>(targetA);
+  REQUIRE(fxA != nullptr);
+  const BuffEffect *spread = fxA->GetByKind(BuffKind::Slow);
+  REQUIRE(spread != nullptr);
+  CHECK(spread->id == "FrostSlow");
+  CHECK(spread->type == BuffType::SpeedDown);
+  CHECK(spread->kind == BuffKind::Slow);
+}
+
 } // namespace NoMoreDay
 

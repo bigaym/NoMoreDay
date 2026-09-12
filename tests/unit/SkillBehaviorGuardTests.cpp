@@ -320,6 +320,41 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
                                                             10, 1021));
   }
 
+  SUBCASE(
+      "Non-transmuter keystone exclusion only applies the active keystone") {
+    // 覆盖 GetEffectiveSkillTags 中 role != Transmuter 的互斥过滤分支
+    // (:2437-2443)：技能2 的 213/214 同属 exclusion group 1，直接注入两者
+    // 以模拟异常/历史存档，只有节点号最小的 213 应生效。
+    auto player = registry.create();
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 2;
+    active.specialized_slots[0].allocated_points[213] = 1;
+    active.specialized_slots[0].allocated_points[214] = 1;
+
+    auto *tree =
+        const_cast<SkillTreeDefinition *>(SkillRegistry::Get().GetSkillTree(2));
+    REQUIRE(tree != nullptr);
+    auto it213 = tree->nodes.find(213);
+    auto it214 = tree->nodes.find(214);
+    REQUIRE(it213 != tree->nodes.end());
+    REQUIRE(it214 != tree->nodes.end());
+
+    const Tag old213 = it213->second.add_tags;
+    const Tag old214 = it214->second.add_tags;
+    it213->second.add_tags = Tag::Fire;
+    it214->second.add_tags = Tag::Cold;
+
+    const Tag tags = SkillSystem::GetEffectiveSkillTags(registry, player, 2);
+    CHECK(HasTag(tags, Tag::Fire));
+    CHECK_FALSE(HasTag(tags, Tag::Cold));
+    CHECK(SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, 2, 214));
+    CHECK_FALSE(
+        SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, 2, 213));
+
+    it213->second.add_tags = old213;
+    it214->second.add_tags = old214;
+  }
+
   SUBCASE("Effective tags apply only active transmuter tags") {
     auto player = registry.create();
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
@@ -1779,6 +1814,13 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
     REQUIRE(bloodSeaBuff != nullptr);
     CHECK(bloodSeaBuff->duration == doctest::Approx(initialBloodSeaDuration));
     CHECK(bloodSeaBuff->remaining < bloodSeaBuff->duration);
+
+    // T1.4 单次衰减语义：离开血海场后撕裂 debuff 只应扣减本帧一次 (0.21)，
+    // 因此 0.25 的剩余时间必须存活为 0.04；若同帧被双重衰减 (0.42) 则会被
+    // 提前清除。该断言用于锁定 ActiveEffects 生命周期只有唯一衰减 owner。
+    debuff = effects.Get(BuffId::BloodSeaMiasma);
+    REQUIRE(debuff != nullptr);
+    CHECK(debuff->remaining == doctest::Approx(0.04f));
 
     registry.get<Position>(target) = Position{18.0f, 0.0f};
     CombatEventDispatcher::Dispatch(

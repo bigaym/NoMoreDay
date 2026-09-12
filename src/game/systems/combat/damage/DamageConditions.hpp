@@ -47,13 +47,20 @@ struct ConditionalDamageOp {
   BuffKind stack_source = BuffKind::None;
 };
 
-// BuffKind 数量上界：None/QiBrand/FateMark/FreeCast。
-constexpr uint32_t kBuffKindCount = 4;
+// BuffKind 数量上界：None/QiBrand/FateMark/FreeCast + 元素异常类别
+// Bleed/Ignite/Chill/Freeze/Slow。必须与 BuffKind 枚举同步，否则按 kind
+// 索引的叠层数组会越界或无谓丢弃。
+constexpr uint32_t kBuffKindCount = 9;
+
+// 编译期同步保护：新增 BuffKind 值时必须同步 kBuffKindCount，
+// 否则按 kind 索引的 stacks 数组会越界或漏检。
+static_assert(static_cast<uint32_t>(BuffKind::Slow) + 1 == kBuffKindCount,
+              "kBuffKindCount must stay in sync with BuffKind");
 
 // 守方条件求值结果：位掩码 + 按 BuffKind 索引的叠层数 (热路径无分配)。
 struct TargetConditionState {
   uint32_t mask = 0;
-  int stacks[kBuffKindCount] = {0, 0, 0, 0};
+  int stacks[kBuffKindCount] = {};
 };
 
 inline int StackCountFor(const TargetConditionState &state, BuffKind kind) {

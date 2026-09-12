@@ -825,4 +825,39 @@ TEST_CASE("[Functional] MindBlade - 730 次级撕裂以自身中心判定 775") 
   CHECK(suppress->resist_cap_element == Tag::Cold);
 }
 
+// 用例17：775 Lightning×730 组合 — 772 提供闪电元素时，730 次级撕裂仍以自身 secPos
+//         为中心判定并挂 Lightning 抗性上限压制（补齐 skill7 复核 §5-5 未覆盖组合）。
+// 对比点：既有用例 16 只覆盖 770(Cold)×730；本用例验证元素口径随转质切换为闪电。
+TEST_CASE("[Functional] MindBlade - 772 Lightning × 730 次级撕裂挂 775 压制") {
+  TestSetupScope setup;
+  EnsureSkillMechanics();
+
+  entt::registry registry;
+  systems::SpatialHashGrid grid(1024, 1024, 64.0f);
+  // 730 生成次级撕裂，772 提供 Lightning 满足 775 元素门控，775 施加抗性上限压制；
+  // 不点 770/711，避免冰转质与蓄力引爆分支干扰闪电口径的独立验证。
+  auto player = CreateTestPlayer(registry, {{730, 1}, {772, 1}, {775, 4}});
+
+  // 唯一敌人：位于 700 候选范围内，但距主中心远，只能成为 730 次级撕裂目标，
+  // 从而保证次级中心取 secPos（而非主 cutPos）且元素判定为 Lightning。
+  auto enemy = CreateTestEnemy(registry, 100.0f, 200.0f, 5000.0f);
+
+  CastMindBlade(registry, player, {350.0f, 0.0f});
+  auto *beam = registry.try_get<BeamChannelComponent>(player);
+  REQUIRE(beam != nullptr);
+  beam->tick_timer = 0.0f;
+
+  const float hp0 = HpOf(registry, enemy);
+  StepBeam(registry, grid, player, 0.05f);
+
+  // 次级撕裂确实命中该敌（否则压制断言无区分力）
+  CHECK(HpOf(registry, enemy) < hp0);
+
+  // 775 压制按 Lightning 元素记录，压制值 = 0.03 * 4
+  const BuffEffect *suppress = FindEffect(registry, enemy, "Skill7MentalSuppression");
+  REQUIRE(suppress != nullptr);
+  CHECK(suppress->resist_cap_element == Tag::Lightning);
+  CHECK(suppress->resist_cap_suppression == doctest::Approx(0.12f));
+}
+
 } // namespace NoMoreDay

@@ -338,7 +338,7 @@ rg -n '"skill_id": 2' tests/fixtures/skill_specialization_keynodes.json
 
 - **设计侧裁决清单**：①M-A 251 HeavyMomentum 绑定（倾向保留：GDD 命名对应 + 反堆叠测试依赖）；②M-B 4 Keystone 全互斥 group1 与 GDD §3.0/§3.2 矛盾；③M6 skill_spec_modifiers.json HeavyMomentum_Node213 语义；④251 满层重置流云刺 CD 的 GDD 出处补记。
 - **技能1 后续项**（超范围）：FlowingThrust.cpp:378-384 仍存 `b.id.find(...)` 字符串比较（§7.2 同款问题），建议后续按 RendingWave 模式整改。
-- **记录项**：分裂/爆炸子投射物整结构克隆会继承 ignore_resist（253+211 组合下子剑气无视抗性，语义合理待设计确认）；SkillSystem.cpp:1787 crit_chance 疑似未归一化（未验证，仅记录）；技能3 373/技能6 633 的 trigger_skill_id=2 为既有数据未核实。
+- **记录项**：分裂/爆炸子投射物整结构克隆会继承 ignore_resist（253+211 组合下子剑气无视抗性，语义合理待设计确认）；SkillSystem.cpp:1787 crit_chance 疑似未归一化（未验证，仅记录）——**更正（2026-09-12，B1-18）：已核实 `crit_chance` 为 0..1 分数制，旧记录单位前提作废**：`Stats.hpp:115` 默认 0.05、`AttributePipeline.cpp:773-775` 写回时 /100，`DamagePipeline.cpp:1324-1327` 注释明示分数制且 `:1606`/`:1850` 直接比较，`SkillSystem` 三处直拷（`:1532`/`:1600`/`:2096`）均正确；技能3 373/技能6 633 的 trigger_skill_id=2 为既有数据未核实。
 
 ## 5. 最终结论
 

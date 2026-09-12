@@ -80,10 +80,27 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
   }
 
   SUBCASE("Skill 4 keystone/passive node contract is exact") {
-    // 契约 keystone_node_ids 精确集合 {412, 433, 434, 470}；413 破釜沉舟为被动
+    // 契约 keystone 精确集合 {412, 433, 434, 470}；413 破釜沉舟为被动。
+    // 运行结构 SkillContract 无 keystone_node_ids 字段，故按树内角色集合断言：
+    // 既校验成员角色，也校验 Keystone 总数，拒绝未来多出的 Keystone 蒙混过关。
     const auto *contract = registry.GetSkillContract(4);
     REQUIRE(contract != nullptr);
+
+    const auto *tree = registry.GetSkillTree(4);
+    REQUIRE(tree != nullptr);
+
     const std::array<uint32_t, 4> expected_keystones = {412, 433, 434, 470};
+    int keystone_count = 0;
+    for (const auto &[node_id, _] : tree->nodes) {
+      const auto *node = registry.GetNodeContract(4, node_id);
+      if (!node) {
+        continue;
+      }
+      if (node->role == SpecNodeRole::Keystone) {
+        ++keystone_count;
+      }
+    }
+    CHECK(keystone_count == static_cast<int>(expected_keystones.size()));
     for (const uint32_t id : expected_keystones) {
       CAPTURE(id);
       const auto *node = registry.GetNodeContract(4, id);

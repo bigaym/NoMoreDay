@@ -445,6 +445,7 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity, SwordArra
           slow.id = std::string(BuffIdToString(BuffId::SwordArrayConnectionSlow));
           slow.name = "Connection Slow";
           slow.type = BuffType::SpeedDown;
+          slow.kind = BuffKind::Slow;
           slow.duration = 1.0f;
           slow.remaining = 1.0f;
           slow.is_debuff = true;

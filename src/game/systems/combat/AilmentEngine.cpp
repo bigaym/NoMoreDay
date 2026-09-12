@@ -209,6 +209,26 @@ std::vector<size_t> CollectAilmentIndices(const ActiveEffectsComponent &activeEf
   return indices;
 }
 
+// 异常类别到数值类别 (BuffKind) 的映射：技能1 破阵流按元素异常状态触发衍生
+// 效果，热路径需要整数比较。AilmentType 中未被战斗热路径消费的类别
+// (Shock/Poison/Stun/Blind) 映射为 None。
+BuffKind BuffKindFromAilment(AilmentType ailment) {
+  switch (ailment) {
+  case AilmentType::Bleed:
+    return BuffKind::Bleed;
+  case AilmentType::Ignite:
+    return BuffKind::Ignite;
+  case AilmentType::Chill:
+    return BuffKind::Chill;
+  case AilmentType::Freeze:
+    return BuffKind::Freeze;
+  case AilmentType::Slow:
+    return BuffKind::Slow;
+  default:
+    return BuffKind::None;
+  }
+}
+
 BuffEffect BuildAilmentEffect(const AilmentContract &contract,
                               const AilmentApplyRequest &request,
                               float duration, float magnitude, uint64_t instance) {
@@ -222,6 +242,7 @@ BuffEffect BuildAilmentEffect(const AilmentContract &contract,
   effect.name = std::string(AilmentTypeToString(request.ailment));
   effect.description = "Managed ailment";
   effect.type = contract.legacy_buff_type;
+  effect.kind = BuffKindFromAilment(request.ailment);
   effect.duration = duration;
   effect.remaining = duration;
   effect.stacks = std::max<int>(1, request.stacks);

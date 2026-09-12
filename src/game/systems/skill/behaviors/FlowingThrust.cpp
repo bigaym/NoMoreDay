@@ -372,21 +372,17 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     }
 
     // 3. 破阵流流血与护甲击碎
+    // 按 BuffKind 整数比较判定元素异常状态：创建点均写入 kind，id 字符串仅
+    // 保留给序列化与日志边界，热路径不再做子串匹配。
     bool victimHasBleed = false;
     bool victimHasFire = false;
     bool victimHasCold = false;
     if (auto *effects = reg.try_get<ActiveEffectsComponent>(victim)) {
-      for (const auto &b : effects->effects) {
-        if (b.id.find("Bleed") != std::string::npos || b.type == BuffType::Bleed) {
-          victimHasBleed = true;
-        }
-        if (b.type == BuffType::Burn || b.id.find("Ignite") != std::string::npos) {
-          victimHasFire = true;
-        }
-        if (b.type == BuffType::Freeze || b.type == BuffType::SpeedDown || b.id.find("Cold") != std::string::npos || b.id.find("Chill") != std::string::npos || b.id.find("Slow") != std::string::npos) {
-          victimHasCold = true;
-        }
-      }
+      victimHasBleed = effects->GetByKind(BuffKind::Bleed) != nullptr;
+      victimHasFire = effects->GetByKind(BuffKind::Ignite) != nullptr;
+      victimHasCold = effects->GetByKind(BuffKind::Chill) != nullptr ||
+                      effects->GetByKind(BuffKind::Freeze) != nullptr ||
+                      effects->GetByKind(BuffKind::Slow) != nullptr;
     }
 
     // 814 拔血流云 (技能8 协同): 流云刺命中处于"御剑·回旋悬停切割区"内的
@@ -542,6 +538,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         .id = "FrostSlow",
         .name = "Frost Slow",
         .type = BuffType::SpeedDown,
+        .kind = BuffKind::Slow,
         .duration = slowDuration,
         .remaining = slowDuration,
         .is_debuff = true
@@ -565,6 +562,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           .id = "FrostChill",
           .name = "Frost Chill",
           .type = BuffType::SpeedDown,
+          .kind = BuffKind::Chill,
           .duration = chillDuration,
           .remaining = chillDuration,
           .stacks = 1,
@@ -584,6 +582,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             .id = "Frozen",
             .name = "Frozen",
             .type = BuffType::Freeze,
+            .kind = BuffKind::Freeze,
             .duration = freezeDuration,
             .remaining = freezeDuration,
             .is_debuff = true
@@ -741,6 +740,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                   .id = "FrostSlow",
                   .name = "Frost Slow",
                   .type = BuffType::SpeedDown,
+                  .kind = BuffKind::Slow,
                   .duration = spreadSlowDur,
                   .remaining = spreadSlowDur,
                   .is_debuff = true

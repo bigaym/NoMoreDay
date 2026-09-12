@@ -1,4 +1,5 @@
 #include "TestCommon.hpp"
+#include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Projectile.hpp"
@@ -245,6 +246,83 @@ TEST_CASE("[Unit] DamagePipeline P1 - Bare Calculate drops counter") {
         doctest::Approx(100.0f));
   CHECK(registry.get<HealthComponent>(attacker).current ==
         doctest::Approx(100.0f));
+}
+
+// T1.2/T3.3 回归：990 冰增幅在单目标 Calculate 与生产批量链路
+// (ResolveDamageBatch -> CalculateBatchResults -> 逐目标 Calculate) 上口径一致，
+// 且仅冻结目标享受增伤，避免批量路径与单目标路径出现口径分叉。
+TEST_CASE(
+    "[Unit] DamagePipeline P1 - Frost amp consistent across single and batch") {
+  LoggerScope scope;
+  entt::registry registry;
+
+  // 攻击方：冰霜附魔窗口 + 35% 冰增幅。
+  auto attacker = registry.create();
+  registry.emplace<Position>(attacker, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(attacker).damage_multipliers[0] = 1.0f;
+  auto &trance = registry.emplace<PhantomTranceComponent>(attacker);
+  trance.enchant_tag = Tag::Cold;
+  trance.enchant_remaining = 1.0f;
+  trance.params.frost_amp_pct = 0.35f;
+
+  const auto make_defender = [&](float x, bool frozen) {
+    auto defender = registry.create();
+    registry.emplace<Position>(defender, x, 0.0f);
+    registry.emplace<HealthComponent>(defender, 1000.0f, 1000.0f);
+    registry.emplace<CombatStats>(defender);
+    auto &effects = registry.emplace<ActiveEffectsComponent>(defender);
+    if (frozen) {
+      BuffEffect freeze;
+      freeze.id = "Freeze";
+      freeze.type = BuffType::Freeze;
+      freeze.duration = 1.0f;
+      // must be > 0，否则 990 判定会跳过该效果。
+      freeze.remaining = 1.0f;
+      effects.effects.push_back(freeze);
+    }
+    return defender;
+  };
+
+  const auto frozen = make_defender(10.0f, true);
+  const auto normal = make_defender(20.0f, false);
+
+  RegisterTestResolutionHooks();
+
+  const auto make_request = [&](entt::entity defender) {
+    DamageRequest request;
+    request.attacker = attacker;
+    request.defender = defender;
+    request.skill_id = 0;
+    request.base_pool.Add(Tag::Physical, 120.0f);
+    request.additional_tags = Tag::Melee;
+    request.is_simulation = true;
+    return request;
+  };
+  const DamageRequest frozen_request = make_request(frozen);
+  const DamageRequest normal_request = make_request(normal);
+
+  const DamageResult frozen_single =
+      DamagePipeline::Calculate(registry, frozen_request);
+  const DamageResult normal_single =
+      DamagePipeline::Calculate(registry, normal_request);
+  const std::vector<DamageResult> frozen_batch =
+      ResolveDamageBatch(registry, frozen_request);
+  const std::vector<DamageResult> normal_batch =
+      ResolveDamageBatch(registry, normal_request);
+
+  // 生产批量链路必须逐目标返回真实结果，并与单目标 Calculate 完全一致。
+  REQUIRE(frozen_batch.size() == 1);
+  REQUIRE(normal_batch.size() == 1);
+  CHECK(frozen_batch.front().total_damage ==
+        doctest::Approx(frozen_single.total_damage));
+  CHECK(normal_batch.front().total_damage ==
+        doctest::Approx(normal_single.total_damage));
+
+  // 冻结目标吃 1.35 倍；若非冻结目标也被误增伤，比例将退回 1.0 而失败。
+  CHECK(frozen_single.total_damage ==
+        doctest::Approx(normal_single.total_damage * 1.35f));
+  CHECK(normal_single.total_damage > 0.0f);
+  CHECK(frozen_single.total_damage > normal_single.total_damage);
 }
 
 } // namespace NoMoreDay

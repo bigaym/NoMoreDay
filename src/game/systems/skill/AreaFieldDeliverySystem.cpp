@@ -256,6 +256,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
                 slow.id = std::string(BuffIdToString(BuffId::SwordArraySlow));
                 slow.name = "Sword Array Slow";
                 slow.type = BuffType::SpeedDown;
+                slow.kind = BuffKind::Slow;
                 slow.duration = (array->slow_duration > 0.0f) ? array->slow_duration : 2.0f;
                 slow.remaining = slow.duration;
                 slow.is_debuff = true;

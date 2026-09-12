@@ -380,6 +380,7 @@ void HazardSystem::ApplyChillDebuff(entt::registry &registry,
   chill.name = "冰冻减速";
   chill.description = "被冰霜减速";
   chill.type = BuffType::SpeedDown;
+  chill.kind = BuffKind::Chill;
   chill.is_debuff = true;
   chill.duration = duration;
   chill.remaining = duration;

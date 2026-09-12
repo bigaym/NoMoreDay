@@ -711,7 +711,7 @@
         "Projectile",
         "Attack",
         "Hit",
-        "sword_skill"
+        "SwordSkill"
       ],
       "base_damage": 25.0,
       "weapon_damage_mult": 1.5,
@@ -1453,7 +1453,7 @@
         "Spell",
         "Projectile",
         "Hit",
-        "sword_skill"
+        "SwordSkill"
       ],
       "base_damage": 15.0,
       "weapon_damage_mult": 0.5,
@@ -6346,7 +6346,7 @@
         "Attack",
         "Area",
         "Hit",
-        "sword_skill"
+        "SwordSkill"
       ],
       "base_damage": 90.0,
       "weapon_damage_mult": 1.8,

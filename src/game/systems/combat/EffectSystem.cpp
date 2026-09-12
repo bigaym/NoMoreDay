@@ -5,6 +5,7 @@
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/SkillDefs.hpp" // PhantomTranceComponent (988)
+#include "game/foundation/components/Stats.hpp"    // StatsDirty
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
@@ -70,6 +71,7 @@ void EffectSystem::update(entt::registry &registry, float dt) {
   
   for (auto entity : buffView) {
       auto& activeEffects = buffView.get<ActiveEffectsComponent>(entity);
+      const std::size_t before = activeEffects.effects.size();
       // 988 御剑化影：绝影形态内御剑步衰减减半。
       float swordStepDrainMult = 1.0f;
       if (const auto* trance = registry.try_get<PhantomTranceComponent>(entity)) {
@@ -78,6 +80,12 @@ void EffectSystem::update(entt::registry &registry, float dt) {
           }
       }
       activeEffects.Update(dt, swordStepDrainMult);
+      // 到期删除会改变生效集合，需标记 StatsDirty 触发属性重算。本函数是
+      // ActiveEffects 生命周期的唯一 owner（StatsSystem::UpdateBuffs 不再衰减），
+      // 因此由这里承担集合变化感知。
+      if (activeEffects.effects.size() != before) {
+          registry.get_or_emplace<StatsDirty>(entity);
+      }
       
       // 状态同步逻辑 (SyncStatusFlags)
       if (registry.any_of<PlayerTag>(entity)) {

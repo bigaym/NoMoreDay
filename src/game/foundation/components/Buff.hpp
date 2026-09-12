@@ -61,6 +61,14 @@ enum class BuffKind : uint16_t {
     QiBrand, // 剑气烙印 (技能2 节点250)：目标受暴击伤害加深
     FateMark, // 天降命印 (技能5 节点512)：目标受万剑归宗伤害增加
     FreeCast, // 免蓝施放 (技能8 节点834 御剑接踵)：下次施放来源技能不消耗法力
+    // 元素异常类别：技能1 破阵流按元素异常状态触发衍生效果，热路径需要
+    // 按业务类别查找，不能依赖 id 字符串子串匹配。新增值一律追加在末尾，
+    // 保持既有已存档 kind 数值稳定。
+    Bleed,  // 流血 (AilmentType::Bleed)
+    Ignite, // 点燃 (AilmentType::Ignite；legacy BuffType::Burn)
+    Chill,  // 冰缓 (AilmentType::Chill；legacy BuffType::SpeedDown)
+    Freeze, // 冰冻 (AilmentType::Freeze)
+    Slow,   // 减速 (AilmentType::Slow；legacy BuffType::SpeedDown)
 };
 
 struct BuffEffect {
@@ -185,6 +193,10 @@ struct ActiveEffectsComponent {
                 effect.name = new_effect.name;
                 effect.description = new_effect.description;
                 effect.modifiers = new_effect.modifiers;
+                // 刷新时同步数值类别与 legacy 类型：旧存档 buff 读入后 kind=None，
+                // 重施后必须升级为可被 GetByKind 命中的身份，否则元素状态检测漏检。
+                effect.type = new_effect.type;
+                effect.kind = new_effect.kind;
                 // 刷新时更新来源技能归属：同 id 效果通常由同一技能重施，取最新归属
                 effect.source_skill_id = new_effect.source_skill_id;
                 // Type E 抗性上限压制随刷新同步，避免重施后仍沿用旧的压制值/元素
