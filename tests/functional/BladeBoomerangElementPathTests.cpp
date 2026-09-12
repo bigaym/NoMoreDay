@@ -341,7 +341,7 @@ TEST_CASE("BladeBoomerangElementPath.Node872ArcFrequency [Functional]") {
   CHECK(FindEffect(registry, enemy, "ElementPathBurstStun") != nullptr);
 }
 
-// 用例8：伤害管道冒烟 — payload_context 空 base_pool 走旧结算路径且数值可观测，
+// 用例8：伤害管道冒烟 — payload_context 空 base_pool 按真实管线结算且数值可观测，
 //        同时确保战斗域伤害钩子被链接、注册（电弧用例依赖该注册）。
 TEST_CASE("BladeBoomerangElementPath.PipelineSmoke [Functional]") {
   TestSetupScope setup;

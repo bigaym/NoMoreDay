@@ -189,24 +189,6 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         TIMEOUT 900
     )
 
-    add_test(NAME nmd.tests.combat.parity.unit
-        COMMAND NoMoreDayTests --test-case=[Unit]*CombatCoreParityHarness*
-    )
-    set_tests_properties(nmd.tests.combat.parity.unit PROPERTIES
-        LABELS "unit;combat;parity;module-gate"
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        TIMEOUT 600
-    )
-
-    add_test(NAME nmd.tests.combat.perf.baseline
-        COMMAND NoMoreDayTests --test-case=[Performance]*CombatCorePerfBaseline*
-    )
-    set_tests_properties(nmd.tests.combat.perf.baseline PROPERTIES
-        LABELS "performance;combat;perf-baseline;module-gate"
-        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
-        TIMEOUT 900
-    )
-
     add_test(NAME nmd.tests.skill.unit
         COMMAND NoMoreDayTests --test-case=[Unit]*Skill*
     )

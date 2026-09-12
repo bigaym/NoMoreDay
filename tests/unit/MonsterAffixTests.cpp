@@ -640,7 +640,7 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor Damage Reduction") {
   auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool,
                                           Tag::Hit);
 
-  // 删除 CandidateOnly 桩后走真实管线：超出阈值距离时抑制器提供 90% 减伤。
+  // 超出阈值距离时抑制器提供 90% 减伤。
   CHECK(result.total_damage == doctest::Approx(10.0f));
 
   // Move closer (within 300px)

@@ -120,10 +120,9 @@ TEST_CASE("[Unit] DamagePipeline P3 - target condition mask bits") {
   CHECK((state.mask & ToMask(TargetCondition::HasQiBrand)) != 0);
   CHECK(damage::StackCountFor(state, BuffKind::FateMark) == 3);
   CHECK(damage::StackCountFor(state, BuffKind::QiBrand) == 2);
-  CHECK(damage::EvaluateTargetConditions(registry, target) == state.mask);
 
   // 无效实体必须返回全零，不崩溃。
-  CHECK(damage::EvaluateTargetConditions(registry, entt::null) == 0u);
+  CHECK(damage::EvaluateTargetConditionState(registry, entt::null).mask == 0u);
 }
 
 // P3-1：HP 阈值边界与 CombatStats 回退口径。
@@ -133,12 +132,12 @@ TEST_CASE("[Unit] DamagePipeline P3 - condition HP threshold boundary") {
 
   const auto exactly_eighty = registry.create();
   registry.emplace<HealthComponent>(exactly_eighty, 80.0f, 100.0f);
-  CHECK((damage::EvaluateTargetConditions(registry, exactly_eighty) &
+  CHECK((damage::EvaluateTargetConditionState(registry, exactly_eighty).mask &
          ToMask(TargetCondition::HpAbove80)) == 0u);
 
   const auto above_eighty = registry.create();
   registry.emplace<HealthComponent>(above_eighty, 81.0f, 100.0f);
-  CHECK((damage::EvaluateTargetConditions(registry, above_eighty) &
+  CHECK((damage::EvaluateTargetConditionState(registry, above_eighty).mask &
          ToMask(TargetCondition::HpAbove80)) != 0u);
 
   // 无 HealthComponent 时回退 CombatStats。
@@ -146,7 +145,7 @@ TEST_CASE("[Unit] DamagePipeline P3 - condition HP threshold boundary") {
   auto &stats = registry.emplace<CombatStats>(stats_only);
   stats.health = 90.0f;
   stats.max_health = 100.0f;
-  CHECK((damage::EvaluateTargetConditions(registry, stats_only) &
+  CHECK((damage::EvaluateTargetConditionState(registry, stats_only).mask &
          ToMask(TargetCondition::HpAbove80)) != 0u);
 }
 

@@ -30,7 +30,6 @@ Testing/
 # Python / AI
 __pycache__/
 *.pyc
-scripts/combat_v2/__pycache__/
 venv/
 .env
 

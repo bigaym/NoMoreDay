@@ -66,10 +66,6 @@ inline int StackCountFor(const TargetConditionState &state, BuffKind kind) {
 EvaluateTargetConditionState(const entt::registry &registry,
                              entt::entity target);
 
-// 便捷接口：仅返回位掩码。
-[[nodiscard]] uint32_t EvaluateTargetConditions(const entt::registry &registry,
-                                                entt::entity target);
-
 // 应用 More 阶段条件规则：返回乘算系数 (无匹配为 1.0)。
 [[nodiscard]] float
 ApplyConditionalMore(std::span<const ConditionalDamageOp> ops,

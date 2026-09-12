@@ -41,15 +41,6 @@ namespace NoMoreDay::Constants
       constexpr int BATCH_GRAIN_SIZE = 32;      // 并行处理伤害时的每批任务大小
     } // namespace Pipeline
 
-    namespace Conversion
-    {
-      // 转换语义为快照式单遍：无级联、与规则顺序无关、互转确定（设计 §D2）。
-      // 原 CONVERSION_ORDER / IsValidConversion 的单向限制已废除——它会把
-      // 火转冰、电转物等合法逆向转换误判为非法并丢弃。仅保留自转跳过（静默）
-      // 由收集方处理，此处不再提供方向性判定。
-      constexpr int MAX_CONVERSION_DEPTH = 3;
-    } // namespace Conversion
-
     namespace System
     {
       constexpr float DEFAULT_ATTACK_COOLDOWN = 1.0f;       // 默认攻击冷却时间
@@ -57,7 +48,6 @@ namespace NoMoreDay::Constants
       constexpr float DEFAULT_ATTACK_ARC = 120.0f;          // 默认近战攻击扇形角度
       constexpr float ATTACK_EFFECT_LIFETIME = 0.2f;        // 攻击视觉特效持续时间
       constexpr float SCREEN_SHAKE_THRESHOLD = 10000000.0f; // 触发屏幕震动的单次伤害阈值
-      constexpr float CRIT_DAMAGE_FALLBACK = 1.5f;          // 暴击伤害缺失时的回退值
       constexpr float DUAL_WIELD_AS_BONUS =
           15.0f;                                        // 双持武器时的额外攻击速度百分比加成
       constexpr float TWO_HANDED_DMG_BONUS = 1.25f;     // 双手武器的基础伤害乘区加成

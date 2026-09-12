@@ -63,18 +63,6 @@ static_assert(alignof(AttackerSnapshot) == 32,
 static_assert(std::is_trivially_copyable_v<AttackerSnapshot>,
               "AttackerSnapshot must stay trivially copyable (POD value copy)");
 
-// 守方紧凑快照：静态减伤模板 + 实时条件掩码。
-struct alignas(32) DefenseSnapshot {
-  std::array<float, 6> resistances = {0.0f};
-  float armor = 0.0f;
-  float dodge_chance = 0.0f;
-  float block_chance = 0.0f;
-  float block_multiplier = 1.0f;
-  float global_dr = 0.0f;
-  int cached_area_level = 1;
-  uint32_t condition_mask = 0; // TargetCondition 位掩码
-};
-
 // 实体快照组件：绑定投射物/DoT 生命周期，命中时直接读取，替代全局 LRU 缓存。
 // 纯 POD 值：caster 实体销毁后快照仍可独立结算。
 struct DamageSnapshotComponent {

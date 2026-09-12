@@ -116,7 +116,7 @@ TEST_CASE("[Unit] DamageConversionTypes - reverse direction conversion allowed")
   CHECK(forward.values[kPoolCold] + forward.values[kPoolFire] ==
         doctest::Approx(100.0f));
 
-  // 逆向 Fire -> Cold 100%（旧 IsValidConversion 会丢弃该规则）。
+  // 逆向 Fire -> Cold 100%：转换不再受单向限制。
   std::array<float, kElementCount> fire_values{};
   std::array<Tag, kElementCount> fire_tags{};
   fire_values[kPoolFire] = 100.0f;

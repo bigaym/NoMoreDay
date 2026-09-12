@@ -72,11 +72,6 @@ EvaluateTargetConditionState(const entt::registry &registry,
   return state;
 }
 
-uint32_t EvaluateTargetConditions(const entt::registry &registry,
-                                  entt::entity target) {
-  return EvaluateTargetConditionState(registry, target).mask;
-}
-
 namespace {
 
 // 条件匹配：required_condition 允许组合位，任一位置命中即视为满足。

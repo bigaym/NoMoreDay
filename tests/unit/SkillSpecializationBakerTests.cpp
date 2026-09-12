@@ -1238,8 +1238,7 @@ TEST_CASE("[Unit] FlowingThrust - 172 FreezingWind +50% more damage vs frozen") 
   req.defender = normal;
   req.skill_id = 1;
   req.base_pool.Add(Tag::Physical, 100.0f);
-  // is_simulation=true：绕过 CombatV2 运行时桩（当前桩实现返回 pool×1.05），
-  // 与既有 pipeline 单测一致地走 legacy 倍率路径验证冻结增伤乘区
+  // is_simulation=true：跳过防御判定与拦截器，锁定伤害乘区，便于精确断言冻结增伤
   req.is_simulation = true;
   auto normalResult = DamagePipeline::Execute(registry, req, player, false);
   // 100 基础 + 技能固有基础伤害 10 = 110
@@ -1261,7 +1260,7 @@ TEST_CASE("[Unit] FlowingThrust - 173 BoneDeepFrost shatter on frozen victim") {
   registry.emplace<Position>(player, 0.0f, 0.0f);
   auto &pStats = registry.emplace<CombatStats>(player);
   // 武器伤害置 0：碎裂溅射数值取自 LastCritDamageComponent，与武器无关；
-  // 置 0 后 legacy 路径仅剩技能固有基础伤害 base_damage=10，便于精确断言设计值
+  // 置 0 后仅剩技能固有基础伤害 base_damage=10，便于精确断言设计值
   pStats.min_weapon_damage = 0.0f;
   pStats.max_weapon_damage = 0.0f;
   pStats.crit_chance = 0.0f; // 关闭暴击，保证溅射伤害可精确对比
@@ -1300,11 +1299,11 @@ TEST_CASE("[Unit] FlowingThrust - 173 BoneDeepFrost shatter on frozen victim") {
 
   // 溅射 = 1000 × 30% = 300 冰霜伤害
   const auto &shp = registry.get<HealthComponent>(splashTarget);
-  // CandidateOnly 桩已删除，实路径按完整管线结算为 300，不再叠加旧桩的 5% 合成系数。
+  // 实路径按完整管线结算，无额外合成系数。
   // 设计值 300 由下方 is_simulation 请求交叉验证。
   CHECK(shp.current == doctest::Approx(9700.0f));
 
-  // 复现 DoHit 溅射请求构造（skill_id=1，Cold 300，防递归标签），走 legacy 路径验证设计值
+  // 复现 DoHit 溅射请求构造（skill_id=1，Cold 300，防递归标签），交叉验证设计值
   DamageRequest splashReq;
   splashReq.attacker = player;
   splashReq.defender = splashTarget;

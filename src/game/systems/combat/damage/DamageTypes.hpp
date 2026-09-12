@@ -88,11 +88,6 @@ inline constexpr int kElementCount = 6;
   }
 }
 
-// DamageType（枚举序）→ resistances[] / StatType 序索引；两者同序，恒等。
-[[nodiscard]] constexpr size_t DamageTypeToResistIndex(DamageType type) {
-  return static_cast<size_t>(type);
-}
-
 // DamageType（枚举序）→ 伤害元素 Tag（池位序）。两者仅 Poison/Shadow 两位
 // 互换，必须经 DamageTypeToPoolIndex 映射，禁止 1ULL << 枚举值的裸位移
 // （否则 DamageType::Shadow(5) 会错映射为 Tag::Poison）。

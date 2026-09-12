@@ -11,7 +11,7 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
-#include "game/contracts/CombatFormula.hpp" // Added
+#include "game/contracts/CombatFormula.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/AilmentEngine.hpp" // AilmentAdapter (990 凛冬附魔异常判定)
 #include "game/contracts/impl/CombatTelemetry.hpp"

@@ -147,7 +147,7 @@ TEST_CASE("[Functional] DamagePipeline - Iterative Conversion Chain") {
 
     
 
-        // 初始 Fire 100 → Cold 100：逆向转换不再被丢弃（修复前会被 IsValidConversion 拦截）
+        // 初始 Fire 100 → Cold 100：逆向转换不再被丢弃
 
     
     DamagePool firePool;
