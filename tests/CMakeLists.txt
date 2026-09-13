@@ -41,6 +41,14 @@ if(MSVC AND ENABLE_RUNTIME_OPT)
     )
 endif()
 
+# 测试二进制体量超过链接期 PDB 聚合上限（LNK1140），测试运行不依赖 PDB，
+# RelWithDebInfo 下直接关闭测试可执行文件的调试信息链接。
+if(MSVC)
+    target_link_options(NoMoreDayTests PRIVATE
+        $<$<CONFIG:RelWithDebInfo>:/DEBUG:NONE>
+    )
+endif()
+
 option(NMD_ENABLE_CTEST_INTEGRATION "Register doctest groups into CTest" ON)
 if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
     add_test(NAME nmd.tests.ci.nonperf

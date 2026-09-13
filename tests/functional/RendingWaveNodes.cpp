@@ -612,4 +612,47 @@ TEST_CASE("[Unit] RendingWave - 235 ArmorShred shares id and DefenseDown semanti
   CHECK(shred->modifiers[0].value == doctest::Approx(-10.0f));
 }
 
+// 235 御剑引力多层：4 点 = 200% 触发率 → 固定 2 层。modifier 承载 -10×层数
+// 的完整降甲量，.stacks/.max_stacks 同步展示；再次命中仅刷新同强度，不叠层。
+TEST_CASE("[Unit] RendingWave - 235 ArmorShred scales with stacks and refreshes") {
+  TestSetupScope scope;
+  LoadSkillData();
+
+  entt::registry registry;
+  auto player = MakePlayer(registry, 0.0f, 0.0f, {{235, 4}}); // 200% → 固定 2 层
+  registry.emplace<PhaseTag>(player);
+  auto enemy = MakeEnemy(registry, 50.0f, 0.0f);
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+  hitFunc(registry, player, enemy, Tag::Physical, false);
+
+  auto *fx = registry.try_get<ActiveEffectsComponent>(enemy);
+  REQUIRE(fx != nullptr);
+  const auto *shred = fx->Get("ArmorShred");
+  REQUIRE(shred != nullptr);
+  CHECK(shred->type == BuffType::DefenseDown);
+  CHECK(shred->is_debuff);
+  CHECK(shred->stacks == 2);
+  CHECK(shred->max_stacks == 2);
+  REQUIRE(!shred->modifiers.empty());
+  CHECK(shred->modifiers[0].type == StatType::Armor);
+  CHECK(shred->modifiers[0].value == doctest::Approx(-20.0f));
+
+  // 再次命中：AddOrRefresh 刷新同一条护甲击碎，不产生重复效果、不叠加层数。
+  hitFunc(registry, player, enemy, Tag::Physical, false);
+
+  int shredCount = 0;
+  for (const auto &effect : fx->effects) {
+    if (effect.id == "ArmorShred") {
+      ++shredCount;
+    }
+  }
+  CHECK(shredCount == 1);
+  const auto *refreshed = fx->Get("ArmorShred");
+  REQUIRE(refreshed != nullptr);
+  CHECK(refreshed->stacks == 2);
+  CHECK(refreshed->modifiers[0].value == doctest::Approx(-20.0f));
+}
+
 } // namespace NoMoreDay

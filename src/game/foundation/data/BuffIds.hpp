@@ -55,6 +55,9 @@ enum class BuffId : uint8_t {
   // 既有存档与断言。
   SpiritCorrosionFire,      // "SpiritCorrosion_Fire"（374 蚀甲·火）
   SpiritCorrosionLightning, // "SpiritCorrosion_Lightning"（374 蚀甲·雷）
+  // 护甲击碎（技能1 152 / 技能2 235 / 技能3 334 / 技能8 813）：跨技能共享的
+  // 同一减益，历史上以裸字符串 ArmorShred 直连；名称逐字符保留以兼容存档。
+  ArmorShred,               // ArmorShred（每层 -10 护甲 Flat，4s）
   Count,
 };
 
@@ -91,6 +94,8 @@ inline constexpr std::array<std::string_view,
         "blade_boomerang_swift",       // BladeBoomerangSwift（835）
         "SpiritCorrosion_Fire",        // SpiritCorrosionFire（374）
         "SpiritCorrosion_Lightning",   // SpiritCorrosionLightning（374）
+        // 保留完整字面量以逐字符兼容既有存档中的 "ArmorShred"。
+        "ArmorShred",                  // ArmorShred（护甲击碎，4 技能共享）
 };
 
 [[nodiscard]] constexpr std::string_view BuffIdToString(BuffId id) noexcept {

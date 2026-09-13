@@ -692,7 +692,8 @@ void ProjectileSystem::Update(entt::registry &registry,
             // 先取旋转标记，避免 ResolveDamage 改动组件池后再读守方组件指针。
             const bool spin = ward->counter_spin;
             const DamageRequest counterRequest =
-                damage::ResolveSkill4Counter(target, act.instigator, *ward);
+                damage::ResolveSkill4CounterEffects(registry, target, act.instigator, *ward,
+                                                    true);
             (void)ResolveDamage(registry, counterRequest, target);
 
             if (spin) {
@@ -708,38 +709,45 @@ void ProjectileSystem::Update(entt::registry &registry,
 
       uint32_t skill_id = 0;
       float knockback = 0;
+      bool visualOnly = false;
       if (registry.valid(projEnt)) {
         if (auto *sc = registry.try_get<SkillComponent>(projEnt))
           skill_id = sc->skill_id;
-        if (auto *p = registry.try_get<Projectile>(projEnt))
+        if (auto *p = registry.try_get<Projectile>(projEnt)) {
           knockback = p->snapshot.knockback;
-      }
-
-      DamagePool base;
-      Tag hit_tags = Tag::Projectile | Tag::Hit;
-      // 命中结算优先以真实施法者为攻击者，投射物仅在施法者不可用时兜底：
-      // 投射物常带复制来的 CombatStats，若以自身归因会丢失施法者的 ActiveSkills/
-      // GlobalModifier（专精点与条件 More 归零）。与上方 attach 阶段的
-      // attacker=owner 语义保持一致；source_entity 仍指向投射物以复用其快照。
-      entt::entity attacker =
-          (registry.valid(act.instigator) &&
-           registry.all_of<CombatStats>(act.instigator))
-              ? act.instigator
-              : projEnt;
-
-      DamageRequest request;
-      request.attacker = attacker;
-      request.defender = target;
-      request.skill_id = skill_id;
-      request.base_pool = base;
-      request.additional_tags = hit_tags;
-      request.source_entity = projEnt;
-      if (registry.valid(projEnt)) {
-        if (const auto *p = registry.try_get<Projectile>(projEnt)) {
-          request.payload_context = p->payload_context;
+          visualOnly = p->visual_only;
         }
       }
-      (void)ResolveDamage(registry, request, act.instigator);
+
+      // 仅表现投射物（如技能4 反击剑气）不产生伤害结算，避免与
+      // ResolveSkill4Counter 的单源结算重复计数；销毁/粒子/闪光逻辑不受影响。
+      if (!visualOnly) {
+        DamagePool base;
+        Tag hit_tags = Tag::Projectile | Tag::Hit;
+        // 命中结算优先以真实施法者为攻击者，投射物仅在施法者不可用时兜底：
+        // 投射物常带复制来的 CombatStats，若以自身归因会丢失施法者的 ActiveSkills/
+        // GlobalModifier（专精点与条件 More 归零）。与上方 attach 阶段的
+        // attacker=owner 语义保持一致；source_entity 仍指向投射物以复用其快照。
+        entt::entity attacker =
+            (registry.valid(act.instigator) &&
+             registry.all_of<CombatStats>(act.instigator))
+                ? act.instigator
+                : projEnt;
+
+        DamageRequest request;
+        request.attacker = attacker;
+        request.defender = target;
+        request.skill_id = skill_id;
+        request.base_pool = base;
+        request.additional_tags = hit_tags;
+        request.source_entity = projEnt;
+        if (registry.valid(projEnt)) {
+          if (const auto *p = registry.try_get<Projectile>(projEnt)) {
+            request.payload_context = p->payload_context;
+          }
+        }
+        (void)ResolveDamage(registry, request, act.instigator);
+      }
       {
         components::GPULight flash = {};
         flash.posX = act.pos.x;

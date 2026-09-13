@@ -27,6 +27,7 @@
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <entt/entt.hpp>
 #include <unordered_set>
+#include "raylib.h"
 
 
 namespace NoMoreDay {
@@ -1204,6 +1205,60 @@ TEST_CASE("[Integration] SkillSystem - BladeWard 412 is_solidified prevents swor
     ProjectileSystem::Update(registry, grid, 0.016f);
     CHECK(ward.sword_count == 2);
   }
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard interception_chance 0.5 honors dice") {
+  TestSetupScope scope;
+  // 固定随机种子驱动判定，避免真实随机造成抖动；ProjectileSystem 的 Blade Ward
+  // 拦截掷骰走 raylib GetRandomValue(0, 1000)，SetRandomSeed 可复现该序列。
+  SetRandomSeed(20260913u);
+
+  constexpr int kTrials = 400;
+  int interceptedCount = 0;
+
+  for (int i = 0; i < kTrials; ++i) {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    auto defender = registry.create();
+    registry.emplace<PlayerTag>(defender);
+    registry.emplace<Position>(defender, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(defender);
+    registry.emplace<SwordIntentComponent>(defender).stacks = 0;
+    auto &ward = registry.emplace<BladeWardComponent>(defender);
+    ward.sword_count = 1; // 单剑 × 0.5 = 恰好 0.5 触发概率，覆盖掷骰分支
+    ward.interception_chance = 0.5f;
+    ward.is_solidified = false;
+
+    auto attacker = registry.create();
+    registry.emplace<EnemyTag>(attacker);
+    registry.emplace<Position>(attacker, 2.0f, 0.0f);
+    registry.emplace<CombatStats>(attacker);
+    registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+
+    auto projEnt = registry.create();
+    registry.emplace<Position>(projEnt, 0.0f, 0.0f);
+    registry.emplace<Velocity>(projEnt, 0.0f, 0.0f);
+    auto &proj = registry.emplace<Projectile>(projEnt);
+    proj.owner = attacker;
+    proj.radius = 20.0f;
+    proj.speed = 0.0f;
+    proj.lifeTime = 1.0f;
+    registry.emplace<SkillComponent>(projEnt, 2u, attacker);
+
+    ProjectileSystem::Update(registry, grid, 0.016f);
+
+    // 拦截成功会消耗唯一一柄飞剑，据此统计掷骰结果。
+    if (ward.sword_count == 0) {
+      ++interceptedCount;
+    }
+  }
+
+  // 0.5 概率应双向覆盖：既非恒拦截也非恒穿透，且比例应接近一半。
+  CHECK(interceptedCount > 0);
+  CHECK(interceptedCount < kTrials);
+  CHECK(interceptedCount >= kTrials * 35 / 100);
+  CHECK(interceptedCount <= kTrials * 65 / 100);
 }
 
 TEST_CASE("[Integration] SkillSystem - BladeWard 470 counter on Melee and Block") {

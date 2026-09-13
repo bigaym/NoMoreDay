@@ -357,7 +357,7 @@
 ### MEDIUM-5：payload crit_chance 单位不一致——6 处填充点未归一化（既有缺陷，非本批引入）
 
 - 消费端约定：`DamagePipeline.cpp:1052-1053` 将 `payload_context->crit_chance` 视为归一化小数（`[0,1]`，`×100` 还原）；
-- 填充点全景（全部传 `stats->crit_chance` 百分数原值，仅本批爆炸路径正确 `/100`）：
+- 填充点全景（~~全部传 `stats->crit_chance` 百分数原值，仅本批爆炸路径正确 `/100`~~——**旧单位措辞，已作废，见本节末更正**）：
   - `BeamChannelDeliverySystem.cpp:106`（百分数）；
   - `BeamChannelDeliverySystem.cpp:420`（**混合单位**：`stats->crit_chance + (chan.bonus_crit_chance / 100.0f)`——bonus 归一化了、stats 没有）；
   - `ShadowDuplicationHook.cpp:72`（百分数）；
@@ -366,6 +366,8 @@
 - 本批爆炸路径是**首个 payload-only 消费者**（`base_pool` 置空），故必须归一化（已正确）；
 - 风险：任何后续把现有 payload 请求改为 payload-only 的改动都会引爆（crit_chance 被 clamp 到 100% = 必定暴击）；
 - 修复建议：统一在填充侧归一化（6 处逐一修正），并补一条 payload crit 单位守卫测试；建议随 MEDIUM-1 一并排期。
+
+> **更正（2026-09-13，B1-18 收口；commit `dbda488d`）**：以上单位前提**已作废**——`CombatStats::crit_chance` 与 `payload_context->crit_chance` 均为**归一化分数 `[0,1]`**，并非百分数，消费端不以 `×100` 还原。现行口径：`Stats.hpp:115` 默认 `0.05f`；`SkillSpecializationBaker.cpp:234-235`（`bonus_crit` 归一到 0..1）；填充侧直接传 `stats->crit_chance`，见 `BeamChannelDeliverySystem.cpp:376/:682/:1232`、`RendingWave.cpp:221`、`FlowingThrust.cpp:328-330`（注释「payload crit_chance 与 CombatStats 统一为分数制 [0,1]」）；消费侧 `DamagePipeline.cpp:1851-1855`（`snap.crit_chance >= 1.0f` 必暴）。因此 §5.1.1 所列 `/100.0f` 修法亦随之作废；`riding_wind_bonus_crit` 现为分数（`SkillSpecializationBakerTests.cpp:396` 断言 3 点 = `0.24f`，非 24）。本节与 §5.1.1 仅作历史记录保留，实际口径以本更正为准；无源码改动。
 
 ### 附带说明（非缺陷）
 
@@ -419,6 +421,8 @@
 | `DamagePipeline.cpp:1052-1053` | 注释补充「填充方必须 /100 归一化」约定 |
 
 **维持原样 4 处（死数据判定成立）**：`SkillSystem.cpp:1287/:1351/:1782`、`ShadowDuplicationHook.cpp:77` 写入的均为 `snapshot.payload_context`，全 src 检索确认无任何读取点（行为层 `FlowingThrust.cpp` 交付时以实时 stats 重建 payload，不读快照字段），该链不会到达 `DamagePipeline:1053` 消费段。维持「记录性快照」语义；若未来有消费方接入，须先归一化。
+
+> **更正（2026-09-13）**：本节 §5.1.1 及 §4.4 MEDIUM-5 的「百分数」措辞与 `/100.0f` 归一化修法均为旧单位前提，已作废；crit 单位统一为分数 `[0,1]`（消费端不 `×100`），当前填充侧直接传 `stats->crit_chance`。详见 §4.4 MEDIUM-5 末更正。
 
 ## 5.2 复审验证（独立重跑）
 

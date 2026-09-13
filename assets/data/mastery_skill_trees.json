@@ -148,7 +148,7 @@
           },
           {
             "node_id": 1016,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,

@@ -84,8 +84,8 @@
 - [x] **B1-16** [P1] 技能7：775 Lightning×730 组合、752 次级撕裂中心测试覆盖；M4 projectile 链路测试（P2）— 源：skill7 rereview §5-5/§5-6
 - [x] **B1-17** [P1] 技能8：`GetEffectiveSkillTags` 的 `role != Transmuter` 过滤补技能3~7 专项回归 — 源：skill8 §15.7
 - [x] **B1-18** [P1] 技能2：`crit_chance` 未归一化疑点核实——**不成立**：`stats->crit_chance` 为归一化 0..1（Stats.hpp:115 默认 0.05、AttributePipeline.cpp:774 写回 /100），DamagePipeline.cpp:1324-1327 注释明示分数制、:1606/:1850 直接比较；SkillSystem 三处直拷（:1532/:1600/:2096）正确。原记录（skill2 §4、行号 1787）基于旧单位前提。遗留：技能1/2 审查文档中 crit 单位旧口径残留待文档清理 — 源：skill2 第3轮 §4
-- [ ] **B1-19** [P2] 技能2：技能3 373 / 技能6 633 的 `trigger_skill_id=2` 既有数据核实 — 源：skill2 第3轮 §4 记录项
-- [ ] **B1-20** [P2] 模块化：复审 §9 建议项核销（more_damage_mult 单位断言、SpawnShadow 统一工厂、Rebake 幂等/拦截骰子分布契约测试），未闭环部分并入 B2 — 源：模块化实施复审 §9
+- [x] **B1-19** [P2] 技能2：技能3 373 / 技能6 633 的 `trigger_skill_id=2` 既有数据核实 — 源：skill2 第3轮 §4 记录项〔销项 2026-09-13：T6.4 核实真实链接为技能3 node 335（`skills.json:1999`）与技能6 node 635（`skills.json:4128`），373/633 为天赋树条目、无 trigger 字段；断言落在 `SkillContractRegistryTests.cpp`，数据零改动，见 §9〕
+- [~] **B1-20** [P2] 模块化：复审 §9 建议项核销（more_damage_mult 单位断言、SpawnShadow 统一工厂、Rebake 幂等/拦截骰子分布契约测试），未闭环部分并入 B2 — 源：模块化实施复审 §9〔拦截骰子分布子项已由 2026-09-13 计划 D1.1 闭环（SkillSystemTests 骰子分布契约测试），其余子项待 Wave E〕
 
 ### 2.3 验证任务
 
@@ -93,37 +93,37 @@
 - [ ] **B1-22** [P1] 技能8：元素路径与 AreaFieldDeliverySystem 生命周期运行验证 — 源：skill8 §15.7（阻塞登记：无交互运行环境；自动化部分证据见 §8）
 - [ ] **B1-23** [P1] 技能7：772 区域伤害改由异常承担后的数值验证（总伤害对齐设计）— 源：skill7 rereview §5-3（阻塞登记：无交互运行环境；自动化部分证据见 §8）
 - [ ] **B1-24** [P2] 技能9：VFX `MAX_PHANTOM_OVERLAYS` 叠加上限性能复核（建议走 performance 工作流）— 源：skill9 §14.4-3
-- [ ] **B1-25** [P2] 技能1：173 碎裂溅射 ×1.05 CombatV2 桩核销（CombatV2 已删除，确认桩是否残留）— 源：skill1 §6.5-1
+- [x] **B1-25** [P2] 技能1：173 碎裂溅射 ×1.05 CombatV2 桩核销（CombatV2 已删除，确认桩是否残留）— 源：skill1 §6.5-1〔销项 2026-09-13：`rg -n "CombatV2" src/` = 0 行，桩随 `4e7d2ac2`「drop combat_v2」/0ef68d2d 清空，无残留；见 §9〕
 - [ ] **B1-26** [P2] 模块化：性能基线复跑（10k 施法、vs 旧 find() ≥2.5x、零堆分配、含洗点+换装 Rebake）— 源：模块化实施复审 §10
 
 ---
 
 ## 3. B2 销项清单（并入 A 的结构清理）
 
-- [ ] **B2-01** [P1] 模块化 Task 4.1：Legacy `ChannelingComponent` 清理（现仍被 12 个文件引用：BeamChannelDeliverySystem / DamagePipeline / DamageMitigationService / HeavenlySwordDescent / MindBlade / InfiniteBlades / SkillDefs.hpp / BladeMasteryService / StatsSystem / InputSystem / GameplayState / SkillSystem）+ `BoomerangComponent` 兼容过渡字段 — 源：模块化计划 Task 4.1
-- [ ] **B2-02** [P1] 双管线共存窗口审计（Legacy Channeling 消费方与 BeamChannel 管线并行未逐一审计）— 源：模块化实施复审 §10
-- [ ] **B2-03** [P1] 技能6 特例（SwordArray 保留在 DamagePipeline）与技能9 ProcEngine 硬编码 rule 9 的通用化 — 源：模块化实施复审 §10
-- [ ] **B2-04** [P1] 技能4：反击逻辑 5 处合并为单一 helper — 源：skill4 §16.7 R3-3
-- [ ] **B2-05** [P1] 技能4：TagRegistry 收敛单源 — 源：skill4 §16.7 R3-4
-- [ ] **B2-06** [P1] 技能4：SkillSystem InitHooks 改读 mechanics + BuffEffect static const — 源：skill4 §16.7 R3-6
-- [ ] **B2-07** [P2] 技能4：OrbitingSentinelDeliverySystem 拦截死分支真删除 — 源：skill4 §16.7 R3-5
-- [ ] **B2-08** [P1] 技能4：ReactiveWard 处置（RD-16 已裁决删除：保留原型枚举位，删组件结构与 `BladeWard.cpp:113-117` emplace；归 A1-2）— 源：skill4 §16.7 R3-7
-- [ ] **B2-09** [P2] 技能4：M7 476 锚点、M8 分配器不可达诊断、M9 `skill_4_tree.json` 双源 — 源：skill4 §16.7 R3-14
-- [ ] **B2-10** [P1] 技能5 N10：`allocated_points.find(NODE)` 重复 6+ 处提取 helper；Baker flags 与行为层 `allocated_points` 双源语义统一 — 源：skill5 N10
-- [ ] **B2-11** [P2] 技能5：M3 ChannelingComponent 注释旧语义清理（SkillDefs.hpp:1197-1216，随 B2-01 一并做）— 源：skill5
-- [ ] **B2-12** [P2] 技能5：M4 双组件结构冗余收敛（随 B2-01 一并做）— 源：skill5
-- [ ] **B2-13** [P2] 技能3：373 O(N) 敌人遍历空间网格化（待 DoHit 签名扩展）— 源：skill3 §16.4
-- [ ] **B2-14** [P2] 技能3：374 debuffId `std::string` 改 BuffId 枚举 — 源：skill3 §16.4
-- [ ] **B2-15** [P2] 技能3：351 数据消费统一、ArmorShred id 重命名（消除与 RendingWave.cpp:537 / FlowingThrust.cpp:412 的名称冲突互刷）— 源：skill3 §16.4
-- [ ] **B2-16** [P2] 技能7：714 粗粒度（skill_id==7）精确化（取 711 时其余路径已禁用，可选优化）— 源：skill7 rereview §5-1
-- [ ] **B2-17** [P2] 技能8：N4-3 `primary_archetype` 死字段删除（RD-17 已裁决删除；影响面：Baker 14 处 + `BladeBoomerang.cpp:109` + BakerTests 3 处 CHECK；先核实存档/序列化兼容，归 A1-2）— 源：skill8 §15.4
-- [ ] **B2-18** [P2] 技能1：Slow/Chill legacy buff 收编 ailment 契约（契约补注册时统一处理，与 HazardSystem 同型）— 源：skill1 §6.5-3
-- [ ] **B2-19** [P2] 技能1：第4轮遗留统一处置（MEDIUM-5 四处死数据 `snapshot.payload_context`、UMR 并轨跳过项、ShadowDuplicationHook 特例）— 源：skill1 §6.5-4
-- [ ] **B2-20** [P2] 模块化：逐节点「烘焙→消费」映射表纳入仓库 — 源：模块化实施复审 §9
-- [ ] **B2-21** [P3] 技能6 L5：DeliveryArchetypesTests.cpp:190-210 以技能6 充当 Skyfall 残留域夹具，换独立 ID — 源：skill6 §16.3
-- [ ] **B2-22** [P2] 技能9：技能12「绝影共噬」节点行为实现 + 技能9 联动回归（归入 A-03）— 源：skill9 §14.4-4
+- [x] **B2-01** [P1] 模块化 Task 4.1：Legacy `ChannelingComponent` 清理（现仍被 12 个文件引用：BeamChannelDeliverySystem / DamagePipeline / DamageMitigationService / HeavenlySwordDescent / MindBlade / InfiniteBlades / SkillDefs.hpp / BladeMasteryService / StatsSystem / InputSystem / GameplayState / SkillSystem）+ `BoomerangComponent` 兼容过渡字段 — 源：模块化计划 Task 4.1〔销项 0ef68d2d：A1-3 T3.2；rg `ChannelingComponent` in src/ = 0，见 §9〕
+- [x] **B2-02** [P1] 双管线共存窗口审计（Legacy Channeling 消费方与 BeamChannel 管线并行未逐一审计）— 源：模块化实施复审 §10〔销项 0ef68d2d：A1-3 T3.1 审计回滚窗口为死代码；运行时「观察一拍」无环境未验证，见 §9〕
+- [x] **B2-03** [P1] 技能6 特例（SwordArray 保留在 DamagePipeline）与技能9 ProcEngine 硬编码 rule 9 的通用化 — 源：模块化实施复审 §10〔销项 0ef68d2d：A1-4 T4.2；ProcEngine 无硬编码 rule9，SwordArray 归因统一，见 §9〕
+- [x] **B2-04** [P1] 技能4：反击逻辑 5 处合并为单一 helper — 源：skill4 §16.7 R3-3〔销项 0ef68d2d：A1-4 T4.1 `ResolveSkill4Counter` 单实现，站点实为 3 处（原清单计数订正），见 §9〕
+- [x] **B2-05** [P1] 技能4：TagRegistry 收敛单源 — 源：skill4 §16.7 R3-4〔销项 0ef68d2d：A1-1 T1.4，见 §9〕
+- [x] **B2-06** [P1] 技能4：SkillSystem InitHooks 改读 mechanics + BuffEffect static const — 源：skill4 §16.7 R3-6〔销项 0ef68d2d：A1-1 T1.5，见 §9〕
+- [x] **B2-07** [P2] 技能4：OrbitingSentinelDeliverySystem 拦截死分支真删除 — 源：skill4 §16.7 R3-5〔销项 0ef68d2d：A1-5 T5.5，见 §9〕
+- [x] **B2-08** [P1] 技能4：ReactiveWard 处置（RD-16 已裁决删除：保留原型枚举位，删组件结构与 `BladeWard.cpp:113-117` emplace；归 A1-2）— 源：skill4 §16.7 R3-7〔销项 0ef68d2d：A1-2 T2.4（RD-16）；rg `ReactiveWardComponent` in src/ = 0，见 §9〕
+- [x] **B2-09** [P2] 技能4：M7 476 锚点、M8 分配器不可达诊断、M9 `skill_4_tree.json` 双源 — 源：skill4 §16.7 R3-14〔销项 0ef68d2d：A1-5 T5.6，见 §9〕
+- [x] **B2-10** [P1] 技能5 N10：`allocated_points.find(NODE)` 重复 6+ 处提取 helper；Baker flags 与行为层 `allocated_points` 双源语义统一 — 源：skill5 N10〔销项 0ef68d2d：A1-1 T1.6，`allocated_points.(find|contains|count)` 直查全仓归零，见 §9〕
+- [x] **B2-11** [P2] 技能5：M3 ChannelingComponent 注释旧语义清理（SkillDefs.hpp:1197-1216，随 B2-01 一并做）— 源：skill5〔销项 0ef68d2d：A1-2 T2.1，见 §9〕
+- [x] **B2-12** [P2] 技能5：M4 双组件结构冗余收敛（随 B2-01 一并做）— 源：skill5〔销项 0ef68d2d：A1-2 T2.5，见 §9〕
+- [x] **B2-13** [P2] 技能3：373 O(N) 敌人遍历空间网格化（待 DoHit 签名扩展）— 源：skill3 §16.4〔销项 0ef68d2d：A1-5 T5.2，见 §9〕
+- [x] **B2-14** [P2] 技能3：374 debuffId `std::string` 改 BuffId 枚举 — 源：skill3 §16.4〔销项 0ef68d2d：A1-5 T5.3，见 §9〕
+- [ ] **B2-15** [P2] 技能3：351 数据消费统一、ArmorShred id 重命名（消除与 RendingWave.cpp:537 / FlowingThrust.cpp:412 的名称冲突互刷）— 源：skill3 §16.4（PARTIAL：ArmorShred 枚举化/迁移**已完成**——`BuffId::ArmorShred` 位于 `src/game/foundation/data/BuffIds.hpp`，`rg '"ArmorShred"' src/` == 0；仅余 351 数据消费重命名未做，见计划 §2.2）
+- [ ] **B2-16** [P2] 技能7：714 粗粒度（skill_id==7）精确化（取 711 时其余路径已禁用，可选优化）— 源：skill7 rereview §5-1（OPEN 可选，见计划 §2.2）
+- [x] **B2-17** [P2] 技能8：N4-3 `primary_archetype` 死字段删除（RD-17 已裁决删除；影响面：Baker 14 处 + `BladeBoomerang.cpp:109` + BakerTests 3 处 CHECK；先核实存档/序列化兼容，归 A1-2）— 源：skill8 §15.4〔销项 0ef68d2d：A1-2 T2.2（RD-17）；rg `primary_archetype` in src/ = 0，见 §9〕
+- [ ] **B2-18** [P2] 技能1：Slow/Chill legacy buff 收编 ailment 契约（契约补注册时统一处理，与 HazardSystem 同型）— 源：skill1 §6.5-3（PARTIAL：`ApplyFrostSlowDebuff` 未走 ailment 契约，见计划 §2.2）
+- [x] **B2-19** [P2] 技能1：第4轮遗留统一处置（MEDIUM-5 四处死数据 `snapshot.payload_context`、UMR 并轨跳过项、ShadowDuplicationHook 特例）— 源：skill1 §6.5-4〔销项 0ef68d2d：A1-2 T2.3 + A1-5 T5.7，见 §9〕
+- [x] **B2-20** [P2] 模块化：逐节点「烘焙→消费」映射表纳入仓库 — 源：模块化实施复审 §9〔销项 0ef68d2d：A1-6 T6.1（`docs/designs/2026-09-13-skill-baker-consumer-map.md`）+ T6.2 断言，见 §9〕
+- [x] **B2-21** [P3] 技能6 L5：DeliveryArchetypesTests.cpp:190-210 以技能6 充当 Skyfall 残留域夹具，换独立 ID — 源：skill6 §16.3〔销项 0ef68d2d：A1-6 T6.3，见 §9〕
+- [x] **B2-22** [P2] 技能9：技能12「绝影共噬」节点行为实现 + 技能9 联动回归（归入 A-03）— 源：skill9 §14.4-4〔销项 0ef68d2d：A2-2 T9.3，绝影共噬 1217 落地，见 §9〕
 - [x] **B2-23** [P2]（**保留/降级，已裁决 2026-09-13**）伤害管线：deprecated 批量入口（`DamagePipeline::CalculateBatch` + `ResolveDamageBatch`）**保留现状，仅记录**，不迁移测试/基准调用点（`tests/unit/DamageElementIndexTests.cpp:109/:167`、`tests/unit/EventConsistencyTests.cpp`、`tests/performance/DamagePipelineBenchmark.cpp`）。依据：设计 §7/§11.4——保留至有等价替代测试入口；无生产改动 — 源：B1-08 遗留登记
-- [ ] **B2-24** [P2] 技能1/2：热路径字符串比较残留收编——`DamageConditions.cpp:19`（`id.find("Slow")`）、`BladeFormation.cpp:483`（`id.find("ignite")`），沿用 B1-11 的 BuffKind 枚举化思路 — 源：B1-11 复审 F4
+- [x] **B2-24** [P2] 技能1/2：热路径字符串比较残留收编——`DamageConditions.cpp:19`（`id.find("Slow")`）、`BladeFormation.cpp:483`（`id.find("ignite")`），沿用 B1-11 的 BuffKind 枚举化思路 — 源：B1-11 复审 F4〔销项 0ef68d2d：A1-1 T1.6 + A1-4 T4.3；rg `id.find("Slow"/"ignite"/"shock")` in src/ = 0，见 §9〕
 
 ---
 
@@ -194,3 +194,41 @@
   - B1-23：技能7 772 区域伤害由异常承担后的总伤害对数设计；自动化部分证据 `[Functional] MindBlade - 772 感电区域不叠加全额伤害 (M3)` 与新增 772×730 用例。
 - 构建备注：`build.bat`（RelWithDebInfo）成功；新增/改动文件零告警，日志中 C4834/C4002 等告警位于本波未触及的既有文件（`PhantomTrance.cpp:257`、`SkillTreeController.cpp`、`Game.cpp:259`、`DamageElementIndexTests.cpp:92`、`DamagePipelineP3bTests.cpp:269`、`SwordArrayNodes.cpp:40`），属既有基线，需另行清理，非本波引入。
 - 复审与修复：复审报告第 3 轮结论 `提交`（`docs/reviews/2026-09-12-skill1-9-followup-b1-wave1-review.md`）。过程中修复：F1（`FlowingThrust.cpp` 175 传染减速未授权改名回退 `FrostSlow`）、F7（补回 `.type=BuffType::SpeedDown`，并新增回归用例 `[Unit] FlowingThrust - 175 spread slow keeps SpeedDown type on refresh`）、F2（`Buff.hpp` `AddOrRefresh` 刷新同步 `type`/`kind`，旧存档升级）、F6（`DamageConditions.hpp` `kBuffKindCount` 编译期 `static_assert`）。剩余风险：F3 帧序后移 1 帧（接受）、F4（已登记 B2-24）、F5 测试 `const_cast` 卫生、B1-21/22/23 运行时未验证、并行链接瞬态 `LNK1136`、历史告警基线。
+
+## 9. 销项证据补充（2026-09-13，commit `0ef68d2d`）
+
+本批基于技能抽象化与 B2 清理（`docs/plans/2026-09-13-skill-abstraction-and-b2-cleanup-plan.md`，提交 `0ef68d2d`）及其终审 `docs/reviews/2026-09-13-final-review-skill-abstraction-b2-cleanup.md` 对账，补齐 §2/§3 勾选证据；B2-23 保留裁决不变。
+
+### 9.1 B2 结构清理（0ef68d2d）
+
+| ID | 清理任务（该批 plan） | 证据 |
+|---|---|---|
+| B2-01 | A1-3 T3.2 | `rg ChannelingComponent src/` = 0 |
+| B2-02 | A1-3 T3.1 | 审计结论：Legacy 回滚窗口为死代码；运行时「观察一拍」无环境未验证 |
+| B2-03 | A1-4 T4.2 | `ProcEngine.cpp:54-55` 通用 `required_skill_id`，无硬编码 rule9；SwordArray 归因统一 |
+| B2-04 | A1-4 T4.1 | `ResolveSkill4Counter` 单实现，站点 3 处（原清单计数订正） |
+| B2-05 | A1-1 T1.4 | `TagRegistry.hpp` 生成单源 |
+| B2-06 | A1-1 T1.5 | `SkillSystem::InitHooks` 451/455/432/435 改读 `GetMech` |
+| B2-07 | A1-5 T5.5 | OrbitingSentinel 拦截死分支删除 |
+| B2-08 | A1-2 T2.4（RD-16） | `rg ReactiveWardComponent src/` = 0 |
+| B2-09 | A1-5 T5.6 | M8 分配器不可达诊断 + M9 `skill_4_tree.json` max_points |
+| B2-10 | A1-1 T1.6 | `allocated_points.(find\|contains\|count)` 直查全仓归零 |
+| B2-11 | A1-2 T2.1 | Channeling 旧注释删除 |
+| B2-12 | A1-2 T2.5 | `BoomerangComponent` 逐字段复核 |
+| B2-13 | A1-5 T5.2 | 373 改 `SpatialGrid` 查询 |
+| B2-14 | A1-5 T5.3 | 374 `debuffId` 改 `BuffId` 枚举 |
+| B2-17 | A1-2 T2.2（RD-17） | `rg primary_archetype src/` = 0 |
+| B2-19 | A1-2 T2.3 + A1-5 T5.7 | `SkillSnapshot::payload_context` 死数据删除 |
+| B2-20 | A1-6 T6.1 + T6.2 | `docs/designs/2026-09-13-skill-baker-consumer-map.md` + `SkillBakerFlagConsumerTests.cpp` |
+| B2-21 | A1-6 T6.3 | 技能6 夹具改独立 ID |
+| B2-22 | A2-2 T9.3 | 绝影共噬 1217 窗口增益落地 |
+| B2-24 | A1-1 T1.6 + A1-4 T4.3 | `rg 'id.find("Slow"\|"ignite"\|"shock")' src/` = 0 |
+
+### 9.2 B1 补充
+
+- **B1-19**（T6.4）：`trigger_skill_id=2` 真实承载为技能3 node 335（`skills.json:1999`）与技能6 node 635（`skills.json:4128`）；373/633 为天赋树条目、无 trigger 字段；`SkillContractRegistryTests.cpp` 增断言固定链接。
+- **B1-25**：`rg -n "CombatV2" src/` = 0；CombatV2 由 `4e7d2ac2`（drop combat_v2）移除，桩于 `0ef68d2d` 清空。
+
+### 9.3 保留未勾选
+
+B1-15（伴随 B1-03 PARTIAL）、B1-20、B1-21/22/23、B1-24/26、B2-15（PARTIAL）、B2-16（OPEN 可选）、B2-18（PARTIAL），及后续计划新增项均维持未勾选。

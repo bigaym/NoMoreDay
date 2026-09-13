@@ -979,6 +979,35 @@ struct BladeWardComponent {
   bool dodge_power_boost = false;    // Talent 455 以攻代守: 闪避后 More+20% 并回剑意
   float block_intent_chance = 0.0f;  // Talent 435 剑意格御: 格挡回剑意几率 (15%..45%)
   float block_ward_amount = 0.0f;    // Talent 432 剑盾屏障: 格挡获取护盾 (10..30 Ward)
+  // --- 专精节点运行时数值：DoCast 时按机制表烘焙，供 Update/命中结算消费 ---
+  float mana_cost_reduction = 0.0f;      // 402 持久: 维持法力消耗降低 (百分比点数)
+  float counter_chance_bonus = 0.0f;     // 403 剑压外放: 反击触发几率加成
+  float counter_range_bonus = 0.0f;      // 403 剑压外放: 反击剑气射程加成
+  float armor_dr_bonus = 0.0f;           // 410 厚积薄发: 护甲减伤效果提升 (百分比点数)
+  float armor_dr_per_1000 = 0.0f;        // 410 厚积薄发: 每千护甲额外减伤 (百分比点数)
+  float block_effectiveness = 0.0f;      // 431 势不可挡: 格挡效果提升 (百分比点数)
+  float last_stand_threshold = 0.0f;     // 413 破釜沉舟: 触发生命阈值 (最大生命占比)
+  float last_stand_base_dr = 0.0f;       // 413 破釜沉舟: 低血时基础减伤 (百分比点数)
+  float last_stand_armor_mult = 1.0f;    // 413 破釜沉舟: 低血时护甲倍率
+  float missing_hp_regen_pct = 0.0f;     // 415 坚韧回生: 每秒按已损生命回复比例
+  bool has_blood_barrier = false;        // 433 鲜血壁垒: 以生命换护甲状态
+  float perfect_parry_interval = 0.0f;   // 434 无瑕之御: 完全招架充能间隔
+  float perfect_parry_timer = 0.0f;      // 434 无瑕之御: 充能计时
+  bool perfect_parry_ready = false;      // 434 无瑕之御: 完全招架就绪
+  float block_intent_crit = 0.0f;        // 435 剑意格御: 获得剑意时暴击加成 (百分比点数)
+  float aftermath_heal_pct = 0.0f;       // 453 流风余韵: 触发后按已损生命回复比例
+  float sword_step_dodge_rating = 0.0f;  // 454 御剑闪步: 触发后闪避等级
+  float static_interval = 0.0f;          // 472 雷霆法环: 脉冲间隔
+  float static_radius = 0.0f;            // 472 雷霆法环: 脉冲半径
+  float static_timer = 0.0f;             // 472 雷霆法环: 脉冲计时
+  float thunder_frequency_bonus = 0.0f;  // 473 雷贯长虹: 脉冲频率提升
+  float shock_slow = 0.0f;               // 473 雷贯长虹: 感电减速比例
+  float shock_damage_bonus = 0.0f;       // 473 雷贯长虹: 感电易伤 (百分比点数)
+  float frost_radius = 0.0f;             // 474 霜铠: 冰霜风暴半径
+  float frost_knockback = 0.0f;          // 474 霜铠: 击退力度
+  float permafrost_radius_bonus = 0.0f;  // 475 永冻领域: 半径提升比例
+  float exposure_pct = 0.0f;             // 476 元素曝光: 目标元素易伤 (百分比点数)
+  float exposure_duration = 0.0f;        // 476 元素曝光: 持续时间
 };
 
 // 技能 9 绝影绝剑运行时形态状态 (由 PhantomTrance 行为维护)
@@ -1152,6 +1181,12 @@ struct BladeFormationComponent {
   float shred_duration = 0.0f;    // Talent 374: 灵剑蚀甲 持续时间
   float burst_mult = 0.0f;        // Talent 375: 灵剑充能 爆发倍率
   float final_damage_scale = 1.0f; // 灵剑单发攻击等效伤害缩放 (373/375 伤害基数用)
+
+  // 372 DoCast→DoHit 交接：瞬移落点与静电场参数在命中时消费（未命中不放场）
+  bool static_field_pending = false;       // 372: 本次施法待命中释放静电场
+  Vector2 static_field_center{0.0f, 0.0f}; // 372: 瞬移落点（静电场落点）
+  float static_field_radius = 60.0f;       // 372: 静电场半径（DoCast 缓存）
+  float static_field_duration = 2.0f;      // 372: 静电场持续（DoCast 缓存）
 };
 
 struct SwordArrayComponent {

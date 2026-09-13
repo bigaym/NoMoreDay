@@ -26,6 +26,30 @@ namespace NoMoreDay {
 
 using doctest::Approx;
 
+namespace {
+
+// 事件处理器 RAII 守卫：SUBCASE 内 REQUIRE 失败会提前中止当前作用域，
+// 由析构函数统一注销，避免处理器残留到后续用例造成偶发失败。
+class CombatEventHandlerScope {
+public:
+  CombatEventHandlerScope(CombatEventType type,
+                          CombatEventDispatcher::Handler handler)
+      : type_(type), id_(CombatEventDispatcher::Register(type, handler)) {}
+  ~CombatEventHandlerScope() {
+    if (id_ != 0u) {
+      CombatEventDispatcher::Unregister(type_, id_);
+    }
+  }
+  CombatEventHandlerScope(const CombatEventHandlerScope &) = delete;
+  CombatEventHandlerScope &operator=(const CombatEventHandlerScope &) = delete;
+
+private:
+  CombatEventType type_;
+  uint32_t id_ = 0u;
+};
+
+} // namespace
+
 TEST_CASE("[Functional] Skill - Blade Boomerang Specializations") {
     TestSetupScope scope;
     entt::registry registry;
@@ -507,7 +531,7 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
                          {24.0f, 52.0f});
 
     std::unordered_map<entt::entity, int> hitsByTarget;
-    const uint32_t handlerId = CombatEventDispatcher::Register(
+    CombatEventHandlerScope hitHandler(
         CombatEventType::OnDealDamage,
         [&](entt::registry&, const CombatEvent& evt) {
             if (evt.skill_id == 10) {
@@ -522,7 +546,6 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
         auto castFunc = SkillBehaviorRegistry::GetCast(10);
         REQUIRE(castFunc != nullptr);
         castFunc(registry, player, exec);
-        CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, handlerId);
 
         REQUIRE(hitsByTarget.contains(targets.front()));
         CHECK(hitsByTarget.size() == 1);
@@ -612,8 +635,19 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
             buildHarness({{1020, 2}, {1022, 1}, {1023, 3}, {1024, 3}}, 1022u,
                          {24.0f});
 
+        // 本用例只验证「星落形态把斩击改写为固定 4 段」。但终结斩一旦暴击，
+        // DoCast 末尾会触发 ExplodeScars（SevenStarSlash.cpp:709），对同一目标
+        // 追加 8 个 skill_id==10 的 OnDealDamage 事件（4 段斩击 + 4 道裂痕 ×
+        // 每道 AoE/聚焦各 1 次），使计数跃升到 12，与斩击段数无关。
+        // 同时玩家 accuracy=0.97 会让有效闪避成为 3%，引入随机漏段。
+        // 此处固定暴击/闪避分支以消除施放路径内的 RNG，使既有断言仍能校验
+        // 「星落 4 段」语义。
+        auto &playerCombat = registry.get<CombatStats>(player);
+        playerCombat.crit_chance = 0.0f;
+        playerCombat.accuracy = 1.0f;
+
         int damageEvents = 0;
-        const uint32_t handlerId = CombatEventDispatcher::Register(
+        CombatEventHandlerScope hitHandler(
             CombatEventType::OnDealDamage,
             [&](entt::registry&, const CombatEvent& evt) {
                 if (evt.skill_id == 10) {
@@ -628,7 +662,6 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
         auto castFunc = SkillBehaviorRegistry::GetCast(10);
         REQUIRE(castFunc != nullptr);
         castFunc(registry, player, exec);
-        CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, handlerId);
 
         CHECK(damageEvents >= 4);
         CHECK(damageEvents < 7);
@@ -1168,11 +1201,13 @@ TEST_CASE("[Functional] Skill - Seven Star Slash - Scar Explosion filters dead t
     exec.target_pos = {50.0f, 0.0f};
 
     std::unordered_map<entt::entity, int> hitsByTarget;
-    CombatEventDispatcher::Register(CombatEventType::OnDealDamage, [&](entt::registry&, const CombatEvent& evt) {
-        if (evt.skill_id == 10) {
-            hitsByTarget[evt.target]++;
-        }
-    });
+    CombatEventHandlerScope hitHandler(
+        CombatEventType::OnDealDamage,
+        [&](entt::registry&, const CombatEvent& evt) {
+            if (evt.skill_id == 10) {
+                hitsByTarget[evt.target]++;
+            }
+        });
 
     auto castFunc = SkillBehaviorRegistry::GetCast(10);
     REQUIRE(castFunc != nullptr);
@@ -1227,11 +1262,13 @@ TEST_CASE("[Functional] Skill - Seven Star Slash - Dead Focused Target still get
     exec.target_pos = {50.0f, 0.0f};
 
     std::unordered_map<entt::entity, int> hitsByTarget;
-    CombatEventDispatcher::Register(CombatEventType::OnDealDamage, [&](entt::registry&, const CombatEvent& evt) {
-        if (evt.skill_id == 10) {
-            hitsByTarget[evt.target]++;
-        }
-    });
+    CombatEventHandlerScope hitHandler(
+        CombatEventType::OnDealDamage,
+        [&](entt::registry&, const CombatEvent& evt) {
+            if (evt.skill_id == 10) {
+                hitsByTarget[evt.target]++;
+            }
+        });
 
     auto castFunc = SkillBehaviorRegistry::GetCast(10);
     REQUIRE(castFunc != nullptr);

@@ -243,6 +243,10 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
   static void DoHit(entt::registry &reg, entt::entity attacker, entt::entity victim, Tag hit_tag, bool is_crit) {
     if (!reg.valid(attacker) || !reg.valid(victim)) return;
 
+    // 512 满层命印溅射等衍生命中携带 SecondaryHit：本层 per-hit 副作用只响应真实命中，
+    // 与 SkillSystem 命中分发门一致，避免溅射命中相邻满层目标时递归扩散（N12 收窄）。
+    if (HasTag(hit_tag, Tag::SecondaryHit)) return;
+
     int pts_512 = 0;
     int pts_514 = 0;
     int pts_553 = 0;

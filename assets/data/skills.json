@@ -507,7 +507,7 @@
         "nodes": [
           {
             "node_id": 110,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -571,7 +571,7 @@
           },
           {
             "node_id": 133,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -1910,7 +1910,7 @@
         "nodes": [
           {
             "node_id": 311,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -1942,7 +1942,7 @@
           },
           {
             "node_id": 314,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -2022,7 +2022,7 @@
           },
           {
             "node_id": 353,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -2038,7 +2038,7 @@
           },
           {
             "node_id": 354,
-            "role": "Keystone",
+            "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -6355,7 +6355,6 @@
       "icon_id": 3290659565,
       "params": {
         "radius": 96.0,
-        "slash_count": 7.0,
         "flow_bonus_per_stack": 0.06,
         "single_target_execute_bonus": 0.5,
         "invulnerable_duration": 0.5

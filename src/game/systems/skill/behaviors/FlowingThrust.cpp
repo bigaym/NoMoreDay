@@ -14,6 +14,7 @@
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/data/BuffIds.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
@@ -61,15 +62,19 @@ constexpr uint32_t ResidualElements = 175;
 
 namespace {
 
-// 172 凛风 / 175 余韵余波的减速共用构造：把 legacy SpeedDown buff 归入
-// AilmentEngine 的数值类别 Slow (BuffKind)，热路径按整数 kind 查找，
-// 不再对 id 字符串做比较。减速幅度与时长仍来自技能机制数据（等价映射）。
+// 172 凛风 / 175 余韵余波的减速共用构造：减速归入 AilmentEngine 的 Slow
+// 契约类别（BuffKind::Slow），legacy BuffType 由 AilmentAdapter 统一映射，
+// 热路径按整数 kind 查找，不再对 id 字符串做比较。减速幅度与时长仍来自
+// 技能机制数据（等价映射）。
+// C5.2 收编范围：AilmentApplier 构建的异常体不携带 MoveSpeed 修正，且既有
+// 回归用例按 id="FrostSlow"/type/kind 锁定该载体，因此这里只收编类别与类型
+// 映射；载体的手工 AddOrRefresh 暂时保留。
 void ApplyFrostSlowDebuff(entt::registry &registry, entt::entity target,
                           float slowMagnitude, float duration) {
   BuffEffect slow{
       .id = "FrostSlow",
       .name = "Frost Slow",
-      .type = BuffType::SpeedDown,
+      .type = systems::AilmentAdapter::ToLegacyBuffType(AilmentType::Slow),
       .kind = BuffKind::Slow,
       .duration = duration,
       .remaining = duration,
@@ -515,17 +520,18 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         stacks += 1;
       }
       if (stacks > 0) {
-        // 护甲击碎为跨技能共享的 debuff：与裂空斩 235 (RendingWave) 使用同一
-        // 运行时 id "ArmorShred"（BuffType::DefenseDown，每层 -10 护甲 Flat，4s）。
-        // 两处战斗语义一致；仅 .stacks 元数据不同——本处以 -10×层数 的修饰符值
-        // 表达层数（AttributePipeline 不对 modifiers 乘 stacks），RendingWave
-        // 另写入投掷层数用于展示。不强行合并，未决见 B2-15。
+        // 护甲击碎为跨技能共享的减益（BuffId::ArmorShred）。数值口径：
+        // AttributePipeline 直接累加 modifiers 且不乘 .stacks，故 modifier
+        // 承载完整降甲量 (-10×层数)，.stacks 仅作展示并同步为层数。
         BuffEffect shred{
-          .id = "ArmorShred",
+          .id = std::string(BuffIdToString(BuffId::ArmorShred)),
           .name = "Armor Shred",
           .type = BuffType::DefenseDown,
           .duration = 4.0f,
-          .remaining = 4.0f
+          .remaining = 4.0f,
+          .stacks = stacks,
+          .max_stacks = stacks,
+          .is_debuff = true
         };
         shred.modifiers.push_back({
           .value = -10.0f * static_cast<float>(stacks),

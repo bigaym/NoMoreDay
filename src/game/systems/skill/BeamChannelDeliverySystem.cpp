@@ -898,6 +898,17 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
 }
 } // namespace
 
+namespace skills {
+
+// 552 随影落点采样：在 center 周围半径 radius 的圆环上按角度取点。
+// 抽为具名纯函数，使交付层与回归测试共用同一「严格环形」语义，替代旧圆盘随机采样。
+Vector2 SampleFollowingShadowRingPoint(Vector2 center, float radius, float angle_deg) {
+  const float rad = angle_deg * DEG2RAD;
+  return {center.x + std::cos(rad) * radius, center.y + std::sin(rad) * radius};
+}
+
+} // namespace skills
+
 void BeamChannelDeliverySystem::Update(entt::registry &registry,
                                        systems::SpatialHashGrid &grid,
                                        float dt) {
@@ -950,8 +961,8 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
           vel->vy += kb.y * knockupForce;
         }
 
-        // 535 余波: 必定击晕普通怪
-        if (pts_535 > 0) {
+        // 535 余波: 仅击晕普通怪，Boss 免疫（设计明文「受波及的普通敌人」）
+        if (pts_535 > 0 && !registry.any_of<BossBattleComponent>(e)) {
           auto &fx = registry.get_or_emplace<ActiveEffectsComponent>(e);
           BuffEffect stun{
             .id = "ShockwaveStun",
@@ -1055,7 +1066,9 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
             if (auto *st = registry.try_get<CombatStats>(entity)) {
               const float wardPerSecPerPoint =
                   data::SkillMechanicsRegistry::Get().GetFloat(5u, 532, "ward_per_sec_per_point", 10.0f);
-              st->barrier = std::min(st->max_barrier > 0.0f ? st->max_barrier : 1000.0f,
+              const float defaultBarrierCap =
+                  data::SkillMechanicsRegistry::Get().GetFloat(5u, 532, "max_barrier", 1000.0f);
+              st->barrier = std::min(st->max_barrier > 0.0f ? st->max_barrier : defaultBarrierCap,
                                      st->barrier + wardPerSecPerPoint * static_cast<float>(pts_532) * beam.tick_interval);
               registry.get_or_emplace<StatsDirty>(entity);
             }
@@ -1074,7 +1087,8 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         auto *stats = registry.try_get<CombatStats>(entity);
         if (stats) {
           if (stats->mana < mana_cost) {
-            triggerSwordGodFinisher(entity, beam);
+            // 蓝尽属引导中断：534 天剑降世按设计仅响应「结束一段 ≥2 秒的引导」，
+            // 中断不触发终结技，避免法力耗尽瞬间额外召出巨剑（N12 收窄）。
             s_beam_to_remove.push_back(entity);
             continue;
           }
@@ -1109,11 +1123,12 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
           }
         }
 
-        // 552 随影: 剑气雨固定在自身周围半径 150 内的圆形区域持续降下
+        // 552 随影: 剑气雨固定落在自身周围半径 circle_radius 的圆环上（严格环形，非圆盘）
         if (profile && (profile->delivery.feature_flags & 131072) != 0) {
-          float angle = static_cast<float>(GetRandomValue(0, 360)) * DEG2RAD;
-          float r = static_cast<float>(GetRandomValue(10, 150));
-          targetPos = {pos.x + std::cos(angle) * r, pos.y + std::sin(angle) * r};
+          const float circleRadius =
+              data::SkillMechanicsRegistry::Get().GetFloat(5u, 552, "circle_radius", 150.0f);
+          const float angle = static_cast<float>(GetRandomValue(0, 360));
+          targetPos = skills::SampleFollowingShadowRingPoint({pos.x, pos.y}, circleRadius, angle);
         }
       }
 
@@ -1151,10 +1166,12 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         Vector2 dirToTarget = Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
         const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, beam.skill_id ? beam.skill_id : 5);
 
-        // 533 巨剑术: 数量减半 (3 -> 1), 体积+100% (radius 35 -> 70)
+        // 533 巨剑术: 数量减半 (3 -> 1), 体积+100% (radius 35 -> giant_radius)
         bool isColossal = profile && ((profile->delivery.feature_flags & 4096) != 0);
         int count = isColossal ? 1 : (beam.is_empowered ? 4 : 3);
-        float proj_radius = isColossal ? 70.0f : 35.0f;
+        float proj_radius = isColossal
+                                ? data::SkillMechanicsRegistry::Get().GetFloat(5u, 533, "giant_radius", 70.0f)
+                                : 35.0f;
 
         Tag effectiveTags = SkillSystem::GetEffectiveSkillTags(registry, entity, beam.skill_id ? beam.skill_id : 5);
         if (profile && profile->effective_tags != Tag::None) {
@@ -1304,13 +1321,15 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         continue;
       }
       field.tick_timer = std::max(0.2f, field.tick_interval);
-      // M3(b)：感电区域仅周期性施加感电（Shock），伤害全部由落雷本体承担，
-      // 避免每 0.5s 新建区域导致同点重叠时 N 倍全额伤害叠加
+      // 灵剑决 (372) 静电场零伤害（裁决①）：BladeFormation 不再写入 field.damage，
+      // 此处对技能3 显式施加零强度感电，仅使目标进入感电状态、不产生 DoT；
+      // 技能7 772 的场保持 field.damage 的 10% 感电 DoT 语义不变。
+      const bool zeroDamageField = field.skill_id == 3u;
       grid.query({field.center.x, field.center.y}, field.radius,
                  [&](entt::entity e, const Position &) {
                    if (!registry.any_of<EnemyTag>(e) || registry.any_of<KilledTag>(e)) return;
                    ApplyAilmentTo(registry, e, field.owner, AilmentType::Shock,
-                                  field.damage * 0.1f, 1.0f, 1);
+                                  zeroDamageField ? 0.0f : field.damage * 0.1f, 1.0f, 1);
                  });
     }
     for (auto fe : s_shock_fields_to_remove) {

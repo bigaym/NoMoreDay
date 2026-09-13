@@ -41,7 +41,19 @@ BladeWardIntercept EvaluateBladeWardInterception(entt::registry &registry,
     return intercept;
   }
   auto *ward = registry.try_get<BladeWardComponent>(defender);
-  if (ward == nullptr || ward->sword_count <= 0) {
+  if (ward == nullptr) {
+    return intercept;
+  }
+  // 434 无瑕之御：充能就绪时完全招架本次命中并消耗充能，不消耗飞剑。
+  if (ward->perfect_parry_ready) {
+    ward->perfect_parry_ready = false;
+    ward->perfect_parry_timer = 0.0f;
+    intercept.intercepted = true;
+    LOG_INFO("Blade Ward: perfect parry negated hit for entity {}!",
+             static_cast<uint32_t>(defender));
+    return intercept;
+  }
+  if (ward->sword_count <= 0) {
     return intercept;
   }
   const float chance =

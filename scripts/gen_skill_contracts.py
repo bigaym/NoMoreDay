@@ -451,8 +451,6 @@ def _build_contract_for_skill(
             role = ROLE_KEYSTONE
         elif node_id in trigger_nodes:
             role = ROLE_TRIGGER
-        elif not explicit_keystone_ids and max_points == 1:
-            role = ROLE_KEYSTONE
 
         if node_id in explicit_passive_ids:
             role = ROLE_PASSIVE

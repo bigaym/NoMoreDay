@@ -214,7 +214,21 @@ struct ActiveEffectsComponent {
         }
         effects.push_back(new_effect);
     }
-    
+
+    // 热路径就地刷新：同 id 效果已存在时仅改写首个 modifier 数值与剩余/总时长，
+    // 避免每帧构造 BuffEffect（std::string/vector 堆分配）与整表覆盖。命中返回 true。
+    bool UpdateModifierValue(std::string_view id, float value, float duration) {
+        for (auto& effect : effects) {
+            if (std::string_view(effect.id) == id) {
+                if (!effect.modifiers.empty()) effect.modifiers[0].value = value;
+                effect.duration = duration;
+                effect.remaining = duration;
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Helper to remove a buff.
     // 以 std::string_view 为键：零临时 std::string、零堆分配，
     // 与 Get(std::string_view) 口径一致（code_standard §2.1/§7.2）。
@@ -301,6 +315,18 @@ struct ActiveEffectsComponent {
     void RemoveByKind(BuffKind kind) {
         std::erase_if(effects,
                       [&](const auto& effect) { return effect.kind == kind; });
+    }
+
+    // 数值类别 + 来源技能过滤移除：仅清除 kind 匹配、且来源为 source_skill_id
+    // 或无归属 (source_skill_id==0) 的效果。无归属 0 视为通配——对任意施法者
+    // 均可见并一并清除，与 TryCast 中 `source_skill_id == 0 ||
+    // source_skill_id == slot.id` 的匹配语义保持一致，避免整类误清。
+    void RemoveByKind(BuffKind kind, uint32_t source_skill_id) {
+        std::erase_if(effects, [&](const auto& effect) {
+            return effect.kind == kind &&
+                   (effect.source_skill_id == 0 ||
+                    effect.source_skill_id == static_cast<int>(source_skill_id));
+        });
     }
     
     // swordStepDrainMult: 御剑步（988 御剑化影）自然衰减倍率，仅影响 SwordStep。

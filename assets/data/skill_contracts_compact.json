@@ -22,6 +22,10 @@
       "sword_step_node_ids": [
         113
       ],
+      "keystone_node_ids": [
+        113,
+        154
+      ],
       "passive_node_ids": [
         130,
         153
@@ -117,6 +121,11 @@
       ],
       "sword_intent_node_ids": [
         315
+      ],
+      "keystone_node_ids": [
+        313,
+        330,
+        351
       ],
       "resist_models": {
         "374": "TypeB_Shred"
@@ -455,6 +464,11 @@
       ],
       "sword_step_node_ids": [
         1017,
+        1025
+      ],
+      "keystone_node_ids": [
+        1007,
+        1013,
         1025
       ],
       "passive_node_ids": [

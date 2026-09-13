@@ -13,6 +13,7 @@
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/data/BuffIds.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
@@ -118,7 +119,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         consumedIntent = currentIntent;
         exec.is_empowered = true;
         if (consumedIntent >= SkillConstants::DEFAULT_MAX_SWORD_INTENT) {
-          // 待设计确认：GDD §3.2 无满层重置流云刺 CD 的出处，需与 §3.1 交叉确认后决定去留
+          // 满10层额外重置流云刺冷却：GDD《职业设计草案_剑修.md》L210 (251 剑意爆发)
+          // 明文效果——消耗满层(10层)剑意时，额外重置 [流云刺] 的冷却时间。
           seven_star_shared::ResetSkillCooldown(
               registry, owner, seven_star_shared::kFlowingThrustSkillId);
         }
@@ -529,18 +531,17 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         stacks += 1;
       }
       if (stacks > 0) {
-        // 护甲击碎为跨技能共享的 debuff：与流云刺 152 (FlowingThrust) 使用同一
-        // 运行时 id "ArmorShred"（BuffType::DefenseDown，每层 -10 护甲 Flat，4s）。
-        // 两处 combat 语义一致；仅 .stacks 元数据不同——本处写入投掷层数用于展示，
-        // FlowingThrust 侧以 -10×层数 的修饰符值表达层数。后续如需单一来源，
-        // 建议补 BuffId::ArmorShred 并抽公共构造（见 B2-15 未决项）。
+        // 护甲击碎为跨技能共享的减益（BuffId::ArmorShred）。数值口径：
+        // AttributePipeline 直接累加 modifiers 且不乘 .stacks，故 modifier
+        // 承载完整降甲量 (-10×层数)，.stacks 仅作展示并同步为层数。
         BuffEffect shred{
-          .id = "ArmorShred",
+          .id = std::string(BuffIdToString(BuffId::ArmorShred)),
           .name = "Armor Shred",
           .type = BuffType::DefenseDown,
           .duration = 4.0f,
           .remaining = 4.0f,
           .stacks = stacks,
+          .max_stacks = stacks,
           .is_debuff = true
         };
         shred.modifiers.push_back({

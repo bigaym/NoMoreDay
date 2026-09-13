@@ -94,7 +94,7 @@ NMD: Combat: Deferred action queued outside a settlement frame; dropping.
 
 **审计结论（受击/结算内触发点）**：
 - `Calculate` / `CalculateBatch` 内原有的两处 `ResolveDamage`（单目标 `:1307`、批量 `:1779`）已全部改为 `QueueDeferredAction`，文件内不再有同步 `ResolveDamage`。
-- `SkillSystem.cpp:1058`（事件驱动 `OnTakeDamage` 中 973 过载护盾连锁）**明确豁免**：它由事件层在结算尾段触发，已受 `SecondaryHit` 标签与 ICD 守卫，迁移到延迟队列需 P2/P3 的快照与施法上下文支持。
+- `SkillSystem.cpp:1068`（事件驱动 `OnTakeDamage` 中 973 过载护盾连锁）**保留同步豁免**：它由事件层在结算尾段（`SettlementFrame` 深度 1）触发，已受 `SecondaryHit` 标签与 ICD 守卫。P2/P3 的伤害快照与结算帧现已落地，迁移到延迟队列技术上已可行；但同步执行保证 ICD 标记在本次受击返回前生效，避免同帧多次受击重复触发 973，而延迟入队会因 FIFO 与重入深度上限语义改变反伤/反击的因果顺序，故按语义保持同步。是否统一入队列列为后续架构项。
 - 其余 `ResolveDamage` 调用均为技能系统顶层触发，非结算中重入。
 
 ---
@@ -174,7 +174,7 @@ NMD: Combat: Deferred action queued outside a settlement frame; dropping.
 
 ## 10. 遗留与风险（供主代理门禁复核）
 
-1. **事件驱动受击施法未入队**：`SkillSystem.cpp:1058`（973 过载连锁）仍为事件尾段同步触发，已按 §4 记录豁免理由；彻底迁移依赖 P2/P3 的施法快照。
+1. **事件驱动受击施法保持同步**：`SkillSystem.cpp:1068`（973 过载连锁）仍为事件尾段同步触发；P2/P3 快照与结算帧已就绪，迁移技术上可行但非必须（详见 §4）。当前以语义稳定（ICD 即时生效、因果顺序不变）优先，彻底入队列列为后续架构统一项。
 2. **裸 `Calculate` 反击语义变更**：接口签名不变，但无结算帧时反击被丢弃。设计如此；若存在仓库外调用方依赖同步反击，需在本阶段知会。
 3. **`ResolveDamageBatch` 仍无生产调用方**：契约已修复，实际消费方待后续接入。
 4. **性能波动**：Batch Scaling 500 P99 0.490ms，绝对值仍远低于 1.0ms 预算，属 run 噪声。

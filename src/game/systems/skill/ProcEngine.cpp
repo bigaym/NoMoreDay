@@ -59,8 +59,10 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
             if (rule.required_window != TriggerWindow::None) {
                 const auto* pt = reg.try_get<PhantomTranceComponent>(listener);
                 if (!pt || pt->remaining <= 0.0f) continue;
-                // DeathSeal 窗口口径统一：与 BloodSea.cpp 的禁疗/窗口判定一致走
-                // IsDeathSealActive（额外排除 ending），不再直接读 params.death_seal。
+                // DeathSeal 窗口口径统一：与 BloodSea.cpp 的禁疗/窗口判定同源走
+                // IsDeathSealActive，不再直接读 params.death_seal。按设计 §11.8
+                // 确认的时序，该判定排除 ending 终结帧——终结帧不触发 DeathSeal 规则；
+                // 此为预期时序，无行为变更。
                 if (rule.required_window == TriggerWindow::DeathSeal &&
                     !IsDeathSealActive(*pt)) {
                     continue;

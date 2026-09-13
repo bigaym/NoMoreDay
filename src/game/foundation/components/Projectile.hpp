@@ -32,6 +32,7 @@ struct Projectile {
   float arcWidth = 0.0f; // Visual arc width in degrees (0 = use system default)
   int visualType = 0;    // 0 = Fan, 1 = Circle, 2 = Beam
   bool pierce = false;   // Does it pass through enemies?
+  bool visual_only = false; // 仅表现：命中不产生伤害结算
   int pierceCount = 0;   // How many enemies can it hit?
   bool hasRendered =
       false; // Flag to prevent first-frame destruction before visibility

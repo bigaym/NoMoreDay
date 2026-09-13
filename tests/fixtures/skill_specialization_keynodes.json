@@ -3,7 +3,7 @@
   "skills": [
     {
       "skill_id": 1,
-      "key_nodes": [113, 130, 132, 134, 153, 155, 170, 172],
+      "key_nodes": [113, 130, 132, 134, 153, 154, 155, 170, 172],
       "expected_layers": ["CastState", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
     },
     {
@@ -13,7 +13,7 @@
     },
     {
       "skill_id": 3,
-      "key_nodes": [315, 335, 355, 370, 372],
+      "key_nodes": [313, 315, 330, 335, 351, 355, 370, 372],
       "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy"]
     },
     {

@@ -434,17 +434,27 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
       }
     }
 
+    // 节点 1000 非 trigger 节点：SkillRegistry 对其使用默认契约 range_mult=1.0，
+    // 迁移前 getModifier 实际返回 1.0；默认值与机制表补键值保持一致以避免行为变化。
     float acquisitionRadius =
-        baseRadius * (1.0f + getModifier(SevenStarSlashNodes::TargetLock, ModifierParam::RangeMultiplier, 0.06f) * static_cast<float>(specState.targetLockPoints));
+        baseRadius * (1.0f + GetMech(kSkillId, SevenStarSlashNodes::TargetLock,
+                                     "acquisition_radius_per_point", 1.0f) *
+                                static_cast<float>(specState.targetLockPoints));
     auto targets = GatherLiveTargets(registry, owner, exec.target_pos,
                                      acquisitionRadius, specState.sevenFocus);
     entt::entity focusedTarget = !targets.empty() ? targets.front().entity : entt::null;
     const bool singleTarget = targets.size() == 1;
 
-    int slashCount = specState.starfall ? 4 : 7;
+    // 普通形态斩击数来自机制表技能级节点 0（原 skills.json params.slash_count 死键）；
+    // 星落形态固定 4 段（3 段环绕 + 1 段收束），不受该键影响。
+    const int slashCount =
+        specState.starfall
+            ? 4
+            : static_cast<int>(GetMech(kSkillId, 0, "slash_count", 7.0f));
     float hitRadius = specState.starfall ? baseRadius * 0.50f : baseRadius * 0.28f;
     if (specState.starScarFollow) {
-      hitRadius *= getModifier(SevenStarSlashNodes::StarScarFollow, ModifierParam::RangeMultiplier, 1.0f);
+      hitRadius *= GetMech(kSkillId, SevenStarSlashNodes::StarScarFollow,
+                           "hit_radius_mult", 1.2f);
     }
     float baseDamageMultiplier = 1.0f;
     if (specState.poleStarOrbit) {
@@ -544,7 +554,9 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         float critDamageBonus = 0.0f;
 
         if (isFinalSlash) {
-          slashDamage *= 1.0f + getModifier(SevenStarSlashNodes::FinalSlash, ModifierParam::Effectiveness, 0.12f) * static_cast<float>(specState.finalSlashPoints);
+          slashDamage *= 1.0f + GetMech(kSkillId, SevenStarSlashNodes::FinalSlash,
+                                        "final_slash_damage_per_point", 0.12f) *
+                                    static_cast<float>(specState.finalSlashPoints);
           if (singleTarget) {
             slashDamage *= 1.0f + singleTargetExecuteBonus;
           }
@@ -554,16 +566,22 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
           if (candidate.entity == focusedTarget) {
             slashDamage *=
                 1.0f + static_cast<float>(summary.sameTargetHitsBeforeFinal) *
-                           (getModifier(SevenStarSlashNodes::ExposedWeakness, ModifierParam::Effectiveness, 0.02f) * static_cast<float>(specState.exposedWeaknessPoints));
+                           (GetMech(kSkillId, SevenStarSlashNodes::ExposedWeakness,
+                                    "exposed_weakness_damage_per_point", 0.02f) *
+                            static_cast<float>(specState.exposedWeaknessPoints));
           }
           const bool isolated =
               focusedTarget != entt::null && targets.size() <= 1 && candidate.entity == focusedTarget;
           if (isolated || IsEliteOrBoss(candidate.rarity)) {
-            slashDamage *= 1.0f + getModifier(SevenStarSlashNodes::PoJun, ModifierParam::Effectiveness, 0.10f) * static_cast<float>(specState.poJunPoints);
+            slashDamage *= 1.0f + GetMech(kSkillId, SevenStarSlashNodes::PoJun,
+                                          "po_jun_damage_per_point", 0.10f) *
+                                      static_cast<float>(specState.poJunPoints);
           }
           if (specState.sevenFocus && isolated && candidate.entity == focusedTarget) {
             slashDamage *=
-                1.0f + getModifier(SevenStarSlashNodes::SolitaryStar, ModifierParam::Effectiveness, 0.12f) * static_cast<float>(specState.solitaryStarPoints);
+                1.0f + GetMech(kSkillId, SevenStarSlashNodes::SolitaryStar,
+                               "solitary_star_damage_per_point", 0.12f) *
+                           static_cast<float>(specState.solitaryStarPoints);
           }
           if (specState.starfall && specState.shatteredConstellationPoints > 0) {
             slashDamage *=
@@ -571,14 +589,19 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
           }
           if (const auto *stats = registry.try_get<CombatStats>(candidate.entity)) {
             if (stats->max_health > 0.0f && stats->health <= stats->max_health * 0.35f) {
-              critDamageBonus += getModifier(SevenStarSlashNodes::ZhanJiang, ModifierParam::Effectiveness, 0.08f) * static_cast<float>(specState.zhanJiangPoints);
+              // 节点 1006 非 trigger 节点，契约默认 effectiveness=1.0（迁移前 getModifier 实际返回值）。
+              critDamageBonus += GetMech(kSkillId, SevenStarSlashNodes::ZhanJiang,
+                                         "zhan_jiang_crit_damage_per_point", 1.0f) *
+                                 static_cast<float>(specState.zhanJiangPoints);
             }
           }
         } else {
           if (slashIndex < 3) {
             if (const auto *stats = registry.try_get<CombatStats>(candidate.entity)) {
               if (stats->max_health > 0.0f && stats->health >= stats->max_health * 0.99f) {
-                critDamageBonus += getModifier(SevenStarSlashNodes::ZhanJiang, ModifierParam::Effectiveness, 0.08f) * static_cast<float>(specState.zhanJiangPoints);
+                critDamageBonus += GetMech(kSkillId, SevenStarSlashNodes::ZhanJiang,
+                                           "zhan_jiang_crit_damage_per_point", 1.0f) *
+                                   static_cast<float>(specState.zhanJiangPoints);
               }
             }
           }
@@ -611,7 +634,10 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         }
 
         if (specState.flowReturnPoints > 0 && resourceRefunds < 4) {
-          const float chance = getModifier(SevenStarSlashNodes::FlowReturn, ModifierParam::Effectiveness, 12.0f) * static_cast<float>(specState.flowReturnPoints);
+          const float chance =
+              GetMech(kSkillId, SevenStarSlashNodes::FlowReturn,
+                      "flow_return_chance_per_point", 12.0f) *
+              static_cast<float>(specState.flowReturnPoints);
           if (seven_star_shared::DeterministicRoll(
                   exec.cast_id + static_cast<uint64_t>(slashIndex * 31) +
                       static_cast<uint64_t>(entt::to_integral(candidate.entity)),
@@ -641,9 +667,11 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     if (specState.starScarFollow && resourceToSpend >= SkillConstants::DEFAULT_MAX_SWORD_INTENT &&
         focusedTarget != entt::null) {
-      (void)ApplySlashDamage(registry, owner, focusedTarget,
-                             baseSlashDamage * getModifier(SevenStarSlashNodes::StarScarFollow, ModifierParam::Effectiveness, 0.35f),
-                             kSkillId, 0.0f, 0.0f, false);
+      (void)ApplySlashDamage(
+          registry, owner, focusedTarget,
+          baseSlashDamage * GetMech(kSkillId, SevenStarSlashNodes::StarScarFollow,
+                                    "follow_up_damage_ratio", 0.35f),
+          kSkillId, 0.0f, 0.0f, false);
     }
 
     if (specState.quickStarPoints > 0) {

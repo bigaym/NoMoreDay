@@ -1,6 +1,7 @@
 #pragma once
 #include "game/contracts/DamagePipelineTypes.hpp"
 #include "game/foundation/components/SkillPointAccess.hpp"
+#include "game/systems/skill/behaviors/BladeWardRuntime.hpp"
 #include <entt/entt.hpp>
 
 namespace NoMoreDay {
@@ -55,6 +56,24 @@ ResolveSkill4Counter(entt::entity counter_attacker,
                    (1.0f + ward.counter_damage_more));
   request.additional_tags = Tag::Hit | Tag::Melee | Tag::SecondaryHit;
   request.source_entity = counter_attacker;
+  return request;
+}
+
+// 结算剑气护体反击的唯一入口：在纯构造的 ResolveSkill4Counter 之上，
+// 统一生成 counter_swords 道反击剑气实体并结算命中元素曝光/霜铠风暴。
+// 三处伤害站点（偏转拦截、单目标、批量）共用，保证副作用与归因单源。
+// apply_effects=false 时仅构造请求（仿真/预览路径不得spawn实体或施加debuff）。
+[[nodiscard]] inline DamageRequest ResolveSkill4CounterEffects(
+    entt::registry &registry, entt::entity counter_attacker,
+    entt::entity counter_defender, const BladeWardComponent &ward,
+    bool apply_effects) {
+  DamageRequest request =
+      ResolveSkill4Counter(counter_attacker, counter_defender, ward);
+  if (apply_effects) {
+    skills::SpawnBladeWardCounterSwords(registry, counter_attacker, 0);
+    skills::ApplyBladeWardCounterOnHit(registry, counter_attacker,
+                                       counter_defender, ward);
+  }
   return request;
 }
 

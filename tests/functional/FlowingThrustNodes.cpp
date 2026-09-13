@@ -121,7 +121,7 @@ bool VictimHasBleed(const entt::registry &registry, entt::entity entity) {
   return false;
 }
 
-// 153 饮血刃：流血 DoT tick 实际结算后，按 100% 治疗 DoT 施加者
+// 153 饮血刃：流血 DoT tick 实际结算后，按 30% 治疗 DoT 施加者
 TEST_CASE("[Unit] Skill - Flowing Thrust 153 Blood Drinker heals on bleed tick") {
   TestSetupScope scope;
   LoadSkillMechanics();
@@ -158,9 +158,9 @@ TEST_CASE("[Unit] Skill - Flowing Thrust 153 Blood Drinker heals on bleed tick")
   const float healAmount = playerStats->health - playerBefore;
   const float enemyDamage = enemyBefore - registry.get<HealthComponent>(enemy).current;
 
-  // 治疗量 = 实际流血伤害 × 100%
+  // 治疗量 = 实际流血伤害 × 30%
   CHECK(healAmount > 0.0f);
-  CHECK(healAmount == doctest::Approx(enemyDamage));
+  CHECK(healAmount == doctest::Approx(enemyDamage * 0.30f));
   CHECK(healAmount <= 80.0f); // 不超过 max_health 余量与 tick 总量
   // 治疗事件派发
   // （OnHeal 事件本身不在本用例断言，避免依赖 dispatcher 订阅细节）

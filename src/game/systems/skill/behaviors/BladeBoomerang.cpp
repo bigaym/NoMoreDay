@@ -361,17 +361,19 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
         float duration = baseDur;
         if (auto *fx = registry.try_get<ActiveEffectsComponent>(target)) {
           for (const auto &eff : fx->effects) {
-            if (eff.id == "ArmorShred") {
+            if (eff.id == BuffIdToString(BuffId::ArmorShred)) {
               duration = eff.duration + extend;
               break;
             }
           }
         }
-        BuffEffect shred{.id = "ArmorShred",
+        BuffEffect shred{.id = std::string(BuffIdToString(BuffId::ArmorShred)),
                          .name = "Armor Shred",
                          .type = BuffType::DefenseDown,
                          .duration = duration,
                          .remaining = duration,
+                         .stacks = 1,
+                         .max_stacks = 1,
                          .is_debuff = true};
         shred.modifiers.push_back({.value = -10.0f, .type = StatType::Armor, .mode = ModifierMode::Flat});
         registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(shred);

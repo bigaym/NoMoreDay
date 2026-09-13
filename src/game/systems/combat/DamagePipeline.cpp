@@ -1471,8 +1471,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
           const bool isBlocked = defense_resolution.blocked;
           if (intercepted || isMelee || isBlocked) {
             DamagePipeline::DeferredCombatAction action;
-            action.request =
-                damage::ResolveSkill4Counter(defender, attacker, *ward);
+            action.request = damage::ResolveSkill4CounterEffects(
+                registry, defender, attacker, *ward, !request.is_simulation);
             action.apply_attacker = defender;
             action.show_vfx = true;
             QueueDeferredAction(std::move(action));
@@ -2132,8 +2132,8 @@ void DamagePipeline::CalculateBatch(
             const bool isBlocked = defense_resolution.blocked;
             if (intercepted || isMelee || isBlocked) {
               DamagePipeline::DeferredCombatAction action;
-              action.request =
-                  damage::ResolveSkill4Counter(res.target, attacker, *ward);
+              action.request = damage::ResolveSkill4CounterEffects(
+                  registry, res.target, attacker, *ward, true);
               action.apply_attacker = res.target;
               action.show_vfx = true;
               QueueDeferredAction(std::move(action));

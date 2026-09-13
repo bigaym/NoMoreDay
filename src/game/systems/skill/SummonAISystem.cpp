@@ -5,6 +5,7 @@
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/contracts/impl/CombatTelemetry.hpp"
 #include "game/systems/skill/SummonCombatBridge.hpp"
 #include <algorithm>
@@ -160,8 +161,12 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
       }
     }
 
-    // 剑阵共鸣 (Node 355): 当处于 [剑阵·诛仙] 范围内时，灵剑获得 50% 攻击速度加成
+    // 剑阵共鸣 (Node 355): 当处于 [剑阵·诛仙] 范围内时，灵剑获得攻速加成。
+    // 加成比例由 skill_mechanics 提供 (array_haste_pct, 百分比)，禁止硬编码。
     if (formation && formation->has_array_resonance) {
+      const float arrayHastePct = data::SkillMechanicsRegistry::Get().GetFloat(
+          3u, 355u, "array_haste_pct", 50.0f);
+      const float arrayHasteMult = 1.0f + arrayHastePct / 100.0f;
       auto arrayView = registry.view<SwordArrayComponent, Position>();
       for (auto arrEnt : arrayView) {
         const auto &arr = arrayView.get<SwordArrayComponent>(arrEnt);
@@ -169,7 +174,7 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
           const auto &arrPos = arrayView.get<Position>(arrEnt);
           const float d2 = Vector2DistanceSqr({pos.x, pos.y}, {arrPos.x, arrPos.y});
           if (d2 <= arr.radius * arr.radius) {
-            effectiveDt *= 1.50f;
+            effectiveDt *= arrayHasteMult;
             break;
           }
         }

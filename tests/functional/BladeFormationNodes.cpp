@@ -110,10 +110,10 @@ TEST_CASE("[Functional] Skill 3 - Summon Lifecycle and Frame-1 Destruction Exemp
   auto swords = GetSwordsForOwner(registry, player);
   REQUIRE(swords.size() == 3);
 
-  // Check summon lifetime settings
+  // D4：灵剑为限时召唤（默认 8s），不再是永久驻留
   const auto &summon = registry.get<SummonComponent>(swords[0]);
-  CHECK(summon.lifetime < 0.0f);
-  CHECK(summon.max_lifetime <= 0.0f);
+  CHECK(summon.lifetime > 0.0f);
+  CHECK(summon.max_lifetime > 0.0f);
 
   // Run SummonLifecycleSystem across several frames (dt = 0.1f, 1.0f, 10.0f)
   systems::SummonLifecycleSystem::Update(registry, 0.1f);
@@ -122,8 +122,9 @@ TEST_CASE("[Functional] Skill 3 - Summon Lifecycle and Frame-1 Destruction Exemp
   systems::SummonLifecycleSystem::Update(registry, 1.0f);
   CHECK(registry.valid(swords[0]));
 
+  // 累计 11.1s 已超过 8s 存活期，应自行消散
   systems::SummonLifecycleSystem::Update(registry, 10.0f);
-  CHECK(registry.valid(swords[0]));
+  CHECK_FALSE(registry.valid(swords[0]));
 
   // When owner is destroyed, summon MUST be cleaned up on next update
   registry.destroy(player);

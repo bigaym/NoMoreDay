@@ -46,6 +46,7 @@
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
 #include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
+#include "game/systems/skill/behaviors/BladeWardRuntime.hpp"
 #include "game/systems/skill/behaviors/PhantomTrance.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include "game/systems/skill/behaviors/SwordArray.hpp"
@@ -1018,6 +1019,13 @@ void SkillSystem::InitHooks() {
         // 973 过载护盾：疾空惊雷形态内「受击」概率反击连锁闪电并施加感电。
         // 设计语义为受击触发；以受击者身上的无属性标记 Buff 作为内置冷却
         // (默认 0.5s，可从 skill_mechanics 读取)，随通用 Buff 生命周期自然过期。
+        //
+        // 此处刻意保持同步 ResolveDamage，不改为 P1 延迟队列：OnTakeDamage 的派发
+        // 位于 Execute 结算尾段（SettlementFrame 深度 1），连锁反伤自身也是一次
+        // SecondaryProc；同步执行保证 ICD 标记在本次受击返回前即生效，避免同帧
+        // 多次受击重复触发 973。改为延迟入队虽已具备 P2/P3 快照与结算帧（技术上
+        // 可行），但会因 FIFO 与重入深度上限语义改变反伤/反击的因果顺序，属后续
+        // 架构统一项而非本次必须。
         const auto *pt = registry.try_get<PhantomTranceComponent>(evt.source);
         if (pt == nullptr || pt->remaining <= 0.0f ||
             pt->params.overload_speed_pct <= 0.0f || !registry.valid(evt.target) ||
@@ -1103,22 +1111,24 @@ void SkillSystem::InitHooks() {
           if (evType == CombatEventType::OnDodge) {
             float speedPoints = 0.0f;
             bool powerBoost = false;
+            float aftermathHealPct = 0.0f;
+            float swordStepDodgeRating = 0.0f;
             if (const auto *ward = registry.try_get<BladeWardComponent>(evt.source)) {
               speedPoints = ward->dodge_speed_points;
               powerBoost = ward->dodge_power_boost;
+              aftermathHealPct = ward->aftermath_heal_pct;
+              swordStepDodgeRating = ward->sword_step_dodge_rating;
             }
             if (const auto *active = registry.try_get<ActiveSkillsComponent>(evt.source)) {
               for (const auto &spec : active->specialized_slots) {
                 if (spec.skill_id == 4u) {
-                  // 节点点数统一经 helper 读取；每点闪避提速标量由机制表驱动。
+                  // 451 提速点数以 spec 分配记录为真源，BladeWardComponent::
+                  // dodge_speed_points 为烘焙快照兜底；两者皆与分配点数一致。
                   const int speedPts = skills::ReadPoints(spec, 451u);
                   if (speedPts > 0) {
-                    speedPoints = std::max(
-                        speedPoints,
-                        skills::GetMech(4u, 451u, "dodge_speed_per_point", 1.0f) *
-                            static_cast<float>(speedPts));
+                    speedPoints = std::max(speedPoints, static_cast<float>(speedPts));
                   }
-                  // 以攻代守为布尔节点：点亮即生效。
+                  // 455 攻以代守为布尔节点：点亮即生效。
                   if (skills::HasNode(spec, 455u)) {
                     powerBoost = true;
                   }
@@ -1127,15 +1137,19 @@ void SkillSystem::InitHooks() {
               }
             }
 
-            // Talent 451: 借力打力 闪避后移速/攻速加成 (2s)
+            // Talent 451: 借力打力 闪避后移速/攻速加成（系数与时长由机制表 451 段驱动）
             if (speedPoints > 0.0f) {
-              const float speedBonus = 5.0f * speedPoints;
+              const float speedBonus =
+                  skills::GetMech(4u, 451u, "dodge_speed_bonus_per_point", 5.0f) *
+                  speedPoints;
+              const float speedDuration =
+                  skills::GetMech(4u, 451u, "dodge_speed_duration", 2.0f);
               BuffEffect speedBuff{
                   .id = "blade_ward_dodge_speed",
                   .name = "Counter Speed",
                   .type = BuffType::SpeedUp,
-                  .duration = 2.0f,
-                  .remaining = 2.0f,
+                  .duration = speedDuration,
+                  .remaining = speedDuration,
               };
               speedBuff.modifiers.push_back({.value = speedBonus,
                                             .type = StatType::MoveSpeed,
@@ -1166,12 +1180,38 @@ void SkillSystem::InitHooks() {
               registry.get_or_emplace<StatsDirty>(evt.source);
               SkillSystem::GainSwordIntent(registry, evt.source, 1, 4);
             }
+            // Talent 453: 流风余韵 瞬身反打触发后按已损生命回复。
+            if (aftermathHealPct > 0.0f) {
+              if (auto *health = registry.try_get<HealthComponent>(evt.source);
+                  health != nullptr && health->current < health->max) {
+                const float missing = health->max - health->current;
+                health->current = std::min(health->max, health->current + missing * aftermathHealPct);
+              }
+            }
+            // Talent 454: 御剑闪步 闪避后获得闪避等级。
+            if (swordStepDodgeRating > 0.0f) {
+              BuffEffect stepBuff{
+                  .id = "blade_ward_sword_step",
+                  .name = "Sword Step",
+                  .type = BuffType::DefenseUp,
+                  .duration = 3.0f,
+                  .remaining = 3.0f,
+              };
+              stepBuff.modifiers.push_back({.value = swordStepDodgeRating,
+                                            .type = StatType::DodgeRating,
+                                            .mode = ModifierMode::Flat});
+              registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
+                  .AddOrRefresh(stepBuff);
+              registry.get_or_emplace<StatsDirty>(evt.source);
+            }
           } else if (evType == CombatEventType::OnBlock) {
             float blockWard = 0.0f;
             float intentChance = 0.0f;
+            float intentCritBonus = 0.0f;
             if (const auto *ward = registry.try_get<BladeWardComponent>(evt.source)) {
               blockWard = ward->block_ward_amount;
               intentChance = ward->block_intent_chance;
+              intentCritBonus = ward->block_intent_crit;
             }
             if (const auto *active = registry.try_get<ActiveSkillsComponent>(evt.source)) {
               for (const auto &spec : active->specialized_slots) {
@@ -1208,6 +1248,22 @@ void SkillSystem::InitHooks() {
             if (intentChance > 0.0f) {
               if (utils::ThreadSafeRandom::GetFloat01() < intentChance) {
                 SkillSystem::GainSwordIntent(registry, evt.source, 1, 4);
+                // 435 crit_bonus: 回剑意时同步赋予下一击暴击加成。
+                if (intentCritBonus > 0.0f) {
+                  BuffEffect critBuff{
+                      .id = "blade_ward_intent_crit",
+                      .name = "Intent Edge",
+                      .type = BuffType::CritRateUp,
+                      .duration = 3.0f,
+                      .remaining = 3.0f,
+                  };
+                  critBuff.modifiers.push_back({.value = intentCritBonus * 100.0f,
+                                                .type = StatType::CritChance,
+                                                .mode = ModifierMode::Flat});
+                  registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
+                      .AddOrRefresh(critBuff);
+                  registry.get_or_emplace<StatsDirty>(evt.source);
+                }
               }
             }
           }
@@ -1398,6 +1454,10 @@ void SkillSystem::Update(entt::registry &registry,
       // Fallback path for missing buff entry: decay locally and exit.
       ward.remaining -= dt;
     }
+
+    // 推进专精节点动态效果（410 厚积薄发 / 413 破釜沉舟 / 415 坚韧回生 /
+    // 433 鲜血壁垒 / 434 无瑕之御 / 472 雷霆法环）。
+    skills::UpdateBladeWardRuntime(registry, grid, entity, ward, dt);
 
     if (ward.remaining <= 0.0f) {
       SkillExecutionContext wardExitContext = BuildSkillVfxContextFromEvent(
@@ -1978,13 +2038,15 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
                           100.0f
                     : 0.0f;
   float raw_mana_cost = bakedProfile ? bakedProfile->effective_mana_cost : data->mana_cost;
-  // 834 御剑接踵: 接刃后获得的 FreeCast 使来源技能的下次施放免蓝，施放即消耗
+  // 834 御剑接踵: 接刃后获得的 FreeCast 使来源技能的下次施放免蓝，施放即消耗。
+  // 移除按来源技能过滤 (N4-2)：仅清 skill8 自身与无归属通配的 FreeCast，
+  // 不误清其它来源的同类别效果。
   if (auto *effects = registry.try_get<ActiveEffectsComponent>(entity)) {
     if (const auto *freeCast = effects->GetByKind(BuffKind::FreeCast);
         freeCast != nullptr &&
         (freeCast->source_skill_id == 0 || freeCast->source_skill_id == slot.id)) {
       raw_mana_cost = 0.0f;
-      effects->RemoveByKind(BuffKind::FreeCast);
+      effects->RemoveByKind(BuffKind::FreeCast, 8u);
     }
   }
   if (isSwordArrayRelocate) {

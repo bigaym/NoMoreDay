@@ -130,7 +130,7 @@ B2-20 立项时判定为「成立（缺失）」：
 | 210 | `projectile_count+=p`、`more_damage_mult*=penalty`（:321-323） | `RendingWave.cpp:258`、`more` 经 :150 | — | 多重裂空 |
 | 211 | `sub_count=3`（:326）、`f|=4(0x004)`（:327） | sub_count：**无**（仅技能 8 消费） | `RendingWave.cpp:185` | 碎裂之刃 Fracture |
 | 212 | 无 | — | — | 基础 |
-| 213 | `f|=8(0x008)`（:333） | — | `RendingWave.cpp:186` | 万剑归宗-残篇 Scatter |
+| 213 | `f|=8(0x008)`（:333） | `HeavyMomentum_Node213` 提供 PhysicalDamage +22% percent-mult（id 2002103）（见 `docs/designs/2026-09-13-skill-followup-design.md` §4.4） | `RendingWave.cpp:186` | 万剑归宗-残篇 Scatter |
 | 214 | `f|=64(0x040)`（:336） | — | `RendingWave.cpp:182` | 星环护体 Orbit |
 | 215 | `f|=128(0x080)`（:339） | — | `RendingWave.cpp:187` | 灵剑追击 SpiritPursuit |
 | 230 | `f|=1(0x001)`（:342） | — | `RendingWave.cpp:184` | 回旋劲 Boomerang |

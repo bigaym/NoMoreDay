@@ -12,7 +12,7 @@
       "ward_duration": 3.0
     },
     "153": {
-      "lifesteal_ratio": 1.0
+      "lifesteal_ratio": 0.30
     },
     "170": {
       "ember_duration": 2.0,
@@ -169,7 +169,8 @@
   },
   "3": {
     "300": {
-      "swords_per_point": 1.0
+      "swords_per_point": 1.0,
+      "duration": 8.0
     },
     "301": {
       "haste_pct_per_point": 8.0
@@ -333,9 +334,8 @@
       "dodge_rating_pct_per_point": 0.15
     },
     "451": {
-      "dodge_speed_per_point": 1.0,
-      "speed_bonus_pct_per_point": 0.05,
-      "duration": 2.0
+      "dodge_speed_bonus_per_point": 5.0,
+      "dodge_speed_duration": 2.0
     },
     "452": {
       "trigger_skill_id": 1.0,
@@ -366,11 +366,15 @@
     "473": {
       "frequency_pct_per_point": 0.30,
       "shock_slow_pct_per_point": 0.10,
-      "shock_damage_bonus": 0.15
+      "shock_damage_bonus": 0.15,
+      "shock_magnitude": 1.0
     },
     "474": {
       "frost_radius": 80.0,
-      "knockback": 100.0
+      "knockback": 100.0,
+      "chill_magnitude": 1.0,
+      "chill_duration": 2.0,
+      "chill_stacks": 1.0
     },
     "475": {
       "radius_pct_per_point": 0.20
@@ -433,13 +437,15 @@
       "linger_duration": 2.0
     },
     "532": {
-      "ward_per_sec_per_point": 10.0
+      "ward_per_sec_per_point": 10.0,
+      "max_barrier": 1000.0
     },
     "533": {
       "sword_count_mult": 0.5,
       "size_bonus_pct": 1.0,
       "damage_more_pct": 1.5,
-      "impact_radius": 80.0
+      "impact_radius": 80.0,
+      "giant_radius": 70.0
     },
     "534": {
       "min_channel_duration": 2.0,
@@ -780,7 +786,8 @@
       "spiral_interval": 0.5,
       "echo_chance": 0.4,
       "echo_effectiveness": 0.5,
-      "echo_icd": 0.5
+      "echo_icd": 0.5,
+      "storm_pulse_mult": 0.4
     },
     "975": {
       "duration_per_point": 0.25
@@ -853,14 +860,40 @@
     }
   },
   "10": {
+    "0": {
+      "slash_count": 7.0
+    },
     "1000": {
-      "rescue_radius_per_point": 0.15
+      "rescue_radius_per_point": 0.15,
+      "acquisition_radius_per_point": 1.0
     },
     "1001": {
       "crit_chance_per_point": 0.02
     },
+    "1002": {
+      "final_slash_damage_per_point": 0.12
+    },
     "1003": {
       "cooldown_refund_per_point": 0.04
+    },
+    "1004": {
+      "exposed_weakness_damage_per_point": 0.02
+    },
+    "1005": {
+      "po_jun_damage_per_point": 0.10
+    },
+    "1006": {
+      "zhan_jiang_crit_damage_per_point": 1.0
+    },
+    "1008": {
+      "solitary_star_damage_per_point": 0.12
+    },
+    "1009": {
+      "flow_return_chance_per_point": 12.0
+    },
+    "1011": {
+      "hit_radius_mult": 1.2,
+      "follow_up_damage_ratio": 0.35
     },
     "1012": {
       "movement_refund_per_point": 0.08

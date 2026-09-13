@@ -6,6 +6,8 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace NoMoreDay::data {
 
@@ -20,8 +22,21 @@ class SkillMechanicsRegistry {
 public:
   static SkillMechanicsRegistry &Get();
 
+  /**
+   * @brief 加载机制表，并在可选 schema 存在时校验键名漂移。
+   *
+   * schemaPath 为空时按机制表同目录推导 skill_mechanics_schema.json；schema 缺失
+   * 或损坏时静默跳过校验，加载行为与历史版本完全一致。键名漂移只记录警告，不影响
+   * 返回值与已加载数据。
+   */
   [[nodiscard]] bool
-  LoadFromFile(const std::string &path = "assets/data/skill_mechanics.json");
+  LoadFromFile(const std::string &path = "assets/data/skill_mechanics.json",
+               const std::string &schemaPath = "");
+
+  /** 最近一次加载产生的键名 schema 诊断（测试用；加载成功/失败均可读取）。 */
+  [[nodiscard]] const std::vector<std::string> &GetLastLoadWarnings() const {
+    return m_lastLoadWarnings;
+  }
 
   /** 读取 (skill_id, node_id) 下 key 对应的浮点数值，缺失时返回默认值。 */
   [[nodiscard]] float GetFloat(uint32_t skill_id, uint32_t node_id,
@@ -69,6 +84,23 @@ private:
                                    std::string_view key,
                                    float default_value) const;
 
+  // 三元组统一编码为 "skill:node:key"，用于集合比较；键名不含 ':'，编码无歧义。
+  [[nodiscard]] static std::string EncodeTuple(uint32_t skill_id,
+                                               uint32_t node_id,
+                                               std::string_view key);
+
+  // 可选键名 schema：登记代码允许读取的键名与三元组。
+  struct SchemaInfo {
+    std::unordered_set<std::string> knownKeys;   // 允许出现的键名全集
+    std::unordered_set<std::string> readTuples;  // 代码静态读取的三元组
+    std::unordered_set<std::string> dynamicKeys; // 只能确定键名的动态读取
+    bool loaded = false;
+  };
+
+  void LoadSchema(const std::string &schemaPath);
+  void ResetSchema();
+  void ValidateAgainstSchema();
+
   struct NodeTable {
     std::unordered_map<std::string, float, TransparentStringHash,
                        TransparentStringEqual>
@@ -77,6 +109,8 @@ private:
   std::unordered_map<uint32_t, std::unordered_map<uint32_t, NodeTable>>
       m_nodes; // skill_id -> node_id -> 数值表
   bool m_loaded = false;
+  SchemaInfo m_schema;                       // 可选键名 schema 状态
+  std::vector<std::string> m_lastLoadWarnings; // 最近一次加载的键名诊断
 };
 
 } // namespace NoMoreDay::data

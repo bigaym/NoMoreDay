@@ -585,8 +585,9 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       del.feature_flags |= 2048;
     } else if (node_id == 533) { // 巨剑术: 数量减半、体积+100%、伤害+150%
       out_profile.more_damage_mult *= (1.0f + mech.GetFloat(5, 533, "damage_more_pct", 1.50f));
-      // 取最大值而非直接赋值，避免覆盖其它来源 (如 535 余波) 设置的更大范围
-      out_profile.area_radius = std::max(out_profile.area_radius, 70.0f);
+      // 取最大值而非直接赋值，避免覆盖其它来源 (如 535 余波) 设置的更大范围；
+      // 巨剑半径外置: giant_radius (默认 70)，与 BeamChannelDeliverySystem 共用
+      out_profile.area_radius = std::max(out_profile.area_radius, mech.GetFloat(5, 533, "giant_radius", 70.0f));
       del.feature_flags |= 4096;
     } else if (node_id == 534) { // 天剑降世: 引导>=2s 召唤 800% 范围巨剑
       del.feature_flags |= 8192;
@@ -1067,10 +1068,14 @@ void SkillSpecializationBaker::SyncTriggerRules(
           rule.listen_event = CombatEventType::OnDodge;
           rule.target_mode = TriggerTargetPolicy::Attacker;
         } else if (skill_id == 7 && node_id == 714) {
-          // 寂灭: 碎空爆直接击杀的敌人在死亡位置触发小型万剑归宗
+          // 寂灭: 被 711 碎空爆直接击杀的敌人在死亡位置触发小型万剑归宗
           rule.listen_event = CombatEventType::OnKill;
           rule.target_mode = TriggerTargetPolicy::Victim;
-          // 仅接受技能7造成的击杀，避免其他技能/召唤物/持续伤害击杀误触发
+          // 仅接受技能7造成的击杀，避免其他技能/召唤物/持续伤害击杀误触发。
+          // 设计语义为「被 711 碎空爆直接击杀」，但 CombatEvent 只携带来源 skill_id，
+          // 没有逐次命中的节点来源，运行时无法区分引爆本体与 711 蓄力期间其他
+          // 技能7伤害（如 754 穿透）；且 711 本就是 714 的前置节点，再按 711 门控
+          // 不会新增信息。精确判定须先为事件补充命中节点来源后再实施。
           rule.required_skill_id = 7;
         } else if (skill_id == 8 && node_id == 855) {
           // 巨剑共鸣: 仅技能8巨剑投掷暴击可触发（required_skill_id=8），

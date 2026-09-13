@@ -823,7 +823,8 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
             DamagePipeline::Execute(registry, request, effect.source, false);
 
         // 153 饮血刃（流云刺节点）：命中流血的敌人治疗自身，治疗量 = 该次
-        // 实际流血伤害（结算后扣血值）的 100%。
+        // 实际流血伤害（结算后扣血值）的 30%。比例由 skill_mechanics.json 的
+        // lifesteal_ratio 提供，代码内默认值仅在数据缺失时兜底。
         // 语义解读：治疗挂在"流血 DoT 实际结算"上——凡施加者（effect.source）
         // 的流云刺专精分配了 153，其造成的每一次流血 tick 都会按实际扣血量
         // 治疗施加者自身；该流血不限于流云刺 151 施加（血海等来源亦可），
@@ -838,7 +839,7 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
             result.damage.total_damage > 0.0f &&
             HasFlowingThrustBloodDrinker(registry, effect.source)) {
           const float lifestealRatio =
-              data::SkillMechanicsRegistry::Get().GetFloat(1, 153, "lifesteal_ratio", 1.0f);
+              data::SkillMechanicsRegistry::Get().GetFloat(1, 153, "lifesteal_ratio", 0.30f);
           auto *healStats = registry.try_get<CombatStats>(effect.source);
           if (healStats) {
             const float before = healStats->health;

@@ -72,6 +72,23 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
                               : exec.active_nodes.test(node_id % 100);
   }
 
+  // 从活跃技能槽按需读取节点投入点数：DoHit 无法访问 DoCast 的局部点数缓存，
+  // 仅用于需按点数判定的即时效果（如 331 弱点锁定溅射）。
+  [[nodiscard]] static int ReadAttackerPoints(entt::registry &reg,
+                                              entt::entity attacker,
+                                              uint32_t node) {
+    const auto *active = reg.try_get<ActiveSkillsComponent>(attacker);
+    if (!active) {
+      return 0;
+    }
+    for (const auto &spec : active->specialized_slots) {
+      if (spec.skill_id == kSkillId) {
+        return ReadPoints(spec, node);
+      }
+    }
+    return 0;
+  }
+
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec) {
     auto &formation = registry.get_or_emplace<BladeFormationComponent>(owner);
@@ -269,7 +286,16 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     const float bonusCrit = profile ? profile->delivery.bonus_crit : (0.05f * static_cast<float>(pts331));
     const float bonusCritDamage = profile ? profile->delivery.bonus_crit_damage : (0.25f * static_cast<float>(pts332));
 
+    // 灵剑限时化 (D4)：召唤持续 duration 秒后自动消散；重复施放仅刷新时长，不叠加数量。
+    // 时长键缺失时回退 8.0s，避免灵剑退化为永久召唤。
+    const float summonDuration =
+        mech.GetFloat(kSkillId, BladeFormationNodes::SwordPool, "duration", 8.0f);
+
     for (auto e : existing) {
+      // 重复施放：将存活时长刷新至满额（刷新而非叠加）
+      if (auto *summon = registry.try_get<SummonComponent>(e)) {
+        summon->lifetime = summon->max_lifetime = summonDuration;
+      }
       auto &cb = registry.get_or_emplace<SummonCombatProfile>(e);
       cb.damage_scale = finalDamageScale;
       cb.bonus_crit = bonusCrit;
@@ -313,7 +339,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         sm.owner = owner;
         sm.skill_id = kSkillId;
         sm.archetype_id = SummonArchetype::SpiritSword;
-        sm.lifetime = sm.max_lifetime = -1.0f; // 永久维持
+        sm.lifetime = sm.max_lifetime = summonDuration; // 限时召唤 (D4)
 
         auto &aiProf = registry.emplace<SummonAIProfile>(sword);
         aiProf.role = formation.melee_orbit ? SummonRole::Melee : SummonRole::Orbit;
@@ -340,6 +366,35 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
           auto &m = registry.emplace_or_replace<SkillModifierComponent>(sword);
           m.damage_modifiers.clear();
           m.damage_modifiers.push_back({Tag::Physical, element, convRatio, ModifierType::Convert});
+        }
+      }
+    }
+
+    // 紫电紫雷 (Node 372) 转质形态：施法瞬间瞬移至目标点并发起攻击；按 GDD L276
+    // 「瞬移攻击，击中后...释放静电场」，落雷结算与静电场释放延后到命中 (DoHit)，
+    // 未命中则不放场。场参数与瞬移落点在此一次性缓存，避免 DoHit 热路径 GetFloat。
+    if (formation.has_lightning) {
+      formation.static_field_radius = mech.GetFloat(
+          kSkillId, BladeFormationNodes::ElementLightning, "static_field_radius", 60.0f);
+      formation.static_field_duration = mech.GetFloat(
+          kSkillId, BladeFormationNodes::ElementLightning, "static_field_duration", 2.0f);
+      formation.static_field_pending = true;
+
+      // 瞬移落点：以施法者为圆心收敛到索敌半径内（防越界瞬移），位置不同才写入
+      formation.static_field_center = exec.target_pos;
+      if (auto *pos = registry.try_get<Position>(owner)) {
+        Vector2 from{pos->x, pos->y};
+        Vector2 to{exec.target_pos.x, exec.target_pos.y};
+        const float dist = Vector2Distance(from, to);
+        if (dist > formation.search_radius && dist > 0.0f) {
+          const float scale = formation.search_radius / dist;
+          to.x = from.x + (to.x - from.x) * scale;
+          to.y = from.y + (to.y - from.y) * scale;
+        }
+        formation.static_field_center = to;
+        if (pos->x != to.x || pos->y != to.y) {
+          pos->x = to.x;
+          pos->y = to.y;
         }
       }
     }
@@ -378,10 +433,13 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     }
   }
 
-  static void DoHit(entt::registry &reg, entt::entity attacker, entt::entity victim, Tag, bool) {
+  static void DoHit(entt::registry &reg, entt::entity attacker, entt::entity victim, Tag,
+                    bool is_crit) {
     if (!reg.valid(attacker)) return;
     auto *formation = reg.try_get<BladeFormationComponent>(attacker);
     if (!formation) return;
+
+    const auto &mech = data::SkillMechanicsRegistry::Get();
 
     // 命中回蓝 (Legacy Talent 321 / 兼容验证)
     if (formation->mana_on_hit) {
@@ -442,13 +500,15 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         };
         (void)systems::AilmentApplier::Apply(reg, victim, stunReq);
       }
+      // modifier 已承载全额破甲，max_stacks 取当前 stacks 仅作展示冻结，无钳制语义
       BuffEffect shred{
-        .id = "ArmorShred",
+        .id = std::string(BuffIdToString(BuffId::ArmorShred)),
         .name = "Armor Shred",
         .type = BuffType::DefenseDown,
         .duration = 4.0f,
         .remaining = 4.0f,
         .stacks = 1,
+        .max_stacks = 1,
         .is_debuff = true
       };
       shred.modifiers.push_back({
@@ -531,6 +591,36 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
           });
         }
       }
+
+      // 落雷本体与静电场释放：仅本次施法后的首次命中触发（裁决②）。落雷伤害
+      // 复用 DoHit 已算出的 baseHit，静电场落在瞬移落点且零伤害（裁决①）。
+      if (formation->static_field_pending) {
+        formation->static_field_pending = false;
+        DamagePool strikePool;
+        strikePool.Add(Tag::Lightning, baseHit);
+        DamageRequest strikeReq;
+        strikeReq.origin = DamageOrigin::SecondaryProc;
+        strikeReq.attacker = attacker;
+        strikeReq.defender = victim;
+        strikeReq.skill_id = kSkillId;
+        strikeReq.base_pool = strikePool;
+        strikeReq.additional_tags = Tag::Lightning | Tag::SecondaryHit;
+        (void)ResolveDamage(reg, strikeReq, attacker);
+
+        auto fieldEnt = reg.create();
+        reg.emplace<LocalLevelTag>(fieldEnt);
+        reg.emplace<Position>(fieldEnt, formation->static_field_center.x,
+                              formation->static_field_center.y);
+        auto &field = reg.emplace<ShockFieldComponent>(fieldEnt);
+        field.owner = attacker;
+        field.skill_id = kSkillId;
+        field.center = formation->static_field_center;
+        field.radius = formation->static_field_radius;
+        field.remaining = formation->static_field_duration;
+        field.tick_interval = 0.5f;
+        field.tick_timer = 0.5f;
+        // field.damage 保持 NSDMI 0：静电场零伤害，仅周期性施加零强度感电
+      }
     }
 
     // 灵剑蚀甲 (Node 374)：攻击带有对应元素异常（点燃/感电）的敌人，降低对应元素抗性 2...8 点（最多 8 层），持续 4 秒
@@ -598,24 +688,83 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       }
     }
 
-    // 灵剑充能 (Node 375)：每攻击 4/3/2 次，下一次造成双倍元素伤害并引爆该元素异常
+    // 灵剑充能 (Node 375)：每攻击 N 次，下一次造成双倍元素伤害并引爆范围内该元素异常。
+    // 触发阈值与引爆半径均来自 skill_mechanics (hits_required_base / hits_reduction_per_point /
+    // detonate_radius)，禁止硬编码。
     if (formation->pts375 > 0 && (formation->has_fire || formation->has_lightning)) {
-      const int hitsRequired = std::max(2, 5 - formation->pts375);
+      const int hitsBase = static_cast<int>(
+          mech.GetFloat(kSkillId, BladeFormationNodes::Charge, "hits_required_base", 5.0f));
+      const int hitsReduction = static_cast<int>(
+          mech.GetFloat(kSkillId, BladeFormationNodes::Charge, "hits_reduction_per_point", 1.0f));
+      const int hitsRequired = std::max(1, hitsBase - hitsReduction * formation->pts375);
       formation->charge_attack_counter++;
       if (formation->charge_attack_counter >= hitsRequired) {
         formation->charge_attack_counter = 0;
-        Tag elemTag = formation->has_fire ? Tag::Fire : Tag::Lightning;
-        DamagePool pool;
-        pool.Add(elemTag, baseHit * formation->burst_mult);
-        DamageRequest detReq;
-        detReq.origin = DamageOrigin::SecondaryProc;
-        detReq.attacker = attacker;
-        detReq.defender = victim;
-        detReq.skill_id = kSkillId;
-        detReq.base_pool = pool;
-        detReq.additional_tags = elemTag | Tag::SecondaryHit;
-        (void)ResolveDamage(reg, detReq, attacker);
+        const Tag elemTag = formation->has_fire ? Tag::Fire : Tag::Lightning;
+        const float detonateRadius = mech.GetFloat(
+            kSkillId, BladeFormationNodes::Charge, "detonate_radius", 80.0f);
+
+        // 引爆结算：先消费目标身上对应的元素异常栈（GDD L279「引爆范围内的该元素
+        // 异常」），再与半径内其他敌人同享一次双倍元素伤害。先移除可避免目标被本次
+        // 爆发击杀后组件已销毁而无法拔除。
+        const auto detonate = [&](entt::entity target) {
+          if (auto *fx = reg.try_get<ActiveEffectsComponent>(target)) {
+            const auto removed = std::erase_if(
+                fx->effects, [&](const BuffEffect &b) {
+                  return (elemTag == Tag::Fire)
+                             ? (b.type == BuffType::Burn || b.kind == BuffKind::Ignite)
+                             : (b.type == BuffType::Shock);
+                });
+            if (removed > 0) {
+              reg.get_or_emplace<StatsDirty>(target);
+            }
+          }
+          DamagePool pool;
+          pool.Add(elemTag, baseHit * formation->burst_mult);
+          DamageRequest detReq;
+          detReq.origin = DamageOrigin::SecondaryProc;
+          detReq.attacker = attacker;
+          detReq.defender = target;
+          detReq.skill_id = kSkillId;
+          detReq.base_pool = pool;
+          detReq.additional_tags = elemTag | Tag::SecondaryHit;
+          (void)ResolveDamage(reg, detReq, attacker);
+        };
+        detonate(victim);
+        if (reg.all_of<Position>(victim)) {
+          const auto &vPos = reg.get<Position>(victim);
+          const float detonateRadiusSqr = detonateRadius * detonateRadius;
+          ForEachChainCandidate(reg, victim, vPos, detonateRadiusSqr,
+                                [&](entt::entity e) {
+            detonate(e);
+            return true;
+          });
+        }
       }
+    }
+
+    // 弱点锁定 (Node 331)：巨剑暴击时对周围造成范围伤害（半径来自 splash_radius）。
+    // GDD L257 明文限定巨剑形态，与同分支 333/334 一致加 has_giant_sword 门控；
+    // 点亮判定按需从活跃技能槽读取，仅暴击时付出读取成本。
+    if (formation->has_giant_sword && is_crit && reg.all_of<Position>(victim)
+        && ReadAttackerPoints(reg, attacker, BladeFormationNodes::WeakPointCrit) > 0) {
+      const float splashRadius = mech.GetFloat(
+          kSkillId, BladeFormationNodes::WeakPointCrit, "splash_radius", 60.0f);
+      const auto &vPos = reg.get<Position>(victim);
+      const float splashRadiusSqr = splashRadius * splashRadius;
+      ForEachChainCandidate(reg, victim, vPos, splashRadiusSqr, [&](entt::entity e) {
+        DamagePool pool;
+        pool.Add(Tag::Physical, baseHit);
+        DamageRequest splashReq;
+        splashReq.origin = DamageOrigin::SecondaryProc;
+        splashReq.attacker = attacker;
+        splashReq.defender = e;
+        splashReq.skill_id = kSkillId;
+        splashReq.base_pool = pool;
+        splashReq.additional_tags = Tag::Physical | Tag::SecondaryHit;
+        (void)ResolveDamage(reg, splashReq, attacker);
+        return true;
+      });
     }
   }
 };
