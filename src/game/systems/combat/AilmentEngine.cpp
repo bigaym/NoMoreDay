@@ -254,6 +254,8 @@ BuffEffect BuildAilmentEffect(const AilmentContract &contract,
   effect.tick_damage_tag = contract.damage_tag;
   effect.is_debuff = true;
   effect.source = request.source;
+  // 记录施加来源技能，供 153 饮血刃等按来源技能门控的结算逻辑使用。
+  effect.source_skill_id = request.source_skill_id;
   return effect;
 }
 
@@ -656,6 +658,9 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
       slot.tick_damage += magnitude;
       SetRefresh(slot, RefreshPolicy::Refresh, duration);
       slot.source = request.source;
+      // 叠加合并后必须同步来源技能归属：153 回血门控按 source_skill_id==1 判定，
+      // 仅同步 source 会让归属停留在旧施加者，导致跨来源叠加后回血误判。
+      slot.source_skill_id = request.source_skill_id;
       // Keep the structured identity in sync with the in-place refresh.
       slot.managed_ailment = true;
       slot.ailment_type = AilmentTypeToStorage(request.ailment);
@@ -697,6 +702,9 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
   effect.type = contract->legacy_buff_type;
   effect.is_debuff = true;
   effect.source = request.source;
+  // 叠加合并后必须同步来源技能归属：153 回血门控按 source_skill_id==1 判定，
+  // 仅同步 source 会让归属停留在旧施加者，导致跨来源叠加后回血误判。
+  effect.source_skill_id = request.source_skill_id;
   // Promote to the structured identity: the id string (or legacy BuffType
   // mapping) already identified this slot as request.ailment, so recording
   // the same type in the fields is behavior-preserving and upgrades old saves
@@ -822,13 +830,11 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         const auto result =
             DamagePipeline::Execute(registry, request, effect.source, false);
 
-        // 153 饮血刃（流云刺节点）：命中流血的敌人治疗自身，治疗量 = 该次
-        // 实际流血伤害（结算后扣血值）的 30%。比例由 skill_mechanics.json 的
-        // lifesteal_ratio 提供，代码内默认值仅在数据缺失时兜底。
-        // 语义解读：治疗挂在"流血 DoT 实际结算"上——凡施加者（effect.source）
-        // 的流云刺专精分配了 153，其造成的每一次流血 tick 都会按实际扣血量
-        // 治疗施加者自身；该流血不限于流云刺 151 施加（血海等来源亦可），
-        // 因为 153 的语义是"流云刺命中流血敌人后吸血"，伤害来源即为施放者。
+        // 153 饮血刃（流云刺节点）：治疗量 = 该次实际流血伤害（结算后扣血值）
+        // × skill_mechanics.json 的 lifesteal_ratio（代码内默认值仅在数据缺失时
+        // 兜底）。吸血只归属于流云刺（技能1）自身造成的流血：effect.source_skill_id
+        // 由施加时写入，只有其等于 1 的流血 tick 才会治疗施加者；血海、回旋、
+        // 引导等其他来源施加的流血即使施加者分配了 153 也不回血。
         // 981 逆脉: 锁血禁疗期间禁止任何来源的治疗
         const auto *sourceTrance =
             registry.try_get<PhantomTranceComponent>(effect.source);
@@ -836,10 +842,11 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
             sourceTrance != nullptr && IsDeathSealActive(*sourceTrance);
 
         if (!sourceDeathSeal && *ailment == AilmentType::Bleed &&
+            effect.source_skill_id == 1 &&
             result.damage.total_damage > 0.0f &&
             HasFlowingThrustBloodDrinker(registry, effect.source)) {
           const float lifestealRatio =
-              data::SkillMechanicsRegistry::Get().GetFloat(1, 153, "lifesteal_ratio", 0.30f);
+              data::SkillMechanicsRegistry::Get().GetFloat(1, 153, "lifesteal_ratio", 1.0f);
           auto *healStats = registry.try_get<CombatStats>(effect.source);
           if (healStats) {
             const float before = healStats->health;

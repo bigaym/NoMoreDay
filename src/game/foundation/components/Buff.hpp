@@ -125,6 +125,12 @@ struct BuffEffect {
     // AilmentEngine 施加异常时创建载体并挂 DamageSnapshotComponent，tick 结算
     // 时优先读取该快照，使施加后攻方增益不再影响本异常的每条 tick。
     entt::entity snapshot_source = entt::null;
+
+    // 技能4 节点455「以攻代守」标记的运行期消费状态（运行期字段，不序列化）：
+    // 一次攻击行为内首个实例置为已消费并记录攻击标识，同标识的后续实例继续
+    // 生效，换攻击行为时清除。详见 DamagePipeline 消费块。
+    bool offensive_guard_consumed = false;
+    uint64_t offensive_guard_attack_key = 0;
 };
 
 // Custom serialization for BuffEffect to handle entity
@@ -203,6 +209,10 @@ struct ActiveEffectsComponent {
                 // Type E 抗性上限压制随刷新同步，避免重施后仍沿用旧的压制值/元素
                 effect.resist_cap_suppression = new_effect.resist_cap_suppression;
                 effect.resist_cap_element = new_effect.resist_cap_element;
+                // 刷新即视为一次新的挂起：传入的是全新标记（瞬态字段默认 false/0），
+                // 消费状态必须重置，否则残留的已消费态会吞掉本次闪避的加成。
+                effect.offensive_guard_consumed = new_effect.offensive_guard_consumed;
+                effect.offensive_guard_attack_key = new_effect.offensive_guard_attack_key;
                 
                 // Handle Stacking
                 if (effect.stacks < effect.max_stacks) {

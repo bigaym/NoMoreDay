@@ -486,7 +486,6 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
   uint32_t trigger_count = 0;
   uint32_t synergy_count = 0;
   uint32_t sword_intent_count = 0;
-  std::unordered_map<uint8_t, uint32_t> exclusion_group_counts;
 
   for (const auto &[node_id, node] : def.nodes) {
     if (!tree->nodes.contains(node_id)) {
@@ -498,9 +497,6 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
 
     if (node.affects_sword_intent) {
       ++sword_intent_count;
-    }
-    if (node.keystone_exclusion_group != 0) {
-      ++exclusion_group_counts[node.keystone_exclusion_group];
     }
 
     switch (node.role) {
@@ -555,16 +551,6 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
     set_error("missing required sword intent node");
     return false;
   }
-  for (const auto &[group_id, group_count] : exclusion_group_counts) {
-    if (group_count < 2) {
-      std::ostringstream oss;
-      oss << "keystone_exclusion_group " << static_cast<int>(group_id)
-          << " has fewer than 2 nodes";
-      set_error(oss.str());
-      return false;
-    }
-  }
-
   for (const uint32_t transmuter_id : def.contract.transmuter_node_ids) {
     if (transmuter_id == 0) {
       continue;

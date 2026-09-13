@@ -1,7 +1,8 @@
 // 技能 1（流云刺）后续跟进计划的集成回归用例。
-// 覆盖 B2.2/D6：节点 153 饮血刃按流血 DoT 实际结算伤害的 30% 治疗施加者。
+// 覆盖 RD-08：节点 153 饮血刃仅对流云刺（技能1）造成的流血按实际结算伤害的
+// 100% 治疗施加者；血海/回旋/引导等其他来源施加的流血不回血。
 // 本用例不加载 skill_mechanics.json，专门验证 AilmentEngine 代码内的默认兜底
-// 比例已由 100% 降为 30%（数据侧改动由 skill_mechanics.json 的 lifesteal_ratio 提供）。
+// 比例已为 100%（数据侧由 skill_mechanics.json 的 lifesteal_ratio 提供）。
 #include "TestCommon.hpp"
 
 #include "game/foundation/components/AIComponent.hpp"
@@ -58,8 +59,8 @@ entt::entity MakeEnemy(entt::registry &registry, float x, float y,
   return enemy;
 }
 
-// 153 饮血刃：流血 DoT tick 实际结算后，按 30%（而非 100%）治疗 DoT 施加者。
-TEST_CASE("[Integration] Skill1Followup 153 Blood Drinker heals 30% of bleed tick") {
+// 153 饮血刃：流云刺（技能1）造成的流血 DoT tick 实际结算后，按 100% 治疗施加者。
+TEST_CASE("[Integration] Skill1Followup 153 Blood Drinker heals 100% of skill1 bleed tick") {
   TestSetupScope scope;
 
   auto &ailments = systems::AilmentRegistry::Get();
@@ -82,6 +83,8 @@ TEST_CASE("[Integration] Skill1Followup 153 Blood Drinker heals 30% of bleed tic
   bleed.magnitude = 10.0f;
   bleed.duration = 4.0f;
   bleed.stacks = 1;
+  // RD-08：标记来源为流云刺（技能1），该流血才参与 153 吸血结算。
+  bleed.source_skill_id = 1;
   REQUIRE(systems::AilmentApplier::Apply(registry, enemy, bleed));
 
   const float playerBefore = playerStats->health;
@@ -93,10 +96,61 @@ TEST_CASE("[Integration] Skill1Followup 153 Blood Drinker heals 30% of bleed tic
   const float enemyDamage = enemyBefore - registry.get<HealthComponent>(enemy).current;
 
   REQUIRE(enemyDamage > 0.0f);
-  // 治疗量 = 实际流血伤害 × 30%
-  CHECK(healAmount == doctest::Approx(enemyDamage * 0.30f));
-  // 明确不再是 100% 吸血
-  CHECK_FALSE(healAmount == doctest::Approx(enemyDamage));
+  // 治疗量 = 实际流血伤害 × 100%
+  CHECK(healAmount == doctest::Approx(enemyDamage));
+}
+
+// RD-08：非流云刺来源施加的流血不回血——即使施加者分配了 153。
+TEST_CASE("[Integration] Skill1Followup 153 Blood Drinker ignores non-skill1 bleed") {
+  TestSetupScope scope;
+
+  auto &ailments = systems::AilmentRegistry::Get();
+  ailments.ResetForTests();
+  REQUIRE(ailments.EnsureLoaded());
+
+  entt::registry registry;
+
+  auto player = MakePlayer(registry, 0.0f, 0.0f, {{kBloodDrinkerNode, 1}});
+  auto *playerStats = registry.try_get<CombatStats>(player);
+  REQUIRE(playerStats != nullptr);
+  playerStats->health = 20.0f;
+  registry.get<HealthComponent>(player).current = 20.0f;
+
+  auto enemy = MakeEnemy(registry, 100.0f, 0.0f, 100.0f);
+
+  // 来源技能保持默认 0（无归属），模拟血海/回旋/引导等非流云刺来源。
+  systems::AilmentApplyRequest bleed;
+  bleed.ailment = AilmentType::Bleed;
+  bleed.source = player;
+  bleed.magnitude = 10.0f;
+  bleed.duration = 4.0f;
+  bleed.stacks = 1;
+  REQUIRE(systems::AilmentApplier::Apply(registry, enemy, bleed));
+
+  const float playerBefore = playerStats->health;
+  const float enemyBefore = registry.get<HealthComponent>(enemy).current;
+
+  systems::AilmentTickDriver::Tick(registry, 10.0f);
+
+  REQUIRE(enemyBefore - registry.get<HealthComponent>(enemy).current > 0.0f);
+  CHECK((playerStats->health - playerBefore) == doctest::Approx(0.0f));
+
+  // 显式非 1 的来源技能同样零回血，确认门控是精确匹配。
+  systems::AilmentApplyRequest otherBleed;
+  otherBleed.ailment = AilmentType::Bleed;
+  otherBleed.source = player;
+  otherBleed.magnitude = 10.0f;
+  otherBleed.duration = 4.0f;
+  otherBleed.stacks = 1;
+  otherBleed.source_skill_id = 999;
+  REQUIRE(systems::AilmentApplier::Apply(registry, enemy, otherBleed));
+
+  const float playerBefore2 = playerStats->health;
+  const float enemyBefore2 = registry.get<HealthComponent>(enemy).current;
+  systems::AilmentTickDriver::Tick(registry, 10.0f);
+
+  REQUIRE(enemyBefore2 - registry.get<HealthComponent>(enemy).current > 0.0f);
+  CHECK((playerStats->health - playerBefore2) == doctest::Approx(0.0f));
 }
 
 } // namespace

@@ -80,7 +80,7 @@
               "consumes_mana": false,
               "requires_crit": false
             },
-            "keystone_exclusion_group": 3
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1008,
@@ -144,7 +144,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 2
           },
           {
             "node_id": 1016,
@@ -193,7 +194,7 @@
               "consumes_mana": false,
               "requires_crit": false
             },
-            "keystone_exclusion_group": 3
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1022,
@@ -210,7 +211,7 @@
               "consumes_mana": false,
               "requires_crit": false
             },
-            "keystone_exclusion_group": 3
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1025,
@@ -226,7 +227,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 3
           }
         ]
       },
@@ -916,7 +918,8 @@
               "internal_cooldown": 0.5,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1109,
@@ -964,7 +967,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1115,
@@ -1012,7 +1016,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 2
           },
           {
             "node_id": 1124,
@@ -1651,7 +1656,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1209,
@@ -1699,7 +1705,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1217,
@@ -1731,7 +1738,8 @@
               "internal_cooldown": 0.0,
               "consumes_mana": false,
               "requires_crit": false
-            }
+            },
+            "keystone_exclusion_group": 1
           },
           {
             "node_id": 1221,
@@ -1748,7 +1756,7 @@
               "consumes_mana": false,
               "requires_crit": false
             },
-            "keystone_exclusion_group": 4
+            "keystone_exclusion_group": 2
           },
           {
             "node_id": 1222,
@@ -1765,7 +1773,7 @@
               "consumes_mana": false,
               "requires_crit": false
             },
-            "keystone_exclusion_group": 4
+            "keystone_exclusion_group": 2
           },
           {
             "node_id": 1224,

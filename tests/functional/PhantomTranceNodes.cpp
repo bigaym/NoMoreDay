@@ -616,6 +616,59 @@ TEST_CASE("[Functional] PhantomTrance - 982 孤注一掷按缺失生命提供暴
   CHECK(last->modifiers[0].value == Approx(200.0f));
 }
 
+TEST_CASE("[Functional] PhantomTrance - 982 孤注一掷暴伤加成封顶至 200") {
+  TestSetupScope setup;
+  EnsureSkillMechanics();
+
+  // 返回指定配点与缺血比例下 982 写入的暴伤加成总量（百分点），
+  // 并通过 crit_damage_out 回传结算后的暴击伤害倍率。
+  auto last_stand_value = [](const std::unordered_map<uint32_t, int> &alloc,
+                             float missing_frac, float &crit_damage_out) {
+    entt::registry registry;
+    auto player = MakePlayer(registry, alloc);
+    CastTrance(registry, player);
+    auto *pt = registry.try_get<PhantomTranceComponent>(player);
+    REQUIRE(pt != nullptr);
+    auto &hp = registry.get<HealthComponent>(player);
+    hp.current = hp.max * (1.0f - missing_frac);
+    Tick(registry, player, 0.1f);
+    registry.emplace_or_replace<StatsDirty>(player);
+    StatsSystem::update(registry);
+    crit_damage_out = registry.get<CombatStats>(player).crit_damage;
+    const auto *last =
+        FindEffect(registry, player, BuffId::PhantomTranceLastStand);
+    if (last == nullptr || last->modifiers.empty()) {
+      return 0.0f;
+    }
+    return last->modifiers[0].value;
+  };
+
+  // 基准：仅 981、无 982 时不写入孤注一掷 Buff。
+  float base_crit = 0.0f;
+  CHECK(last_stand_value({{981, 1}}, 1.0f, base_crit) == Approx(0.0f));
+
+  // rank4 满损血原始为 400 个百分点，须封顶到 +200。
+  float crit_rank4 = 0.0f;
+  const float value_rank4 =
+      last_stand_value({{981, 1}, {982, 4}}, 1.0f, crit_rank4);
+  CHECK(value_rank4 == Approx(200.0f));
+  CHECK(crit_rank4 == Approx(base_crit * 3.0f));
+
+  // rank1 满损血为 100 个百分点，低于上限，不受封顶影响。
+  float crit_rank1 = 0.0f;
+  const float value_rank1 =
+      last_stand_value({{981, 1}, {982, 1}}, 1.0f, crit_rank1);
+  CHECK(value_rank1 == Approx(100.0f));
+  CHECK(crit_rank1 == Approx(base_crit * 2.0f));
+
+  // 981 锁血压低生命上限后，缺血 75%（原始 300）仍封顶到 +200。
+  float crit_locked = 0.0f;
+  const float value_locked =
+      last_stand_value({{981, 1}, {982, 4}}, 0.75f, crit_locked);
+  CHECK(value_locked == Approx(200.0f));
+  CHECK(crit_locked == Approx(base_crit * 3.0f));
+}
+
 TEST_CASE("[Functional] PhantomTrance - 987 意随神行每秒获取剑意") {
   TestSetupScope setup;
   EnsureSkillMechanics();
@@ -819,6 +872,60 @@ TEST_CASE("[Functional] PhantomTrance - 免死无 977 时形态立即结束") {
   const bool alive = AdvanceTrance(registry, player, 0.1f);
   CHECK_FALSE(alive);
   CHECK(registry.try_get<PhantomTranceComponent>(player) == nullptr);
+}
+
+TEST_CASE("[Functional] PhantomTrance - 重施法不重置免死（RD-03）") {
+  TestSetupScope setup;
+  EnsureSkillMechanics();
+
+  entt::registry registry;
+  auto player = MakePlayer(registry, {{981, 1}, {977, 1}});
+  CastTrance(registry, player);
+
+  auto *pt = registry.try_get<PhantomTranceComponent>(player);
+  REQUIRE(pt != nullptr);
+  REQUIRE(pt->remaining == Approx(3.0f));
+
+  // 先消耗一次免死：977 使形态保留，lethal_triggered 置位。
+  const bool died =
+      CombatSystem::ApplyDamage(registry, player, 5000.0f, entt::null, false, false);
+  CHECK_FALSE(died);
+  CHECK(pt->lethal_triggered);
+
+  // 人为消耗一部分免死窗口，用于验证重施法不会将其重置。
+  auto *effects = registry.try_get<ActiveEffectsComponent>(player);
+  REQUIRE(effects != nullptr);
+  BuffEffect *seal = effects->Get(BuffId::PhantomTranceDeathSeal);
+  REQUIRE(seal != nullptr);
+  seal->remaining = 0.5f;
+
+  // 形态中重施法：刷新形态时长，但保留免死状态与免死窗口。
+  pt->remaining = 1.0f;
+  CastTrance(registry, player);
+
+  auto *pt_after = registry.try_get<PhantomTranceComponent>(player);
+  REQUIRE(pt_after != nullptr);
+  CHECK(pt_after->lethal_triggered);
+  CHECK(pt_after->remaining == Approx(3.0f));
+  const BuffEffect *seal_after =
+      FindEffect(registry, player, BuffId::PhantomTranceDeathSeal);
+  REQUIRE(seal_after != nullptr);
+  CHECK(seal_after->remaining == Approx(0.5f));
+
+  // 结束形态后再次进入：可重新武装免死并再次抵挡致死伤害。
+  Tick(registry, player, 3.5f);
+  CHECK(registry.try_get<PhantomTranceComponent>(player) == nullptr);
+
+  CastTrance(registry, player);
+  auto *pt_rearmed = registry.try_get<PhantomTranceComponent>(player);
+  REQUIRE(pt_rearmed != nullptr);
+  CHECK_FALSE(pt_rearmed->lethal_triggered);
+  REQUIRE(FindEffect(registry, player, BuffId::PhantomTranceDeathSeal) != nullptr);
+
+  const bool died_again =
+      CombatSystem::ApplyDamage(registry, player, 5000.0f, entt::null, false, false);
+  CHECK_FALSE(died_again);
+  CHECK(pt_rearmed->lethal_triggered);
 }
 
 } // namespace NoMoreDay

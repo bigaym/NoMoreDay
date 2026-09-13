@@ -804,6 +804,50 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     skill_tags = skill_tags | request.payload_context->effective_tags;
   }
   Tag combined_hit_tags = skill_tags | additional_tags;
+
+  // 技能4 节点455「以攻代守」：闪避后挂起的「下一次攻击全局 More」标记在此消费。
+  // 命中与否都算一次攻击，故消费点位于闪避判定之前；快照模拟与 DoT 跳伤不消耗。
+  // 仅真正攻击（DirectSkillCast/SecondaryProc 等）消耗：荆棘反伤、地面危险区/
+  // 持续场以及异常 DoT 跳伤都不是攻击，不得消耗该标记。
+  // 一次「攻击行为」（一次施法或一次普攻挥击）产生的全部伤害实例共享同一份
+  // +20%：首个实例置为已消费并记录攻击标识，同标识的后续实例（AoE 全目标、
+  // 同施法多段）继续享受加成；换攻击行为则清除标记且本次不加成。
+  float offensive_guard_multiplier = 1.0f;
+  if (!is_simulation && !HasTag(combined_hit_tags, Tag::DamageOverTime) &&
+      request.origin != DamageOrigin::ThornsReflect &&
+      request.origin != DamageOrigin::HazardEnvironment &&
+      request.origin != DamageOrigin::AilmentTick && registry.valid(attacker)) {
+    if (auto *attacker_effects =
+            registry.try_get<ActiveEffectsComponent>(attacker)) {
+      if (auto *marker = attacker_effects->Get("blade_ward_dodge_power")) {
+        const uint64_t attack_key =
+            (source_cast_id != 0) ? source_cast_id : request.attack_key;
+        if (!marker->offensive_guard_consumed) {
+          marker->offensive_guard_consumed = true;
+          marker->offensive_guard_attack_key = attack_key;
+          offensive_guard_multiplier =
+              1.0f +
+              (std::max)(0.0f,
+                         skills::GetMech(4u, 455u, "more_damage_pct", 0.20f));
+          // 无攻击标识：退回逐实例消费语义（保持既有测试路径行为）。
+          if (attack_key == 0) {
+            attacker_effects->Remove("blade_ward_dodge_power");
+          }
+        } else if (attack_key != 0 &&
+                   marker->offensive_guard_attack_key == attack_key) {
+          // 同一攻击行为的后续伤害实例：继续享受本份加成。
+          offensive_guard_multiplier =
+              1.0f +
+              (std::max)(0.0f,
+                         skills::GetMech(4u, 455u, "more_damage_pct", 0.20f));
+        } else {
+          // 新攻击行为：清理标记且本次不加成。
+          attacker_effects->Remove("blade_ward_dodge_power");
+        }
+      }
+    }
+  }
+
   const SummonAttributionTuple summon_attribution =
       ResolveSummonAttribution(registry, attacker, source_entity, skill_id);
   auto can_apply_scope = [&](ScopePolicy scope, uint32_t source_skill_id) {
@@ -1429,6 +1473,14 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   // total_damage == sum(final_pool) 的守恒关系。
   for (int i = 0; i < DAMAGE_POOL_SIZE; ++i) {
     result.final_pool.values[i] *= suppressor_multiplier;
+  }
+
+  // 455「以攻代守」：下一次攻击全局 More（一次性消费，已在上方清除标记）。
+  if (offensive_guard_multiplier != 1.0f) {
+    total_final_damage *= offensive_guard_multiplier;
+    for (int i = 0; i < DAMAGE_POOL_SIZE; ++i) {
+      result.final_pool.values[i] *= offensive_guard_multiplier;
+    }
   }
 
   // 990 凛冬附魔: 冰霜附魔窗口内对冰冻/冰缓目标最终伤害增伤 (仅结算一次)。

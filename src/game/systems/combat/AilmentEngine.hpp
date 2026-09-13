@@ -51,6 +51,8 @@ struct AilmentApplyRequest {
   float magnitude = 0.0f;
   float duration = 0.0f;
   uint8_t stacks = 1;
+  // 施加来源技能 id；0 表示无归属（旧默认，保持既有聚合初始化兼容）。
+  int source_skill_id = 0;
 };
 
 class AilmentRegistry {

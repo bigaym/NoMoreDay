@@ -95,6 +95,32 @@ TEST_CASE("[Unit] Projectile - AoE Hitbox Unlimited Pierce (>8 Targets)") {
   }
 }
 
+TEST_CASE("[Unit] Projectile - Child Projectiles Inherit Parent ignore_resist") {
+  entt::registry registry;
+
+  // 父投射物携带 253 湮灭波的无视抗性标志
+  auto parent = registry.create();
+  registry.emplace<Position>(parent, 0.0f, 0.0f);
+  registry.emplace<Velocity>(parent, 100.0f, 0.0f);
+  auto &parentProj = registry.emplace<Projectile>(parent);
+  parentProj.split_count = 3;
+  parentProj.explode_count = 5;
+  parentProj.ignore_resist = true;
+
+  ProjectileSystem::SpawnSplitProjectiles(registry, parent, parentProj);
+  ProjectileSystem::SpawnExplosionProjectiles(registry, parent, parentProj);
+
+  // 克隆点不得重置该标志，否则 DamageMitigationService 消费端失效
+  int childCount = 0;
+  for (auto e : registry.view<Projectile>()) {
+    if (e == parent)
+      continue;
+    CHECK(registry.get<Projectile>(e).ignore_resist);
+    ++childCount;
+  }
+  CHECK(childCount == static_cast<int>(parentProj.split_count + parentProj.explode_count));
+}
+
 TEST_CASE("[Unit] Projectile - Static AoE Hitbox Multi-Hit Protection Across Updates") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");

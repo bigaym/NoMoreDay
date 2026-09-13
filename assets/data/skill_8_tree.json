@@ -118,7 +118,7 @@
           "y": -1.89,
           "prerequisites": [
             {
-              "node_id": 810,
+              "node_id": 0,
               "required_points": 1
             }
           ]

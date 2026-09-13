@@ -25,6 +25,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/combat/MovementStanceSystem.hpp"
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 
 // Bring CombatEvent types into scope
@@ -147,6 +148,10 @@ void CombatSystem::update(entt::registry &registry,
       // 3. 查询网格中的目标
       // 以玩家为中心，攻击距离为半径进行查询
       bool hitAny = false;
+      // 技能4 节点455：一次普攻挥击分配一个非 0 挥击标识，同一挥击命中的
+      // 全部目标共享该标识，使「下一次攻击」加成在整次挥击内持续生效。
+      static std::atomic<uint64_t> s_basic_attack_key{1};
+      const uint64_t swing_key = s_basic_attack_key.fetch_add(1);
       grid.query(
           {pos.x, pos.y}, range,
           [&](entt::entity target, const Position &tPos) {
@@ -203,6 +208,7 @@ void CombatSystem::update(entt::registry &registry,
                 damageReq.skill_id = skillId;
                 damageReq.base_pool = BuildLegacyAttackBasePool(stats, baseDamage);
                 damageReq.additional_tags = hitTags;
+                damageReq.attack_key = swing_key;
                 auto execution =
                     NoMoreDay::DamagePipeline::Execute(registry, damageReq, entity);
                 finalDamage = execution.damage.total_damage;

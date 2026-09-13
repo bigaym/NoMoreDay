@@ -435,7 +435,6 @@ def _build_contract_for_skill(
     )
 
     node_contracts: list[dict[str, Any]] = []
-    exclusion_group_counts: dict[int, int] = {}
     for node_id in sorted(nodes_by_id.keys()):
         node = nodes_by_id[node_id]
         max_points = _read_int(
@@ -498,11 +497,6 @@ def _build_contract_for_skill(
         if not emits_non_default:
             continue
 
-        if keystone_exclusion_group != 0:
-            exclusion_group_counts[keystone_exclusion_group] = (
-                exclusion_group_counts.get(keystone_exclusion_group, 0) + 1
-            )
-
         node_contract: dict[str, Any] = {
             "node_id": node_id,
             "role": role,
@@ -517,12 +511,6 @@ def _build_contract_for_skill(
         if cost_affix != "None":
             node_contract["cost_affix"] = cost_affix
         node_contracts.append(node_contract)
-
-    for exclusion_group_id, exclusion_count in exclusion_group_counts.items():
-        if exclusion_count < 2:
-            raise ValueError(
-                f"skill {skill_id}: keystone_exclusion_group {exclusion_group_id} has fewer than 2 nodes"
-            )
 
     return {
         "version": 1,

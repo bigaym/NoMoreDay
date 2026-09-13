@@ -338,7 +338,9 @@ void RefreshLastStand(entt::registry &registry, entt::entity owner,
     return;
   }
   const float missing_pct = (1.0f - hp.current / hp.max) * 100.0f;
-  const float value = missing_pct * pt.params.last_stand_crit_pct;
+  // 982 孤注一掷：暴伤加成总量封顶 +200 个百分点，避免极端缺血下线性膨胀。
+  const float value =
+      std::min(missing_pct * pt.params.last_stand_crit_pct, 200.0f);
 
   BuffEffect last;
   last.id = std::string(BuffIdToString(BuffId::PhantomTranceLastStand));
@@ -712,30 +714,41 @@ void PhantomTrance::DoCast(entt::registry &registry, entt::entity owner,
     pos->y = exec.target_pos.y;
   }
 
-  // 生成形态组件并复制形态参数。
-  auto &pt = registry.emplace_or_replace<PhantomTranceComponent>(owner);
-  pt.owner = owner;
-  pt.cast_id = exec.cast_id;
-  pt.params = params;
-  pt.duration = params.duration_sec;
-  pt.remaining = params.duration_sec;
-  pt.elapsed = 0.0f;
-  pt.lethal_triggered = false;
-  pt.damage_dealt_accum = 0.0f;
-  pt.intent_tick = 0.0f;
-  pt.mana_tick = 0.0f;
-  pt.spiral_tick = 0.0f;
-  pt.pulse_tick = 0.0f;
-  pt.weaken_tick = 0.0f;
-  pt.last_stand_buff_value = 0.0f;
-  pt.enchant_remaining = 0.0f;
-  pt.enchant_tag = Tag::None;
-  pt.ending = false;
-
   auto *stats = registry.try_get<CombatStats>(owner);
-
-  // 形态增益 Buff。
   auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+
+  // 已在形态中（组件存在且时长未耗尽）时重施法只刷新形态时长，
+  // 保留 lethal_triggered，且不重新武装免死窗口。
+  const auto *existing = registry.try_get<PhantomTranceComponent>(owner);
+  const bool already_in_form = existing != nullptr && existing->remaining > 0.0f;
+
+  if (already_in_form) {
+    auto &pt = registry.get<PhantomTranceComponent>(owner);
+    pt.duration = params.duration_sec;
+    pt.remaining = params.duration_sec;
+  } else {
+    // 未处于形态：创建形态组件并重置免死等运行时状态。
+    auto &pt = registry.get_or_emplace<PhantomTranceComponent>(owner);
+    pt.owner = owner;
+    pt.cast_id = exec.cast_id;
+    pt.params = params;
+    pt.duration = params.duration_sec;
+    pt.remaining = params.duration_sec;
+    pt.elapsed = 0.0f;
+    pt.lethal_triggered = false;
+    pt.damage_dealt_accum = 0.0f;
+    pt.intent_tick = 0.0f;
+    pt.mana_tick = 0.0f;
+    pt.spiral_tick = 0.0f;
+    pt.pulse_tick = 0.0f;
+    pt.weaken_tick = 0.0f;
+    pt.last_stand_buff_value = 0.0f;
+    pt.enchant_remaining = 0.0f;
+    pt.enchant_tag = Tag::None;
+    pt.ending = false;
+  }
+
+  // 形态增益 Buff（重施法刷新形态时长）。
   // 988 御剑化影：御剑步 Buff 或御剑步相位任一存在即视为处于御剑步。
   const BuffEffect *sword_step = effects.Get(BuffId::SwordStep);
   const bool sword_step_active =
@@ -744,23 +757,26 @@ void PhantomTrance::DoCast(entt::registry &registry, entt::entity owner,
   effects.AddOrRefresh(
       BuildFormBuff(params, owner, params.duration_sec, sword_step_active));
 
-  // 981 逆脉：锁血 + 六系增伤。
-  if (params.death_seal && stats) {
-    ApplyDeathSeal(registry, owner, *stats, params);
-  }
+  // 进入形态才授予的效果：重施法刷新时不得重复结算。
+  if (!already_in_form) {
+    // 981 逆脉：锁血 + 六系增伤。
+    if (params.death_seal && stats) {
+      ApplyDeathSeal(registry, owner, *stats, params);
+    }
 
-  // 980 虚灵之躯：扣血 + 潜行。
-  if (params.void_body) {
-    ApplyVoidBody(registry, owner, params);
-  }
+    // 980 虚灵之躯：扣血 + 潜行。
+    if (params.void_body) {
+      ApplyVoidBody(registry, owner, params);
+    }
 
-  // 979 绝影护甲：上限比例护盾。
-  if (params.ward_pct > 0.0f && stats) {
-    ApplyWard(registry, owner, params);
-  }
+    // 979 绝影护甲：上限比例护盾。
+    if (params.ward_pct > 0.0f && stats) {
+      ApplyWard(registry, owner, params);
+    }
 
-  // 993 影剑回响触发规则。
-  RegisterEchoRule(registry, owner, params);
+    // 993 影剑回响触发规则。
+    RegisterEchoRule(registry, owner, params);
+  }
 
   if (stats) {
     registry.get_or_emplace<StatsDirty>(owner);

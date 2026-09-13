@@ -215,4 +215,69 @@ TEST_CASE("[Integration] AilmentEngine - multi-ailment ticks on single target") 
         doctest::Approx(expectedPoison + expectedIgnite).epsilon(0.0001f));
 }
 
+TEST_CASE("[Unit] AilmentEngine - apply request propagates source_skill_id") {
+  TestSetupScope scope;
+  RequireDefaultContracts();
+
+  entt::registry registry;
+  const auto target = registry.create();
+  auto &effects = registry.emplace<ActiveEffectsComponent>(target);
+
+  // 显式来源技能应写入 BuffEffect，供 153 饮血刃门控读取。
+  systems::AilmentApplyRequest bleed;
+  bleed.ailment = AilmentType::Bleed;
+  bleed.magnitude = 6.0f;
+  bleed.duration = 3.0f;
+  bleed.source_skill_id = 1;
+  CHECK(systems::AilmentApplier::Apply(registry, target, bleed));
+
+  const auto bleedEffects = CollectAilmentEffects(effects, AilmentType::Bleed);
+  REQUIRE(bleedEffects.size() == 1);
+  CHECK(bleedEffects.front()->source_skill_id == 1);
+
+  // 默认 0：无归属来源不获得技能归属。
+  systems::AilmentApplyRequest poison;
+  poison.ailment = AilmentType::Poison;
+  poison.magnitude = 6.0f;
+  poison.duration = 3.0f;
+  CHECK(systems::AilmentApplier::Apply(registry, target, poison));
+
+  const auto poisonEffects = CollectAilmentEffects(effects, AilmentType::Poison);
+  REQUIRE(poisonEffects.size() == 1);
+  CHECK(poisonEffects.front()->source_skill_id == 0);
+}
+
+TEST_CASE("[Unit] AilmentEngine - additive merge updates source_skill_id") {
+  TestSetupScope scope;
+  RequireDefaultContracts();
+
+  entt::registry registry;
+  const auto target = registry.create();
+  auto &effects = registry.emplace<ActiveEffectsComponent>(target);
+
+  // 流血契约 max_stacks=2 / Independent / Additive：两个独立槽分别是技能1
+  // 来源与无归属来源，随后第三个来源触发 Additive 合并。
+  systems::AilmentApplyRequest bleed;
+  bleed.ailment = AilmentType::Bleed;
+  bleed.magnitude = 10.0f;
+  bleed.duration = 2.0f;
+  bleed.source_skill_id = 1;
+  CHECK(systems::AilmentApplier::Apply(registry, target, bleed));
+
+  bleed.duration = 3.0f;
+  bleed.source_skill_id = 0;
+  CHECK(systems::AilmentApplier::Apply(registry, target, bleed));
+
+  // Additive 合并选中剩余时间更长的第二个槽，来源归属必须一并改写。
+  bleed.duration = 1.0f;
+  bleed.source_skill_id = 999;
+  CHECK(systems::AilmentApplier::Apply(registry, target, bleed));
+
+  const auto bleedEffects = CollectAilmentEffects(effects, AilmentType::Bleed);
+  REQUIRE(bleedEffects.size() == 2);
+  // 合并前旧实现只同步 source，遗留 0 归属；修复后应为最新来源 999。
+  CHECK(bleedEffects[0]->source_skill_id == 1);
+  CHECK(bleedEffects[1]->source_skill_id == 999);
+}
+
 } // namespace NoMoreDay

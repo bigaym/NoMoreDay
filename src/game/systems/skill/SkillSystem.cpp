@@ -1161,23 +1161,26 @@ void SkillSystem::InitHooks() {
                   .AddOrRefresh(speedBuff);
               registry.get_or_emplace<StatsDirty>(evt.source);
             }
-            // Talent 455: 以攻代守 闪避后 More+20% (2s) 并必得 1 层剑意
+            // Talent 455: 以攻代守 闪避后挂「下一次攻击」待消费标记（2s 窗口）。
+            // 标记不带属性 modifier：+20% 全局 More 由伤害结算在消费标记时一次性施加，
+            // 从而只作用于下一次攻击（命中与否都消耗），而非整个窗口的持续属性 buff。
             if (powerBoost) {
+              const float powerDuration =
+                  skills::GetMech(4u, 455u, "duration", 2.0f);
               // 常量 Buff 模板：std::string 成员只构造一次，避免每个闪避事件重复分配；
               // AddOrRefresh 只读该模板并复制入组件，不会改写模板状态。
-              static const BuffEffect kBladeWardPowerBuff{
+              static const BuffEffect kBladeWardPowerMarker{
                   .id = "blade_ward_dodge_power",
                   .name = "Offensive Guard",
                   .type = BuffType::PowerBoost,
                   .duration = 2.0f,
                   .remaining = 2.0f,
-                  .modifiers = {{.value = 20.0f,
-                                 .type = StatType::PhysicalDamage,
-                                 .mode = ModifierMode::PercentMult}},
               };
+              BuffEffect marker = kBladeWardPowerMarker;
+              marker.duration = powerDuration;
+              marker.remaining = powerDuration;
               registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
-                  .AddOrRefresh(kBladeWardPowerBuff);
-              registry.get_or_emplace<StatsDirty>(evt.source);
+                  .AddOrRefresh(marker);
               SkillSystem::GainSwordIntent(registry, evt.source, 1, 4);
             }
             // Talent 453: 流风余韵 瞬身反打触发后按已损生命回复。

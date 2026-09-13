@@ -47,6 +47,10 @@ struct DamageRequest {
   bool skip_mitigation = false;
   bool thorns_like_damage = false;
   std::optional<DamagePayloadContext> payload_context;
+  // 一次「攻击行为」的标识：有施法 id 时由结算侧从 source_entity 解析，无施法 id
+  // 的普攻由发起侧填充挥击标识。同一攻击行为（AoE 全目标、同施法多段）的全部
+  // 伤害实例共享该标识。0 = 无标识，退回逐实例消费语义。
+  uint64_t attack_key = 0;
 };
 
 struct DamageExecutionResult {

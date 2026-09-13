@@ -121,7 +121,7 @@ bool VictimHasBleed(const entt::registry &registry, entt::entity entity) {
   return false;
 }
 
-// 153 饮血刃：流血 DoT tick 实际结算后，按 30% 治疗 DoT 施加者
+// 153 饮血刃：流云刺（技能1）来源的流血 DoT tick 实际结算后，按 100% 治疗 DoT 施加者
 TEST_CASE("[Unit] Skill - Flowing Thrust 153 Blood Drinker heals on bleed tick") {
   TestSetupScope scope;
   LoadSkillMechanics();
@@ -139,7 +139,7 @@ TEST_CASE("[Unit] Skill - Flowing Thrust 153 Blood Drinker heals on bleed tick")
   playerStats->health = 20.0f;
   registry.get<HealthComponent>(player).current = 20.0f;
 
-  // 敌人挂流血
+  // 敌人挂流血（RD-08：标记来源为流云刺技能1，才参与 153 吸血）
   auto enemy = MakeEnemy(registry, 100.0f, 0.0f, 100.0f);
   systems::AilmentApplyRequest bleed;
   bleed.ailment = AilmentType::Bleed;
@@ -147,6 +147,7 @@ TEST_CASE("[Unit] Skill - Flowing Thrust 153 Blood Drinker heals on bleed tick")
   bleed.magnitude = 10.0f;
   bleed.duration = 4.0f;
   bleed.stacks = 1;
+  bleed.source_skill_id = 1;
   REQUIRE(systems::AilmentApplier::Apply(registry, enemy, bleed));
 
   const float playerBefore = playerStats->health;
@@ -158,9 +159,9 @@ TEST_CASE("[Unit] Skill - Flowing Thrust 153 Blood Drinker heals on bleed tick")
   const float healAmount = playerStats->health - playerBefore;
   const float enemyDamage = enemyBefore - registry.get<HealthComponent>(enemy).current;
 
-  // 治疗量 = 实际流血伤害 × 30%
+  // 治疗量 = 实际流血伤害 × 100%
   CHECK(healAmount > 0.0f);
-  CHECK(healAmount == doctest::Approx(enemyDamage * 0.30f));
+  CHECK(healAmount == doctest::Approx(enemyDamage));
   CHECK(healAmount <= 80.0f); // 不超过 max_health 余量与 tick 总量
   // 治疗事件派发
   // （OnHeal 事件本身不在本用例断言，避免依赖 dispatcher 订阅细节）

@@ -9,6 +9,7 @@
 #include <unordered_map>
 
 #include "game/contracts/DamageResolutionHooks.hpp"
+#include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
@@ -386,6 +387,267 @@ TEST_CASE("[Functional] Skill 4 - Perfect Parry 434 Charge Gates Interception") 
   const auto recharged = damage::EvaluateBladeWardInterception(
       registry, player, entt::null, Tag::Projectile, false);
   CHECK(recharged.intercepted);
+}
+
+// 构造一次 1 号技能物理攻击并走真实伤害管线结算。
+static float ResolvePlayerAttack(entt::registry &registry, entt::entity player,
+                                 entt::entity target) {
+  DamageRequest request{};
+  request.attacker = player;
+  request.defender = target;
+  request.skill_id = 1u;
+  request.base_pool.Add(Tag::Physical, 100.0f);
+  return DamagePipeline::Execute(registry, request, player, false)
+      .damage.total_damage;
+}
+
+TEST_CASE("[Functional] Skill 4 - 455 Offensive Guard Buffers Next Attack") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+  RegisterTestResolutionHooks();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = CreateTestPlayer(registry, {{455, 1}});
+  // 固定暴击结果，使基线数值可精确比较。
+  registry.get<CombatStats>(player).crit_chance = 0.0f;
+  registry.emplace<SwordIntentComponent>(player);
+  auto enemy = CreateTestEnemy(registry, 40.0f, 0.0f);
+
+  const float baseline = ResolvePlayerAttack(registry, player, enemy);
+  REQUIRE(baseline > 0.0f);
+
+  // 基线攻击经 OnDealDamage 已获得 1 层剑意，记录闪避前层数以断言 455 的净增益。
+  const int intent_before =
+      registry.get<SwordIntentComponent>(player).stacks;
+
+  // 闪避成功：挂起「下一次攻击」标记并额外 +1 层剑意。
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateOnDodge(player, enemy));
+  const auto *effects = registry.try_get<ActiveEffectsComponent>(player);
+  REQUIRE(effects != nullptr);
+  CHECK(FindEffectById(effects, "blade_ward_dodge_power") != nullptr);
+  CHECK(registry.get<SwordIntentComponent>(player).stacks == intent_before + 1);
+
+  // 下一次攻击：全局 More +20%，且标记被消费。
+  const float boosted = ResolvePlayerAttack(registry, player, enemy);
+  CHECK(boosted == doctest::Approx(baseline * 1.2f));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") == nullptr);
+
+  // 之后攻击不再有加成。
+  const float after = ResolvePlayerAttack(registry, player, enemy);
+  CHECK(after == doctest::Approx(baseline));
+}
+
+TEST_CASE("[Functional] Skill 4 - 455 Offensive Guard Missed Swing Consumes Token") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+  RegisterTestResolutionHooks();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = CreateTestPlayer(registry, {{455, 1}});
+  registry.get<CombatStats>(player).crit_chance = 0.0f;
+  registry.emplace<SwordIntentComponent>(player);
+
+  auto elusive = CreateTestEnemy(registry, 40.0f, 0.0f);
+  registry.get<CombatStats>(elusive).dodge_chance = 1.0f;
+  auto dummy = CreateTestEnemy(registry, 60.0f, 0.0f);
+
+  const float baseline = ResolvePlayerAttack(registry, player, dummy);
+
+  // 闪避成功后挂起标记。
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateOnDodge(player, dummy));
+  REQUIRE(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                         "blade_ward_dodge_power") != nullptr);
+
+  // 未命中的挥击同样消耗标记。
+  DamageRequest missed_request{};
+  missed_request.attacker = player;
+  missed_request.defender = elusive;
+  missed_request.skill_id = 1u;
+  missed_request.base_pool.Add(Tag::Physical, 100.0f);
+  const auto missed =
+      DamagePipeline::Execute(registry, missed_request, player, false);
+  CHECK(missed.damage.was_dodged);
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") == nullptr);
+
+  // 消耗后攻击恢复无加成数值。
+  const float after = ResolvePlayerAttack(registry, player, dummy);
+  CHECK(after == doctest::Approx(baseline));
+}
+
+// RD-06：455 标记只由真正攻击消耗，荆棘反伤/地面危险区等非攻击伤害不得消费。
+TEST_CASE("[Functional] Skill 4 - 455 Offensive Guard Ignores Non-Attack Damage") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+  RegisterTestResolutionHooks();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = CreateTestPlayer(registry, {{455, 1}});
+  registry.get<CombatStats>(player).crit_chance = 0.0f;
+  registry.emplace<SwordIntentComponent>(player);
+  auto enemy = CreateTestEnemy(registry, 40.0f, 0.0f);
+
+  auto resolve_origin = [&](DamageOrigin origin) {
+    DamageRequest request{};
+    request.attacker = player;
+    request.defender = enemy;
+    request.origin = origin;
+    request.skill_id = 1u;
+    request.base_pool.Add(Tag::Physical, 100.0f);
+    return DamagePipeline::Execute(registry, request, player, false)
+        .damage.total_damage;
+  };
+
+  // 无标记时的基准值，保证后续比较不受剑意层数变化影响。
+  const float thorns_control = resolve_origin(DamageOrigin::ThornsReflect);
+  const float hazard_control = resolve_origin(DamageOrigin::HazardEnvironment);
+  const float attack_control = ResolvePlayerAttack(registry, player, enemy);
+
+  // 闪避成功挂起「下一次攻击」标记。
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateOnDodge(player, enemy));
+  REQUIRE(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                         "blade_ward_dodge_power") != nullptr);
+
+  // 非攻击伤害既不消耗标记，也不吃到 +20%。
+  CHECK(resolve_origin(DamageOrigin::ThornsReflect) ==
+        doctest::Approx(thorns_control));
+  CHECK(resolve_origin(DamageOrigin::HazardEnvironment) ==
+        doctest::Approx(hazard_control));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") != nullptr);
+
+  // 随后的正常攻击仍能消费标记并享受 +20%。
+  CHECK(ResolvePlayerAttack(registry, player, enemy) ==
+        doctest::Approx(attack_control * 1.2f));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") == nullptr);
+}
+
+// RD-06 补裁（设计 §3.4 / 计划 §10）：一次「攻击行为」（一次施法或一次普攻
+// 挥击）产生的全部伤害实例共享同一份 +20%，而非仅首个结算目标获得加成。
+TEST_CASE("[Functional] Skill 4 - 455 Offensive Guard Shared Across Attack Behavior") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+  RegisterTestResolutionHooks();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = CreateTestPlayer(registry, {{455, 1}});
+  registry.get<CombatStats>(player).crit_chance = 0.0f;
+  registry.emplace<SwordIntentComponent>(player);
+  auto enemyA = CreateTestEnemy(registry, 40.0f, 0.0f);
+  auto enemyB = CreateTestEnemy(registry, -40.0f, 0.0f);
+
+  const float baseline = ResolvePlayerAttack(registry, player, enemyA);
+  REQUIRE(baseline > 0.0f);
+
+  // 闪避成功：挂起「下一次攻击」标记。
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateOnDodge(player, enemyA));
+  REQUIRE(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                         "blade_ward_dodge_power") != nullptr);
+
+  constexpr uint64_t kSharedAttackKey = 987654321ull;
+  auto resolve_with_key = [&](entt::entity target, uint64_t attackKey) {
+    DamageRequest request{};
+    request.attacker = player;
+    request.defender = target;
+    request.skill_id = 1u;
+    request.base_pool.Add(Tag::Physical, 100.0f);
+    request.attack_key = attackKey;
+    return DamagePipeline::Execute(registry, request, player, false)
+        .damage.total_damage;
+  };
+
+  // 同一攻击行为首个实例：吃到 +20%，标记进入「已消费、本行为内继续生效」态。
+  const float first = resolve_with_key(enemyA, kSharedAttackKey);
+  CHECK(first == doctest::Approx(baseline * 1.2f));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") != nullptr);
+
+  // 同一攻击行为第二个实例（另一目标）：仍吃到 +20%。
+  const float second = resolve_with_key(enemyB, kSharedAttackKey);
+  CHECK(second == doctest::Approx(baseline * 1.2f));
+
+  // 新攻击行为（不同标识）：不加成且清除标记。
+  const float after = resolve_with_key(enemyA, kSharedAttackKey + 1);
+  CHECK(after == doctest::Approx(baseline));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") == nullptr);
+
+  // 标记已清除：后续攻击无加成。
+  CHECK(resolve_with_key(enemyB, kSharedAttackKey + 2) ==
+        doctest::Approx(baseline));
+}
+
+// Wave D 边界缺陷回归：攻击消费后标记保留（consumed=true/key=K），若 2s 窗口内
+// 再次闪避，AddOrRefresh 必须把瞬态消费字段复位为新一次挂起，否则新闪避的加成
+// 会被残留的 consumed 态吞掉。
+TEST_CASE("[Functional] Skill 4 - 455 Refresh Resets Consumed State") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+  RegisterTestResolutionHooks();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = CreateTestPlayer(registry, {{455, 1}});
+  registry.get<CombatStats>(player).crit_chance = 0.0f;
+  registry.emplace<SwordIntentComponent>(player);
+  auto enemy = CreateTestEnemy(registry, 40.0f, 0.0f);
+
+  const float baseline = ResolvePlayerAttack(registry, player, enemy);
+  REQUIRE(baseline > 0.0f);
+
+  constexpr uint64_t kKey1 = 111111ull;
+  constexpr uint64_t kKey2 = 222222ull;
+  constexpr uint64_t kKey3 = 333333ull;
+  auto resolve_with_key = [&](uint64_t attackKey) {
+    DamageRequest request{};
+    request.attacker = player;
+    request.defender = enemy;
+    request.skill_id = 1u;
+    request.base_pool.Add(Tag::Physical, 100.0f);
+    request.attack_key = attackKey;
+    return DamagePipeline::Execute(registry, request, player, false)
+        .damage.total_damage;
+  };
+
+  // 第一次闪避挂起标记。
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateOnDodge(player, enemy));
+  REQUIRE(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                         "blade_ward_dodge_power") != nullptr);
+
+  // K1 攻击消费：加成生效，标记进入已消费态并保留。
+  CHECK(resolve_with_key(kKey1) == doctest::Approx(baseline * 1.2f));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") != nullptr);
+
+  // 2s 窗口内再次闪避：刷新必须复位消费状态（标记仍存在）。
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateOnDodge(player, enemy));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") != nullptr);
+
+  // 新一次挂起应重新吃到 +20%（缺陷未修时会退化为 baseline）。
+  CHECK(resolve_with_key(kKey2) == doctest::Approx(baseline * 1.2f));
+
+  // 换攻击行为：无加成且清除标记。
+  CHECK(resolve_with_key(kKey3) == doctest::Approx(baseline));
+  CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
+                       "blade_ward_dodge_power") == nullptr);
 }
 
 } // namespace NoMoreDay

@@ -506,7 +506,8 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         .source = actualAttacker,
         .magnitude = 10.0f,
         .duration = 4.0f,
-        .stacks = 1
+        .stacks = 1,
+        .source_skill_id = 1
       };
       (void)systems::AilmentApplier::Apply(reg, victim, req);
       victimHasBleed = true;
@@ -557,7 +558,8 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         .source = actualAttacker,
         .magnitude = mech.GetFloat(kSkillId, FlowingThrustNodes::Hellfire, "ignite_magnitude", 15.0f),
         .duration = mech.GetFloat(kSkillId, FlowingThrustNodes::Hellfire, "ignite_duration", 3.0f),
-        .stacks = 1
+        .stacks = 1,
+        .source_skill_id = 1
       };
       (void)systems::AilmentApplier::Apply(reg, victim, req);
       victimHasFire = true;
@@ -766,7 +768,8 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                   .source = actualAttacker,
                   .magnitude = mech.GetFloat(kSkillId, FlowingThrustNodes::ResidualElements, "spread_ignite_magnitude", 15.0f),
                   .duration = mech.GetFloat(kSkillId, FlowingThrustNodes::ResidualElements, "spread_ignite_duration", 3.0f),
-                  .stacks = 1
+                  .stacks = 1,
+                  .source_skill_id = 1
                 };
                 (void)systems::AilmentApplier::Apply(reg, spreadTarget, spreadReq);
               }
@@ -905,7 +908,8 @@ void UpdateFlowingThrustEmbers(entt::registry &registry, float dt) {
           .source = zone.owner,
           .magnitude = igniteMagnitude,
           .duration = igniteDuration,
-          .stacks = 1
+          .stacks = 1,
+          .source_skill_id = 1
         };
         (void)systems::AilmentApplier::Apply(registry, enemy, req);
         zone.ignited.push_back(enemy);

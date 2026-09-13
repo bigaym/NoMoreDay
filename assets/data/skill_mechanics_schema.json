@@ -590,6 +590,16 @@
     ],
     [
       4,
+      455,
+      "duration"
+    ],
+    [
+      4,
+      455,
+      "more_damage_pct"
+    ],
+    [
+      4,
       470,
       "base_damage"
     ],
@@ -2612,17 +2622,7 @@
     [
       4,
       455,
-      "duration"
-    ],
-    [
-      4,
-      455,
       "intent_gain"
-    ],
-    [
-      4,
-      455,
-      "more_damage_pct"
     ],
     [
       5,

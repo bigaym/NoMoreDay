@@ -1,9 +1,15 @@
 #include "TestCommon.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/SkillContract.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <map>
+#include <utility>
+#include <vector>
 
 namespace NoMoreDay {
 
@@ -81,8 +87,9 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     REQUIRE(skill3NodeB != nullptr);
     CHECK(skill3NodeA->role == SpecNodeRole::Transmuter);
     CHECK(skill3NodeB->role == SpecNodeRole::Transmuter);
-    CHECK(skill3NodeA->keystone_exclusion_group == 1);
-    CHECK(skill3NodeB->keystone_exclusion_group == 1);
+    // 组号在每棵树内自 1 起连续，转质互斥对取 keystone 组之后的组号（RD-01）
+    CHECK(skill3NodeA->keystone_exclusion_group == 3);
+    CHECK(skill3NodeB->keystone_exclusion_group == 3);
 
     const auto *skill9NodeA = registry.GetNodeContract(9, 989);
     const auto *skill9NodeB = registry.GetNodeContract(9, 972);
@@ -90,8 +97,9 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     REQUIRE(skill9NodeB != nullptr);
     CHECK(skill9NodeA->role == SpecNodeRole::Transmuter);
     CHECK(skill9NodeB->role == SpecNodeRole::Transmuter);
-    CHECK(skill9NodeA->keystone_exclusion_group == 2);
-    CHECK(skill9NodeB->keystone_exclusion_group == 2);
+    // 972/989 为 skill9 的转质互斥对，组号位于 977/980/981/954 之后（RD-01）
+    CHECK(skill9NodeA->keystone_exclusion_group == 4);
+    CHECK(skill9NodeB->keystone_exclusion_group == 4);
   }
 
   SUBCASE("Skill 4 keystone/passive node contract is exact") {
@@ -130,15 +138,15 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK_FALSE(node413->affects_sword_intent);
     CHECK_FALSE(node413->affects_sword_step);
 
-    // 472/474 为转质节点且互斥组一致
+    // 472/474 为转质节点且互斥组一致（组号位于 keystone 组之后，RD-01）
     const auto *node472 = registry.GetNodeContract(4, 472);
     const auto *node474 = registry.GetNodeContract(4, 474);
     REQUIRE(node472 != nullptr);
     REQUIRE(node474 != nullptr);
     CHECK(node472->role == SpecNodeRole::Transmuter);
     CHECK(node474->role == SpecNodeRole::Transmuter);
-    CHECK(node472->keystone_exclusion_group == 1);
-    CHECK(node474->keystone_exclusion_group == 1);
+    CHECK(node472->keystone_exclusion_group == 3);
+    CHECK(node474->keystone_exclusion_group == 3);
   }
 
   SUBCASE("Skill 10 signature contract is materialized") {
@@ -170,6 +178,7 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     REQUIRE(loop != nullptr);
     CHECK(loop->role == SpecNodeRole::Keystone);
     CHECK(loop->affects_sword_intent);
+    CHECK(loop->keystone_exclusion_group == 2);
 
     const auto *orbit = registry.GetNodeContract(10, 1021);
     const auto *starfall = registry.GetNodeContract(10, 1022);
@@ -177,8 +186,12 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     REQUIRE(starfall != nullptr);
     CHECK(orbit->role == SpecNodeRole::Transmuter);
     CHECK(starfall->role == SpecNodeRole::Transmuter);
-    CHECK(orbit->keystone_exclusion_group == 3);
-    CHECK(starfall->keystone_exclusion_group == 3);
+    // skill10 例外：keystone 1007 与转质 1021/1022 并入组 1（RD-01）
+    const auto *phase = registry.GetNodeContract(10, 1007);
+    REQUIRE(phase != nullptr);
+    CHECK(phase->keystone_exclusion_group == 1);
+    CHECK(orbit->keystone_exclusion_group == 1);
+    CHECK(starfall->keystone_exclusion_group == 1);
   }
 
   SUBCASE("Skill 9 Phantom Trance contract is materialized") {
@@ -314,8 +327,12 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(keystoneC->role == SpecNodeRole::Keystone);
     CHECK(transmuterA->role == SpecNodeRole::Transmuter);
     CHECK(transmuterB->role == SpecNodeRole::Transmuter);
-    CHECK(transmuterA->keystone_exclusion_group == 4);
-    CHECK(transmuterB->keystone_exclusion_group == 4);
+    // skill12 的 1207/1213/1220 同组 1，转质 1221/1222 为组 2（RD-01）
+    CHECK(keystoneA->keystone_exclusion_group == 1);
+    CHECK(keystoneB->keystone_exclusion_group == 1);
+    CHECK(keystoneC->keystone_exclusion_group == 1);
+    CHECK(transmuterA->keystone_exclusion_group == 2);
+    CHECK(transmuterB->keystone_exclusion_group == 2);
   }
 }
 
@@ -548,6 +565,135 @@ TEST_CASE("[Integration] SkillContract - SaveSkillTreeLayout persists relative c
   CHECK(nodes.at(2).at("y").get<float>() == doctest::Approx(-1.5f));
 
   fs::remove_all(tempDir, ec);
+}
+
+TEST_CASE("[Integration] SkillContract - Keystone exclusion groups (RD-01)") {
+  auto &registry = SkillRegistry::Get();
+  registry.LoadFromJson("assets/data/skills.json");
+
+  // RD-01：互斥组语义由「组内至少 2 个节点」放宽为「每组至少 1 个」，
+  // 组号 0 表示不参与互斥；以下用例锁定这三条语义不被回退。
+  SUBCASE("单节点组合法加载") {
+    namespace fs = std::filesystem;
+    const fs::path tempFile =
+        fs::temp_directory_path() / "nmd_skill_contract_singleton_group.json";
+    {
+      std::ofstream out(tempFile, std::ios::binary | std::ios::trunc);
+      REQUIRE(out.is_open());
+      out << R"({
+  "skills": [
+    {
+      "id": 42,
+      "name_key": "TestSkill",
+      "mana_cost": 0,
+      "cooldown": 0,
+      "talent_tree": [
+        {
+          "id": 213,
+          "name_key": "Node213",
+          "desc_key": "Node213Desc",
+          "icon_id": 0,
+          "x": 0,
+          "y": 0,
+          "max_points": 1,
+          "current_points": 0,
+          "is_key_node": true,
+          "prerequisites": [],
+          "stat_modifiers": [],
+          "damage_modifiers": [],
+          "tags_to_add": []
+        }
+      ],
+      "skill_contract": {
+        "skill_id": 42,
+        "min_nodes": 1,
+        "max_nodes": 1,
+        "nodes": [
+          {
+            "node_id": 213,
+            "role": "Keystone",
+            "keystone_exclusion_group": 2
+          }
+        ]
+      }
+    }
+  ]
+})";
+    }
+
+    registry.LoadFromJson(tempFile.string());
+    std::string error;
+    // RD-01：单节点独占一组时校验必须通过，不得再报「fewer than 2 nodes」。
+    CHECK(registry.ValidateSkillContract(42, &error));
+    CHECK(error.empty());
+    const auto *node = registry.GetNodeContract(42, 213);
+    REQUIRE(node != nullptr);
+    CHECK(node->keystone_exclusion_group == 2);
+
+    std::error_code ec;
+    fs::remove(tempFile, ec);
+  }
+
+  SUBCASE("同组互斥、跨组不互斥、组号 0 不参与") {
+    // 技能 4：412/433/434 为组 1，470 为组 2，413 为组号 0 的被动节点。
+    entt::registry ecs;
+    const entt::entity caster = ecs.create();
+    auto &active = ecs.emplace<ActiveSkillsComponent>(caster);
+    active.specialized_slots[0].skill_id = 4;
+    active.specialized_slots[0].allocated_points[412] = 1;
+
+    const auto excluded = [&](uint32_t node_id) {
+      return SkillSystem::IsNodeExcludedByMutualKeystone(ecs, caster, 4,
+                                                         node_id);
+    };
+    CHECK_FALSE(excluded(412)); // 已选中的组 1 节点不排斥自身
+    CHECK(excluded(433));       // 同组 1 的其余 keystone 仍互斥
+    CHECK(excluded(434));
+    CHECK_FALSE(excluded(470)); // 组 2 与组 1 跨组，不互斥
+    CHECK_FALSE(excluded(413)); // 组号 0 不参与互斥
+  }
+
+  SUBCASE("每树分组集合与权威映射一致") {
+    using GroupMap = std::map<uint32_t, uint8_t>;
+    const std::map<uint32_t, GroupMap> expected = {
+        {1, {{113, 1}, {154, 2}, {170, 3}, {172, 3}}},
+        {2, {{213, 1}, {214, 1}, {234, 1}, {253, 2}, {270, 3}, {272, 3}}},
+        {3, {{313, 2}, {330, 1}, {351, 1}, {370, 3}, {372, 3}}},
+        {4, {{412, 1}, {433, 1}, {434, 1}, {470, 2}, {472, 3}, {474, 3}}},
+        {5, {{533, 1}, {534, 2}, {550, 1}, {570, 3}, {572, 3}}},
+        {6, {{613, 2}, {633, 1}, {634, 1}, {653, 3}, {670, 4}, {672, 4}}},
+        {7, {{711, 1}, {732, 1}, {770, 2}, {772, 2}}},
+        {8, {{810, 1}, {815, 2}, {854, 1}, {870, 3}, {872, 3}}},
+        {9, {{954, 3}, {972, 4}, {977, 1}, {980, 1}, {981, 2}, {989, 4}}},
+        {10, {{1007, 1}, {1013, 2}, {1021, 1}, {1022, 1}, {1025, 3}}},
+        {11, {{1107, 1}, {1113, 1}, {1120, 2}}},
+        {12, {{1207, 1}, {1213, 1}, {1220, 1}, {1221, 2}, {1222, 2}}},
+    };
+
+    for (const auto &[skill_id, want] : expected) {
+      CAPTURE(skill_id);
+      const auto *tree = registry.GetSkillTree(skill_id);
+      REQUIRE(tree != nullptr);
+      for (const auto &[node_id, _] : tree->nodes) {
+        const auto *node = registry.GetNodeContract(skill_id, node_id);
+        if (node == nullptr) {
+          continue;
+        }
+        CAPTURE(node_id);
+        const auto it = want.find(node_id);
+        if (it == want.end()) {
+          // 未列入权威映射的节点必须不携带组号。
+          CHECK(node->keystone_exclusion_group == 0);
+        } else {
+          CHECK(node->keystone_exclusion_group == it->second);
+        }
+        // 每个 keystone 角色节点都必须落在某个非 0 组内。
+        if (node->role == SpecNodeRole::Keystone) {
+          CHECK(node->keystone_exclusion_group != 0);
+        }
+      }
+    }
+  }
 }
 
 } // namespace NoMoreDay
