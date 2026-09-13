@@ -106,7 +106,6 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       }
     }
     BakedDeliveryParams defaultDelivery;
-    defaultDelivery.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
     defaultDelivery.speed = sd ? sd->GetParam("speed", 400.0f) : 400.0f;
     defaultDelivery.range = sd ? sd->GetParam("max_distance", 300.0f) : 300.0f;
     const BakedDeliveryParams &del = profile ? profile->delivery : defaultDelivery;
@@ -150,10 +149,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &s : active->specialized_slots) {
         if (s.skill_id == kSkillId) {
-          const auto it = s.allocated_points.find(Sharpness);
-          if (it != s.allocated_points.end()) {
-            points802 = it->second;
-          }
+          points802 = ReadPoints(s, Sharpness);
           break;
         }
       }
@@ -302,10 +298,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       if (auto *active = registry.try_get<ActiveSkillsComponent>(caster)) {
         for (const auto &s : active->specialized_slots) {
           if (s.skill_id == kSkillId) {
-            const auto it = s.allocated_points.find(node);
-            if (it != s.allocated_points.end()) {
-              return it->second;
-            }
+            return ReadPoints(s, node);
           }
         }
       }

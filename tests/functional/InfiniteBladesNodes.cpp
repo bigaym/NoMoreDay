@@ -5,7 +5,6 @@
 #include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
-#include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
@@ -18,7 +17,6 @@
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 
 namespace NoMoreDay {
@@ -194,13 +192,14 @@ TEST_CASE("[Functional] Skill 5 - Channeling Lifecycle and Mana Drain (H1)") {
 
   CastInfiniteBlades(registry, player);
 
-  // 验证双组件同步创建
-  auto *chan = registry.try_get<ChannelingComponent>(player);
+  // 验证引导元数据仅由 BeamChannelComponent 承载
   auto *beam = registry.try_get<BeamChannelComponent>(player);
-  REQUIRE(chan != nullptr);
   REQUIRE(beam != nullptr);
-  CHECK(chan->channel_timer == doctest::Approx(5.0f));
-  CHECK(chan->tick_interval == doctest::Approx(0.3f));
+  CHECK(beam->max_channel_time == doctest::Approx(5.0f));
+  // channel_timer 是技能7 专用的输入保活窗口；技能5 不再写入该字段（保持默认 0），
+  // 引导收尾只由 max_channel_time 决定。此处断言默认值，防止死写点回归。
+  CHECK(beam->channel_timer == doctest::Approx(0.0f));
+  CHECK(beam->tick_interval == doctest::Approx(0.3f));
 
   auto *stats = registry.try_get<CombatStats>(player);
   REQUIRE(stats != nullptr);
@@ -214,13 +213,12 @@ TEST_CASE("[Functional] Skill 5 - Channeling Lifecycle and Mana Drain (H1)") {
   float consumed = initial_mana - stats->mana;
   CHECK(consumed == doctest::Approx(20.0f * 0.3f).epsilon(0.01f));
 
-  // 验证法力耗尽时引导中断且 ChannelingComponent 与 BeamChannelComponent 同步清除
+  // 验证法力耗尽时引导中断且 BeamChannelComponent 被清除
   stats->mana = 1.0f; // 低于下一次 tick 所需法力
   beam->tick_timer = 0.0f;
   BeamChannelDeliverySystem::Update(registry, grid, 0.05f);
 
   CHECK(!registry.any_of<BeamChannelComponent>(player));
-  CHECK(!registry.any_of<ChannelingComponent>(player));
 }
 
 TEST_CASE("[Functional] Skill 5 - Colossal Blades 533 Mechanics (H3)") {
@@ -295,7 +293,7 @@ TEST_CASE("[Functional] Skill 5 - Fate Mark 512 & Execution 513 Trigger (C4 / H2
 
   // 测试天诛 513 触发: 当 trigger_depth > 0 时派发主剑，不打断引导
   CastInfiniteBlades(registry, player);
-  REQUIRE(registry.any_of<ChannelingComponent>(player));
+  REQUIRE(registry.any_of<BeamChannelComponent>(player));
 
   SkillExecution exec513{};
   exec513.skill_id = kSkillId;
@@ -307,8 +305,8 @@ TEST_CASE("[Functional] Skill 5 - Fate Mark 512 & Execution 513 Trigger (C4 / H2
   auto castFunc = SkillBehaviorRegistry::GetCast(kSkillId);
   castFunc(registry, player, exec513);
 
-  // 玩家自身的 ChannelingComponent 仍然存在且未被破坏
-  CHECK(registry.any_of<ChannelingComponent>(player));
+  // 玩家自身的引导元数据仍然存在且未被破坏
+  CHECK(registry.any_of<BeamChannelComponent>(player));
 
   // 验证生成了天诛主剑 (半径 70, 必爆)
   bool foundExecutionBlade = false;
@@ -339,10 +337,10 @@ TEST_CASE("[Functional] Skill 5 - Intent Burst 554 & Multiplier 555 (H4)") {
   REQUIRE(intent != nullptr);
   CHECK(intent->stacks == 0); // 消耗完毕
 
-  const auto *chan = registry.try_get<ChannelingComponent>(player);
-  REQUIRE(chan != nullptr);
-  CHECK(chan->bonus_crit_chance >= 1.0f); // 必暴归一化 1.0 = 100%
-  CHECK(chan->bonus_damage_mult > 1.0f); // 555 暴伤增幅
+  const auto *beam = registry.try_get<BeamChannelComponent>(player);
+  REQUIRE(beam != nullptr);
+  CHECK(beam->bonus_crit_chance >= 1.0f); // 必暴归一化 1.0 = 100%
+  CHECK(beam->bonus_damage_mult > 1.0f); // 555 暴伤增幅
 }
 
 TEST_CASE("[Functional] Skill 5 - Intent Siphon 553 (H4)") {
@@ -377,7 +375,8 @@ TEST_CASE("[Functional] Skill 5 - Heavenly Sword Descent Follow-Up Linkage (C7)"
   // 模拟天剑降世回鞘状态准备就绪
   auto fieldEntity = registry.create();
   auto &field = registry.emplace<HeavenlySwordFieldComponent>(fieldEntity);
-  field.owner = player;
+  registry.emplace<PersistentFieldTag>(fieldEntity); // 夹具同步：持久场标记
+  field.header.owner = player;
   field.return_to_sheath_timer = 2.0f;
   field.return_to_sheath_bonus_mult = 0.5f;
   field.return_to_sheath_ready = true;
@@ -385,15 +384,11 @@ TEST_CASE("[Functional] Skill 5 - Heavenly Sword Descent Follow-Up Linkage (C7)"
   // 施放万剑归宗（经 RegisterHeavenlySwordDescent 包装后将自动调用 CastInfiniteBladesWithHeavenlyFollowUp）
   CastInfiniteBlades(registry, player);
 
-  auto *chan = registry.try_get<ChannelingComponent>(player);
   auto *beam = registry.try_get<BeamChannelComponent>(player);
 
-  REQUIRE(chan != nullptr);
   REQUIRE(beam != nullptr);
 
-  // 核心纠偏验证: 两者均被赋予 is_empowered 与增伤倍率，确保交付系统消费 BeamChannelComponent 时不丢失回鞘加成
-  CHECK(chan->is_empowered == true);
-  CHECK(chan->bonus_damage_mult >= 1.5f);
+  // 核心纠偏验证: 交付系统消费的 BeamChannelComponent 被赋予 is_empowered 与增伤倍率，确保回鞘加成不丢失
   CHECK(beam->is_empowered == true);
   CHECK(beam->bonus_damage_mult >= 1.5f);
 }

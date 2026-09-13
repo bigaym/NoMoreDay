@@ -120,19 +120,24 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     }
 
     // 正常主动施放：持续引导初始化 (基底 5.0s 引导上限，0.3s 发射间隔)
-    auto &chan = registry.emplace_or_replace<ChannelingComponent>(owner);
-    chan.skill_id = kSkillId;
-    chan.channel_timer = 5.0f;
-    chan.tick_interval = 0.3f;
-    chan.tick_timer = -0.01f;
-    chan.target_pos = exec.target_pos;
-    chan.is_empowered = exec.is_empowered;
-    chan.cast_id = exec.cast_id;
-    chan.conversion_tag = Tag::None;
-    chan.bonus_damage_mult = 1.0f;
-    chan.bonus_crit_chance = 0.0f;
-    chan.bonus_armor_pen = 0.0f;
-    chan.synergy_lock = false;
+    auto &beam = registry.emplace_or_replace<BeamChannelComponent>(owner);
+    beam.owner = owner;
+    beam.cast_id = exec.cast_id;
+    beam.skill_id = kSkillId;
+    beam.mode = BeamChannelMode::BarrageEmitter;
+    // 硬性引导上限外置于 skill_mechanics.json 技能5/0 号节点（与技能7 同口径），
+    // 缺失键时回退 5.0s，保持既有引导时长行为。
+    beam.max_channel_time = skills::GetMech(kSkillId, 0, "max_channel_time", 5.0f);
+    // 技能5 不依赖输入保活窗口：channel_timer 仅技能7 的交付路径读取，
+    // 技能5 的收尾只由 max_channel_time 决定，故不再写入 channel_timer。
+    beam.tick_interval = 0.3f;
+    beam.tick_timer = -0.01f;
+    beam.target_pos = exec.target_pos;
+    beam.is_empowered = exec.is_empowered;
+    beam.conversion_tag = Tag::None;
+    beam.bonus_damage_mult = 1.0f;
+    beam.bonus_crit_chance = 0.0f;
+    beam.bonus_armor_pen = 0.0f;
 
     const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
@@ -148,7 +153,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
 
     // 501 剑意共鸣: 发射频率加成 (写入 sub_interval)
     if (profile && profile->delivery.sub_interval > 0.0f) {
-      chan.tick_interval = profile->delivery.sub_interval;
+      beam.tick_interval = profile->delivery.sub_interval;
     }
 
     // 551 御剑风雷: 若在处于御剑步状态时开始引导，引导期间获得闪避加成 (+50..150)
@@ -165,8 +170,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
         if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
           for (const auto &spec : active->specialized_slots) {
             if (spec.skill_id == kSkillId) {
-              auto it = spec.allocated_points.find(InfiniteBladesNodes::SwordStepChannel);
-              if (it != spec.allocated_points.end()) pts_551 = it->second;
+              pts_551 = ReadPoints(spec, InfiniteBladesNodes::SwordStepChannel);
               break;
             }
           }
@@ -206,44 +210,32 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
           static_cast<int>(data::SkillMechanicsRegistry::Get().GetFloat(5, 554, "intent_cost", 10.0f) + 0.5f);
       if (intent && intent->stacks >= intentCost) {
         SkillSystem::ConsumeSwordIntent(registry, owner, intentCost, kSkillId);
-        chan.bonus_crit_chance += 1.0f; // 意气爆发必暴（归一化）
-        chan.consume_intent = true;
+        beam.bonus_crit_chance += 1.0f; // 意气爆发必暴（归一化）
         // 555 意念合一: 触发意气爆发时，暴伤额外提升
         if ((profile->delivery.feature_flags & 1048576) != 0) {
-          chan.bonus_damage_mult *= (1.0f + profile->delivery.bonus_crit_damage);
+          beam.bonus_damage_mult *= (1.0f + profile->delivery.bonus_crit_damage);
         }
       }
     }
 
     // 574 灵根感应: 属性穿透写入 bonus_armor_pen
     if (profile && profile->delivery.armor_pen > 0.0f) {
-      chan.bonus_armor_pen += profile->delivery.armor_pen;
+      beam.bonus_armor_pen += profile->delivery.armor_pen;
     }
 
     // 元素转质与标签继承
     if (profile && (profile->effective_tags & (Tag::Fire | Tag::Cold | Tag::Lightning)) != Tag::None) {
-      chan.conversion_tag = profile->effective_tags & (Tag::Fire | Tag::Cold | Tag::Lightning);
+      beam.conversion_tag = profile->effective_tags & (Tag::Fire | Tag::Cold | Tag::Lightning);
     }
-    if (chan.conversion_tag == Tag::None) {
-      chan.conversion_tag = systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
+    if (beam.conversion_tag == Tag::None) {
+      beam.conversion_tag = systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
     }
 
     // 综合增伤应用
     if (profile && profile->more_damage_mult > 0.0f) {
-      chan.bonus_damage_mult *= profile->more_damage_mult;
+      beam.bonus_damage_mult *= profile->more_damage_mult;
     }
 
-    // 同步配置并挂载 BeamChannelComponent，保证管线一致
-    auto &beam = registry.emplace_or_replace<BeamChannelComponent>(owner);
-    beam.owner = owner;
-    beam.cast_id = exec.cast_id;
-    beam.skill_id = kSkillId;
-    beam.mode = BeamChannelMode::BarrageEmitter;
-    beam.max_channel_time = chan.channel_timer;
-    beam.tick_interval = chan.tick_interval;
-    beam.target_pos = exec.target_pos;
-    beam.is_empowered = exec.is_empowered;
-    beam.bonus_damage_mult = chan.bonus_damage_mult;
     // 510 神识锁定: 开启 aim_assist
     beam.aim_assist = profile ? ((profile->delivery.feature_flags & 8) != 0) : false;
   }
@@ -262,22 +254,14 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     if (const auto *active = reg.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
-          auto it512 = spec.allocated_points.find(InfiniteBladesNodes::FateMark);
-          if (it512 != spec.allocated_points.end()) pts_512 = it512->second;
-          auto it514 = spec.allocated_points.find(InfiniteBladesNodes::BladeStorm);
-          if (it514 != spec.allocated_points.end()) pts_514 = it514->second;
-          auto it553 = spec.allocated_points.find(InfiniteBladesNodes::IntentSiphon);
-          if (it553 != spec.allocated_points.end()) pts_553 = it553->second;
-          auto it571 = spec.allocated_points.find(InfiniteBladesNodes::DoomsdayAsh);
-          if (it571 != spec.allocated_points.end()) pts_571 = it571->second;
-          auto it573 = spec.allocated_points.find(InfiniteBladesNodes::AbsoluteZero);
-          if (it573 != spec.allocated_points.end()) pts_573 = it573->second;
-          auto it575 = spec.allocated_points.find(InfiniteBladesNodes::Catastrophe);
-          if (it575 != spec.allocated_points.end()) pts_575 = it575->second;
-          auto it502 = spec.allocated_points.find(InfiniteBladesNodes::MeteoricIron);
-          if (it502 != spec.allocated_points.end()) pts_502 = it502->second;
-          auto it572 = spec.allocated_points.find(InfiniteBladesNodes::Blizzard);
-          if (it572 != spec.allocated_points.end()) pts_572 = it572->second;
+          pts_512 = ReadPoints(spec, InfiniteBladesNodes::FateMark);
+          pts_514 = ReadPoints(spec, InfiniteBladesNodes::BladeStorm);
+          pts_553 = ReadPoints(spec, InfiniteBladesNodes::IntentSiphon);
+          pts_571 = ReadPoints(spec, InfiniteBladesNodes::DoomsdayAsh);
+          pts_573 = ReadPoints(spec, InfiniteBladesNodes::AbsoluteZero);
+          pts_575 = ReadPoints(spec, InfiniteBladesNodes::Catastrophe);
+          pts_502 = ReadPoints(spec, InfiniteBladesNodes::MeteoricIron);
+          pts_572 = ReadPoints(spec, InfiniteBladesNodes::Blizzard);
           break;
         }
       }

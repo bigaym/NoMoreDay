@@ -14,13 +14,12 @@ namespace NoMoreDay::data {
  *
  * 读取 assets/data/skill_mechanics.json，键 = 技能 id -> 节点 id -> 数值字段名。
  * 技能行为在运行时按 (skill_id, node_id, key) 读取数值，禁止在代码中硬编码机制数值。
- * 加载方式与 SkillRegistry/AilmentRegistry 一致：惰性 EnsureLoaded + 显式 LoadFromFile。
+ * 加载方式：启动期显式 LoadFromFile，失败由调用方阻断启动（无惰性加载接口）。
  */
 class SkillMechanicsRegistry {
 public:
   static SkillMechanicsRegistry &Get();
 
-  [[nodiscard]] bool EnsureLoaded();
   [[nodiscard]] bool
   LoadFromFile(const std::string &path = "assets/data/skill_mechanics.json");
 
@@ -38,6 +37,12 @@ public:
                                const char *key,
                                float default_value = 0.0f) const {
     return GetFloatImpl(skill_id, node_id, std::string_view(key), default_value);
+  }
+  /** string_view 重载：供 skills::GetMech 等热路径零分配查表。 */
+  [[nodiscard]] float GetFloat(uint32_t skill_id, uint32_t node_id,
+                               std::string_view key,
+                               float default_value = 0.0f) const {
+    return GetFloatImpl(skill_id, node_id, key, default_value);
   }
   /** 节点表是否存在（已分配但未配数值的节点可据此回退到默认值）。 */
   [[nodiscard]] bool HasNode(uint32_t skill_id, uint32_t node_id) const;

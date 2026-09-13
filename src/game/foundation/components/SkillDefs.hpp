@@ -520,8 +520,19 @@ inline void from_json(const nlohmann::json &j, SpecializedSkill &s) {
   j.at("skill_id").get_to(s.skill_id);
   if (j.contains("bonus_levels"))
     j.at("bonus_levels").get_to(s.bonus_levels);
-  if (j.contains("allocated_points"))
+  if (j.contains("allocated_points")) {
     j.at("allocated_points").get_to(s.allocated_points);
+    // 规范不变量：0/负点数条目等价于未分配，加载期剔除。这保证
+    // skills::ReadPoints(spec,node) > 0 与实际存在性判定等价，避免旧存档中
+    // 的 0 值条目被错误回退判定为节点点亮（见 SkillPointAccess.hpp）。
+    for (auto it = s.allocated_points.begin(); it != s.allocated_points.end();) {
+      if (it->second <= 0) {
+        it = s.allocated_points.erase(it);
+      } else {
+        ++it;
+      }
+    }
+  }
 }
 
 /**
@@ -612,8 +623,6 @@ static_assert(std::is_standard_layout_v<PhantomTranceParams>);
 
 // 纯 POD 交付参数结构
 struct BakedDeliveryParams {
-  uint8_t primary_archetype = 0;   // 对应 12 大 Delivery 原型枚举
-  uint8_t secondary_archetype = 0; // 组合第二原型 (例如 Mobility + DirectStrike)
   uint32_t feature_flags = 0;      // 位掩码: 如 IsBoomerang, HasApexVortex, HasSplit
 
   // 通用参数包 (无需堆分配的定长紧凑结构)
@@ -774,7 +783,6 @@ struct SkillSnapshot {
   Vector2 position = {0, 0};
   Vector2 target_pos = {0, 0};
   CombatStats stats; // Snapshot of owner's stats at time of creation
-  DamagePayloadContext payload_context{};
   bool is_empowered = false;
   uint64_t cast_id = 0;
   std::bitset<128> active_nodes;
@@ -1243,25 +1251,41 @@ struct AreaFieldComponent {
 static_assert(std::is_standard_layout_v<AreaFieldComponent>);
 static_assert(std::is_trivially_destructible_v<AreaFieldComponent>);
 
+// 持久场公共头：持久场交付组件共享的归属、归因与脉冲节拍元数据。
+// POD / standard-layout / trivially destructible，仅作成员嵌套组合（禁止继承）。
+struct PersistentFieldHeader {
+  entt::entity owner = entt::null;   // 归属施法者
+  float duration = 0.0f;             // 剩余时长（倒计时语义）
+  float radius = 0.0f;               // 作用半径
+  float tick_interval = 0.25f;       // 脉冲间隔（原 damage_interval）
+  float tick_timer = 0.0f;           // 脉冲计时器（原 damage_timer）
+  int linked_hit_count = 0;          // 联动命中观测计数，供测试/调试断言，无生产逻辑消费者
+  bool has_linked_synergy = false;   // 通用「联动能力」标记
+};
+static_assert(std::is_standard_layout_v<PersistentFieldHeader>);
+static_assert(std::is_trivially_destructible_v<PersistentFieldHeader>);
+
+// 持久场标记：交付系统据此识别并跳过自管理脉冲的持久场，无需具体类型特判。
+struct PersistentFieldTag {};
+
 struct HeavenlySwordFieldComponent {
-  entt::entity owner = entt::null;
-  float duration = 5.0f;
-  float radius = 140.0f;
-  float damage_interval = 0.5f;
-  float damage_timer = 0.0f;
+  // 公共头以本组件原默认值初始化：duration=5.0f / radius=140.0f / tick=0.5f，
+  // 保持默认构造下的数值与时序行为不变。
+  PersistentFieldHeader header = {
+      .duration = 5.0f,
+      .radius = 140.0f,
+      .tick_interval = 0.5f,
+  };
   float linked_cut_cooldown = 0.0f;
   float cycle_refund_timer = 1.0f;
-  uint64_t cast_id = 0;
   int spent_tiers = 0;
   int cycle_refunds_granted = 0;
-  int linked_hit_count = 0;
   int echo_strikes_triggered = 0;
   int pending_scar_strikes = 0;
   float impact_damage_mult = 1.0f;
   float field_damage_mult = 1.0f;
   float resist_reduction = 6.0f;
   float extra_resist_reduction = 0.0f;
-  float linked_cut_effectiveness = 0.25f;
   float elite_first_second_timer = 0.0f;
   float elite_impact_bonus_mult = 0.0f;
   float elite_field_bonus_mult = 0.0f;
@@ -1279,23 +1303,24 @@ struct HeavenlySwordFieldComponent {
   bool has_trigger_echo = false;
   bool has_cycle = false;
   bool has_domain_lock = false;
-  bool has_array_synchrony = false;
   bool has_polarization = false;
   bool lightning_tribunal = false;
   bool frozen_dominion = false;
   bool solar_incineration = false;
 };
+static_assert(std::is_standard_layout_v<HeavenlySwordFieldComponent>);
+static_assert(std::is_trivially_destructible_v<HeavenlySwordFieldComponent>);
 
 struct BloodSeaFieldComponent {
-  entt::entity owner = entt::null;
-  float duration = 5.0f;
-  float radius = 120.0f;
-  float damage_interval = 0.25f;
-  float damage_timer = 0.0f;
+  // 公共头以本组件原默认值初始化：duration=5.0f / radius=120.0f / tick=0.25f，
+  // 保持默认构造下的数值与时序行为不变。
+  PersistentFieldHeader header = {
+      .duration = 5.0f,
+      .radius = 120.0f,
+      .tick_interval = 0.25f,
+  };
   float linked_pulse_cooldown = 0.0f;
-  uint64_t cast_id = 0;
   int consumed_bloodthirst = 0;
-  int linked_hit_count = 0;
   int pulses_triggered = 0;
   float bonus_damage_mult = 1.0f;
   float leech_ratio = 0.12f;
@@ -1309,33 +1334,18 @@ struct BloodSeaFieldComponent {
   float linked_pressure_bonus_mult = 0.0f;
   float miasma_duration_bonus = 0.0f;
   float void_damage_bonus_mult = 0.0f;
+  // 1217 绝影共噬窗口：施放瞬间若已点 1217 且技能9 逆脉/免死窗口激活，则 DoCast 写入
+  // 前 N 秒的增伤 / 增疗倍率；UpdateField 每帧递减 timer，归零后增益自动失效。
+  float shared_devour_timer = 0.0f;
+  float shared_devour_damage_mult = 0.0f;
+  float shared_devour_heal_mult = 0.0f;
   bool has_trigger_burst = false;
-  bool has_linked_synergy = false;
   bool has_recovery_keystone = false;
   bool has_void_keystone = false;
   bool torrent_form = false;
   bool ring_form = false;
 };
-
-struct ChannelingComponent {
-  uint32_t skill_id;
-  float channel_timer = 0.0f;
-  float tick_interval = 0.2f;
-  float tick_timer = 0.0f;
-  Vector2 target_pos;
-  bool is_empowered = false;
-  float total_duration = 0.0f;
-  uint64_t cast_id = 0;
-  bool extra_projectiles = false; // Talent 551
-  bool consume_intent =
-      false; // If true, will try to consume intent for effects
-  bool burst_finisher = false;   // Talent 513: Trigger finisher on channel end
-  bool full_screen_lock = false; // Talent 530: Target all enemies
-  Tag conversion_tag = Tag::None; // Talent transmuter conversion
-  float bonus_damage_mult = 1.0f;
-  float bonus_crit_chance = 0.0f;
-  float bonus_armor_pen = 0.0f;
-  bool synergy_lock = false; // 兼容保留：旧 synergy 锁定标记（技能7 旧 730 已废弃，改由 754 机制承接）
-};
+static_assert(std::is_standard_layout_v<BloodSeaFieldComponent>);
+static_assert(std::is_trivially_destructible_v<BloodSeaFieldComponent>);
 
 } // namespace NoMoreDay

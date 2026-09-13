@@ -9,6 +9,7 @@
 #include "game/application/ui/UiResourceIds.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp" // 统一技能节点读点 helper
 #include "game/contracts/impl/CombatAntiMeta.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
@@ -104,7 +105,7 @@ bool IsPrerequisiteSatisfiedOr(const TalentNode& node, const SkillTreeDefinition
             continue;
         }
         hasValidPrereq = true;
-        int prePts = specialized.allocated_points.contains(preId) ? specialized.allocated_points.at(preId) : 0;
+        int prePts = skills::ReadPoints(specialized, preId);
         const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
         if (prePts >= requiredPoints) {
             return true;
@@ -408,10 +409,7 @@ std::vector<std::pair<std::string, Color>> BuildNodeQuantitativeLines(
     };
     std::vector<LineInfo> rawLines;
     
-    int currentPts = 0;
-    if (specialized.allocated_points.contains(hoveredNodeId)) {
-        currentPts = specialized.allocated_points.at(hoveredNodeId);
-    }
+    int currentPts = skills::ReadPoints(specialized, hoveredNodeId);
     
     // Preview points:
     // If uninvested (0 points), show 1pt preview as requested.
@@ -733,7 +731,7 @@ void SkillTreeUI::UpdateInput(const GameUiSnapshot& snapshot,
                 // R8: gate the click with snapshot data and enqueue the
                 // authoritative write (design §3.3: the UI never writes
                 // gameplay state directly).
-                int currentPts = specialized.allocated_points.contains(id) ? specialized.allocated_points.at(id) : 0;
+                int currentPts = skills::ReadPoints(specialized, id);
                 bool isMaxed = currentPts >= node.max_points;
                 
                 bool canUnlock = IsPrerequisiteSatisfiedOr(node, *tree, specialized);

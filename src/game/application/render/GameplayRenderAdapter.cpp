@@ -292,12 +292,12 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
     const auto &field =
         bloodSeaView.get<NoMoreDay::BloodSeaFieldComponent>(entity);
     const float time = static_cast<float>(GetTime());
-    const float pulseInterval = std::max(0.01f, field.damage_interval);
+    const float pulseInterval = std::max(0.01f, field.header.tick_interval);
     const float pulseProgress = std::clamp(
-        1.0f - field.damage_timer / pulseInterval, 0.0f, 1.0f);
+        1.0f - field.header.tick_timer / pulseInterval, 0.0f, 1.0f);
     const float pulseWave = 0.5f + 0.5f * std::sin(time * (field.torrent_form ? 5.2f : 4.0f));
     const float pulseIntensity = std::clamp(0.35f + 0.65f * pulseProgress, 0.0f, 1.0f);
-    const float fadeOut = std::clamp(field.duration / 0.6f, 0.0f, 1.0f);
+    const float fadeOut = std::clamp(field.header.duration / 0.6f, 0.0f, 1.0f);
     const float visibility = std::max(0.22f, fadeOut);
 
     Color coreColor = field.has_void_keystone ? Color{98, 34, 68, 0}
@@ -311,16 +311,16 @@ void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame)
     edgeColor.a = static_cast<unsigned char>((110.0f + 55.0f * pulseWave) * visibility);
     pulseColor.a = static_cast<unsigned char>((135.0f + 70.0f * pulseIntensity) * visibility);
 
-    const float innerFillRadius = field.ring_form ? field.radius * 0.52f : field.radius * 0.92f;
-    const float outerPulseRadius = field.radius + 8.0f + 8.0f * pulseIntensity;
-    const float innerRingRadius = field.ring_form ? field.radius * 0.72f : field.radius * 0.86f;
+    const float innerFillRadius = field.ring_form ? field.header.radius * 0.52f : field.header.radius * 0.92f;
+    const float outerPulseRadius = field.header.radius + 8.0f + 8.0f * pulseIntensity;
+    const float innerRingRadius = field.ring_form ? field.header.radius * 0.72f : field.header.radius * 0.86f;
 
     const Vector2 center{pos.x, pos.y};
     // raylib 6.0: DrawCircleGradient 参数改为 (Vector2, float, Color, Color)
     DrawCircleGradient(center, innerFillRadius, coreColor, Fade(coreColor, 0.0f));
-    DrawRing(center, innerRingRadius, field.radius, 0.0f, 360.0f, 64,
+    DrawRing(center, innerRingRadius, field.header.radius, 0.0f, 360.0f, 64,
              edgeColor);
-    DrawRing(center, field.radius, outerPulseRadius, 0.0f, 360.0f, 64,
+    DrawRing(center, field.header.radius, outerPulseRadius, 0.0f, 360.0f, 64,
              pulseColor);
   }
 

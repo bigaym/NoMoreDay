@@ -333,6 +333,7 @@
       "dodge_rating_pct_per_point": 0.15
     },
     "451": {
+      "dodge_speed_per_point": 1.0,
       "speed_bonus_pct_per_point": 0.05,
       "duration": 2.0
     },
@@ -380,6 +381,9 @@
     }
   },
   "5": {
+    "0": {
+      "max_channel_time": 5.0
+    },
     "500": {
       "mana_reduction_pct_per_point": 0.10
     },
@@ -846,6 +850,256 @@
     "991": {
       "pen_per_intent_per_point": 1,
       "pen_cap_pct": 40
+    }
+  },
+  "10": {
+    "1000": {
+      "rescue_radius_per_point": 0.15
+    },
+    "1001": {
+      "crit_chance_per_point": 0.02
+    },
+    "1003": {
+      "cooldown_refund_per_point": 0.04
+    },
+    "1012": {
+      "movement_refund_per_point": 0.08
+    },
+    "1013": {
+      "final_damage_mult": 0.8
+    },
+    "1015": {
+      "invulnerable_duration_per_point": 0.03
+    },
+    "1018": {
+      "barrier_health_cap_ratio": 0.15
+    },
+    "1019": {
+      "heal_percent_per_point": 0.02
+    },
+    "1020": {
+      "scar_duration_per_point": 0.4
+    },
+    "1021": {
+      "damage_mult": 0.85
+    },
+    "1022": {
+      "damage_mult": 1.35
+    },
+    "1023": {
+      "starfall_radius_per_point": 0.08,
+      "starfall_final_damage_per_point": 0.1,
+      "orbit_streak_damage_per_point": 0.04
+    },
+    "1024": {
+      "scar_duration_per_point": 0.3,
+      "scar_radius_per_point": 6.0,
+      "explode_damage_per_point": 0.3
+    }
+  },
+  "11": {
+    "comment": "技能11 天剑降临：节点调平数值与技能级基础参数（node 0 为技能级默认）。",
+    "0": {
+      "field_damage_per_tier": 0.08,
+      "base_resist_reduction": 6.0,
+      "resist_shred_duration": 1.25,
+      "field_pulse_base_damage": 28.0,
+      "field_pulse_damage_per_tier": 6.0,
+      "base_damage_fallback": 120.0
+    },
+    "1100": {
+      "impact_stability_per_point": 0.1
+    },
+    "1101": {
+      "field_radius_range_per_point": 0.08
+    },
+    "1102": {
+      "impact_damage_per_point_per_tier": 0.04
+    },
+    "1103": {
+      "tick_interval_reduction_per_point": 0.05
+    },
+    "1104": {
+      "center_damage_per_point": 0.1
+    },
+    "1105": {
+      "elite_impact_damage_per_point": 0.08,
+      "elite_field_damage_per_point": 0.04
+    },
+    "1106": {
+      "slow_duration": 2.0,
+      "slow_percent_per_point": 10.0
+    },
+    "1107": {
+      "field_radius_mult": 0.7,
+      "impact_damage_bonus": 0.35
+    },
+    "1108": {
+      "scar_damage_per_point": 0.18,
+      "scar_base_damage": 32.0,
+      "scar_damage_per_tier": 0.08,
+      "scar_elite_damage_per_strike": 0.2,
+      "scar_interval": 0.15,
+      "scar_delay": 0.25
+    },
+    "1109": {
+      "field_damage_per_point_per_tier": 0.04
+    },
+    "1111": {
+      "echo_damage_per_tier": 0.1
+    },
+    "1112": {
+      "cadence_bonus_per_point": 0.15
+    },
+    "1113": {
+      "impact_damage_mult": 0.8
+    },
+    "1114": {
+      "empower_bonus_per_point": 0.08
+    },
+    "1116": {
+      "tick_interval_reduction_per_point": 0.08
+    },
+    "1117": {
+      "linked_cut_cooldown": 0.15,
+      "linked_cut_damage": 18.0
+    },
+    "1118": {
+      "afflicted_damage_per_point": 0.1
+    },
+    "1119": {
+      "duration_per_point": 0.5
+    },
+    "1121": {
+      "tick_interval_mult": 1.2,
+      "field_damage_mult": 1.3,
+      "radius_mult": 1.2
+    },
+    "1122": {
+      "field_damage_mult": 1.12,
+      "pulse_damage_mult": 1.08,
+      "freeze_chance": 0.15,
+      "freeze_duration": 1.0,
+      "slow_percent": 12.0
+    },
+    "1123": {
+      "field_damage_mult": 1.18,
+      "pulse_damage_mult": 1.1,
+      "ignite_magnitude_ratio": 0.25
+    },
+    "1124": {
+      "resist_shred_per_point": 2.0,
+      "resist_shred_cap": 12.0
+    }
+  },
+  "12": {
+    "comment": "技能12 血海：节点调平数值与技能级基础参数（node 0 为技能级默认）。",
+    "0": {
+      "low_life_threshold": 0.35,
+      "field_duration_per_bloodthirst": 0.2,
+      "field_radius_per_bloodthirst": 6.0,
+      "physical_ratio_base": 0.6,
+      "physical_ratio_min": 0.25,
+      "physical_ratio_max": 0.8,
+      "miasma_base_duration": 1.0,
+      "pulse_base_damage": 14.0,
+      "pulse_damage_per_bloodthirst": 4.0,
+      "linked_pulse_base_damage": 12.0,
+      "linked_pulse_damage_per_bloodthirst": 2.0,
+      "linked_pulse_cooldown": 0.2
+    },
+    "1200": {
+      "radius_per_point": 8.0
+    },
+    "1201": {
+      "damage_per_point": 0.06
+    },
+    "1202": {
+      "damage_per_point_per_bloodthirst": 0.025
+    },
+    "1203": {
+      "move_speed_per_point": 1.0
+    },
+    "1204": {
+      "low_life_damage_per_point": 0.08
+    },
+    "1205": {
+      "pursuit_damage_per_point": 0.08
+    },
+    "1206": {
+      "low_life_pressure_damage_per_point": 0.18
+    },
+    "1207": {
+      "damage_mult": 1.1
+    },
+    "1208": {
+      "aftershock_damage_per_point": 0.05
+    },
+    "1209": {
+      "leech_per_point_per_bloodthirst": 0.01
+    },
+    "1210": {
+      "low_life_leech_per_point": 0.025
+    },
+    "1211": {
+      "burst_base_damage": 16.0,
+      "burst_damage_per_bloodthirst": 6.0,
+      "missing_health_heal_ratio": 0.1,
+      "bloodthirst_gain": 2.0
+    },
+    "1212": {
+      "leech_per_point": 0.02
+    },
+    "1213": {
+      "leech_bonus": 0.08
+    },
+    "1214": {
+      "empower_bonus_per_point": 0.08,
+      "return_empower_duration": 1.5
+    },
+    "1215": {
+      "close_pressure_per_point": 0.07
+    },
+    "1216": {
+      "tick_interval_reduction_per_point": 0.06,
+      "tick_interval_floor": 0.7
+    },
+    "1217": {
+      "empower_duration": 2.0,
+      "empower_damage_mult": 0.2,
+      "empower_heal_mult": 0.2
+    },
+    "1218": {
+      "linked_pressure_per_point": 0.08
+    },
+    "1219": {
+      "duration_per_point": 0.6
+    },
+    "1220": {
+      "damage_mult": 1.18,
+      "resist_shred_bonus": 4.0,
+      "physical_ratio": 0.45,
+      "pulse_damage_mult": 1.08
+    },
+    "1221": {
+      "move_speed": 14.0,
+      "radius_mult": 1.15,
+      "tick_interval_mult": 0.85,
+      "linked_pulse_cooldown": 0.12
+    },
+    "1222": {
+      "radius_mult": 0.8,
+      "leech_bonus": 0.1,
+      "damage_mult": 1.15,
+      "physical_ratio_delta": 0.05,
+      "pulse_damage_mult": 1.1
+    },
+    "1223": {
+      "miasma_duration_per_point": 0.25,
+      "void_damage_per_point": 0.06
+    },
+    "1224": {
+      "resist_shred_per_point": 2.0
     }
   }
 }

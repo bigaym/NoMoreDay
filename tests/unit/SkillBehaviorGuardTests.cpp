@@ -4,6 +4,7 @@
 #include "game/foundation/components/AdvancedAffixComponents.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
@@ -261,7 +262,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
 
     // 引导/形态窗口激活且属于同一来源技能: 生效
-    auto &chan = registry.emplace<ChannelingComponent>(player);
+    auto &chan = registry.emplace<BeamChannelComponent>(player);
     chan.skill_id = 9;
     CHECK(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
@@ -271,7 +272,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     CHECK_FALSE(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
 
-    registry.remove<ChannelingComponent>(player);
+    registry.remove<BeamChannelComponent>(player);
     CHECK_FALSE(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
   }
@@ -450,7 +451,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     REQUIRE(cast != nullptr);
     cast(registry, player, exec);
 
-    const auto *chan = registry.try_get<ChannelingComponent>(player);
+    const auto *chan = registry.try_get<BeamChannelComponent>(player);
     REQUIRE(chan != nullptr);
     CHECK(chan->conversion_tag == Tag::Fire);
     CHECK(chan->bonus_armor_pen == doctest::Approx(18.0f));
@@ -610,14 +611,13 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     const auto fieldEntity = *view.begin();
     const auto &field = view.get<HeavenlySwordFieldComponent>(fieldEntity);
 
-    CHECK(field.owner == player);
-    CHECK(field.cast_id == 11011);
+    CHECK(field.header.owner == player);
     CHECK(field.spent_tiers == 4);
     CHECK(field.attunement == BladeAttunement::Fire);
     CHECK(field.has_cycle);
     CHECK(field.impact_damage_mult == doctest::Approx(1.632f));
     CHECK(field.field_damage_mult == doctest::Approx(1.32f));
-    CHECK(field.radius == doctest::Approx(196.0f));
+    CHECK(field.header.radius == doctest::Approx(196.0f));
   }
 
   SUBCASE("Skill 12 branch forms populate BloodSea field state") {
@@ -660,8 +660,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(torrentField.torrent_form);
     CHECK_FALSE(torrentField.ring_form);
     CHECK(torrentField.move_follow_speed == doctest::Approx(14.0f));
-    CHECK(torrentField.radius == doctest::Approx(172.5f));
-    CHECK(torrentField.damage_interval == doctest::Approx(0.2125f));
+    CHECK(torrentField.header.radius == doctest::Approx(172.5f));
+    CHECK(torrentField.header.tick_interval == doctest::Approx(0.2125f));
     CHECK(torrentField.leech_ratio == doctest::Approx(0.12f));
 
     const auto ringField = castWithBranch(1222);
@@ -669,8 +669,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK_FALSE(ringField.torrent_form);
     CHECK(ringField.ring_form);
     CHECK(ringField.move_follow_speed == doctest::Approx(10.0f));
-    CHECK(ringField.radius == doctest::Approx(120.0f));
-    CHECK(ringField.damage_interval == doctest::Approx(0.25f));
+    CHECK(ringField.header.radius == doctest::Approx(120.0f));
+    CHECK(ringField.header.tick_interval == doctest::Approx(0.25f));
     CHECK(ringField.leech_ratio == doctest::Approx(0.22f));
     CHECK(ringField.bonus_damage_mult == doctest::Approx(1.84f));
   }
@@ -765,7 +765,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade baseline nodes reshape BloodS
   const auto shapedField = castField({{1200, 2}, {1201, 2}, {1202, 2}, {1203, 2}});
 
   CHECK(shapedField.consumed_bloodthirst == baselineField.consumed_bloodthirst);
-  CHECK(shapedField.radius > baselineField.radius);
+  CHECK(shapedField.header.radius > baselineField.header.radius);
   CHECK(shapedField.bonus_damage_mult > baselineField.bonus_damage_mult);
   CHECK(shapedField.move_follow_speed > baselineField.move_follow_speed);
 }
@@ -884,9 +884,9 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade pursuit branch empowers close
     };
   };
 
-  const auto baseline = runScenario({{1213, 1}, {1217, 1}});
+  const auto baseline = runScenario({{1213, 1}, {1207, 1}});
   const auto pursuit =
-      runScenario({{1205, 2}, {1208, 2}, {1213, 1}, {1214, 2}, {1215, 2}, {1217, 1}});
+      runScenario({{1205, 2}, {1208, 2}, {1213, 1}, {1214, 2}, {1215, 2}, {1207, 1}});
 
   CHECK(pursuit.close_target_health < baseline.close_target_health);
   CHECK(pursuit.far_target_health <= baseline.far_target_health);
@@ -956,12 +956,12 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade void branch extends miasma pr
     REQUIRE(it != effects.effects.end());
 
     return ScenarioResult{registry.get<HealthComponent>(target).current,
-                          field.damage_interval, it->remaining};
+                          field.header.tick_interval, it->remaining};
   };
 
-  const auto baseline = runScenario({{1217, 1}, {1220, 1}, {1224, 2}});
+  const auto baseline = runScenario({{1207, 1}, {1220, 1}, {1224, 2}});
   const auto voidBranch =
-      runScenario({{1216, 2}, {1217, 1}, {1218, 2}, {1220, 1}, {1223, 2}, {1224, 2}});
+      runScenario({{1216, 2}, {1207, 1}, {1218, 2}, {1220, 1}, {1223, 2}, {1224, 2}});
 
   CHECK(voidBranch.target_health < baseline.target_health);
   CHECK(voidBranch.damage_interval < baseline.damage_interval);
@@ -1243,8 +1243,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observabl
                       false, 1117001u));
 
     const auto &field = view.get<HeavenlySwordFieldComponent>(fieldEntity);
-    CHECK(field.has_array_synchrony);
-    CHECK(field.linked_hit_count == 1);
+    CHECK(field.header.has_linked_synergy);
+    CHECK(field.header.linked_hit_count == 1);
     CHECK(field.echo_strikes_triggered == 1);
     CHECK(field.linked_cut_cooldown == doctest::Approx(0.15f));
     CHECK(registry.get<HealthComponent>(target).current < beforeTargetHealth);
@@ -1291,7 +1291,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observabl
     CHECK(registry.get<HealthComponent>(target).current < beforeTargetHealth);
   }
 
-  SUBCASE("Skill 12 synergy converts linked hit into extra pulse") {
+  SUBCASE("Skill 12 keystone 1207 converts linked hit into extra pulse") {
     entt::registry registry;
     CombatEventDispatcher::Init();
     SkillBehaviorRegistry::Initialize();
@@ -1310,7 +1310,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observabl
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 12;
-    active.specialized_slots[0].allocated_points[1217] = 1;
+    // 联动脉冲门控现由节点 1207 无间血狱承担（设计 §5.3:1236），1217 已解耦。
+    active.specialized_slots[0].allocated_points[1207] = 1;
 
     SkillExecution exec;
     exec.skill_id = 12;
@@ -1332,11 +1333,11 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observabl
         registry, CombatEventFactory::CreateSkillHit(
                       player, target, 1,
                       Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
-                      false, 1217001u));
+                      false, 1207001u));
 
     const auto &field = view.get<BloodSeaFieldComponent>(fieldEntity);
-    CHECK(field.has_linked_synergy);
-    CHECK(field.linked_hit_count == 1);
+    CHECK(field.header.has_linked_synergy);
+    CHECK(field.header.linked_hit_count == 1);
     CHECK(field.pulses_triggered == 1);
     CHECK(field.linked_pulse_cooldown == doctest::Approx(0.2f));
     CHECK(registry.get<HealthComponent>(target).current < beforeTargetHealth);
@@ -1386,7 +1387,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Update advances mastery field refunds tic
       return registry.get<HeavenlySwordFieldComponent>(fieldEntity);
     };
     REQUIRE(fieldState().has_cycle);
-    REQUIRE(fieldState().has_array_synchrony);
+    REQUIRE(fieldState().header.has_linked_synergy);
 
     grid.rebuild(registry.view<Position>(), registry);
     SkillSystem::Update(registry, grid, 0.10f);
@@ -1456,7 +1457,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Update advances mastery field refunds tic
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 12;
-    active.specialized_slots[0].allocated_points[1217] = 1;
+    // 联动脉冲门控：1207（1217 已解耦为窗口增益）。
+    active.specialized_slots[0].allocated_points[1207] = 1;
 
     const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
 
@@ -1475,7 +1477,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Update advances mastery field refunds tic
     const auto fieldState = [&]() -> BloodSeaFieldComponent & {
       return registry.get<BloodSeaFieldComponent>(fieldEntity);
     };
-    REQUIRE(fieldState().has_linked_synergy);
+    REQUIRE(fieldState().header.has_linked_synergy);
 
     const auto startHealth = registry.get<HealthComponent>(target).current;
     const float ownerHealthBeforeLinked = playerStats.health;
@@ -1528,6 +1530,65 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Update advances mastery field refunds tic
     CHECK(fieldState().pulses_triggered == pulsesAfterFirstLink + 3);
     CHECK(fieldState().linked_pulse_cooldown == doctest::Approx(0.2f));
   }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Skill 12 node 1217 gates the 2s empower window on the death-seal state") {
+  CombatEventDispatcher::Init();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  // 以 (是否点 1217, 技能9 逆脉窗口是否激活) 组合检查新建血海场的窗口状态。
+  const auto run = [](bool allocate_1217, bool death_seal_active) {
+    entt::registry registry;
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 3;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 12;
+    if (allocate_1217) {
+      active.specialized_slots[0].allocated_points[1217] = 1;
+    }
+    if (death_seal_active) {
+      auto &trance = registry.emplace<PhantomTranceComponent>(player);
+      trance.params.death_seal = true;
+      trance.remaining = 1.0f;
+    }
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    return view.get<BloodSeaFieldComponent>(*view.begin());
+  };
+
+  // 已点 1217 且逆脉窗口激活 → 写入 2 秒 +20% 伤害/治疗窗口。
+  const auto windowed = run(true, true);
+  CHECK(windowed.shared_devour_timer == doctest::Approx(2.0f));
+  CHECK(windowed.shared_devour_damage_mult == doctest::Approx(0.2f));
+  CHECK(windowed.shared_devour_heal_mult == doctest::Approx(0.2f));
+
+  // 已点 1217 但窗口未激活 → 无增益。
+  const auto no_window = run(true, false);
+  CHECK(no_window.shared_devour_timer == doctest::Approx(0.0f));
+  CHECK(no_window.shared_devour_damage_mult == doctest::Approx(0.0f));
+
+  // 未点 1217（即使窗口激活）→ 无增益。
+  const auto no_node = run(false, true);
+  CHECK(no_node.shared_devour_timer == doctest::Approx(0.0f));
 }
 
 TEST_CASE("[Unit] SkillBehaviorGuard - Deeper mastery update branches apply debuffs and cadence differences") {
@@ -1615,7 +1676,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deeper mastery update branches apply debu
 
       auto &active = registry.emplace<ActiveSkillsComponent>(player);
       active.specialized_slots[0].skill_id = 12;
-      active.specialized_slots[0].allocated_points[1217] = 1;
+      active.specialized_slots[0].allocated_points[1207] = 1;
       active.specialized_slots[0].allocated_points[node_id] = 1;
 
       const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
@@ -1731,7 +1792,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       SkillSystem::Update(registry, grid, 0.43f);
 
       TickOutcome outcome;
-      outcome.damage_interval = fieldState().damage_interval;
+      outcome.damage_interval = fieldState().header.tick_interval;
       outcome.health_after_first_tick = healthAfterFirstTick - initialHealth;
       outcome.health_after_second_window =
           registry.get<HealthComponent>(target).current - initialHealth;
@@ -1765,7 +1826,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
     active.specialized_slots[0].skill_id = 12;
-    active.specialized_slots[0].allocated_points[1217] = 1;
+    // 撕裂 debuff 由联动脉冲施加，门控改挂 1207（1217 已解耦）。
+    active.specialized_slots[0].allocated_points[1207] = 1;
     active.specialized_slots[0].allocated_points[1224] = 2;
 
     const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
@@ -1967,7 +2029,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       REQUIRE(debuff != nullptr);
 
       BranchOutcome outcome;
-      outcome.damage_interval = fieldState().damage_interval;
+      outcome.damage_interval = fieldState().header.tick_interval;
       outcome.remaining_after_same_window = debuff->remaining;
       outcome.target_health_after_same_window =
           registry.get<HealthComponent>(target).current - healthBeforeWindow;
@@ -2353,9 +2415,9 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       outcome.second_blade_formation_damage_scale =
           swordView.get<SummonCombatProfile>(sword).damage_scale;
 
-      REQUIRE(registry.all_of<ChannelingComponent>(player));
+      REQUIRE(registry.all_of<BeamChannelComponent>(player));
       outcome.infinite_blades_damage_mult =
-          registry.get<ChannelingComponent>(player).bonus_damage_mult;
+          registry.get<BeamChannelComponent>(player).bonus_damage_mult;
       outcome.afflicted_target_health =
           registry.get<HealthComponent>(afflictedTarget).current;
       auto &refreshedEffects = registry.get<ActiveEffectsComponent>(afflictedTarget);
@@ -2369,7 +2431,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
       outcome.formation_attack_interval_after_cleanup = formation.attack_interval;
       outcome.sword_attack_interval_after_cleanup = swordView.get<SpiritSwordAI>(sword).attack_interval;
       outcome.infinite_blades_tick_interval_after_cleanup =
-          registry.get<ChannelingComponent>(player).tick_interval;
+          registry.get<BeamChannelComponent>(player).tick_interval;
       return outcome;
     };
 

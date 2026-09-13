@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
@@ -214,57 +215,61 @@ struct ActiveEffectsComponent {
         effects.push_back(new_effect);
     }
     
-    // Helper to remove a buff
-    void Remove(const std::string& id) {
-        std::erase_if(effects, [&](const auto& effect) { return effect.id == id; });
+    // Helper to remove a buff.
+    // 以 std::string_view 为键：零临时 std::string、零堆分配，
+    // 与 Get(std::string_view) 口径一致（code_standard §2.1/§7.2）。
+    void Remove(std::string_view id) {
+        std::erase_if(effects, [&](const auto& effect) {
+            return std::string_view(effect.id) == id;
+        });
     }
 
     // Helper to remove a buff by enum id
     void Remove(BuffId id) {
-        Remove(std::string(BuffIdToString(id)));
+        Remove(BuffIdToString(id));
     }
     
-    // Helper to get a buff
-    BuffEffect* Get(const std::string& id) {
+    // Helper to get a buff.
+    // 以 std::string_view 为键：比较时零堆分配、零临时 std::string，
+    // 满足战斗热路径禁止字符串构造/比较开销的规定 (code_standard §2.1/§7.2)。
+    // std::string 与 const char* 实参均可隐式转换为 string_view，调用方不受影响。
+    BuffEffect* Get(std::string_view id) {
         for (auto& effect : effects) {
-            if (effect.id == id) {
+            if (std::string_view(effect.id) == id) {
                 return &effect;
             }
         }
         return nullptr;
     }
 
-    const BuffEffect* Get(const std::string& id) const {
+    const BuffEffect* Get(std::string_view id) const {
         for (const auto& effect : effects) {
-            if (effect.id == id) {
+            if (std::string_view(effect.id) == id) {
                 return &effect;
             }
         }
         return nullptr;
     }
 
-    // Helper to get a buff by enum id
+    // Helper to get a buff by enum id.
+    // BuffIdToString 返回 std::string_view，直接走上面的零分配重载，
+    // 不再构造临时 std::string。
     BuffEffect* Get(BuffId id) {
-        return Get(std::string(BuffIdToString(id)));
+        return Get(BuffIdToString(id));
     }
 
     // Const variant: read-only lookup by enum id
     const BuffEffect* Get(BuffId id) const {
-        const std::string key(BuffIdToString(id));
-        for (const auto& effect : effects) {
-            if (effect.id == key) {
-                return &effect;
-            }
-        }
-        return nullptr;
+        return Get(BuffIdToString(id));
     }
 
     // Helper: whether an effect with the given enum id exists.
     // NOTE: remaining-duration checks (if any) are the caller's responsibility.
     [[nodiscard]] bool Has(BuffId id) const {
-        const std::string key(BuffIdToString(id));
+        // BuffIdToString 返回 std::string_view，直接比较，避免临时 std::string。
+        const std::string_view key = BuffIdToString(id);
         for (const auto& effect : effects) {
-            if (effect.id == key) {
+            if (std::string_view(effect.id) == key) {
                 return true;
             }
         }

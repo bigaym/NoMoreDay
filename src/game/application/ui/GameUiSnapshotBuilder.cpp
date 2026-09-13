@@ -26,6 +26,7 @@
 #include "game/foundation/components/PlayerState.hpp" // PlayerStats
 #include "game/foundation/components/Progression.hpp" // AstrolabeComponent
 #include "game/foundation/components/SkillDefs.hpp"   // ActiveSkillsComponent, BladeResourceComponent, SummonComponent
+#include "game/foundation/components/SkillPointAccess.hpp" // 统一技能节点读点 helper
 #include "game/foundation/components/StashComponent.hpp"
 #include "game/foundation/components/Stats.hpp" // CombatStats, PrimaryStats
 #include "game/foundation/components/WorldState.hpp" // ActiveDimensionalState (registry ctx)
@@ -384,9 +385,9 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
       for (const entt::entity entity : fieldView) {
         const auto& field =
             fieldView.template get<const HeavenlySwordFieldComponent>(entity);
-        if (field.owner == player &&
-            field.duration > playerSnap.heavenlyFieldDuration) {
-          playerSnap.heavenlyFieldDuration = field.duration;
+        if (field.header.owner == player &&
+            field.header.duration > playerSnap.heavenlyFieldDuration) {
+          playerSnap.heavenlyFieldDuration = field.header.duration;
         }
       }
       const auto bloodView =
@@ -394,7 +395,7 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
       for (const entt::entity entity : bloodView) {
         const auto& field =
             bloodView.template get<const BloodSeaFieldComponent>(entity);
-        if (field.owner == player) {
+        if (field.header.owner == player) {
           playerSnap.bloodSeaHasVoidKeystone = field.has_void_keystone;
           playerSnap.bloodSeaMiasmaBonus = field.miasma_duration_bonus;
         }
@@ -420,9 +421,10 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
               }
               for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == 12u) {
-                  auto it = spec.allocated_points.find(1223u /* BoneGnawingEmber */);
-                  if (it != spec.allocated_points.end() && it->second > 0) {
-                    playerSnap.bloodSeaMiasmaBonus = static_cast<float>(it->second) * 0.25f;
+                  const int miasmaPts =
+                      skills::ReadPoints(spec, 1223u /* BoneGnawingEmber */);
+                  if (miasmaPts > 0) {
+                    playerSnap.bloodSeaMiasmaBonus = static_cast<float>(miasmaPts) * 0.25f;
                   }
                   break;
                 }

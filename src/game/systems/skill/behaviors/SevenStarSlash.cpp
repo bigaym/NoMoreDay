@@ -18,37 +18,6 @@
 
 namespace NoMoreDay::skills {
 
-inline constexpr uint32_t kSevenStarSlashSkillId = 10;
-
-namespace SevenStarSlashNodes {
-constexpr uint32_t TargetLock = 1000;
-constexpr uint32_t CritChance = 1001;
-constexpr uint32_t FinalSlash = 1002;
-constexpr uint32_t QuickStar = 1003;
-constexpr uint32_t ExposedWeakness = 1004;
-constexpr uint32_t PoJun = 1005;
-constexpr uint32_t ZhanJiang = 1006;
-constexpr uint32_t SevenFocus = 1007;
-constexpr uint32_t SolitaryStar = 1008;
-constexpr uint32_t FlowReturn = 1009;
-constexpr uint32_t RevolvingEdge = 1010;
-constexpr uint32_t StarScarFollow = 1011;
-constexpr uint32_t ChaseStep = 1012;
-constexpr uint32_t EndlessSeven = 1013;
-constexpr uint32_t DipperReturn = 1014;
-constexpr uint32_t VoidTread = 1015;
-constexpr uint32_t FallingStarSwitch = 1016;
-constexpr uint32_t SwordStepMirage = 1017;
-constexpr uint32_t StarVeil = 1018;
-constexpr uint32_t GateOfLife = 1019;
-constexpr uint32_t LingeringScar = 1020;
-constexpr uint32_t PoleStarOrbit = 1021;
-constexpr uint32_t Starfall = 1022;
-constexpr uint32_t ShatteredConstellation = 1023;
-constexpr uint32_t ScarRuin = 1024;
-constexpr uint32_t ReturningStep = 1025;
-} // namespace SevenStarSlashNodes
-
 namespace {
 
 struct SevenStarScarComponent {
@@ -62,35 +31,6 @@ struct CandidateTarget {
   Vector2 position{};
   EnemyRarityComponent::Rarity rarity = EnemyRarityComponent::NORMAL;
   float distance_sq = 0.0f;
-};
-
-struct SevenStarSlashSpecState {
-  int targetLockPoints = 0;
-  int critChancePoints = 0;
-  int finalSlashPoints = 0;
-  int quickStarPoints = 0;
-  int exposedWeaknessPoints = 0;
-  int poJunPoints = 0;
-  int zhanJiangPoints = 0;
-  bool sevenFocus = false;
-  int solitaryStarPoints = 0;
-  int flowReturnPoints = 0;
-  int revolvingEdgePoints = 0;
-  bool starScarFollow = false;
-  int chaseStepPoints = 0;
-  bool endlessSeven = false;
-  int dipperReturnPoints = 0;
-  int voidTreadPoints = 0;
-  bool fallingStarSwitch = false;
-  bool swordStepMirage = false;
-  int starVeilPoints = 0;
-  int gateOfLifePoints = 0;
-  int lingeringScarPoints = 0;
-  bool poleStarOrbit = false;
-  bool starfall = false;
-  int shatteredConstellationPoints = 0;
-  int scarRuinPoints = 0;
-  bool returningStep = false;
 };
 
 struct SlashHitSummary {
@@ -153,61 +93,6 @@ EnemyRarityComponent::Rarity GetTargetRarity(const entt::registry &registry,
 
 bool IsEliteOrBoss(EnemyRarityComponent::Rarity rarity) {
   return rarity >= EnemyRarityComponent::ELITE;
-}
-
-SevenStarSlashSpecState ResolveSpecState(const entt::registry &registry,
-                                         entt::entity owner) {
-  SevenStarSlashSpecState state;
-  if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : active->specialized_slots) {
-      if (spec.skill_id != kSevenStarSlashSkillId) {
-        continue;
-      }
-
-      const auto readPoints = [&](uint32_t nodeId) {
-        const auto it = spec.allocated_points.find(nodeId);
-        return it != spec.allocated_points.end() ? it->second : 0;
-      };
-
-      state.targetLockPoints = readPoints(SevenStarSlashNodes::TargetLock);
-      state.critChancePoints = readPoints(SevenStarSlashNodes::CritChance);
-      state.finalSlashPoints = readPoints(SevenStarSlashNodes::FinalSlash);
-      state.quickStarPoints = readPoints(SevenStarSlashNodes::QuickStar);
-      state.exposedWeaknessPoints =
-          readPoints(SevenStarSlashNodes::ExposedWeakness);
-      state.poJunPoints = readPoints(SevenStarSlashNodes::PoJun);
-      state.zhanJiangPoints = readPoints(SevenStarSlashNodes::ZhanJiang);
-      state.sevenFocus = spec.allocated_points.contains(SevenStarSlashNodes::SevenFocus);
-      state.solitaryStarPoints = readPoints(SevenStarSlashNodes::SolitaryStar);
-      state.flowReturnPoints = readPoints(SevenStarSlashNodes::FlowReturn);
-      state.revolvingEdgePoints = readPoints(SevenStarSlashNodes::RevolvingEdge);
-      state.starScarFollow =
-          spec.allocated_points.contains(SevenStarSlashNodes::StarScarFollow);
-      state.chaseStepPoints = readPoints(SevenStarSlashNodes::ChaseStep);
-      state.endlessSeven = spec.allocated_points.contains(SevenStarSlashNodes::EndlessSeven);
-      state.dipperReturnPoints = readPoints(SevenStarSlashNodes::DipperReturn);
-      state.voidTreadPoints = readPoints(SevenStarSlashNodes::VoidTread);
-      state.fallingStarSwitch =
-          spec.allocated_points.contains(SevenStarSlashNodes::FallingStarSwitch);
-      state.swordStepMirage =
-          spec.allocated_points.contains(SevenStarSlashNodes::SwordStepMirage);
-      state.starVeilPoints = readPoints(SevenStarSlashNodes::StarVeil);
-      state.gateOfLifePoints = readPoints(SevenStarSlashNodes::GateOfLife);
-      state.lingeringScarPoints = readPoints(SevenStarSlashNodes::LingeringScar);
-      state.shatteredConstellationPoints =
-          readPoints(SevenStarSlashNodes::ShatteredConstellation);
-      state.scarRuinPoints = readPoints(SevenStarSlashNodes::ScarRuin);
-      state.returningStep =
-          spec.allocated_points.contains(SevenStarSlashNodes::ReturningStep);
-      break;
-    }
-  }
-
-  const uint32_t activeTransmuter =
-      SkillSystem::GetActiveTransmuterNode(registry, owner, kSevenStarSlashSkillId);
-  state.poleStarOrbit = activeTransmuter == SevenStarSlashNodes::PoleStarOrbit;
-  state.starfall = activeTransmuter == SevenStarSlashNodes::Starfall;
-  return state;
 }
 
 std::vector<CandidateTarget> GatherTargets(entt::registry &registry,
@@ -342,7 +227,7 @@ void ExplodeScars(entt::registry &registry, entt::entity owner,
     auto targets = GatherLiveTargets(registry, owner, scarPos, scarData.radius, false);
     for (const auto &candidate : targets) {
       (void)ApplySlashDamage(registry, owner, candidate.entity, scarData.damage,
-                             kSevenStarSlashSkillId);
+                             seven_star_shared::kSevenStarSlashSkillId);
     }
 
     if (focusedTarget != entt::null) {
@@ -350,7 +235,7 @@ void ExplodeScars(entt::registry &registry, entt::entity owner,
         if (DistanceSquared(scarPos, ToVector2(*focusPos)) <= centerRadius * centerRadius) {
           (void)ApplySlashDamage(registry, owner, focusedTarget,
                                  scarData.damage * focusedSplashMultiplier,
-                                 kSevenStarSlashSkillId);
+                                 seven_star_shared::kSevenStarSlashSkillId);
         }
       }
     }
@@ -363,14 +248,15 @@ void ExplodeScars(entt::registry &registry, entt::entity owner,
   }
 }
 
-void GrantStarVeil(entt::registry &registry, entt::entity owner, int points) {
+void GrantStarVeil(entt::registry &registry, entt::entity owner, int points,
+                   float healthCapRatio) {
   auto *stats = registry.try_get<CombatStats>(owner);
   if (stats == nullptr || points <= 0) {
     return;
   }
   const float dexterity = std::max(0.0f, stats->effective_dexterity);
   const float addedBarrier = dexterity * static_cast<float>(points);
-  const float cap = stats->max_health * 0.15f;
+  const float cap = stats->max_health * healthCapRatio;
   stats->barrier = std::min(cap, stats->barrier + addedBarrier);
   (void)registry.get_or_emplace<BarrierComponent>(owner);
 }
@@ -462,7 +348,7 @@ Vector2 ResolveLandingPosition(entt::registry &registry, entt::entity owner,
 } // namespace
 
 struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
-  static constexpr uint32_t kSkillId = kSevenStarSlashSkillId;
+  static constexpr uint32_t kSkillId = seven_star_shared::kSevenStarSlashSkillId;
 
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec) {
@@ -474,6 +360,60 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
     }
 
     const SevenStarSlashSpecState specState = ResolveSpecState(registry, owner);
+
+    // 机制数值一次性读取：避免在斩击循环内重复查表（设计 §4.4）。
+    const float targetLockRescuePerPoint = GetMech(
+        seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::TargetLock,
+        "rescue_radius_per_point", 0.15f);
+    const float critChancePerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::CritChance,
+                "crit_chance_per_point", 0.02f);
+    const float quickStarRefundPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::QuickStar,
+                "cooldown_refund_per_point", 0.04f);
+    const float chaseStepRefundPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ChaseStep,
+                "movement_refund_per_point", 0.08f);
+    const float endlessSevenFinalDamageMult =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::EndlessSeven,
+                "final_damage_mult", 0.8f);
+    const float voidTreadDurationPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::VoidTread,
+                "invulnerable_duration_per_point", 0.03f);
+    const float starVeilBarrierCapRatio =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::StarVeil,
+                "barrier_health_cap_ratio", 0.15f);
+    const float gateOfLifeHealPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::GateOfLife,
+                "heal_percent_per_point", 0.02f);
+    const float lingeringScarDurationPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::LingeringScar,
+                "scar_duration_per_point", 0.4f);
+    const float poleStarOrbitDamageMult =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::PoleStarOrbit,
+                "damage_mult", 0.85f);
+    const float starfallDamageMult =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::Starfall,
+                "damage_mult", 1.35f);
+    const float starfallRadiusPerPoint = GetMech(
+        seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ShatteredConstellation,
+        "starfall_radius_per_point", 0.08f);
+    const float starfallFinalDamagePerPoint = GetMech(
+        seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ShatteredConstellation,
+        "starfall_final_damage_per_point", 0.10f);
+    const float orbitStreakDamagePerPoint = GetMech(
+        seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ShatteredConstellation,
+        "orbit_streak_damage_per_point", 0.04f);
+    const float scarRuinDurationPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ScarRuin,
+                "scar_duration_per_point", 0.3f);
+    const float scarRuinRadiusPerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ScarRuin,
+                "scar_radius_per_point", 6.0f);
+    const float scarRuinExplodePerPoint =
+        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ScarRuin,
+                "explode_damage_per_point", 0.30f);
+
     const float baseRadius = skillData->GetParam("radius", 96.0f);
     const float flowBonusPerStack =
         skillData->GetParam("flow_bonus_per_stack", 0.06f);
@@ -481,7 +421,8 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         skillData->GetParam("single_target_execute_bonus", 0.5f);
     float invulnerableDuration =
         skillData->GetParam("invulnerable_duration", 0.5f);
-    invulnerableDuration += 0.03f * static_cast<float>(specState.voidTreadPoints);
+    invulnerableDuration +=
+        voidTreadDurationPerPoint * static_cast<float>(specState.voidTreadPoints);
 
     const int resourceToSpend = GetCurrentBladeResource(registry, owner);
     if (resourceToSpend > 0) {
@@ -508,11 +449,11 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
     float baseDamageMultiplier = 1.0f;
     if (specState.poleStarOrbit) {
       hitRadius = baseRadius * 0.34f;
-      baseDamageMultiplier *= 0.85f;
+      baseDamageMultiplier *= poleStarOrbitDamageMult;
     }
     if (specState.starfall) {
-      baseDamageMultiplier *= 1.35f;
-      hitRadius *= 1.0f + 0.08f * static_cast<float>(specState.shatteredConstellationPoints);
+      baseDamageMultiplier *= starfallDamageMult;
+      hitRadius *= 1.0f + starfallRadiusPerPoint * static_cast<float>(specState.shatteredConstellationPoints);
     }
 
     registry.emplace_or_replace<InvulnerableComponent>(
@@ -581,7 +522,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
                                        specState.sevenFocus);
       if (slashTargets.empty() && specState.targetLockPoints > 0 && focusedTarget != entt::null) {
         if (const auto *targetPos = registry.try_get<Position>(focusedTarget)) {
-          const float rescueRadius = hitRadius * (1.0f + 0.15f * specState.targetLockPoints);
+          const float rescueRadius = hitRadius * (1.0f + targetLockRescuePerPoint * specState.targetLockPoints);
           if (DistanceSquared(slashCenter, ToVector2(*targetPos)) <= rescueRadius * rescueRadius) {
             slashTargets.push_back({.entity = focusedTarget,
                                     .position = ToVector2(*targetPos),
@@ -599,7 +540,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
       for (const auto &candidate : slashTargets) {
         float slashDamage = baseSlashDamage;
         // 暴击率统一为分数制：每点 +2% = 0.02
-        float critChanceBonus = 0.02f * static_cast<float>(specState.critChancePoints);
+        float critChanceBonus = critChancePerPoint * static_cast<float>(specState.critChancePoints);
         float critDamageBonus = 0.0f;
 
         if (isFinalSlash) {
@@ -608,7 +549,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
             slashDamage *= 1.0f + singleTargetExecuteBonus;
           }
           if (specState.endlessSeven) {
-            slashDamage *= 0.8f;
+            slashDamage *= endlessSevenFinalDamageMult;
           }
           if (candidate.entity == focusedTarget) {
             slashDamage *=
@@ -626,7 +567,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
           }
           if (specState.starfall && specState.shatteredConstellationPoints > 0) {
             slashDamage *=
-                1.0f + 0.10f * static_cast<float>(specState.shatteredConstellationPoints);
+                1.0f + starfallFinalDamagePerPoint * static_cast<float>(specState.shatteredConstellationPoints);
           }
           if (const auto *stats = registry.try_get<CombatStats>(candidate.entity)) {
             if (stats->max_health > 0.0f && stats->health <= stats->max_health * 0.35f) {
@@ -650,7 +591,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
           if (specState.poleStarOrbit) {
             slashDamage *= 1.0f +
                            static_cast<float>(orbitStreak - 1) *
-                               (0.04f * static_cast<float>(specState.shatteredConstellationPoints));
+                               (orbitStreakDamagePerPoint * static_cast<float>(specState.shatteredConstellationPoints));
           }
         }
 
@@ -682,9 +623,9 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         }
 
         if (specState.lingeringScarPoints > 0) {
-          float scarDuration = 0.4f * static_cast<float>(specState.lingeringScarPoints);
-          scarDuration += 0.3f * static_cast<float>(specState.scarRuinPoints);
-          float scarRadius = 18.0f + 6.0f * static_cast<float>(specState.scarRuinPoints);
+          float scarDuration = lingeringScarDurationPerPoint * static_cast<float>(specState.lingeringScarPoints);
+          scarDuration += scarRuinDurationPerPoint * static_cast<float>(specState.scarRuinPoints);
+          float scarRadius = 18.0f + scarRuinRadiusPerPoint * static_cast<float>(specState.scarRuinPoints);
           float scarDamage = slashDamage * (isFinalSlash ? 0.30f : 0.15f);
           SpawnScar(registry, owner, candidate.position, scarDuration, scarRadius, scarDamage);
           if (specState.poleStarOrbit && specState.scarRuinPoints > 0) {
@@ -707,11 +648,11 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     if (specState.quickStarPoints > 0) {
       seven_star_shared::RefundSkillCooldownPercent(
-          registry, owner, kSkillId, 0.04f * static_cast<float>(specState.quickStarPoints));
+          registry, owner, kSkillId, quickStarRefundPerPoint * static_cast<float>(specState.quickStarPoints));
     }
     if (specState.chaseStepPoints > 0 && summary.totalHits >= 5) {
       seven_star_shared::RefundMovementCooldownsPercent(
-          registry, owner, 0.08f * static_cast<float>(specState.chaseStepPoints));
+          registry, owner, chaseStepRefundPerPoint * static_cast<float>(specState.chaseStepPoints));
     }
     if (specState.revolvingEdgePoints > 0) {
       GrantRevolvingEdgeWindow(registry, owner, specState.revolvingEdgePoints);
@@ -723,13 +664,14 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
       GrantSwordStepMirage(registry, owner);
     }
     if (specState.starVeilPoints > 0 && summary.totalHits >= 4) {
-      GrantStarVeil(registry, owner, specState.starVeilPoints);
+      GrantStarVeil(registry, owner, specState.starVeilPoints,
+                    starVeilBarrierCapRatio);
     }
     if (specState.gateOfLifePoints > 0 && summary.uniqueTargetsHit >= 3) {
       const float missingHealth = std::max(0.0f, ownerStats->max_health - ownerStats->health);
       ownerStats->health = std::min(ownerStats->max_health,
                                     ownerStats->health +
-                                        missingHealth * 0.02f * specState.gateOfLifePoints);
+                                        missingHealth * gateOfLifeHealPerPoint * specState.gateOfLifePoints);
     }
     if (specState.returningStep) {
       seven_star_shared::GrantSwordStep(registry, owner);
@@ -738,7 +680,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     if (specState.starfall && specState.scarRuinPoints > 0 && summary.finalSlashCrit) {
       ExplodeScars(registry, owner, focusedTarget, baseRadius * 0.75f,
-                   0.30f * static_cast<float>(specState.scarRuinPoints));
+                    scarRuinExplodePerPoint * static_cast<float>(specState.scarRuinPoints));
     }
 
     const Vector2 landingPos = ResolveLandingPosition(

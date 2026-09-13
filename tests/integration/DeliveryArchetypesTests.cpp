@@ -188,10 +188,11 @@ TEST_CASE("[Integration] DeliveryArchetypes - SkyfallImpact Spawns AreaField") {
   registry.emplace<Position>(skyfallEnt, 100.0f, 100.0f);
   auto &skyfall = registry.emplace<SkyfallImpactComponent>(skyfallEnt);
   skyfall.owner = player;
-  skyfall.skill_id = 6;
+  // 使用独立哨兵 ID，仅验证字段透传语义，不耦合技能 6 的真实契约。
+  skyfall.skill_id = 106;
   skyfall.delay_before_impact = 0.1f;
   skyfall.impact_radius = 80.0f;
-  skyfall.leave_field_skill_id = 6;
+  skyfall.leave_field_skill_id = 106;
 
   // Before delay: Skyfall exists, AreaField does not
   AreaFieldDeliverySystem::Update(registry, grid, 0.05f);
@@ -204,26 +205,16 @@ TEST_CASE("[Integration] DeliveryArchetypes - SkyfallImpact Spawns AreaField") {
   CHECK_FALSE(registry.all_of<SkyfallImpactComponent>(skyfallEnt));
 
   const auto &field = registry.get<AreaFieldComponent>(skyfallEnt);
-  CHECK(field.source_skill_id == 6);
+  // 断言透传的哨兵 ID 本身，而非以技能 6 身份作为语义依据。
+  CHECK(field.source_skill_id == 106);
+  CHECK(field.source_skill_id == skyfall.leave_field_skill_id);
   CHECK(field.radius == doctest::Approx(80.0f));
 }
 
-TEST_CASE("[Integration] DeliveryArchetypes - StickyDetonation and ReactiveWard Lifecycle") {
+TEST_CASE("[Integration] DeliveryArchetypes - StickyDetonation Lifecycle") {
   TestSetupScope scope;
   entt::registry registry;
   systems::SpatialHashGrid grid(128, 128, 32.0f);
-
-  // ReactiveWard timeout removal
-  const auto wardEnt = registry.create();
-  auto &rw = registry.emplace<ReactiveWardComponent>(wardEnt);
-  rw.ward_duration = 0.2f;
-  rw.counter_window = 0.1f;
-
-  SkillSystem::Update(registry, grid, 0.1f);
-  CHECK(registry.all_of<ReactiveWardComponent>(wardEnt));
-
-  SkillSystem::Update(registry, grid, 0.15f);
-  CHECK_FALSE(registry.all_of<ReactiveWardComponent>(wardEnt));
 
   // StickyDetonation explosion
   const auto attacker = registry.create();

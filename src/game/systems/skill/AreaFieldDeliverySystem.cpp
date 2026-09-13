@@ -43,9 +43,9 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
   auto view = registry.view<AreaFieldComponent, Position>();
 
   for (auto entity : view) {
-    // Specialized fields (HeavenlySword and BloodSea) manage their own custom pulse damage calculations
-    // and cleanup callbacks. Skip here to avoid double damage ticks and destruction race conditions.
-    if (registry.any_of<HeavenlySwordFieldComponent, BloodSeaFieldComponent>(entity)) {
+    // 持久场原型（带 PersistentFieldTag）自管理脉冲伤害与清理回调。
+    // 此处按标记跳过，避免与通用 AreaField 交付重复脉冲及销毁竞态。
+    if (registry.any_of<PersistentFieldTag>(entity)) {
       continue;
     }
 

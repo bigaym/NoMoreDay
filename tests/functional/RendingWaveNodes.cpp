@@ -5,7 +5,6 @@
 #include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
-#include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
@@ -584,6 +583,33 @@ TEST_CASE("[Unit] RendingWave - 274 ElementalAffinity applies penetration in Dam
   auto res = DamagePipeline::Calculate(registry, req);
   // Base 100 dmg with Dexterity scaling (200 raw). Without pen: 50% resist -> 100 dmg. With 20% pen: 30% resist -> 140 dmg.
   CHECK(res.total_damage == doctest::Approx(140.0f));
+}
+
+// 235 御剑引力回归：护甲击碎与流云刺 152 (FlowingThrust) 共用运行时 id
+// "ArmorShred"，语义为 DefenseDown + 每层 -10 护甲 Flat；RendingWave 侧额外把
+// 投掷层数写入 .stacks 用于展示。
+TEST_CASE("[Unit] RendingWave - 235 ArmorShred shares id and DefenseDown semantics") {
+  TestSetupScope scope;
+  LoadSkillData();
+
+  entt::registry registry;
+  auto player = MakePlayer(registry, 0.0f, 0.0f, {{235, 2}}); // 100% 触发，1 层
+  registry.emplace<PhaseTag>(player);                          // 御剑步状态
+  auto enemy = MakeEnemy(registry, 50.0f, 0.0f);
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+  hitFunc(registry, player, enemy, Tag::Physical, false);
+
+  auto *fx = registry.try_get<ActiveEffectsComponent>(enemy);
+  REQUIRE(fx != nullptr);
+  const auto *shred = fx->Get("ArmorShred");
+  REQUIRE(shred != nullptr);
+  CHECK(shred->type == BuffType::DefenseDown);
+  CHECK(shred->stacks == 1);
+  REQUIRE(!shred->modifiers.empty());
+  CHECK(shred->modifiers[0].type == StatType::Armor);
+  CHECK(shred->modifiers[0].value == doctest::Approx(-10.0f));
 }
 
 } // namespace NoMoreDay

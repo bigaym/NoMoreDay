@@ -54,8 +54,8 @@ float FindActiveHeavenlyFieldDuration(const entt::registry& registry,
     const auto view = registry.view<const HeavenlySwordFieldComponent>();
     for (const entt::entity entity : view) {
         const auto& field = view.get<const HeavenlySwordFieldComponent>(entity);
-        if (field.owner == player && field.duration > remaining) {
-            remaining = field.duration;
+        if (field.header.owner == player && field.header.duration > remaining) {
+            remaining = field.header.duration;
         }
     }
     const auto areaView = registry.view<const AreaFieldComponent>();
@@ -75,8 +75,8 @@ const BloodSeaFieldComponent* FindActiveBloodSeaField(const entt::registry& regi
     const auto view = registry.view<const BloodSeaFieldComponent>();
     for (const entt::entity entity : view) {
         const auto& field = view.get<const BloodSeaFieldComponent>(entity);
-        if (field.owner == player && field.duration > remaining) {
-            remaining = field.duration;
+        if (field.header.owner == player && field.header.duration > remaining) {
+            remaining = field.header.duration;
             activeField = &field;
         }
     }

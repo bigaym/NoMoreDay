@@ -746,8 +746,9 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
 
         const auto heavenlyField = registry.create();
         auto& heavenlyState = registry.emplace<HeavenlySwordFieldComponent>(heavenlyField);
-        heavenlyState.owner = player;
-        heavenlyState.duration = 4.2f;
+        registry.emplace<PersistentFieldTag>(heavenlyField); // 夹具同步：持久场标记
+        heavenlyState.header.owner = player;
+        heavenlyState.header.duration = 4.2f;
 
         CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeDetailText(
                   registry, player, mastery, bladeResource, stats) ==
@@ -763,9 +764,10 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
 
         const auto bloodSeaField = registry.create();
         auto& bloodSeaState = registry.emplace<BloodSeaFieldComponent>(bloodSeaField);
-        bloodSeaState.owner = player;
-        bloodSeaState.duration = 5.6f;
-        bloodSeaState.has_linked_synergy = true;
+        registry.emplace<PersistentFieldTag>(bloodSeaField); // 夹具同步：持久场标记
+        bloodSeaState.header.owner = player;
+        bloodSeaState.header.duration = 5.6f;
+        bloodSeaState.header.has_linked_synergy = true;
 
         CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeDetailText(
                   registry, player, mastery, bladeResource, stats) ==
@@ -908,7 +910,7 @@ TEST_CASE("[Tech] Blood Sea - field render path is specialized") {
 
     CHECK(skipsGenericDot);
     CHECK(hasDedicatedView);
-    CHECK(source.find("field.radius") != std::string::npos);
+    CHECK(source.find("field.header.radius") != std::string::npos);
     CHECK(source.find("DrawRing(") != std::string::npos);
 }
 

@@ -1,5 +1,8 @@
 #include "game/application/states/GameplayStateInternal.hpp"
 
+#include "game/foundation/components/DeliveryArchetypes.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp" // 统一技能节点读点 helper
+
 #include "game/systems/skill/ElementPathSystem.hpp" // 技能8 元素路径
 
 namespace NoMoreDay {
@@ -471,7 +474,7 @@ m_uiHost->InputCapture();
     bool channelingSkill5 = false;
     bool walkThePath = false;       // 550
     float movePenalty = 0.0f;
-    if (auto *chan = registry.try_get<ChannelingComponent>(entity);
+    if (auto *chan = registry.try_get<BeamChannelComponent>(entity);
         chan && chan->skill_id == 5) {
       channelingSkill5 = true;
       if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5)) {
@@ -486,8 +489,7 @@ m_uiHost->InputCapture();
           if (const auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
             for (const auto &spec : active->specialized_slots) {
               if (spec.skill_id == 5) {
-                auto it = spec.allocated_points.find(503);
-                if (it != spec.allocated_points.end()) pts_503 = it->second;
+                pts_503 = skills::ReadPoints(spec, 503);
                 break;
               }
             }
@@ -865,13 +867,16 @@ void GameplayState::OnRender() {
     // Skill Range Indicators
     {
       NoMoreDay::utils::ScopedTimer timer("4.4 Render Indicators", 100);
-      auto view_chan = registry.view<ChannelingComponent, Position>();
+      auto view_chan = registry.view<BeamChannelComponent, Position>();
       for (auto entity : view_chan) {
-        auto &chan = view_chan.get<ChannelingComponent>(entity);
+        auto &chan = view_chan.get<BeamChannelComponent>(entity);
         if (chan.skill_id == 7) { // Heart Sword: Shadowless
           auto &pos = view_chan.get<Position>(entity);
-          DrawCircleLines((int)pos.x, (int)pos.y, 350.0f, ColorAlpha(GOLD, 0.2f));
-          DrawCircleLines((int)pos.x, (int)pos.y, 352.0f,
+          // 射程基准与 Baker 共用机制表键 base_range，避免双源漂移；
+          // TODO: 703 range_pct_per_point 修正未接入，渲染圈未随节点放大。
+          const float range = skills::GetMech(7, 0, "base_range", 350.0f);
+          DrawCircleLines((int)pos.x, (int)pos.y, range, ColorAlpha(GOLD, 0.2f));
+          DrawCircleLines((int)pos.x, (int)pos.y, range + 2.0f,
                           ColorAlpha(ORANGE, 0.15f)); // Thicker rim
         }
       }

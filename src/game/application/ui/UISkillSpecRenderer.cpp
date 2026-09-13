@@ -2,6 +2,7 @@
 
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp" // 统一技能节点读点 helper
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/application/ui/BladeMasteryUITheme.hpp"
 #include "game/application/ui/UISystem.hpp"
@@ -55,9 +56,7 @@ bool IsPrerequisiteSatisfiedOr(const TalentNode& node,
             continue;
         }
         hasValidPrereq = true;
-        const int prePts = specialized->allocated_points.contains(preId)
-                               ? specialized->allocated_points.at(preId)
-                               : 0;
+        const int prePts = skills::ReadPoints(specialized, preId);
         const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
         if (prePts >= requiredPoints) {
             return true;
@@ -494,8 +493,7 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree,
 
     for (const auto& [id, node] : tree->nodes) {
         const Vector2 targetPos = GetNodeScreenPos(node, view);
-        const bool nodeAlloc = specialized->allocated_points.contains(id) &&
-                               specialized->allocated_points.at(id) > 0;
+        const bool nodeAlloc = skills::HasNode(specialized, id);
         bool hasValidPrereq = false;
 
         for (const auto& pre : node.prerequisites) {
@@ -506,9 +504,7 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree,
 
             hasValidPrereq = true;
             const Vector2 sourcePos = GetNodeScreenPos(tree->nodes.at(preId), view);
-            const int prePts = specialized->allocated_points.contains(preId)
-                                   ? specialized->allocated_points.at(preId)
-                                   : 0;
+            const int prePts = skills::ReadPoints(specialized, preId);
             const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
             const bool preAlloc = prePts >= requiredPoints;
             drawLink(sourcePos, targetPos, preAlloc && nodeAlloc, preAlloc,
@@ -547,9 +543,7 @@ void UISkillSpecRenderer::DrawNodes(
         const bool isHovered = (id == hoveredNodeId);
         const float radius = isHovered ? baseRadius * 1.10f : baseRadius;
 
-        const int currentPts = specialized->allocated_points.contains(id)
-                                   ? specialized->allocated_points.at(id)
-                                   : 0;
+        const int currentPts = skills::ReadPoints(specialized, id);
         const bool isMaxed = currentPts >= node.max_points;
         const bool isAllocated = currentPts > 0;
         const bool isExcluded = excludedNodeIds && excludedNodeIds->contains(id);

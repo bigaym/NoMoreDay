@@ -10,6 +10,9 @@
 namespace NoMoreDay {
 
 // 12 大通用交付原型枚举
+// 注：当前生产侧已无读取点（A1 死代码清理删除了 BakedDeliveryParams 中登记"组合第二原型"的
+// uint8_t 字段），本枚举保留作为交付原型的分类与编号；其中 ReactiveWard = 11 为 RD-16
+// 明确要求保留的编号，勿删枚举位或重排编号。
 enum class DeliveryArchetype : uint8_t {
   None = 0,
   DirectStrike = 1,        // 近战定向挥砍/震击
@@ -167,6 +170,10 @@ struct BeamChannelComponent {
   Vector2 target_pos{0.0f, 0.0f};
   bool is_empowered = false;
   float bonus_damage_mult = 1.0f;
+  float channel_timer = 0.0f;     // 技能7 输入保活窗口（按住时刷新，松手归零即结束；技能5 不使用，仅由 max_channel_time 收尾）
+  Tag conversion_tag = Tag::None; // 元素转质标签（原引导组件字段，交付层唯一权威）
+  float bonus_crit_chance = 0.0f; // 引导附加暴击率（原引导组件字段）
+  float bonus_armor_pen = 0.0f;   // 引导附加护甲穿透（原引导组件字段）
 
   // 技能7 (心剑·无影) 交付层运行时状态：POD，由本系统独占读写
   bool interrupt_requested = false;        // 734 神游脱战：输入层登记打断请求
@@ -233,7 +240,6 @@ struct OrbitingSentinelComponent {
   float orbit_radius = 60.0f;
   float current_angle = 0.0f;
   float angular_velocity = 180.0f;
-  float interception_chance = 0.0f;
   float attack_scan_radius = 0.0f;
   float attack_interval = 1.0f;
   float attack_timer = 0.0f;
@@ -258,21 +264,6 @@ struct PhantasmCloneComponent {
 };
 static_assert(std::is_standard_layout_v<PhantasmCloneComponent>);
 static_assert(std::is_trivially_destructible_v<PhantasmCloneComponent>);
-
-// ============================================================================
-// 原型 11: 响应式护盾与反制屏障 (ReactiveWardDelivery)
-// ============================================================================
-struct ReactiveWardComponent {
-  entt::entity owner = entt::null;
-  float ward_duration = 3.0f;
-  float counter_window = 0.5f;
-  float timer = 0.0f;
-  float damage_absorb_pool = 0.0f;
-  uint32_t counter_skill_id = 0;
-  bool triggered = false;
-};
-static_assert(std::is_standard_layout_v<ReactiveWardComponent>);
-static_assert(std::is_trivially_destructible_v<ReactiveWardComponent>);
 
 // ============================================================================
 // 原型 12: 附着印记与延迟殉爆 (StickyDetonationDelivery)

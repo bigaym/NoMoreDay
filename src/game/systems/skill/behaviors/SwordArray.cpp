@@ -15,6 +15,7 @@
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/PlayerState.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/BuffIds.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
@@ -86,8 +87,9 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
 
   auto getPoints = [&](uint32_t node_id) -> int {
     if (specPtr) {
-      auto it = specPtr->allocated_points.find(node_id);
-      if (it != specPtr->allocated_points.end()) return it->second;
+      // 读点 helper：已分配节点点数恒 ≥1，正数即已点亮。
+      const int points = skills::ReadPoints(*specPtr, node_id);
+      if (points > 0) return points;
     }
     return exec.active_nodes.test(node_id % 100) ? 1 : 0;
   };

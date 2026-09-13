@@ -281,7 +281,8 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in specialization data tab
       "src/game/systems/skill/behaviors/MindBlade.cpp",
       "src/game/systems/skill/behaviors/BladeBoomerang.cpp",
       "src/game/systems/skill/behaviors/PhantomTrance.cpp",
-      "src/game/systems/skill/behaviors/SevenStarSlash.cpp"};
+      // 技能 10 的节点常量随 A2-1 迁移至共享头，改为校验头文件。
+      "src/game/systems/skill/behaviors/SevenStarSlashShared.hpp"};
 
   for (const auto &relativeFile : behaviorFiles) {
     const auto fullPath = root / relativeFile;

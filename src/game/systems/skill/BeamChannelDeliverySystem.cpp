@@ -12,6 +12,7 @@
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/TagRegistry.hpp"
@@ -40,11 +41,7 @@ int GetSkillPoint(entt::registry &registry, entt::entity entity, uint32_t skill_
   if (const auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
     for (const auto &spec : active->specialized_slots) {
       if (spec.skill_id == skill_id) {
-        auto it = spec.allocated_points.find(node_id);
-        if (it != spec.allocated_points.end()) {
-          return it->second;
-        }
-        break;
+        return skills::ReadPoints(spec, node_id);
       }
     }
   }
@@ -76,9 +73,9 @@ Tag ResolveSkill7Element(entt::registry &registry, entt::entity caster) {
     if (HasTag(profile->effective_tags, Tag::Cold)) return Tag::Cold;
     if (HasTag(profile->effective_tags, Tag::Lightning)) return Tag::Lightning;
   }
-  if (const auto *chan = registry.try_get<ChannelingComponent>(caster)) {
-    if (chan->conversion_tag == Tag::Cold) return Tag::Cold;
-    if (chan->conversion_tag == Tag::Lightning) return Tag::Lightning;
+  if (const auto *beam = registry.try_get<BeamChannelComponent>(caster)) {
+    if (beam->conversion_tag == Tag::Cold) return Tag::Cold;
+    if (beam->conversion_tag == Tag::Lightning) return Tag::Lightning;
   }
   return Tag::Physical;
 }
@@ -148,15 +145,13 @@ void ApplyArmorShred(entt::registry &registry, entt::entity victim, int stacks,
 }
 
 // 技能7 心剑·无影：Part1 现代 BeamChannelComponent 单管线单帧更新。
-// 返回 true 表示引导结束，需由调用方移除 BeamChannelComponent / ChannelingComponent。
+// 返回 true 表示引导结束，需由调用方移除 BeamChannelComponent。
 bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &grid,
                          entt::entity caster, BeamChannelComponent &beam,
                          const Position &pos, float dt) {
   const auto &mech = data::SkillMechanicsRegistry::Get();
   const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 7u);
-  const uint32_t flags = profile ? profile->delivery.feature_flags : 0u;
   auto *stats = registry.try_get<CombatStats>(caster);
-  auto *chan = registry.try_get<ChannelingComponent>(caster);
 
   const Tag element = ResolveSkill7Element(registry, caster);
   const bool isCold = element == Tag::Cold;
@@ -165,9 +160,11 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
       profile ? profile->effective_tags
               : (element == Tag::Physical ? Tag::Physical : element);
 
-  // feature_flags 与节点点数双通道判定，任一生效即视为已点出，避免离线烘焙差异
-  auto Has7 = [&](uint32_t bit, uint32_t node) {
-    return (flags & bit) != 0u || GetSkill7Point(registry, caster, node) > 0;
+  // DoD#3 节点判定单源：技能7 的节点点亮一律以运行时专精点数为准。
+  // Baker 的 feature_flags 只是离线烘焙快照，profile 缺失（技能7 未重烘）或洗点后
+  // 未重烘时会滞后于实际点数，故不再保留 flags/点数双通道判定。
+  auto HasNode7 = [&](uint32_t node) {
+    return GetSkill7Point(registry, caster, node) > 0;
   };
 
   const int pts710 = GetSkill7Point(registry, caster, 710);
@@ -185,26 +182,26 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
   const int pts774 = GetSkill7Point(registry, caster, 774);
   const int pts775 = GetSkill7Point(registry, caster, 775);
 
-  const bool has711 = Has7(2u, 711);
-  const bool has712 = Has7(4u, 712);
-  const bool has713 = Has7(8u, 713);
-  const bool has715 = Has7(16u, 715);
-  const bool has730 = Has7(32u, 730);
-  const bool has731 = Has7(64u, 731);
-  const bool has733 = Has7(256u, 733);
-  const bool has735 = Has7(1024u, 735);
-  const bool has750 = Has7(2048u, 750);
-  const bool has751 = Has7(4096u, 751);
-  const bool has752 = Has7(8192u, 752);
-  const bool has753 = Has7(16384u, 753);
-  const bool has754 = Has7(32768u, 754);
-  const bool has770 = Has7(131072u, 770);
-  const bool has771 = Has7(262144u, 771);
-  const bool has772 = Has7(524288u, 772);
-  const bool has773 = Has7(1048576u, 773);
-  const bool has774 = Has7(2097152u, 774);
-  const bool has775 = Has7(4194304u, 775);
-  const bool has734 = Has7(512u, 734);
+  const bool has711 = HasNode7(711);
+  const bool has712 = HasNode7(712);
+  const bool has713 = HasNode7(713);
+  const bool has715 = HasNode7(715);
+  const bool has730 = HasNode7(730);
+  const bool has731 = HasNode7(731);
+  const bool has733 = HasNode7(733);
+  const bool has735 = HasNode7(735);
+  const bool has750 = HasNode7(750);
+  const bool has751 = HasNode7(751);
+  const bool has752 = HasNode7(752);
+  const bool has753 = HasNode7(753);
+  const bool has754 = HasNode7(754);
+  const bool has770 = HasNode7(770);
+  const bool has771 = HasNode7(771);
+  const bool has772 = HasNode7(772);
+  const bool has773 = HasNode7(773);
+  const bool has774 = HasNode7(774);
+  const bool has775 = HasNode7(775);
+  const bool has734 = HasNode7(734);
 
   const float maxStacks = mech.GetFloat(7u, 710u, "max_stacks", 4.0f);
   const float baseDamage = kMindBladeBaseDamage;
@@ -246,7 +243,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
   // ---- 命中修正计算 ----
   auto computeMore = [&](entt::entity victim, bool isolated) -> float {
     float more = profile ? profile->more_damage_mult : 1.0f;
-    if (Has7(1u, 710)) {
+    if (HasNode7(710)) {
       more *= (1.0f + mech.GetFloat(7u, 710u, "more_per_stack", 0.05f) *
                            static_cast<float>(beam.charge_stacks));
     }
@@ -506,20 +503,18 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
     finish();
     return true;
   }
-  // 松开按键（ChannelingComponent 保活载体计时耗尽）
-  if (chan) {
-    chan->channel_timer -= dt;
-    if (chan->channel_timer <= 0.0f) {
-      finish();
-      return true;
-    }
+  // 松开按键（输入保活窗口计时耗尽）
+  beam.channel_timer -= dt;
+  if (beam.channel_timer <= 0.0f) {
+    finish();
+    return true;
   }
 
   // ---- 每帧视觉：空间撕裂环 / 畸变 / 链粒子 / 电弧 ----
   {
     const bool isEmpowered = beam.is_empowered;
     const bool hasVoidRift = HasTag(effectiveTags, Tag::Void) ||
-                             (chan && chan->conversion_tag == Tag::Void);
+                             beam.conversion_tag == Tag::Void;
     const uint8_t elementType = SkillSystem::EncodeSkillVfxElementType(effectiveTags);
     Vector2 dir = Vector2Subtract(beam.target_pos, {pos.x, pos.y});
     const float dlen = Vector2Length(dir);
@@ -589,7 +584,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
   }
 
   // ---- 蓄积层数（710 心流叠加 / 711 碎空爆） ----
-  if (Has7(1u, 710) || has711) {
+  if (HasNode7(710) || has711) {
     float interval = mech.GetFloat(7u, 710u, "stack_interval", 0.5f);
     if (has713) {
       interval /= (1.0f + mech.GetFloat(7u, 713u, "charge_speed_pct_per_point", 0.20f) *
@@ -1155,7 +1150,6 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
       if (beam.mode == BeamChannelMode::BarrageEmitter) {
         Vector2 dirToTarget = Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
         const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, beam.skill_id ? beam.skill_id : 5);
-        const auto *chan = registry.try_get<ChannelingComponent>(entity);
 
         // 533 巨剑术: 数量减半 (3 -> 1), 体积+100% (radius 35 -> 70)
         bool isColossal = profile && ((profile->delivery.feature_flags & 4096) != 0);
@@ -1166,8 +1160,8 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         if (profile && profile->effective_tags != Tag::None) {
           effectiveTags = profile->effective_tags;
         }
-        if (chan && chan->conversion_tag != Tag::None) {
-          effectiveTags = (effectiveTags & ~Tag::Physical) | chan->conversion_tag;
+        if (beam.conversion_tag != Tag::None) {
+          effectiveTags = (effectiveTags & ~Tag::Physical) | beam.conversion_tag;
         }
 
         Color swordColor = beam.is_empowered ? GOLD : ColorAlpha(Color{0, 170, 255, 255}, 0.5f);
@@ -1179,8 +1173,8 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
           swordColor = PURPLE;
         }
 
-        float bonus_crit = chan ? chan->bonus_crit_chance : 0.0f;
-        float bonus_armor_pen = chan ? chan->bonus_armor_pen : 0.0f;
+        float bonus_crit = beam.bonus_crit_chance;
+        float bonus_armor_pen = beam.bonus_armor_pen;
         float bonus_crit_dmg = profile ? profile->delivery.bonus_crit_damage : 0.0f;
 
         float speedMult = 1.0f;
@@ -1285,9 +1279,6 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
   for (auto e : s_beam_to_remove) {
     if (registry.valid(e)) {
       registry.remove<BeamChannelComponent>(e);
-      if (registry.any_of<ChannelingComponent>(e)) {
-        registry.remove<ChannelingComponent>(e);
-      }
     }
   }
 
@@ -1329,190 +1320,6 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
     }
   }
 
-  // 2. 兼容并存旧版 ChannelingComponent (平滑回滚窗口)
-  // 仅保留非 beam 实体的通用回滚逻辑（技能5 弹幕回退）；技能7 已统一到 Part1 单管线
-  auto chan_view = registry.view<ChannelingComponent, Position>();
-  for (auto entity : chan_view) {
-    if (registry.any_of<BeamChannelComponent>(entity)) {
-      continue;
-    }
-    auto &chan = chan_view.get<ChannelingComponent>(entity);
-    const auto &pos = chan_view.get<Position>(entity);
-
-    // 1. Duration Limit (5s hard cap)
-    chan.total_duration += dt;
-    if (chan.total_duration >= 5.0f) {
-      registry.remove<ChannelingComponent>(entity);
-      continue;
-    }
-
-    chan.channel_timer -= dt;
-    if (chan.channel_timer <= 0.0f) {
-      // Burst Finisher (Talent 513)
-      if (chan.skill_id == 5 && chan.burst_finisher) {
-        auto finisher_ent = registry.create();
-        registry.emplace<LocalLevelTag>(finisher_ent);
-        registry.emplace<ShadowCastTag>(finisher_ent);
-        registry.emplace<Position>(finisher_ent, pos.x, pos.y);
-
-        auto &exec = registry.emplace<SkillExecution>(finisher_ent);
-        exec.skill_id = 2;
-        exec.owner = entity;
-        exec.state = SkillState::Preparing;
-        exec.timer = 0.0f;
-        exec.target_pos = chan.target_pos;
-        exec.is_empowered = true;
-
-        if (auto *stats = registry.try_get<CombatStats>(entity)) {
-          exec.has_snapshot = true;
-          exec.snapshot.stats = *stats;
-          exec.snapshot.skill_id = 5;
-          for (auto &mult : exec.snapshot.stats.damage_multipliers) {
-            mult *= 5.0f;
-          }
-        }
-        LOG_INFO("Infinite Blades: Triggered Burst Finisher!");
-      }
-
-      registry.remove<ChannelingComponent>(entity);
-      continue;
-    }
-
-    chan.tick_timer -= dt;
-
-    // 2. VFX: Channeling Aura
-    if (chan.skill_id == 5) {
-      auto &particleSys = systems::GPUParticleSystem::Get();
-      if ((float)GetRandomValue(0, 1000) < 500.0f * dt) {
-        components::GPUParticle p;
-        p.position = {pos.x + (float)GetRandomValue(-20, 20),
-                      pos.y + (float)GetRandomValue(-10, 10)};
-        p.velocity = {(float)GetRandomValue(-20, 20),
-                      -50.0f - (float)GetRandomValue(0, 50)};
-        p.color = chan.is_empowered ? GOLD : SKYBLUE;
-        p.lifetime = 0.6f;
-        p.maxLifetime = 0.6f;
-        p.scale = 2.0f;
-        p.flags = 2;
-        particleSys.Emit(p);
-      }
-    }
-
-    if (chan.tick_timer <= 0.0f) {
-      if (chan.skill_id == 5) {
-        // Infinite Blades (Wan Jian Gui Zong)
-        int projectileCount = 2;
-        if (chan.extra_projectiles) {
-          projectileCount += 2;
-        }
-
-        Vector2 targetPos = chan.target_pos;
-        if (chan.full_screen_lock) {
-          float bestDistSq = 900.0f * 900.0f;
-          entt::entity bestTarget = entt::null;
-          grid.query({targetPos.x, targetPos.y}, 900.0f,
-                     [&](entt::entity e, const Position &ep) {
-                       if (registry.any_of<EnemyTag>(e) &&
-                           !registry.any_of<KilledTag>(e)) {
-                         float distSq = Vector2DistanceSqr(
-                             {targetPos.x, targetPos.y}, {ep.x, ep.y});
-                         if (distSq < bestDistSq) {
-                           bestDistSq = distSq;
-                           bestTarget = e;
-                         }
-                       }
-                     });
-          if (registry.valid(bestTarget) &&
-              registry.all_of<Position>(bestTarget)) {
-            const auto &tp = registry.get<Position>(bestTarget);
-            targetPos = {tp.x, tp.y};
-          }
-        }
-
-        Vector2 dirToTarget =
-            Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
-
-        for (int i = 0; i < projectileCount; ++i) {
-          float spreadAmt = (float)GetRandomValue(-20, 20) * DEG2RAD;
-          Vector2 fireDir = Vector2Rotate(dirToTarget, spreadAmt);
-
-          auto proj_ent = registry.create();
-          registry.emplace<LocalLevelTag>(proj_ent);
-          registry.emplace<ShadowCastTag>(proj_ent);
-          registry.emplace<Position>(proj_ent, pos.x + fireDir.x * 20.0f,
-                                     pos.y + fireDir.y * 20.0f);
-
-          float speed = 1000.0f;
-          registry.emplace<Velocity>(proj_ent, fireDir.x * speed,
-                                     fireDir.y * speed);
-
-          Color swordColor = chan.is_empowered
-                                 ? GOLD
-                                 : ColorAlpha(Color{0, 170, 255, 255}, 0.5f);
-          if (chan.conversion_tag == Tag::Fire) {
-            swordColor = ORANGE;
-          } else if (chan.conversion_tag == Tag::Cold) {
-            swordColor = SKYBLUE;
-          } else if (chan.conversion_tag == Tag::Lightning) {
-            swordColor = PURPLE;
-          } else if (chan.conversion_tag == Tag::Void) {
-            swordColor = Color{120, 90, 180, 255};
-          }
-          registry.emplace<ColorComponent>(proj_ent, swordColor);
-
-          auto &proj = registry.emplace<Projectile>(proj_ent);
-          proj.owner = entity;
-          proj.cast_id = chan.cast_id;
-          proj.radius = 35.0f;
-          proj.speed = speed;
-          proj.lifeTime = 1.2f;
-          proj.visualType = 2;
-
-          if (auto *stats = registry.try_get<CombatStats>(entity)) {
-            DamagePayloadContext ctx{};
-            ctx.base_damage_min = stats->min_weapon_damage;
-            ctx.base_damage_max = stats->max_weapon_damage;
-            ctx.crit_chance = stats->crit_chance + chan.bonus_crit_chance; // 统一分数制
-            ctx.crit_multiplier = stats->crit_damage;
-            ctx.increased_damage = 0.0f;
-            ctx.more_damage = 0.35f * chan.bonus_damage_mult;
-            ctx.effective_tags = Tag::Physical | (chan.conversion_tag != Tag::None ? chan.conversion_tag : Tag::None);
-            ctx.source_skill_id = 5;
-            proj.payload_context = ctx;
-
-            proj.snapshot = *stats;
-            for (auto &mult : proj.snapshot.damage_multipliers) {
-              mult *= (0.35f * chan.bonus_damage_mult);
-            }
-            proj.snapshot.crit_chance += chan.bonus_crit_chance;
-            proj.snapshot.armor_pen += chan.bonus_armor_pen;
-          }
-
-          auto &sc = registry.emplace<SkillComponent>(proj_ent);
-          sc.skill_id = 5;
-          if (chan.conversion_tag != Tag::None) {
-            auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
-            mods.damage_modifiers.push_back(
-                DamageModifier{Tag::Physical, chan.conversion_tag, 1.0f,
-                               ModifierType::Convert});
-          }
-
-          auto &particleSys = systems::GPUParticleSystem::Get();
-          components::GPUParticle p;
-          p.position = {pos.x + fireDir.x * 30.0f, pos.y + fireDir.y * 30.0f};
-          p.velocity = Vector2Scale(fireDir, 200.0f);
-          p.color = chan.is_empowered ? GOLD : ColorAlpha(WHITE, 0.6f);
-          p.lifetime = 0.2f;
-          p.maxLifetime = 0.2f;
-          p.scale = 1.8f;
-          p.flags = 2;
-          particleSys.Emit(p);
-        }
-
-        chan.tick_timer = std::max(0.08f, chan.tick_interval);
-      }
-    }
-  }
 }
 
 } // namespace NoMoreDay

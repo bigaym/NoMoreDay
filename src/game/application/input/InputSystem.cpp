@@ -4,6 +4,7 @@
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/AstrolabeUIComponent.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp" // 统一技能节点读点 helper
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "raylib.h"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -20,8 +21,8 @@ constexpr uint32_t kMindBladeSpiritWalkNode = 734u;     // 神游脱战：位移
 
 // 实体是否正在引导技能7
 bool IsChannelingMindBlade(entt::registry &registry, entt::entity entity) {
-    const auto *chan = registry.try_get<ChannelingComponent>(entity);
-    return chan != nullptr && chan->skill_id == kMindBladeSkillId;
+    const auto *beam = registry.try_get<BeamChannelComponent>(entity);
+    return beam != nullptr && beam->skill_id == kMindBladeSkillId;
 }
 
 // 实体在技能7专精树上是否已投入指定节点
@@ -32,8 +33,7 @@ bool HasMindBladeNode(entt::registry &registry, entt::entity entity,
         return false;
     for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kMindBladeSkillId) {
-            auto it = spec.allocated_points.find(node_id);
-            return it != spec.allocated_points.end() && it->second > 0;
+            return skills::HasNode(spec, node_id);
         }
     }
     return false;
@@ -178,15 +178,10 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera,
             }
 
             // Real-time update for channeling skills: ensure the skill target follows mouse cursor
-            if (auto* chan = registry.try_get<ChannelingComponent>(entity)) {
-                chan->target_pos = mouseWorld;
-                // 技能7现代交付层若未自行维护光束目标，则同步引导目标
-                if (chan->skill_id == kMindBladeSkillId) {
-                    if (auto *beam = registry.try_get<BeamChannelComponent>(entity);
-                        beam != nullptr && beam->skill_id == kMindBladeSkillId) {
-                        beam->target_pos = mouseWorld;
-                    }
-                }
+            if (auto *beam = registry.try_get<BeamChannelComponent>(entity);
+                beam != nullptr && beam->skill_id == kMindBladeSkillId) {
+                // 技能7 引导中光束目标实时跟随鼠标
+                beam->target_pos = mouseWorld;
             }
         }
         else

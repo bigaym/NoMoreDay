@@ -4,6 +4,7 @@
 #include "game/foundation/components/Common.hpp" // Position (元素路径归属判定)
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp" // 253 physical_ignore_res_pct
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/systems/combat/CombatConstants.hpp"
 #include "game/contracts/CombatFormula.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
@@ -312,9 +313,7 @@ float DamageMitigationService::Apply(
     // 技能 5 气定神闲 (Node 530): 仅当引导万剑归宗（技能 5）时受到的所有伤害降低 6%...24%
     // 校验组件携带的 skill_id，避免玩家引导任意技能时误享技能 5 减伤。
     const auto *beamChannel = registry.try_get<BeamChannelComponent>(defender);
-    const auto *channeling = registry.try_get<ChannelingComponent>(defender);
-    const bool channelingSkill5 = (beamChannel != nullptr && beamChannel->skill_id == 5u) ||
-                                  (channeling != nullptr && channeling->skill_id == 5u);
+    const bool channelingSkill5 = beamChannel != nullptr && beamChannel->skill_id == 5u;
     if (channelingSkill5) {
       const auto *profile = SkillSystem::GetBakedSkillProfile(registry, defender, 5u);
       if (profile && (profile->delivery.feature_flags & 512) != 0) {
@@ -322,8 +321,7 @@ float DamageMitigationService::Apply(
         if (const auto *active = registry.try_get<ActiveSkillsComponent>(defender)) {
           for (const auto &spec : active->specialized_slots) {
             if (spec.skill_id == 5u) {
-              auto it = spec.allocated_points.find(530);
-              if (it != spec.allocated_points.end()) pts_530 = it->second;
+              pts_530 = skills::ReadPoints(spec, 530);
               break;
             }
           }

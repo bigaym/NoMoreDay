@@ -130,15 +130,15 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
       CHECK(registry.get<BladeWardComponent>(caster).is_lightning_ward);
       break;
     case 5:
-      REQUIRE(registry.all_of<ChannelingComponent>(caster));
-      CHECK(registry.get<ChannelingComponent>(caster).skill_id == 5);
+      REQUIRE(registry.all_of<BeamChannelComponent>(caster));
+      CHECK(registry.get<BeamChannelComponent>(caster).skill_id == 5);
+      CHECK(registry.get<BeamChannelComponent>(caster).mode ==
+            BeamChannelMode::BarrageEmitter);
       break;
     case 6:
       CHECK(test::skill_keynode_matrix::integration::HasArrayFlags(registry));
       break;
     case 7:
-      REQUIRE(registry.all_of<ChannelingComponent>(caster));
-      CHECK(registry.get<ChannelingComponent>(caster).skill_id == 7);
       REQUIRE(registry.all_of<BeamChannelComponent>(caster));
       CHECK(registry.get<BeamChannelComponent>(caster).skill_id == 7u);
       break;
@@ -167,7 +167,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
         REQUIRE(view.begin() != view.end());
         const auto field = *view.begin();
         const auto &fieldComp = view.get<HeavenlySwordFieldComponent>(field);
-        CHECK(fieldComp.owner == caster);
+        CHECK(fieldComp.header.owner == caster);
         CHECK(fieldComp.attunement == BladeAttunement::Lightning);
         CHECK(fieldComp.spent_tiers > 0);
       }
@@ -178,7 +178,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
         REQUIRE(view.begin() != view.end());
         const auto field = *view.begin();
         const auto &fieldComp = view.get<BloodSeaFieldComponent>(field);
-        CHECK(fieldComp.owner == caster);
+        CHECK(fieldComp.header.owner == caster);
         CHECK(fieldComp.consumed_bloodthirst > 0);
         CHECK(registry.get<CombatStats>(caster).health <
               registry.get<CombatStats>(caster).max_health);
@@ -221,7 +221,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Demon Blade node 1219 extends Bloo
 
         auto view = registry.view<BloodSeaFieldComponent>();
         REQUIRE(view.begin() != view.end());
-        return view.get<BloodSeaFieldComponent>(*view.begin()).duration;
+        return view.get<BloodSeaFieldComponent>(*view.begin()).header.duration;
       };
 
   const float baselineRemaining = remainingDurationWithNodes({});

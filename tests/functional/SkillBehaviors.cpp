@@ -10,7 +10,6 @@
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
-#include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -899,7 +898,7 @@ TEST_CASE("[Functional] Heavenly Sword - signature skill field links sword sourc
                       3001u));
 
     auto &fieldComp = registry.get<HeavenlySwordFieldComponent>(field);
-    CHECK(fieldComp.linked_hit_count >= 1);
+    CHECK(fieldComp.header.linked_hit_count >= 1);
     CHECK(fieldComp.extra_resist_reduction <= 12.0f);
 
     SkillSystem::Update(registry, grid, 0.2f);
@@ -1019,8 +1018,8 @@ TEST_CASE("[Functional] Heavenly Sword - attunement propagates into linked sword
         REQUIRE(castFunc != nullptr);
         castFunc(registry, player, exec);
 
-        REQUIRE(registry.all_of<ChannelingComponent>(player));
-        const auto &chan = registry.get<ChannelingComponent>(player);
+        REQUIRE(registry.all_of<BeamChannelComponent>(player));
+        const auto &chan = registry.get<BeamChannelComponent>(player);
         CHECK(chan.skill_id == 5);
         CHECK(chan.conversion_tag == Tag::Fire);
     }
@@ -1035,8 +1034,8 @@ TEST_CASE("[Functional] Heavenly Sword - attunement propagates into linked sword
         REQUIRE(castFunc != nullptr);
         castFunc(registry, player, exec);
 
-        REQUIRE(registry.all_of<ChannelingComponent>(player));
-        const auto &chan = registry.get<ChannelingComponent>(player);
+        REQUIRE(registry.all_of<BeamChannelComponent>(player));
+        const auto &chan = registry.get<BeamChannelComponent>(player);
         CHECK(chan.skill_id == 7);
         CHECK(chan.conversion_tag == Tag::Fire);
     }
@@ -1105,7 +1104,7 @@ TEST_CASE("[Functional] Blood Sea - linked sword hits drive pursuit field damage
                       4001u));
 
     auto &fieldComp = registry.get<BloodSeaFieldComponent>(field);
-    CHECK(fieldComp.linked_hit_count >= 1);
+    CHECK(fieldComp.header.linked_hit_count >= 1);
 
     const float healthBeforeTick = registry.get<CombatStats>(player).health;
     SkillSystem::Update(registry, grid, 0.3f);

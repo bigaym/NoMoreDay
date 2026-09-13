@@ -59,7 +59,12 @@ void ProcEngine::DispatchEvent(entt::registry& reg, entt::entity listener, const
             if (rule.required_window != TriggerWindow::None) {
                 const auto* pt = reg.try_get<PhantomTranceComponent>(listener);
                 if (!pt || pt->remaining <= 0.0f) continue;
-                if (rule.required_window == TriggerWindow::DeathSeal && !pt->params.death_seal) continue;
+                // DeathSeal 窗口口径统一：与 BloodSea.cpp 的禁疗/窗口判定一致走
+                // IsDeathSealActive（额外排除 ending），不再直接读 params.death_seal。
+                if (rule.required_window == TriggerWindow::DeathSeal &&
+                    !IsDeathSealActive(*pt)) {
+                    continue;
+                }
             }
             if (rule.event_tag_filter != Tag::None && (event.tags & rule.event_tag_filter) != rule.event_tag_filter) continue;
 

@@ -4,6 +4,7 @@
 #include "game/foundation/components/AdvancedAffixComponents.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EliteModifierComponents.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp"
@@ -387,8 +388,8 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
       case ScopePolicy::GlobalAlways:
         return true;
       case ScopePolicy::GlobalWhileBuffActive:
-        if (const auto *chan = registry.try_get<ChannelingComponent>(entity)) {
-          if (chan->skill_id == source_skill_id) {
+        if (const auto *beam = registry.try_get<BeamChannelComponent>(entity)) {
+          if (beam->skill_id == source_skill_id) {
             return true;
           }
         }

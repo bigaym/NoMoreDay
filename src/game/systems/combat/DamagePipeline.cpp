@@ -6,6 +6,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
@@ -263,6 +264,42 @@ struct EventAttackerContext {
   uint64_t cast_id = 0;
 };
 
+// 来源实体归因：投射物/剑阵/技能执行三类来源实体的 cast_id 与归属 owner
+// 共用同一判定（技能6 剑阵归因单源）。光束通道仍只参与 cast_id 解析，
+// 不并入事件归属覆盖，保留既有语义。
+struct SourceAttribution {
+  uint64_t cast_id = 0;
+  entt::entity owner = entt::null;
+};
+
+[[nodiscard]] SourceAttribution
+ResolveSourceAttribution(const entt::registry &registry,
+                         entt::entity source_entity) {
+  SourceAttribution attribution;
+  if (!registry.valid(source_entity)) {
+    return attribution;
+  }
+
+  if (const auto *proj = registry.try_get<Projectile>(source_entity)) {
+    attribution.cast_id = proj->cast_id;
+    attribution.owner = proj->owner;
+    return attribution;
+  }
+
+  if (const auto *array = registry.try_get<SwordArrayComponent>(source_entity)) {
+    attribution.cast_id = array->cast_id;
+    attribution.owner = array->owner;
+    return attribution;
+  }
+
+  if (const auto *exec = registry.try_get<SkillExecution>(source_entity)) {
+    attribution.cast_id = exec->cast_id;
+    attribution.owner = exec->owner;
+  }
+
+  return attribution;
+}
+
 EventAttackerContext
 ResolveEventAttackerContext(const entt::registry &registry, entt::entity attacker,
                             entt::entity source_entity,
@@ -274,31 +311,11 @@ ResolveEventAttackerContext(const entt::registry &registry, entt::entity attacke
     context.attacker = summon_attribution.owner;
   }
 
-  if (!registry.valid(source_entity)) {
-    return context;
-  }
-
-  if (const auto *proj = registry.try_get<Projectile>(source_entity)) {
-    context.cast_id = proj->cast_id;
-    if (!summon_attribution.IsValid() && registry.valid(proj->owner)) {
-      context.attacker = proj->owner;
-    }
-    return context;
-  }
-
-  if (const auto *array = registry.try_get<SwordArrayComponent>(source_entity)) {
-    context.cast_id = array->cast_id;
-    if (!summon_attribution.IsValid() && registry.valid(array->owner)) {
-      context.attacker = array->owner;
-    }
-    return context;
-  }
-
-  if (const auto *exec = registry.try_get<SkillExecution>(source_entity)) {
-    context.cast_id = exec->cast_id;
-    if (!summon_attribution.IsValid() && registry.valid(exec->owner)) {
-      context.attacker = exec->owner;
-    }
+  const SourceAttribution source_attr =
+      ResolveSourceAttribution(registry, source_entity);
+  context.cast_id = source_attr.cast_id;
+  if (!summon_attribution.IsValid() && registry.valid(source_attr.owner)) {
+    context.attacker = source_attr.owner;
   }
 
   return context;
@@ -445,17 +462,18 @@ uint64_t ResolveCastIdFromSourceEntity(const entt::registry &registry,
   if (!registry.valid(source_entity)) {
     return 0;
   }
+  // 技能执行优先级最高，保持与原 cast_id 解析顺序一致；投射物/剑阵交由统一
+  // 归因函数处理。光束通道不参与事件归属，仅在此保留原兜底。
   if (const auto *exec = registry.try_get<SkillExecution>(source_entity)) {
     return exec->cast_id;
   }
-  if (const auto *proj = registry.try_get<Projectile>(source_entity)) {
-    return proj->cast_id;
+  const uint64_t source_cast_id =
+      ResolveSourceAttribution(registry, source_entity).cast_id;
+  if (source_cast_id != 0) {
+    return source_cast_id;
   }
-  if (const auto *array = registry.try_get<SwordArrayComponent>(source_entity)) {
-    return array->cast_id;
-  }
-  if (const auto *chan = registry.try_get<ChannelingComponent>(source_entity)) {
-    return chan->cast_id;
+  if (const auto *beam = registry.try_get<BeamChannelComponent>(source_entity)) {
+    return beam->cast_id;
   }
   return 0;
 }
@@ -541,8 +559,7 @@ BuildConditionalOps(entt::registry &registry, entt::entity attacker,
     if (const auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == source_skill) {
-          auto it = spec.allocated_points.find(node_id);
-          return it != spec.allocated_points.end() ? it->second : 0;
+          return skills::ReadPoints(spec, node_id);
         }
       }
     }
@@ -796,8 +813,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     case ScopePolicy::GlobalAlways:
       return true;
     case ScopePolicy::GlobalWhileBuffActive:
-      if (const auto *chan = registry.try_get<ChannelingComponent>(attacker)) {
-        if (chan->skill_id == source_skill_id) {
+      if (const auto *beam = registry.try_get<BeamChannelComponent>(attacker)) {
+        if (beam->skill_id == source_skill_id) {
           return true;
         }
       }
@@ -1453,25 +1470,9 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
           const bool isMelee = HasTag(combined_hit_tags, Tag::Melee);
           const bool isBlocked = defense_resolution.blocked;
           if (intercepted || isMelee || isBlocked) {
-            Tag elementTag = Tag::Physical;
-            if (ward->is_lightning_ward) {
-              elementTag = Tag::Lightning;
-            } else if (ward->is_cold_ward) {
-              elementTag = Tag::Cold;
-            }
-            const float counterDmg =
-                35.0f * (1.0f + ward->counter_damage_more);
-            DamagePool counterPool;
-            counterPool.Add(elementTag, counterDmg);
             DamagePipeline::DeferredCombatAction action;
-            action.request.origin = DamageOrigin::ThornsReflect;
-            action.request.attacker = defender;
-            action.request.defender = attacker;
-            action.request.skill_id = 4;
-            action.request.base_pool = counterPool;
-            action.request.additional_tags =
-                Tag::Hit | Tag::Melee | Tag::SecondaryHit;
-            action.request.source_entity = defender;
+            action.request =
+                damage::ResolveSkill4Counter(defender, attacker, *ward);
             action.apply_attacker = defender;
             action.show_vfx = true;
             QueueDeferredAction(std::move(action));
@@ -2130,25 +2131,9 @@ void DamagePipeline::CalculateBatch(
             const bool isMelee = HasTag(combined_tags, Tag::Melee);
             const bool isBlocked = defense_resolution.blocked;
             if (intercepted || isMelee || isBlocked) {
-              Tag elementTag = Tag::Physical;
-              if (ward->is_lightning_ward) {
-                elementTag = Tag::Lightning;
-              } else if (ward->is_cold_ward) {
-                elementTag = Tag::Cold;
-              }
-              const float counterDmg =
-                  35.0f * (1.0f + ward->counter_damage_more);
-              DamagePool counterPool;
-              counterPool.Add(elementTag, counterDmg);
               DamagePipeline::DeferredCombatAction action;
-              action.request.origin = DamageOrigin::ThornsReflect;
-              action.request.attacker = res.target;
-              action.request.defender = attacker;
-              action.request.skill_id = 4;
-              action.request.base_pool = counterPool;
-              action.request.additional_tags =
-                  Tag::Hit | Tag::Melee | Tag::SecondaryHit;
-              action.request.source_entity = res.target;
+              action.request =
+                  damage::ResolveSkill4Counter(res.target, attacker, *ward);
               action.apply_attacker = res.target;
               action.show_vfx = true;
               QueueDeferredAction(std::move(action));

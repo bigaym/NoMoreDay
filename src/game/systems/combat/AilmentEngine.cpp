@@ -7,6 +7,7 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/impl/ProcBudgetManager.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include <atomic>
@@ -54,7 +55,7 @@ bool HasFlowingThrustBloodDrinker(entt::registry &registry, entt::entity entity)
   }
   for (const auto &spec : act->specialized_slots) {
     if (spec.skill_id == 1) {
-      return spec.allocated_points.count(153) > 0;
+      return skills::HasNode(spec, 153);
     }
   }
   return false;

@@ -9,6 +9,7 @@
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/contracts/CombatEvents.hpp"
@@ -20,70 +21,14 @@
 
 namespace NoMoreDay::skills {
 
-namespace BloodSeaNodes {
-constexpr uint32_t BloodCurtainOpening = 1200;
-constexpr uint32_t PressureTideRise = 1201;
-constexpr uint32_t BloodthirstEdge = 1202;
-constexpr uint32_t BloodMistPursuit = 1203;
-constexpr uint32_t OppressiveEnd = 1204;
-constexpr uint32_t HuntingBloodTrail = 1205;
-constexpr uint32_t DyingEdge = 1206;
-constexpr uint32_t BottomlessPurgatory = 1207;
-constexpr uint32_t SeveredVeinAftershock = 1208;
-constexpr uint32_t BloodDrinkingTide = 1209;
-constexpr uint32_t DesperateReclaim = 1210;
-constexpr uint32_t FreshBloodReturn = 1211;
-constexpr uint32_t BloodWaveRedrink = 1212;
-constexpr uint32_t DrinkTheSeaAndLive = 1213;
-constexpr uint32_t LifeHuntReturn = 1214;
-constexpr uint32_t HuntingMiasma = 1215;
-constexpr uint32_t BladeMistResonance = 1216;
-constexpr uint32_t PhantomDevour = 1217;
-constexpr uint32_t HuntingBloodPressure = 1218;
-constexpr uint32_t LingeringBloodMist = 1219;
-constexpr uint32_t VoidErosionMiasma = 1220;
-constexpr uint32_t CrimsonTorrent = 1221;
-constexpr uint32_t BloodRingDevour = 1222;
-constexpr uint32_t BoneGnawingEmber = 1223;
-constexpr uint32_t MiasmaShred = 1224;
-} // namespace BloodSeaNodes
-
 namespace {
-
-constexpr float kLowLifeThreshold = 0.35f;
 
 constexpr std::string_view kBloodSeaActiveBuffId = "blood_sea_active";
 
-const SpecializedSkill *FindBloodSeaSpecialization(const entt::registry &registry,
-                                                   const entt::entity owner) {
-  const auto *active = registry.try_get<ActiveSkillsComponent>(owner);
-  if (active == nullptr) {
-    return nullptr;
-  }
-
-  for (const auto &spec : active->specialized_slots) {
-    if (spec.skill_id == BloodSea::kSkillId) {
-      return &spec;
-    }
-  }
-  return nullptr;
-}
-
-int GetBloodSeaAllocatedPoints(const SpecializedSkill *spec,
-                               const uint32_t node_id) {
-  if (spec == nullptr) {
-    return 0;
-  }
-  if (const auto it = spec->allocated_points.find(node_id);
-      it != spec->allocated_points.end()) {
-    return std::max(0, it->second);
-  }
-  return 0;
-}
-
-bool HasBloodSeaNode(const SpecializedSkill *spec, const uint32_t node_id) {
-  return GetBloodSeaAllocatedPoints(spec, node_id) > 0;
-}
+// 近身判定半径比例：几何常量，不参与节点调平。
+constexpr float kCloseRadiusRatio = 0.45f;
+// 1211 开场脉冲半径比例：几何常量，不参与节点调平。
+constexpr float kBurstRadiusRatio = 0.7f;
 
 bool IsBloodSeaLinkableSkill(const uint32_t skill_id) {
   return skill_id == 1 || skill_id == 4 || skill_id == 7 || skill_id == 8 ||
@@ -109,7 +54,7 @@ std::string ResolveBloodSeaActiveDescription(const BloodSeaFieldComponent &field
 
   if (field.has_void_keystone) {
     description += " | Void Miasma";
-  } else if (field.has_linked_synergy) {
+  } else if (field.header.has_linked_synergy) {
     description += " | Linked Pulse";
   } else if (field.has_trigger_burst) {
     description += " | Opening Burst";
@@ -127,14 +72,14 @@ void SyncBloodSeaActiveBuff(entt::registry &registry, const entt::entity owner,
   }
 
   auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
-  if (auto *existing = effects.Get(std::string(kBloodSeaActiveBuffId))) {
-    const bool isFreshCast = field.duration > (existing->remaining + 0.05f);
+  if (auto *existing = effects.Get(kBloodSeaActiveBuffId)) {
+    const bool isFreshCast = field.header.duration > (existing->remaining + 0.05f);
     existing->name = "Blood Sea";
     existing->description = ResolveBloodSeaActiveDescription(field);
     existing->type = BuffType::BloodSea;
-    existing->remaining = field.duration;
+    existing->remaining = field.header.duration;
     if (isFreshCast) {
-      existing->duration = field.duration;
+      existing->duration = field.header.duration;
     }
     existing->max_stacks = 1;
     existing->stacks = 1;
@@ -148,8 +93,8 @@ void SyncBloodSeaActiveBuff(entt::registry &registry, const entt::entity owner,
   buff.name = "Blood Sea";
   buff.description = ResolveBloodSeaActiveDescription(field);
   buff.type = BuffType::BloodSea;
-  buff.duration = field.duration;
-  buff.remaining = field.duration;
+  buff.duration = field.header.duration;
+  buff.remaining = field.header.duration;
   buff.max_stacks = 1;
   buff.is_debuff = false;
   buff.source = owner;
@@ -161,18 +106,26 @@ void ClearBloodSeaActiveBuff(entt::registry &registry, const entt::entity owner)
     return;
   }
   if (auto *effects = registry.try_get<ActiveEffectsComponent>(owner)) {
-    effects->Remove(std::string(kBloodSeaActiveBuffId));
+    effects->Remove(kBloodSeaActiveBuffId);
   }
 }
 
 DamagePool BuildBloodSeaDamagePool(const BloodSeaFieldComponent &field,
                                    const float total_damage) {
   DamagePool pool;
-  float physical_ratio = field.has_void_keystone ? 0.45f : 0.6f;
-  if (field.ring_form) {
-    physical_ratio -= 0.05f;
+  float physical_ratio =
+      GetMech(kBloodSeaSkillId, 0u, "physical_ratio_base", 0.6f);
+  if (field.has_void_keystone) {
+    physical_ratio = GetMech(kBloodSeaSkillId, BloodSeaNodes::VoidErosionMiasma,
+                             "physical_ratio", 0.45f);
   }
-  physical_ratio = std::clamp(physical_ratio, 0.25f, 0.8f);
+  if (field.ring_form) {
+    physical_ratio -= GetMech(kBloodSeaSkillId, BloodSeaNodes::BloodRingDevour,
+                              "physical_ratio_delta", 0.05f);
+  }
+  physical_ratio = std::clamp(
+      physical_ratio, GetMech(kBloodSeaSkillId, 0u, "physical_ratio_min", 0.25f),
+      GetMech(kBloodSeaSkillId, 0u, "physical_ratio_max", 0.8f));
   pool.Add(Tag::Physical, total_damage * physical_ratio);
   pool.Add(Tag::Void, total_damage * (1.0f - physical_ratio));
   return pool;
@@ -214,7 +167,8 @@ void ApplyResistShred(entt::registry &registry, const entt::entity target,
   debuff.id = std::string(BuffIdToString(BuffId::BloodSeaMiasma));
   debuff.name = "Blood Sea Miasma";
   debuff.type = BuffType::DefenseDown;
-  debuff.duration = 1.0f + field.miasma_duration_bonus;
+  debuff.duration = GetMech(kBloodSeaSkillId, 0u, "miasma_base_duration", 1.0f) +
+                    field.miasma_duration_bonus;
   debuff.remaining = debuff.duration;
   debuff.is_debuff = true;
 
@@ -235,6 +189,8 @@ float ApplyHealing(entt::registry &registry, const entt::entity owner,
   }
 
   // 981 逆脉: 锁血禁疗期间禁止一切治疗 (含血海吸血/回复)
+  // 禁疗×增疗交互：逆脉/免死窗口内禁疗，故默认 3s 窗口下 1217 的 +20% 治疗增益不体现
+  // 实际治疗量；仅当窗口在 2s 增疗窗内结束时（逆脉剩余 < 增疗时长）才部分生效。
   if (const auto *pt = registry.try_get<PhantomTranceComponent>(owner)) {
     if (IsDeathSealActive(*pt)) {
       return 0.0f;
@@ -282,22 +238,27 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
         if (distance_sq <= nearest_distance_sq + 1.0f) {
           target_damage *= 1.0f + field.pursuit_bonus_mult;
         }
-        const float close_radius = field.radius * 0.45f;
+        const float close_radius = field.header.radius * kCloseRadiusRatio;
         if (distance_sq <= close_radius * close_radius) {
           target_damage *= 1.0f + field.close_pressure_bonus_mult;
         }
       }
     }
 
+    // 1217 绝影共噬窗口：前 N 秒内血海脉冲伤害提高（数据驱动倍率）。
+    if (field.shared_devour_timer > 0.0f) {
+      target_damage *= 1.0f + field.shared_devour_damage_mult;
+    }
+
     DamageRequest request;
     request.origin = DamageOrigin::HazardEnvironment;
-    request.attacker = field.owner;
+    request.attacker = field.header.owner;
     request.defender = target;
     request.skill_id = BloodSea::kSkillId;
     request.base_pool = BuildBloodSeaDamagePool(field, target_damage);
     request.additional_tags = BuildBloodSeaDamageTags();
     request.source_entity = field_entity;
-    const auto result = ResolveDamage(registry, request, field.owner);
+    const auto result = ResolveDamage(registry, request, field.header.owner);
     total_applied_damage += result.damage.total_damage;
 
     if (field.aftershock_bonus_mult > 0.0f) {
@@ -305,20 +266,27 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
       aftershock.base_pool =
           BuildBloodSeaDamagePool(field, target_damage * field.aftershock_bonus_mult);
       const auto aftershock_result =
-          ResolveDamage(registry, aftershock, field.owner);
+          ResolveDamage(registry, aftershock, field.header.owner);
       total_applied_damage += aftershock_result.damage.total_damage;
     }
 
     ApplyResistShred(registry, target, field);
   }
 
-  const float attempted_heal = total_applied_damage * field.leech_ratio;
-  const float actual_heal = ApplyHealing(registry, field.owner, attempted_heal);
+  float attempted_heal = total_applied_damage * field.leech_ratio;
+  // 1217 绝影共噬窗口：同期治疗（吸血）效率同步提高；逆脉禁疗仍由 ApplyHealing 优先拦截。
+  if (field.shared_devour_timer > 0.0f) {
+    attempted_heal *= 1.0f + field.shared_devour_heal_mult;
+  }
+  const float actual_heal = ApplyHealing(registry, field.header.owner, attempted_heal);
   if (field.has_recovery_keystone) {
     const bool gained = systems::BladeResourceService::TryGainBloodthirstFromOverflowHeal(
-        registry, field.owner, attempted_heal, actual_heal, BloodSea::kSkillId);
+        registry, field.header.owner, attempted_heal, actual_heal, BloodSea::kSkillId);
     if (gained && field.return_empower_bonus_mult > 0.0f) {
-      field.return_empower_timer = std::max(field.return_empower_timer, 1.5f);
+      field.return_empower_timer = std::max(
+          field.return_empower_timer,
+          GetMech(kBloodSeaSkillId, BloodSeaNodes::LifeHuntReturn,
+                  "return_empower_duration", 1.5f));
     }
   }
   return total_applied_damage;
@@ -328,7 +296,7 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
 
 void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
                       SkillExecution &exec) {
-  const SpecializedSkill *spec = FindBloodSeaSpecialization(registry, owner);
+  const BloodSeaCastSpec spec = ResolveBloodSeaCastSpec(registry, owner);
   const int consumed = systems::BladeResourceService::ConsumeAll(registry, owner, kSkillId);
   const int effective_consumed = std::max(1, consumed);
   const auto *skill = SkillRegistry::Get().GetSkill(kSkillId);
@@ -344,30 +312,54 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   registry.emplace<SkillComponent>(field_entity, kSkillId, owner);
 
   auto &field = registry.emplace<BloodSeaFieldComponent>(field_entity);
-  field.owner = owner;
-  field.cast_id = exec.cast_id;
+  registry.emplace<PersistentFieldTag>(field_entity); // 持久场原型标记：交付系统据此跳过自管理脉冲
+  field.header.owner = owner;
   field.consumed_bloodthirst = effective_consumed;
-  field.duration = (skill ? skill->GetParam("field_duration", 4.8f) : 4.8f) +
-                   0.2f * static_cast<float>(effective_consumed);
-  field.radius = (skill ? skill->GetParam("field_radius", 120.0f) : 120.0f) +
-                 static_cast<float>(effective_consumed) * 6.0f;
-  field.damage_interval =
-      skill ? skill->GetParam("field_tick", 0.25f) : 0.25f;
+  field.header.duration =
+      (skill ? skill->GetParam("field_duration", spec.fieldDurationDefault)
+             : spec.fieldDurationDefault) +
+      spec.fieldDurationPerBloodthirst * static_cast<float>(effective_consumed);
+  field.header.radius =
+      (skill ? skill->GetParam("field_radius", spec.fieldRadiusDefault)
+             : spec.fieldRadiusDefault) +
+      static_cast<float>(effective_consumed) * spec.fieldRadiusPerBloodthirst;
+  field.header.tick_interval =
+      skill ? skill->GetParam("field_tick", spec.fieldTickDefault)
+            : spec.fieldTickDefault;
   field.bonus_damage_mult =
       1.0f + static_cast<float>(effective_consumed) *
-                 (skill ? skill->GetParam("bloodthirst_damage_bonus", 0.12f)
-                        : 0.12f);
-  field.leech_ratio = skill ? skill->GetParam("leech_ratio", 0.12f) : 0.12f;
+                 (skill ? skill->GetParam("bloodthirst_damage_bonus",
+                                          spec.bloodthirstDamageBonusDefault)
+                        : spec.bloodthirstDamageBonusDefault);
+  field.leech_ratio =
+      skill ? skill->GetParam("leech_ratio", spec.leechRatioDefault)
+            : spec.leechRatioDefault;
   field.resist_shred =
-      2.0f * static_cast<float>(GetBloodSeaAllocatedPoints(
-          spec, BloodSeaNodes::MiasmaShred));
-  field.has_trigger_burst = HasBloodSeaNode(spec, BloodSeaNodes::FreshBloodReturn);
-  field.has_linked_synergy = HasBloodSeaNode(spec, BloodSeaNodes::PhantomDevour);
-  field.has_recovery_keystone =
-      HasBloodSeaNode(spec, BloodSeaNodes::DrinkTheSeaAndLive);
-  field.has_void_keystone = HasBloodSeaNode(spec, BloodSeaNodes::VoidErosionMiasma);
-  field.torrent_form = HasBloodSeaNode(spec, BloodSeaNodes::CrimsonTorrent);
-  field.ring_form = HasBloodSeaNode(spec, BloodSeaNodes::BloodRingDevour);
+      spec.resistShredPerPoint * static_cast<float>(spec.miasmaShredPoints);
+  field.has_trigger_burst = spec.triggerBurst;
+  // 联动脉冲门控裁决：设计 §5.3:1236 把「血海内近战/御剑命中追加小额血爆」定义为节点
+  // 1207 无间血狱，旧实现误挂在 1217 绝影共噬上。此处改挂 1207，与 1217 解耦；
+  // 既不删除既有联动脉冲行为，也不无条件放大它。header 字段仍沿用通用「联动能力」语义。
+  field.header.has_linked_synergy = spec.bottomlessPurgatory;
+  field.has_recovery_keystone = spec.recoveryKeystone;
+  field.has_void_keystone = spec.voidKeystone;
+  field.torrent_form = spec.torrentForm;
+  field.ring_form = spec.ringForm;
+
+  // 1217 绝影共噬（设计 §5.3:1252）：仅当已点 1217 且施放瞬间技能9 逆脉/免死窗口处于
+  // 激活态时，才把「前 N 秒增伤/增疗」窗口写入新场。窗口存在性统一走 IsDeathSealActive，
+  // 与 ApplyHealing 的禁疗口径一致，避免两处窗口判定漂移。
+  //
+  // 禁疗×增疗交互：逆脉/免死窗口内禁疗，故默认 3s 窗口下 +20% 治疗增益不体现实际治疗量；
+  // 仅当窗口在 2s 增疗窗内结束时（逆脉剩余 < 增疗时长）才部分生效。
+  if (spec.sharedDevouring) {
+    if (const auto *trance = registry.try_get<PhantomTranceComponent>(owner);
+        trance != nullptr && IsDeathSealActive(*trance)) {
+      field.shared_devour_timer = spec.empowerDuration;
+      field.shared_devour_damage_mult = spec.empowerDamageMult;
+      field.shared_devour_heal_mult = spec.empowerHealMult;
+    }
+  }
 
   float health_ratio = 1.0f;
   if (const auto *stats = registry.try_get<CombatStats>(owner)) {
@@ -375,105 +367,100 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
       health_ratio = stats->health / stats->max_health;
     }
   }
-  const bool is_low_life = health_ratio <= kLowLifeThreshold;
+  const bool is_low_life = health_ratio <= spec.lowLifeThreshold;
 
-  const float opening_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BloodCurtainOpening));
-  const float pressure_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::PressureTideRise));
-  const float bloodthirst_edge_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BloodthirstEdge));
-  const float pursuit_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BloodMistPursuit));
-  const float oppressive_end_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::OppressiveEnd));
-  const float blood_drinking_tide_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BloodDrinkingTide));
-  const float desperate_reclaim_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::DesperateReclaim));
-  const float blood_wave_redrink_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BloodWaveRedrink));
-  const float dying_edge_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::DyingEdge));
-  const float blade_mist_resonance_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BladeMistResonance));
-  const float hunting_blood_trail_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::HuntingBloodTrail));
-  const float severed_vein_aftershock_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::SeveredVeinAftershock));
-  const float life_hunt_return_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::LifeHuntReturn));
-  const float hunting_miasma_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::HuntingMiasma));
-  const float hunting_blood_pressure_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::HuntingBloodPressure));
-  const float lingering_blood_mist_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::LingeringBloodMist));
-  const float bone_gnawing_ember_points = static_cast<float>(
-      GetBloodSeaAllocatedPoints(spec, BloodSeaNodes::BoneGnawingEmber));
-
-  field.radius += opening_points * 8.0f;
-  field.duration += lingering_blood_mist_points * 0.6f;
-  field.bonus_damage_mult *= 1.0f + pressure_points * 0.06f;
-  field.bonus_damage_mult +=
-      static_cast<float>(effective_consumed) * bloodthirst_edge_points * 0.025f;
-  field.move_follow_speed += pursuit_points * 1.0f;
+  field.header.radius += static_cast<float>(spec.bloodCurtainOpeningPoints) *
+                         spec.radiusPerPoint;
+  field.header.duration += static_cast<float>(spec.lingeringBloodMistPoints) *
+                           spec.durationPerPoint;
+  field.bonus_damage_mult *=
+      1.0f + static_cast<float>(spec.pressureTideRisePoints) * spec.damagePerPoint;
+  field.bonus_damage_mult += static_cast<float>(effective_consumed) *
+                             static_cast<float>(spec.bloodthirstEdgePoints) *
+                             spec.damagePerPointPerBloodthirst;
+  field.move_follow_speed +=
+      static_cast<float>(spec.bloodMistPursuitPoints) * spec.moveSpeedPerPoint;
   field.leech_ratio += static_cast<float>(effective_consumed) *
-                       blood_drinking_tide_points * 0.01f;
-  field.leech_ratio += blood_wave_redrink_points * 0.02f;
-  field.pursuit_bonus_mult = hunting_blood_trail_points * 0.08f;
-  field.aftershock_bonus_mult = severed_vein_aftershock_points * 0.05f;
-  field.return_empower_bonus_mult = life_hunt_return_points * 0.08f;
-  field.close_pressure_bonus_mult = hunting_miasma_points * 0.07f;
-  field.linked_pressure_bonus_mult = hunting_blood_pressure_points * 0.08f;
-  field.miasma_duration_bonus = bone_gnawing_ember_points * 0.25f;
-  field.void_damage_bonus_mult = bone_gnawing_ember_points * 0.06f;
+                       static_cast<float>(spec.bloodDrinkingTidePoints) *
+                       spec.leechPerPointPerBloodthirst;
+  field.leech_ratio += static_cast<float>(spec.bloodWaveRedrinkPoints) *
+                       spec.leechPerPoint;
+  field.pursuit_bonus_mult = static_cast<float>(spec.huntingBloodTrailPoints) *
+                             spec.pursuitDamagePerPoint;
+  field.aftershock_bonus_mult =
+      static_cast<float>(spec.severedVeinAftershockPoints) *
+      spec.aftershockDamagePerPoint;
+  field.return_empower_bonus_mult = static_cast<float>(spec.lifeHuntReturnPoints) *
+                                    spec.empowerBonusPerPoint;
+  field.close_pressure_bonus_mult = static_cast<float>(spec.huntingMiasmaPoints) *
+                                    spec.closePressurePerPoint;
+  field.linked_pressure_bonus_mult =
+      static_cast<float>(spec.huntingBloodPressurePoints) *
+      spec.linkedPressurePerPoint;
+  field.miasma_duration_bonus = static_cast<float>(spec.boneGnawingEmberPoints) *
+                                spec.miasmaDurationPerPoint;
+  field.void_damage_bonus_mult = static_cast<float>(spec.boneGnawingEmberPoints) *
+                                 spec.voidDamagePerPoint;
 
   if (is_low_life) {
-    field.bonus_damage_mult *= 1.0f + oppressive_end_points * 0.08f;
-    const float low_life_pressure = std::clamp(
-        (kLowLifeThreshold - health_ratio) / kLowLifeThreshold, 0.0f, 1.0f);
     field.bonus_damage_mult *=
-        1.0f + dying_edge_points * 0.18f * low_life_pressure;
-    field.leech_ratio += desperate_reclaim_points * 0.025f;
+        1.0f + static_cast<float>(spec.oppressiveEndPoints) *
+                   spec.lowLifeDamagePerPoint;
+    const float low_life_pressure = std::clamp(
+        (spec.lowLifeThreshold - health_ratio) / spec.lowLifeThreshold, 0.0f, 1.0f);
+    field.bonus_damage_mult *=
+        1.0f + static_cast<float>(spec.dyingEdgePoints) *
+                   spec.lowLifePressureDamagePerPoint * low_life_pressure;
+    field.leech_ratio += static_cast<float>(spec.desperateReclaimPoints) *
+                         spec.lowLifeLeechPerPoint;
   }
 
   if (field.has_recovery_keystone) {
-    field.leech_ratio += 0.08f;
+    field.leech_ratio += spec.recoveryLeechBonus;
   }
   if (field.has_void_keystone) {
-    field.bonus_damage_mult *= 1.18f;
-    field.resist_shred += 4.0f;
+    field.bonus_damage_mult *= spec.voidDamageMult;
+    field.resist_shred += spec.voidResistShredBonus;
   }
   if (field.torrent_form) {
-    field.move_follow_speed = 14.0f;
-    field.radius *= 1.15f;
-    field.damage_interval *= 0.85f;
+    field.move_follow_speed = spec.torrentMoveSpeed;
+    field.header.radius *= spec.torrentRadiusMult;
+    field.header.tick_interval *= spec.torrentTickIntervalMult;
   }
   if (field.ring_form) {
-    field.radius *= 0.8f;
-    field.leech_ratio += 0.1f;
-    field.bonus_damage_mult *= 1.15f;
+    field.header.radius *= spec.ringRadiusMult;
+    field.leech_ratio += spec.ringLeechBonus;
+    field.bonus_damage_mult *= spec.ringDamageMult;
   }
-  if (HasBloodSeaNode(spec, BloodSeaNodes::BottomlessPurgatory)) {
-    field.bonus_damage_mult *= 1.1f;
+  if (spec.bottomlessPurgatory) {
+    field.bonus_damage_mult *= spec.bottomlessDamageMult;
   }
-  field.damage_interval *=
-      std::max(0.7f, 1.0f - 0.06f * blade_mist_resonance_points);
+  field.header.tick_interval *=
+      std::max(spec.tickIntervalFloor,
+               1.0f - spec.tickIntervalReductionPerPoint *
+                          static_cast<float>(spec.bladeMistResonancePoints));
 
   if (field.has_trigger_burst) {
     // Node 1211 (FreshBloodReturn / 鲜血回灌): Gain 2 Bloodthirst and heal for 10% of missing health.
-    systems::BladeResourceService::Gain(registry, owner, 2, kSkillId);
+    systems::BladeResourceService::Gain(
+        registry, owner, static_cast<int>(spec.burstBloodthirstGain), kSkillId);
     if (auto* stats = registry.try_get<CombatStats>(owner)) {
       const float missing_health = std::max(0.0f, stats->max_health - stats->health);
-      ApplyHealing(registry, owner, missing_health * 0.1f);
+      // 与 DealPulse 吸血口径一致：1211 血爆回复同样仅在绝影共噬窗口内吃增疗乘数，
+      // 门控同一状态源 shared_devour_timer；施放瞬间若处于逆脉禁疗窗口，实际治疗
+      // 仍会被 ApplyHealing 归零。
+      float burst_heal = missing_health * spec.missingHealthHealRatio;
+      if (field.shared_devour_timer > 0.0f) {
+        burst_heal *= 1.0f + field.shared_devour_heal_mult;
+      }
+      ApplyHealing(registry, owner, burst_heal);
     }
 
     std::vector<entt::entity> burst_targets;
     auto view = registry.view<EnemyTag, Position>();
 
     const auto &field_pos = registry.get<Position>(field_entity);
-    const float burst_radius = field.radius * 0.7f;
+    const float burst_radius = field.header.radius * kBurstRadiusRatio;
     for (const entt::entity target : view) {
       if (registry.any_of<KilledTag>(target)) {
         continue;
@@ -486,7 +473,9 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
     if (!burst_targets.empty()) {
       ++field.pulses_triggered;
       (void)DealPulse(registry, field_entity, field, burst_targets,
-                      16.0f + 6.0f * static_cast<float>(effective_consumed));
+                      spec.burstBaseDamage +
+                          spec.burstDamagePerBloodthirst *
+                              static_cast<float>(effective_consumed));
     }
   }
 
@@ -496,10 +485,10 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   area_field.owner = owner;
   area_field.cast_id = exec.cast_id;
   area_field.source_skill_id = kSkillId;
-  area_field.remaining_duration = field.duration;
-  area_field.pulse_interval = field.damage_interval;
+  area_field.remaining_duration = field.header.duration;
+  area_field.pulse_interval = field.header.tick_interval;
   area_field.timer = 0.0f;
-  area_field.radius = field.radius;
+  area_field.radius = field.header.radius;
   area_field.shape_type = field.ring_form ? 1 : 0;
 
   PayloadDefinition pdef{};
@@ -510,75 +499,81 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   area_field.payload_count = 1;
 
   LOG_INFO("Blood Sea cast: consumed={} radius={:.1f}", effective_consumed,
-           field.radius);
+           field.header.radius);
 }
 
 void BloodSea::UpdateField(entt::registry &registry, entt::entity entity,
                            BloodSeaFieldComponent &field, float dt,
                            const systems::SpatialHashGrid &grid) {
   auto *field_pos = registry.try_get<Position>(entity);
-  auto *owner_pos = registry.try_get<Position>(field.owner);
-  if (field_pos == nullptr || owner_pos == nullptr || !registry.valid(field.owner)) {
-    ClearBloodSeaActiveBuff(registry, field.owner);
+  auto *owner_pos = registry.try_get<Position>(field.header.owner);
+  if (field_pos == nullptr || owner_pos == nullptr || !registry.valid(field.header.owner)) {
+    ClearBloodSeaActiveBuff(registry, field.header.owner);
     if (registry.valid(entity)) {
       registry.destroy(entity);
     }
     return;
   }
 
-  field.duration -= dt;
+  field.header.duration -= dt;
   if (auto *af = registry.try_get<AreaFieldComponent>(entity)) {
-    af->remaining_duration = field.duration;
+    af->remaining_duration = field.header.duration;
   }
-  field.damage_timer -= dt;
+  field.header.tick_timer -= dt;
   field.linked_pulse_cooldown = std::max(0.0f, field.linked_pulse_cooldown - dt);
   field.return_empower_timer = std::max(0.0f, field.return_empower_timer - dt);
-  if (field.duration <= 0.0f) {
-    ClearBloodSeaActiveBuff(registry, field.owner);
+  // 1217 绝影共噬窗口倒计时：2 秒后自动归零，增益随之失效。
+  field.shared_devour_timer = std::max(0.0f, field.shared_devour_timer - dt);
+  if (field.header.duration <= 0.0f) {
+    ClearBloodSeaActiveBuff(registry, field.header.owner);
     registry.destroy(entity);
     return;
   }
 
-  SyncBloodSeaActiveBuff(registry, field.owner, field);
+  SyncBloodSeaActiveBuff(registry, field.header.owner, field);
 
   field_pos->x = Lerp(field_pos->x, owner_pos->x,
                       std::clamp(dt * field.move_follow_speed, 0.0f, 1.0f));
   field_pos->y = Lerp(field_pos->y, owner_pos->y,
                       std::clamp(dt * field.move_follow_speed, 0.0f, 1.0f));
 
-  if (field.damage_timer > 0.0f) {
+  if (field.header.tick_timer > 0.0f) {
     return;
   }
-  field.damage_timer = field.damage_interval;
+  field.header.tick_timer = field.header.tick_interval;
 
   std::vector<entt::entity> targets;
-  grid.query(*field_pos, field.radius, [&](entt::entity target, const Position &) {
-    if (target == field.owner || target == entity || registry.any_of<KilledTag>(target) ||
+  grid.query(*field_pos, field.header.radius, [&](entt::entity target, const Position &) {
+    if (target == field.header.owner || target == entity || registry.any_of<KilledTag>(target) ||
         !registry.any_of<EnemyTag>(target)) {
       return;
     }
     targets.push_back(target);
   });
   if (targets.empty()) {
-    targets = CollectBloodSeaTargets(registry, *field_pos, field.radius,
-                                     field.owner, entity);
+    targets = CollectBloodSeaTargets(registry, *field_pos, field.header.radius,
+                                     field.header.owner, entity);
   }
   if (targets.empty()) {
     return;
   }
 
   ++field.pulses_triggered;
-  float base_damage = 14.0f +
-                      4.0f * static_cast<float>(field.consumed_bloodthirst);
+  float base_damage =
+      GetMech(kBloodSeaSkillId, 0u, "pulse_base_damage", 14.0f) +
+      GetMech(kBloodSeaSkillId, 0u, "pulse_damage_per_bloodthirst", 4.0f) *
+          static_cast<float>(field.consumed_bloodthirst);
   if (field.has_void_keystone) {
-    base_damage *= 1.08f;
+    base_damage *= GetMech(kBloodSeaSkillId, BloodSeaNodes::VoidErosionMiasma,
+                           "pulse_damage_mult", 1.08f);
     base_damage *= 1.0f + field.void_damage_bonus_mult;
   }
   if (field.ring_form) {
-    base_damage *= 1.1f;
+    base_damage *= GetMech(kBloodSeaSkillId, BloodSeaNodes::BloodRingDevour,
+                           "pulse_damage_mult", 1.1f);
   }
   (void)DealPulse(registry, entity, field, targets, base_damage);
-  SyncBloodSeaActiveBuff(registry, field.owner, field);
+  SyncBloodSeaActiveBuff(registry, field.header.owner, field);
 }
 
 void BloodSea::HandleLinkedHit(entt::registry &registry, const CombatEvent &evt) {
@@ -596,21 +591,30 @@ void BloodSea::HandleLinkedHit(entt::registry &registry, const CombatEvent &evt)
   for (const entt::entity field_entity : view) {
     auto &field = view.get<BloodSeaFieldComponent>(field_entity);
     const auto &field_pos = view.get<Position>(field_entity);
-    if (field.owner != evt.source ||
-        !IsInsideBloodSeaField(*target_pos, field_pos, field.radius)) {
+    if (field.header.owner != evt.source ||
+        !IsInsideBloodSeaField(*target_pos, field_pos, field.header.radius)) {
       continue;
     }
 
-    ++field.linked_hit_count;
-    if (!field.has_linked_synergy || field.linked_pulse_cooldown > 0.0f) {
+    ++field.header.linked_hit_count;
+    // 门控来源：has_linked_synergy 现由节点 1207 无间血狱置位（设计 §5.3:1236），
+    // 与 1217 绝影共噬的窗口增伤完全解耦；冷却仍由节点数据键驱动。
+    if (!field.header.has_linked_synergy || field.linked_pulse_cooldown > 0.0f) {
       continue;
     }
 
-    field.linked_pulse_cooldown = field.torrent_form ? 0.12f : 0.2f;
+    field.linked_pulse_cooldown =
+        field.torrent_form
+            ? GetMech(kBloodSeaSkillId, BloodSeaNodes::CrimsonTorrent,
+                      "linked_pulse_cooldown", 0.12f)
+            : GetMech(kBloodSeaSkillId, 0u, "linked_pulse_cooldown", 0.2f);
     std::vector<entt::entity> targets = {evt.target};
     ++field.pulses_triggered;
     float linked_damage =
-        12.0f + static_cast<float>(field.consumed_bloodthirst) * 2.0f;
+        GetMech(kBloodSeaSkillId, 0u, "linked_pulse_base_damage", 12.0f) +
+        static_cast<float>(field.consumed_bloodthirst) *
+            GetMech(kBloodSeaSkillId, 0u, "linked_pulse_damage_per_bloodthirst",
+                    2.0f);
     linked_damage *= 1.0f + field.linked_pressure_bonus_mult;
     if (field.return_empower_timer > 0.0f) {
       linked_damage *= 1.0f + field.return_empower_bonus_mult;

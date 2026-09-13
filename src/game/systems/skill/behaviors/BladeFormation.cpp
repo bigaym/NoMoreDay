@@ -16,10 +16,13 @@
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/AIComponent.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "raymath.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace NoMoreDay::skills {
@@ -40,7 +43,6 @@ constexpr uint32_t WeakPointCrit = 331;
 constexpr uint32_t DeadlyEdge = 332;
 constexpr uint32_t SwordPressure = 333;
 constexpr uint32_t Crush = 334;
-constexpr uint32_t ColossusRend = 335;
 constexpr uint32_t Ward = 350;
 constexpr uint32_t BladeOrbit = 351;
 constexpr uint32_t RetaliationWeb = 352;
@@ -58,7 +60,20 @@ constexpr uint32_t Charge = 375;
 struct BladeFormation : SkillBehaviorBase<BladeFormation> {
   static constexpr uint32_t kSkillId = 3;
 
-  static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
+  // 节点点亮的判定：生产路径必定已 Bake（RebakeSkillProfiles 预热，或 DoCast
+  // 就地烘焙），故直接读烘焙产物的 feature_flags（生产单一来源）。
+  // profile 为空时回退 SkillExecution.active_nodes，仅用于兼容绕过 TryCast 的
+  // 直接行为调用（行为层/集成测试依赖此路径，见 SkillSystemTests
+  // "Blade Ascendant key branches run"），生产不可达。
+  [[nodiscard]] static bool HasNodeFlag(const BakedSkillProfile *profile,
+                                        uint32_t flag, const SkillExecution &exec,
+                                        uint32_t node_id) {
+    return profile != nullptr ? (profile->delivery.feature_flags & flag) != 0
+                              : exec.active_nodes.test(node_id % 100);
+  }
+
+  static void DoCast(entt::registry &registry, entt::entity owner,
+                     SkillExecution &exec) {
     auto &formation = registry.get_or_emplace<BladeFormationComponent>(owner);
     const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
@@ -74,29 +89,28 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
     // 提取分配点数
     int pts300 = 0, pts301 = 0, pts302 = 0, pts303 = 0, pts310 = 0, pts312 = 0;
-    int pts314 = 0, pts315 = 0, pts331 = 0, pts332 = 0, pts333 = 0, pts334 = 0;
+    int pts315 = 0, pts331 = 0, pts332 = 0, pts333 = 0, pts334 = 0;
     int pts350 = 0, pts352 = 0, pts371 = 0, pts373 = 0, pts374 = 0, pts375 = 0;
     if (registry.all_of<ActiveSkillsComponent>(owner)) {
       for (const auto &s : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
         if (s.skill_id == kSkillId) {
-          if (auto it = s.allocated_points.find(BladeFormationNodes::SwordPool); it != s.allocated_points.end()) pts300 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::SwiftIntent); it != s.allocated_points.end()) pts301 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::EdgedSpirit); it != s.allocated_points.end()) pts302 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::ElementalCore); it != s.allocated_points.end()) pts303 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::SearchRadius); it != s.allocated_points.end()) pts310 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::Network); it != s.allocated_points.end()) pts312 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::Concentrate); it != s.allocated_points.end()) pts314 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::SwordStepResonance); it != s.allocated_points.end()) pts315 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::WeakPointCrit); it != s.allocated_points.end()) pts331 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::DeadlyEdge); it != s.allocated_points.end()) pts332 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::SwordPressure); it != s.allocated_points.end()) pts333 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::Crush); it != s.allocated_points.end()) pts334 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::Ward); it != s.allocated_points.end()) pts350 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::RetaliationWeb); it != s.allocated_points.end()) pts352 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::BlazingDance); it != s.allocated_points.end()) pts371 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::ArcChain); it != s.allocated_points.end()) pts373 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::SpiritCorrosion); it != s.allocated_points.end()) pts374 = it->second;
-          if (auto it = s.allocated_points.find(BladeFormationNodes::Charge); it != s.allocated_points.end()) pts375 = it->second;
+          pts300 = ReadPoints(s, BladeFormationNodes::SwordPool);
+          pts301 = ReadPoints(s, BladeFormationNodes::SwiftIntent);
+          pts302 = ReadPoints(s, BladeFormationNodes::EdgedSpirit);
+          pts303 = ReadPoints(s, BladeFormationNodes::ElementalCore);
+          pts310 = ReadPoints(s, BladeFormationNodes::SearchRadius);
+          pts312 = ReadPoints(s, BladeFormationNodes::Network);
+          pts315 = ReadPoints(s, BladeFormationNodes::SwordStepResonance);
+          pts331 = ReadPoints(s, BladeFormationNodes::WeakPointCrit);
+          pts332 = ReadPoints(s, BladeFormationNodes::DeadlyEdge);
+          pts333 = ReadPoints(s, BladeFormationNodes::SwordPressure);
+          pts334 = ReadPoints(s, BladeFormationNodes::Crush);
+          pts350 = ReadPoints(s, BladeFormationNodes::Ward);
+          pts352 = ReadPoints(s, BladeFormationNodes::RetaliationWeb);
+          pts371 = ReadPoints(s, BladeFormationNodes::BlazingDance);
+          pts373 = ReadPoints(s, BladeFormationNodes::ArcChain);
+          pts374 = ReadPoints(s, BladeFormationNodes::SpiritCorrosion);
+          pts375 = ReadPoints(s, BladeFormationNodes::Charge);
           break;
         }
       }
@@ -105,23 +119,27 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     const auto &mech = data::SkillMechanicsRegistry::Get();
 
     // 标志位与天赋状态装配
-    formation.has_giant_sword = profile ? ((profile->delivery.feature_flags & 2) != 0) : exec.active_nodes.test(BladeFormationNodes::GiantSword % 100);
-    formation.melee_orbit = profile ? ((profile->delivery.feature_flags & 4) != 0) : exec.active_nodes.test(BladeFormationNodes::BladeOrbit % 100);
-    formation.has_immortality = profile ? ((profile->delivery.feature_flags & 8) != 0) : exec.active_nodes.test(BladeFormationNodes::Immortality % 100);
+    formation.has_giant_sword = HasNodeFlag(profile, 2, exec, BladeFormationNodes::GiantSword);
+    formation.melee_orbit = HasNodeFlag(profile, 4, exec, BladeFormationNodes::BladeOrbit);
+    formation.has_immortality = HasNodeFlag(profile, 8, exec, BladeFormationNodes::Immortality);
     if (formation.has_immortality && formation.immortality_cooldown <= 0.0f) {
       formation.immortality_ready = true;
     }
-    formation.has_godspeed = profile ? ((profile->delivery.feature_flags & 16) != 0) : exec.active_nodes.test(BladeFormationNodes::Godspeed % 100);
-    formation.has_concentrate = profile ? ((profile->delivery.feature_flags & 32) != 0) : (pts314 > 0 || exec.active_nodes.test(BladeFormationNodes::Concentrate % 100));
-    formation.has_spell_echo = profile ? ((profile->delivery.feature_flags & 32768) != 0) : exec.active_nodes.test(BladeFormationNodes::SpellEcho % 100);
+    formation.has_godspeed = HasNodeFlag(profile, 16, exec, BladeFormationNodes::Godspeed);
+    formation.has_concentrate = HasNodeFlag(profile, 32, exec, BladeFormationNodes::Concentrate);
+    formation.has_spell_echo = HasNodeFlag(profile, 32768, exec, BladeFormationNodes::SpellEcho);
 
     formation.pts303 = pts303;
     formation.pts333 = pts333;
     formation.pts334 = pts334;
-    formation.has_array_resonance = profile ? ((profile->delivery.feature_flags & 65536) != 0) : exec.active_nodes.test(BladeFormationNodes::ArrayResonance % 100);
-    formation.has_fire = (profile && HasTag(profile->effective_tags, Tag::Fire)) || exec.active_nodes.test(BladeFormationNodes::ElementFire % 100);
+    formation.has_array_resonance = HasNodeFlag(profile, 65536, exec, BladeFormationNodes::ArrayResonance);
+    formation.has_fire = profile != nullptr
+        ? HasTag(profile->effective_tags, Tag::Fire)
+        : exec.active_nodes.test(BladeFormationNodes::ElementFire % 100);
     formation.pts371 = pts371;
-    formation.has_lightning = (profile && HasTag(profile->effective_tags, Tag::Lightning)) || exec.active_nodes.test(BladeFormationNodes::ElementLightning % 100);
+    formation.has_lightning = profile != nullptr
+        ? HasTag(profile->effective_tags, Tag::Lightning)
+        : exec.active_nodes.test(BladeFormationNodes::ElementLightning % 100);
     formation.pts373 = pts373;
     formation.pts374 = pts374;
     formation.pts375 = pts375;
@@ -132,27 +150,29 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         : (200.0f * (1.0f + 0.20f * static_cast<float>(pts310)));
 
     // 灵力网络 (Node 312)
-    formation.mana_regen_per_sword = (pts312 > 0)
+    formation.mana_regen_per_sword = HasNodeFlag(profile, 512, exec, BladeFormationNodes::Network)
         ? mech.GetFloat(kSkillId, BladeFormationNodes::Network, "mana_regen_per_sword_per_point", 3.0f) * static_cast<float>(pts312)
-        : ((profile && (profile->delivery.feature_flags & 512) != 0) ? 3.0f : 0.0f);
+        : 0.0f;
 
     // 御剑共振 (Node 315)
-    formation.sword_step_haste = (pts315 > 0)
+    const bool hasSwordStepResonance =
+        HasNodeFlag(profile, 64, exec, BladeFormationNodes::SwordStepResonance);
+    formation.sword_step_haste = hasSwordStepResonance
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::SwordStepResonance, "resonance_freq_pct_per_point", 20.0f) / 100.0f) * static_cast<float>(pts315)
-        : ((profile && (profile->delivery.feature_flags & 64) != 0) ? 0.20f : 0.0f);
-    formation.sword_step_intent_chance = (pts315 > 0)
+        : 0.0f;
+    formation.sword_step_intent_chance = hasSwordStepResonance
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::SwordStepResonance, "intent_gain_chance_pct_per_point", 10.0f) / 100.0f) * static_cast<float>(pts315)
-        : ((profile && (profile->delivery.feature_flags & 64) != 0) ? 0.10f : 0.0f);
+        : 0.0f;
 
     // 灵剑护体减伤比例 (Node 350)
-    formation.ward_dr_per_sword = (pts350 > 0)
+    formation.ward_dr_per_sword = HasNodeFlag(profile, 8192, exec, BladeFormationNodes::Ward)
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::Ward, "ward_dr_pct_per_sword_per_point", 1.0f) / 100.0f) * static_cast<float>(pts350)
-        : ((profile && (profile->delivery.feature_flags & 8192) != 0) ? 0.01f : 0.0f);
+        : 0.0f;
 
     // 反击剑网格挡率 (Node 352)
-    formation.block_chance_per_sword = (pts352 > 0)
+    formation.block_chance_per_sword = HasNodeFlag(profile, 16384, exec, BladeFormationNodes::RetaliationWeb)
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::RetaliationWeb, "block_chance_per_sword_per_point", 2.0f) / 100.0f) * static_cast<float>(pts352)
-        : ((profile && (profile->delivery.feature_flags & 16384) != 0) ? 0.02f : 0.0f);
+        : 0.0f;
 
     // 灵剑数量上限（巨剑强制为 1；无尽剑匣翻倍）
     if (formation.has_giant_sword) {
@@ -160,6 +180,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     } else if (profile) {
       formation.max_swords = (profile->projectile_count > 0) ? profile->projectile_count : 3;
     } else {
+      // 未 Bake 兼容回退：无专精槽时 pts300 必为 0，无尽剑匣位仅可经 active_nodes 置位
       int count = 3 + pts300;
       if (exec.active_nodes.test(BladeFormationNodes::InfiniteSheath % 100)) {
         count *= 2;
@@ -170,8 +191,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
     // 伤害与单发倍率 (Node 330 巨剑: 1.25f 即基底 0.5f 的 2.5 倍 / +150% 伤害; Node 311: 0.6f 衰减; Node 302: 锋灵 moreMult)
     const float baseDamageScale = formation.has_giant_sword ? 1.25f : 0.5f;
-    const bool hasInfiniteSheath = (profile && (profile->delivery.feature_flags & 1) != 0) ||
-                                   (!profile && exec.active_nodes.test(BladeFormationNodes::InfiniteSheath % 100));
+    const bool hasInfiniteSheath =
+        HasNodeFlag(profile, 1, exec, BladeFormationNodes::InfiniteSheath);
     formation.damage_penalty = hasInfiniteSheath ? 0.6f : 1.0f;
     const float moreMult = profile ? profile->more_damage_mult : (1.0f + 0.10f * static_cast<float>(pts302));
     const float finalDamageScale = baseDamageScale * formation.damage_penalty * moreMult;
@@ -324,6 +345,39 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     }
   }
 
+  // 373 雷弧连锁候选枚举：优先复用 gameplay 注入的空间网格 (SharedContext::spatialGrid)
+  // 缩小搜索范围；单测等无 SharedContext 的场景回退为旧的线性遍历，保证命中集合一致。
+  // 网格只做粗筛（不保证精确半径），由本 helper 基于网格帧初缓存位置做精确距离过滤
+  // （帧内快速位移有固有偏差，线性回退用活体位置）。
+  // onCandidate 返回 false 表示停止枚举；网格回调不支持中断，此时仅忽略其结果。
+  template <typename Func>
+  static void ForEachChainCandidate(entt::registry &reg, entt::entity victim,
+                                    const Position &center, float radiusSqr,
+                                    Func &&onCandidate) {
+    const SharedContext *shared = GetSharedContext(reg);
+    const systems::SpatialHashGrid *grid = shared ? shared->spatialGrid : nullptr;
+    if (grid != nullptr) {
+      grid->query(center, std::sqrt(radiusSqr), [&](entt::entity e, const Position &pos) {
+        // 网格在帧初重建，可能残留本帧已销毁或已标记死亡的实体，需逐项复核
+        if (!reg.valid(e) || e == victim) return;
+        if (!reg.all_of<EnemyTag>(e) || reg.any_of<KilledTag>(e)) return;
+        if (Vector2DistanceSqr({center.x, center.y}, {pos.x, pos.y}) <= radiusSqr) {
+          (void)onCandidate(e);
+        }
+      });
+      return;
+    }
+    auto enemyView = reg.view<EnemyTag, Position>();
+    for (auto e : enemyView) {
+      // 与网格路径口径一致：SpatialGrid 帧初 rebuild 已排除 DormantTag，回退路径同样跳过休眠敌人
+      if (e == victim || reg.any_of<KilledTag>(e) || reg.any_of<DormantTag>(e)) continue;
+      const auto &pos = enemyView.get<Position>(e);
+      if (Vector2DistanceSqr({center.x, center.y}, {pos.x, pos.y}) <= radiusSqr) {
+        if (!onCandidate(e)) break;
+      }
+    }
+  }
+
   static void DoHit(entt::registry &reg, entt::entity attacker, entt::entity victim, Tag, bool) {
     if (!reg.valid(attacker)) return;
     auto *formation = reg.try_get<BladeFormationComponent>(attacker);
@@ -439,7 +493,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         bool victimShocked = false;
         if (const auto *fx = reg.try_get<ActiveEffectsComponent>(victim)) {
           for (const auto &b : fx->effects) {
-            if (b.remaining > 0.0f && (b.type == BuffType::Shock || b.id.find("shock") != std::string::npos)) {
+            // 托管感电由 AilmentEngine 写入 type=Shock (id 为大写 "Shock")，无需子串匹配
+            if (b.remaining > 0.0f && b.type == BuffType::Shock) {
               victimShocked = true;
               break;
             }
@@ -447,28 +502,33 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         }
         if (victimShocked) {
           const auto &vPos = reg.get<Position>(victim);
+          // 候选数超过链上限时，实际命中子集取决于遍历序（网格路径为桶哈希序、
+          // 线性回退为 EnTT view 序），如需确定性可按距离排序后截取
           int chainsLeft = std::min(3, formation->pts373);
           const float chainRadiusSqr = formation->chain_radius * formation->chain_radius;
-          auto enemyView = reg.view<EnemyTag, Position>();
-          for (auto eEnt : enemyView) {
-            // DoHit 回调无 grid 上下文，O(N)+早退为当前架构约束，完整网格化待回调签名扩展
-            if (chainsLeft <= 0) break;
-            if (eEnt == victim || reg.any_of<KilledTag>(eEnt)) continue;
-            const auto &ePos = enemyView.get<Position>(eEnt);
-            if (Vector2DistanceSqr({vPos.x, vPos.y}, {ePos.x, ePos.y}) <= chainRadiusSqr) {
-              DamagePool pool;
-              pool.Add(Tag::Lightning, baseHit * formation->chain_damage_pct);
-              DamageRequest req;
-              req.origin = DamageOrigin::SecondaryProc;
-              req.attacker = attacker;
-              req.defender = eEnt;
-              req.skill_id = kSkillId;
-              req.base_pool = pool;
-              req.additional_tags = Tag::Lightning | Tag::SecondaryHit;
-              (void)ResolveDamage(reg, req, attacker);
-              chainsLeft--;
+          // 空间网格的哈希桶存在跨单元格碰撞，同一实体可能被重复返回，
+          // 用小数组去重以保持旧线性遍历“每个目标至多命中一次”的语义
+          std::array<entt::entity, 3> hitTargets{};
+          int hitCount = 0;
+          ForEachChainCandidate(reg, victim, vPos, chainRadiusSqr, [&](entt::entity eEnt) {
+            if (chainsLeft <= 0) return false;
+            for (int i = 0; i < hitCount; ++i) {
+              if (hitTargets[static_cast<size_t>(i)] == eEnt) return chainsLeft > 0;
             }
-          }
+            DamagePool pool;
+            pool.Add(Tag::Lightning, baseHit * formation->chain_damage_pct);
+            DamageRequest req;
+            req.origin = DamageOrigin::SecondaryProc;
+            req.attacker = attacker;
+            req.defender = eEnt;
+            req.skill_id = kSkillId;
+            req.base_pool = pool;
+            req.additional_tags = Tag::Lightning | Tag::SecondaryHit;
+            (void)ResolveDamage(reg, req, attacker);
+            hitTargets[static_cast<size_t>(hitCount++)] = eEnt;
+            chainsLeft--;
+            return chainsLeft > 0;
+          });
         }
       }
     }
@@ -480,12 +540,12 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       if (const auto *fx = reg.try_get<ActiveEffectsComponent>(victim)) {
         for (const auto &b : fx->effects) {
           if (b.remaining > 0.0f) {
-            if (formation->has_fire && (b.type == BuffType::Burn || b.id.find("ignite") != std::string::npos)) {
+            if (formation->has_fire && (b.type == BuffType::Burn || b.kind == BuffKind::Ignite)) {
               victimHasAilment = true;
               shredElement = Tag::Fire;
               break;
             }
-            if (formation->has_lightning && (b.type == BuffType::Shock || b.id.find("shock") != std::string::npos)) {
+            if (formation->has_lightning && b.type == BuffType::Shock) {
               victimHasAilment = true;
               shredElement = Tag::Lightning;
               break;
@@ -497,9 +557,12 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         const float shredPerStack = formation->shred_per_stack;
         const float maxStacks = formation->shred_max_stacks;
         const float dur = formation->shred_duration;
-        std::string debuffId = (shredElement == Tag::Fire) ? "SpiritCorrosion_Fire" : "SpiritCorrosion_Lightning";
+        const BuffId debuffId = (shredElement == Tag::Fire)
+            ? BuffId::SpiritCorrosionFire
+            : BuffId::SpiritCorrosionLightning;
         auto &fx = reg.get_or_emplace<ActiveEffectsComponent>(victim);
-        BuffEffect *existing = fx.Get(debuffId);
+        // 走零分配 string_view 重载，避免构造临时 std::string（code_standard §2.1/§7.2）
+        BuffEffect *existing = fx.Get(BuffIdToString(debuffId));
         if (existing) {
           existing->duration = dur;
           existing->remaining = dur;
@@ -515,7 +578,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
           });
         } else {
           BuffEffect debuff{
-            .id = debuffId,
+            .id = std::string(BuffIdToString(debuffId)),
             .name = "Spirit Corrosion",
             .type = BuffType::DefenseDown,
             .duration = dur,

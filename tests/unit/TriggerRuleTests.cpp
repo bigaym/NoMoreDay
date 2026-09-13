@@ -495,4 +495,68 @@ TEST_CASE("[Unit] Skill TriggerRule - 935 逆命反噬 respects DeathSeal window
   CHECK(rule->current_cooldown == doctest::Approx(0.0f));
 }
 
+TEST_CASE("[Unit] Skill TriggerRule - DeathSeal window excludes PhantomTrance ending phase") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  CombatEventDispatcher::Clear();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+
+  const auto caster = registry.create();
+  registry.emplace<PlayerTag>(caster);
+  registry.emplace<Position>(caster, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(caster);
+  auto &active = registry.emplace<ActiveSkillsComponent>(caster);
+  active.slots[0].id = 9;
+  active.specialized_slots[0].skill_id = 9;
+  active.specialized_slots[0].allocated_points[935] = 1;
+  SkillSystem::RebakeSkillProfiles(registry, caster);
+
+  auto *triggers = registry.try_get<TriggerRuleComponent>(caster);
+  REQUIRE(triggers != nullptr);
+  TriggerRule *rule = nullptr;
+  for (uint8_t i = 0; i < triggers->rule_count; ++i) {
+    if (triggers->rules[i].rule_id == 935) {
+      rule = &triggers->rules[i];
+    }
+  }
+  REQUIRE(rule != nullptr);
+  REQUIRE(rule->required_window == TriggerWindow::DeathSeal);
+
+  const auto enemy = registry.create();
+  registry.emplace<EnemyTag>(enemy);
+  registry.emplace<Position>(enemy, 10.0f, 0.0f);
+  registry.emplace<CombatStats>(enemy);
+  registry.emplace<HealthComponent>(enemy, 1000.0f, 1000.0f);
+
+  const auto hit = [&](Tag tags) {
+    return CombatEventFactory::CreateSkillHit(caster, enemy, 8, tags, false, 0);
+  };
+
+  // 强制必触发, 使窗口口径成为唯一变量。
+  rule->base_chance = 1.0f;
+
+  // 窗口激活态: death_seal=true 且 remaining>0 且 ending=false -> 属于 DeathSeal 窗口。
+  auto &pt = registry.emplace<PhantomTranceComponent>(caster);
+  pt.remaining = 1.0f;
+  pt.params.death_seal = true;
+  pt.ending = false;
+  REQUIRE(IsDeathSealActive(pt));
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown > 0.0f);
+
+  // 进入结束结算: ending=true 时即使 remaining>0 也不再算 DeathSeal 窗口, 不触发。
+  ProcEngine::UpdateCooldowns(registry, 0.6f);
+  pt.ending = true;
+  REQUIRE_FALSE(IsDeathSealActive(pt));
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown == doctest::Approx(0.0f));
+
+  // 回到非 ending 且窗口仍激活: 可再次触发, 证明不触发确由 ending 口径导致。
+  pt.ending = false;
+  ProcEngine::DispatchEvent(registry, caster, hit(Tag::Melee));
+  CHECK(rule->current_cooldown > 0.0f);
+}
+
 } // namespace NoMoreDay

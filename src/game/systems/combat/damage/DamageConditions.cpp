@@ -3,20 +3,16 @@
 #include "game/foundation/components/Common.hpp" // HealthComponent
 #include "game/foundation/components/Stats.hpp"  // CombatStats
 
-#include <string>
-
 namespace NoMoreDay {
 namespace damage {
 namespace {
 
 // 判断单个 BuffEffect 是否构成“受控”：与历史 DamagePipeline 口径一致，
-// 覆盖眩晕/冻结/定身/减速，以及 id 文本含 "Slow" 的 legacy 减速效果。
+// 覆盖眩晕/冻结/定身/减速；减速按 BuffKind::Slow 整数类别判定，无字符串比较。
 bool IsControllingEffect(const BuffEffect &effect) {
-  if (effect.type == BuffType::Stun || effect.type == BuffType::Freeze ||
-      effect.type == BuffType::Root || effect.type == BuffType::SpeedDown) {
-    return true;
-  }
-  return effect.id.find("Slow") != std::string::npos;
+  return effect.type == BuffType::Stun || effect.type == BuffType::Freeze ||
+         effect.type == BuffType::Root || effect.type == BuffType::SpeedDown ||
+         effect.kind == BuffKind::Slow;
 }
 
 } // namespace

@@ -37,6 +37,21 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(node->scope_policy == ScopePolicy::SkillOnly);
   }
 
+  SUBCASE("Skill 3 & 6 cross-skill trigger contracts target skill 2") {
+    // 技能 3 的 335 与技能 6 的 635 均为 Trigger 节点并跨技能触发技能 2；
+    // 此断言锁定既有数据契约（触发目标固定为技能 2）。
+    const auto *skill3Trigger = registry.GetNodeContract(3, 335);
+    REQUIRE(skill3Trigger != nullptr);
+    CHECK(skill3Trigger->role == SpecNodeRole::Trigger);
+    CHECK(skill3Trigger->trigger.trigger_skill_id == 2);
+    CHECK(skill3Trigger->trigger.requires_crit == true);
+
+    const auto *skill6Trigger = registry.GetNodeContract(6, 635);
+    REQUIRE(skill6Trigger != nullptr);
+    CHECK(skill6Trigger->role == SpecNodeRole::Trigger);
+    CHECK(skill6Trigger->trigger.trigger_skill_id == 2);
+  }
+
   SUBCASE("Skill 8 transmuter role") {
     const auto *node = registry.GetNodeContract(8, 870);
     REQUIRE(node != nullptr);

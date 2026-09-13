@@ -66,15 +66,6 @@ void ExecutePreCastShadowDuplication(entt::registry &registry, entt::entity enti
   sc.snapshot.target_pos = target_pos;
   if (stats) {
     sc.snapshot.stats = *stats;
-    DamagePayloadContext ctx{};
-    ctx.base_damage_min = stats->min_weapon_damage;
-    ctx.base_damage_max = stats->max_weapon_damage;
-    ctx.crit_chance = stats->crit_chance;
-    ctx.crit_multiplier = stats->crit_damage;
-    ctx.increased_damage = 0.0f;
-    ctx.more_damage = 0.5f;
-    ctx.source_skill_id = skill_id;
-    sc.snapshot.payload_context = ctx;
   }
 
   registry.emplace<ShadowVisualComponent>(shadow_ent).color_tint = {

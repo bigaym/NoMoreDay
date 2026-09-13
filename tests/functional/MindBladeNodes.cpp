@@ -12,13 +12,11 @@
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/HazardComponents.hpp"
-#include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
-#include "game/foundation/data/BuffIds.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
@@ -115,8 +113,8 @@ void RebuildGrid(systems::SpatialHashGrid &grid, entt::registry &registry) {
 // 逐帧推进光束交付，并保持输入保活窗口（模拟玩家持续按住按键）
 void StepBeam(entt::registry &registry, systems::SpatialHashGrid &grid,
               entt::entity caster, float dt) {
-  if (auto *chan = registry.try_get<ChannelingComponent>(caster)) {
-    chan->channel_timer = 0.25f;
+  if (auto *beam = registry.try_get<BeamChannelComponent>(caster)) {
+    beam->channel_timer = 0.25f;
   }
   RebuildGrid(grid, registry);
   BeamChannelDeliverySystem::Update(registry, grid, dt);
@@ -139,8 +137,8 @@ const BuffEffect *FindEffect(entt::registry &registry, entt::entity e,
 
 } // namespace
 
-// 用例1：OnCast 同时建立 ChannelingComponent 与 BeamChannelComponent；
-//        硬性引导上限 max_channel_time=5.0，绝不等于输入保活窗口 0.25（C3 回归）。
+// 用例1：OnCast 建立 BeamChannelComponent；
+//        硬性引导上限 max_channel_time=5.0 与输入保活窗口 channel_timer=0.25 分离（C3 回归）。
 TEST_CASE("[Functional] MindBlade - OnCast 生命周期与引导上限 (C3)") {
   TestSetupScope setup;
   EnsureSkillMechanics();
@@ -151,16 +149,12 @@ TEST_CASE("[Functional] MindBlade - OnCast 生命周期与引导上限 (C3)") {
 
   CastMindBlade(registry, player, {100.0f, 40.0f});
 
-  auto *chan = registry.try_get<ChannelingComponent>(player);
   auto *beam = registry.try_get<BeamChannelComponent>(player);
-  REQUIRE(chan != nullptr);
   REQUIRE(beam != nullptr);
 
-  CHECK(chan->skill_id == kSkillId);
-  CHECK(chan->channel_timer == doctest::Approx(0.25f));
-  CHECK(chan->tick_interval == doctest::Approx(0.3f));
-
   CHECK(beam->skill_id == kSkillId);
+  CHECK(beam->channel_timer == doctest::Approx(0.25f));
+
   CHECK(beam->owner == player);
   CHECK(beam->mode == BeamChannelMode::ContinuousLaser);
   // 关键回归：引导上限必须是机制数据 5.0，不能被输入保活窗口 0.25 污染
@@ -181,17 +175,14 @@ TEST_CASE("[Functional] MindBlade - 引导输入保活与目标跟随") {
   auto player = CreateTestPlayer(registry, {});
   CastMindBlade(registry, player, {100.0f, 0.0f});
 
-  auto *chan = registry.try_get<ChannelingComponent>(player);
   auto *beam = registry.try_get<BeamChannelComponent>(player);
-  REQUIRE(chan != nullptr);
   REQUIRE(beam != nullptr);
 
   // 先人为消耗保活窗口，验证输入确实重新刷新
-  chan->channel_timer = 0.05f;
+  beam->channel_timer = 0.05f;
   SkillSystem::HandleSkillInput(registry, player, 0, {220.0f, 60.0f});
 
-  CHECK(chan->channel_timer == doctest::Approx(0.25f));
-  CHECK(chan->target_pos.x == doctest::Approx(220.0f));
+  CHECK(beam->channel_timer == doctest::Approx(0.25f));
   CHECK(beam->target_pos.x == doctest::Approx(220.0f));
   CHECK(beam->target_pos.y == doctest::Approx(60.0f));
 }
@@ -264,13 +255,12 @@ TEST_CASE("[Functional] MindBlade - 持续扣蓝与空蓝打断 (H9)") {
   BeamChannelDeliverySystem::Update(registry, grid, 0.05f);
 
   CHECK(channelEndCount == 1);
-  CHECK(registry.try_get<ChannelingComponent>(player) == nullptr);
   CHECK(registry.try_get<BeamChannelComponent>(player) == nullptr);
 
   CombatEventDispatcher::Unregister(CombatEventType::OnChannelEnd, handlerId);
 }
 
-// 用例5：松开按键收尾 — channel_timer 归零后 Update 移除双组件且 OnChannelEnd 派发一次（C3/M9）
+// 用例5：松开按键收尾 — channel_timer 归零后 Update 移除组件且 OnChannelEnd 派发一次（C3/M9）
 TEST_CASE("[Functional] MindBlade - 松开按键收尾 (C3/M9)") {
   TestSetupScope setup;
   EnsureSkillMechanics();
@@ -286,15 +276,14 @@ TEST_CASE("[Functional] MindBlade - 松开按键收尾 (C3/M9)") {
   CreateTestEnemy(registry, 100.0f, 0.0f, 5000.0f);
 
   CastMindBlade(registry, player, {100.0f, 0.0f});
-  auto *chan = registry.try_get<ChannelingComponent>(player);
-  REQUIRE(chan != nullptr);
+  auto *beam = registry.try_get<BeamChannelComponent>(player);
+  REQUIRE(beam != nullptr);
 
-  chan->channel_timer = 0.0f;
+  beam->channel_timer = 0.0f;
   RebuildGrid(grid, registry);
   BeamChannelDeliverySystem::Update(registry, grid, 0.01f);
 
   CHECK(channelEndCount == 1);
-  CHECK(registry.try_get<ChannelingComponent>(player) == nullptr);
   CHECK(registry.try_get<BeamChannelComponent>(player) == nullptr);
 
   CombatEventDispatcher::Unregister(CombatEventType::OnChannelEnd, handlerId);
@@ -328,9 +317,7 @@ TEST_CASE("[Functional] MindBlade - 711 碎空爆引导期禁 tick 与结束爆�
     auto enemy = CreateTestEnemy(registry, 100.0f, 0.0f, 5000.0f);
     CastMindBlade(registry, player, {100.0f, 0.0f});
     auto *beam = registry.try_get<BeamChannelComponent>(player);
-    auto *chan = registry.try_get<ChannelingComponent>(player);
     REQUIRE(beam != nullptr);
-    REQUIRE(chan != nullptr);
 
     beam->tick_timer = 0.0f;
     const float hpBefore = HpOf(registry, enemy);
@@ -338,7 +325,7 @@ TEST_CASE("[Functional] MindBlade - 711 碎空爆引导期禁 tick 与结束爆�
     CHECK(HpOf(registry, enemy) == doctest::Approx(hpBefore));
 
     // 松手收尾 → 碎空爆引爆
-    chan->channel_timer = 0.0f;
+    beam->channel_timer = 0.0f;
     RebuildGrid(grid, registry);
     BeamChannelDeliverySystem::Update(registry, grid, 0.01f);
     CHECK(HpOf(registry, enemy) < hpBefore);
@@ -361,9 +348,9 @@ TEST_CASE("[Functional] MindBlade - 770/772 转质元素映射 (C2/M8)") {
     CHECK((profile.effective_tags & Tag::Lightning) == Tag::None);
 
     CastMindBlade(registry, player, {100.0f, 0.0f});
-    auto *chan = registry.try_get<ChannelingComponent>(player);
-    REQUIRE(chan != nullptr);
-    CHECK(chan->conversion_tag == Tag::Cold);
+    auto *beam = registry.try_get<BeamChannelComponent>(player);
+    REQUIRE(beam != nullptr);
+    CHECK(beam->conversion_tag == Tag::Cold);
   }
 
   {
@@ -377,9 +364,9 @@ TEST_CASE("[Functional] MindBlade - 770/772 转质元素映射 (C2/M8)") {
     CHECK((profile.effective_tags & Tag::Cold) == Tag::None);
 
     CastMindBlade(registry, player, {100.0f, 0.0f});
-    auto *chan = registry.try_get<ChannelingComponent>(player);
-    REQUIRE(chan != nullptr);
-    CHECK(chan->conversion_tag == Tag::Lightning);
+    auto *beam = registry.try_get<BeamChannelComponent>(player);
+    REQUIRE(beam != nullptr);
+    CHECK(beam->conversion_tag == Tag::Lightning);
   }
 }
 
@@ -570,15 +557,13 @@ TEST_CASE("[Functional] MindBlade - 775 中心门控仅压制中心敌人 (M2)")
 
     CastMindBlade(registry, player, {100.0f, 0.0f});
     auto *beam = registry.try_get<BeamChannelComponent>(player);
-    auto *chan = registry.try_get<ChannelingComponent>(player);
     REQUIRE(beam != nullptr);
-    REQUIRE(chan != nullptr);
 
     const float centerHp0 = HpOf(registry, centerEnemy);
     const float outerHp0 = HpOf(registry, outerEnemy);
 
     // 松手收尾 → 碎空爆引爆
-    chan->channel_timer = 0.0f;
+    beam->channel_timer = 0.0f;
     RebuildGrid(grid, registry);
     BeamChannelDeliverySystem::Update(registry, grid, 0.01f);
 
@@ -656,9 +641,6 @@ TEST_CASE("[Functional] MindBlade - 772 感电区域不叠加全额伤害 (M3)")
   // 停掉引导本体，隔离出感电区域自身的结算行为
   if (registry.any_of<BeamChannelComponent>(player)) {
     registry.remove<BeamChannelComponent>(player);
-  }
-  if (registry.any_of<ChannelingComponent>(player)) {
-    registry.remove<ChannelingComponent>(player);
   }
 
   const float hpBefore = HpOf(registry, enemy);
@@ -775,9 +757,9 @@ TEST_CASE("[Functional] MindBlade - 735 孤立增伤按真实敌数判定 (M5)")
       auto target = CreateTestEnemy(registry, 100.0f, 0.0f, 5000.0f);
       if (twoEnemies) CreateTestEnemy(registry, 140.0f, 0.0f, 5000.0f);
       CastMindBlade(registry, player, {100.0f, 0.0f});
-      auto *chan = registry.try_get<ChannelingComponent>(player);
-      REQUIRE(chan != nullptr);
-      chan->channel_timer = 0.0f;
+      auto *beam = registry.try_get<BeamChannelComponent>(player);
+      REQUIRE(beam != nullptr);
+      beam->channel_timer = 0.0f;
       const float hp0 = HpOf(registry, target);
       RebuildGrid(grid, registry);
       BeamChannelDeliverySystem::Update(registry, grid, 0.01f);

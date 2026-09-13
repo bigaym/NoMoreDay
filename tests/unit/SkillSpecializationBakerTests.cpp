@@ -1,20 +1,15 @@
 #include "TestCommon.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Combat.hpp"
 #include "game/foundation/components/FlowingThrustComponents.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
-#include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
-#include "game/foundation/components/EquipmentComponent.hpp"
-#include "game/foundation/components/ItemComponent.hpp"
-#include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
-#include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "game/systems/skill/OrbitingSentinelDeliverySystem.hpp"
 #include "game/systems/skill/SkillSpecializationBaker.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
@@ -41,8 +36,6 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Base Profile Baking") {
   CHECK(profile.effective_level == 1);
   CHECK(profile.projectile_count >= 1);
   CHECK(profile.more_damage_mult == doctest::Approx(1.0f));
-  CHECK(profile.delivery.primary_archetype == static_cast<uint8_t>(DeliveryArchetype::Mobility));
-  CHECK(profile.delivery.secondary_archetype == static_cast<uint8_t>(DeliveryArchetype::DirectStrike));
   CHECK(profile.delivery.speed == doctest::Approx(400.0f));
 }
 
@@ -67,7 +60,7 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Talent Modifiers and Archetype Morp
 
   CHECK(profile.skill_id == 2);
   CHECK(profile.projectile_count == 4); // 1 base + 3
-  CHECK(profile.delivery.primary_archetype == static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile));
+  CHECK((profile.delivery.feature_flags & 1) != 0); // Boomerang morph
   CHECK(profile.delivery.sub_count == 3);
   CHECK((profile.delivery.feature_flags & 4) != 0); // HasSplit
 }
@@ -218,7 +211,7 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
     spec.allocated_points[232] = 1;
     BakedSkillProfile profile{};
     SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
-    CHECK(profile.delivery.primary_archetype == static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile));
+    CHECK((profile.delivery.feature_flags & 1) != 0); // Boomerang morph
     CHECK(profile.delivery.pull_radius == 120.0f);
     CHECK((profile.delivery.feature_flags & 16) != 0);
     CHECK(profile.delivery.range == 500.0f); // Default ballistic range preserved
@@ -290,141 +283,6 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
     SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
     CHECK(profile.delivery.sub_count == 0);
     CHECK(profile.delivery.giant_armor_scale == doctest::Approx(0.05f));
-  }
-}
-
-TEST_CASE("[Unit] OrbitingSentinelDeliverySystem - Interception Dice Roll & Cap") {
-  systems::SpatialHashGrid grid(100, 100, 50.0f);
-
-  // Subtest 1: 0% chance intercepts nothing
-  {
-    entt::registry registry;
-    auto sentinelEnt = registry.create();
-    auto &sentinel = registry.emplace<OrbitingSentinelComponent>(sentinelEnt);
-    sentinel.anchor_entity = sentinelEnt;
-    sentinel.interception_chance = 0.0f;
-    registry.emplace<Position>(sentinelEnt, 0.0f, 0.0f);
-
-    auto proj = registry.create();
-    registry.emplace<EnemyTag>(proj);
-    registry.emplace<Projectile>(proj);
-    registry.emplace<Position>(proj, 10.0f, 10.0f);
-
-    OrbitingSentinelDeliverySystem::Update(registry, grid, 0.016f);
-    CHECK(registry.valid(proj)); // NOT intercepted
-  }
-
-  // Subtest 2: 100% chance intercepts up to cap (8)
-  {
-    entt::registry registry;
-    auto sentinelEnt = registry.create();
-    auto &sentinel = registry.emplace<OrbitingSentinelComponent>(sentinelEnt);
-    sentinel.anchor_entity = sentinelEnt;
-    sentinel.interception_chance = 1.0f;
-    registry.emplace<Position>(sentinelEnt, 0.0f, 0.0f);
-
-    std::vector<entt::entity> projs;
-    for (int i = 0; i < 12; ++i) {
-      auto proj = registry.create();
-      registry.emplace<EnemyTag>(proj);
-      registry.emplace<Projectile>(proj);
-      registry.emplace<Position>(proj, 5.0f, 5.0f);
-      projs.push_back(proj);
-    }
-
-    OrbitingSentinelDeliverySystem::Update(registry, grid, 0.016f);
-    int destroyedCount = 0;
-    for (auto p : projs) {
-      if (!registry.valid(p)) ++destroyedCount;
-    }
-    CHECK(destroyedCount == 8); // Capped at exactly 8 per frame
-  }
-
-  // Subtest 3: 50% chance statistical distribution test
-  {
-    int interceptedTotal = 0;
-    constexpr int kTrials = 200;
-    for (int i = 0; i < kTrials; ++i) {
-      entt::registry registry;
-      auto sentinelEnt = registry.create();
-      auto &sentinel = registry.emplace<OrbitingSentinelComponent>(sentinelEnt);
-      sentinel.anchor_entity = sentinelEnt;
-      sentinel.interception_chance = 0.5f;
-      registry.emplace<Position>(sentinelEnt, 0.0f, 0.0f);
-
-      auto proj = registry.create();
-      registry.emplace<EnemyTag>(proj);
-      registry.emplace<Projectile>(proj);
-      registry.emplace<Position>(proj, 5.0f, 5.0f);
-
-      OrbitingSentinelDeliverySystem::Update(registry, grid, 0.016f);
-      if (!registry.valid(proj)) {
-        ++interceptedTotal;
-      }
-    }
-    // With 200 trials and p=0.5, mean=100, stddev=sqrt(50)~7.07. 4 sigma bounds [60, 140].
-    CHECK(interceptedTotal > 60);
-    CHECK(interceptedTotal < 140);
-  }
-
-  // Subtest 4: Projectile owned by enemy is intercepted
-  {
-    entt::registry registry;
-    auto sentinelEnt = registry.create();
-    auto &sentinel = registry.emplace<OrbitingSentinelComponent>(sentinelEnt);
-    sentinel.anchor_entity = sentinelEnt;
-    sentinel.interception_chance = 1.0f;
-    registry.emplace<Position>(sentinelEnt, 0.0f, 0.0f);
-
-    auto enemyOwner = registry.create();
-    registry.emplace<EnemyTag>(enemyOwner);
-
-    auto proj = registry.create();
-    auto &p = registry.emplace<Projectile>(proj);
-    p.owner = enemyOwner;
-    registry.emplace<Position>(proj, 5.0f, 5.0f);
-
-    OrbitingSentinelDeliverySystem::Update(registry, grid, 0.016f);
-    CHECK_FALSE(registry.valid(proj)); // Intercepted via enemy owner
-  }
-
-  // Subtest 5: Multiple sentinels do not double-intercept the same projectile
-  {
-    entt::registry registry;
-    auto anchor = registry.create();
-    registry.emplace<Position>(anchor, 0.0f, 0.0f);
-
-    auto s1 = registry.create();
-    auto &sent1 = registry.emplace<OrbitingSentinelComponent>(s1);
-    sent1.anchor_entity = anchor;
-    sent1.orbit_radius = 0.0f;
-    sent1.interception_chance = 1.0f;
-    registry.emplace<Position>(s1, 0.0f, 0.0f);
-
-    auto s2 = registry.create();
-    auto &sent2 = registry.emplace<OrbitingSentinelComponent>(s2);
-    sent2.anchor_entity = anchor;
-    sent2.orbit_radius = 0.0f;
-    sent2.interception_chance = 1.0f;
-    registry.emplace<Position>(s2, 0.0f, 0.0f);
-
-    // Create 10 enemy projectiles
-    std::vector<entt::entity> projs;
-    for (int i = 0; i < 10; ++i) {
-      auto proj = registry.create();
-      registry.emplace<EnemyTag>(proj);
-      registry.emplace<Projectile>(proj);
-      registry.emplace<Position>(proj, 5.0f, 5.0f);
-      projs.push_back(proj);
-    }
-
-    OrbitingSentinelDeliverySystem::Update(registry, grid, 0.016f);
-    // Sentinel 1 intercepts up to 8, Sentinel 2 can intercept remaining 2
-    int destroyedCount = 0;
-    for (auto p : projs) {
-      if (!registry.valid(p)) ++destroyedCount;
-    }
-    CHECK(destroyedCount == 10); // Combined interception handles all 10 without duplicate counting
   }
 }
 

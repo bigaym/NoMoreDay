@@ -34,7 +34,7 @@ constexpr uint32_t Vengeance       = 471; // 以眼还眼 (反击增伤)
 constexpr uint32_t StaticField     = 472; // 雷霆法环 (Transmuter Lightning)
 constexpr uint32_t ThunderCascade  = 473; // 雷贯长虹
 constexpr uint32_t FrostArmor      = 474; // 霜铠 (Transmuter Cold)
-constexpr uint32_t Exposure        = 476; // 元素曝光
+constexpr uint32_t Exposure        = 476; // 元素曝光（双前置 473/474，OR 语义；布局锚点取首前置 473，仅视觉偏差）
 } // namespace BladeWardNodes
 
 struct BladeWard : SkillBehaviorBase<BladeWard> {
@@ -66,8 +66,9 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
 
     auto getPoints = [&](uint32_t node_id) -> int {
       if (specPtr) {
-        auto it = specPtr->allocated_points.find(node_id);
-        if (it != specPtr->allocated_points.end()) return it->second;
+        // 读点 helper：已分配节点点数恒 ≥1，正数即已点亮。
+        const int points = skills::ReadPoints(*specPtr, node_id);
+        if (points > 0) return points;
       }
       return exec.active_nodes.test(node_id % 100) ? 1 : 0;
     };
@@ -99,7 +100,8 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     registry.get_or_emplace<ActiveEffectsComponent>(owner).AddOrRefresh(ward_buff);
 
     // 2. 环绕灵剑视觉与物理表现实体 (OrbitingSentinel)
-    // 拦截职责唯一收敛至 ProjectileSystem，interception_chance 置 0.0f，彻底根除 C6 吞噬竞争
+    // 拦截判定由 ProjectileSystem（投射物）与 DamageInterceptors（非投射物源）
+    // 统一承担，环绕灵剑不再重复拦截，此处仅保留环绕与周期攻击
     auto &sentinel = registry.emplace_or_replace<OrbitingSentinelComponent>(owner);
     sentinel.anchor_entity = owner;
     sentinel.cast_id = exec.cast_id;
@@ -107,16 +109,8 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     sentinel.count = static_cast<uint8_t>(exec.is_empowered ? 6 : 3);
     sentinel.orbit_radius = 60.0f;
     sentinel.angular_velocity = 180.0f;
-    sentinel.interception_chance = 0.0f;
 
-    // 3. 响应护盾标记组件 (ReactiveWardComponent)
-    auto &reactive = registry.emplace_or_replace<ReactiveWardComponent>(owner);
-    reactive.owner = owner;
-    reactive.ward_duration = 10.0f;
-    reactive.counter_window = 0.8f;
-    reactive.counter_skill_id = kSkillId;
-
-    // 4. 剑气护体逻辑核心 (BladeWardComponent)
+    // 3. 剑气护体逻辑核心 (BladeWardComponent)
     auto &ward = registry.get_or_emplace<BladeWardComponent>(owner);
     ward.duration = ward.remaining = 10.0f;
     ward.sword_count = sentinel.count;

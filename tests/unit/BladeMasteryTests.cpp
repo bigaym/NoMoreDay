@@ -257,8 +257,9 @@ TEST_CASE("[Unit] Blade Mastery Service - Demon Blade field cleanup on state cha
 
   const auto firstField = registry.create();
   auto &firstState = registry.emplace<BloodSeaFieldComponent>(firstField);
-  firstState.owner = player;
-  firstState.duration = 5.0f;
+  registry.emplace<PersistentFieldTag>(firstField); // 夹具同步：持久场标记
+  firstState.header.owner = player;
+  firstState.header.duration = 5.0f;
 
   REQUIRE(BladeMasteryService::SelectMastery(registry, player,
                                              BladeMasteryId::HeavenlySword));
@@ -268,8 +269,9 @@ TEST_CASE("[Unit] Blade Mastery Service - Demon Blade field cleanup on state cha
                                              BladeMasteryId::DemonBlade));
   const auto secondField = registry.create();
   auto &secondState = registry.emplace<BloodSeaFieldComponent>(secondField);
-  secondState.owner = player;
-  secondState.duration = 4.0f;
+  registry.emplace<PersistentFieldTag>(secondField); // 夹具同步：持久场标记
+  secondState.header.owner = player;
+  secondState.header.duration = 4.0f;
 
   auto &astrolabe = registry.get<AstrolabeComponent>(player);
   astrolabe.mainProfession = static_cast<int>(ProfessionID::Mage);

@@ -22,34 +22,6 @@
 
 namespace NoMoreDay::skills {
 
-namespace HeavenlySwordNodes {
-constexpr uint32_t SwordCoreCalibration = 1100;
-constexpr uint32_t CelestialDomain = 1101;
-constexpr uint32_t SkyEdgeInfusion = 1102;
-constexpr uint32_t ResidualPressure = 1103;
-constexpr uint32_t WorldsplitCore = 1104;
-constexpr uint32_t KingslayerIntent = 1105;
-constexpr uint32_t MeteorCore = 1106;
-constexpr uint32_t SkyPiercingFall = 1107;
-constexpr uint32_t SkyRendAftershock = 1108;
-constexpr uint32_t EdgeOffering = 1109;
-constexpr uint32_t OverflowingTiers = 1110;
-constexpr uint32_t SwordRainEcho = 1111;
-constexpr uint32_t SpinningHeavens = 1112;
-constexpr uint32_t CycleOfAllForms = 1113;
-constexpr uint32_t ReturnToTheSheath = 1114;
-constexpr uint32_t DomainLock = 1115;
-constexpr uint32_t FieldResonance = 1116;
-constexpr uint32_t ArraySynchrony = 1117;
-constexpr uint32_t TideSpread = 1118;
-constexpr uint32_t EnduringHeaven = 1119;
-constexpr uint32_t AttunementPolarization = 1120;
-constexpr uint32_t LightningTribunal = 1121;
-constexpr uint32_t FrozenDominion = 1122;
-constexpr uint32_t SolarIncineration = 1123;
-constexpr uint32_t ElementalRazing = 1124;
-} // namespace HeavenlySwordNodes
-
 namespace {
 
 constexpr float kCenterRadiusRatio = 0.3f;
@@ -131,36 +103,6 @@ Tag BuildDamageTags(const BladeAttunement attunement) {
   return tags;
 }
 
-const SpecializedSkill *FindHeavenlySpec(const entt::registry &registry,
-                                         const entt::entity owner) {
-  const auto *active = registry.try_get<ActiveSkillsComponent>(owner);
-  if (active == nullptr) {
-    return nullptr;
-  }
-
-  for (const auto &spec : active->specialized_slots) {
-    if (spec.skill_id == HeavenlySwordDescent::kSkillId) {
-      return &spec;
-    }
-  }
-  return nullptr;
-}
-
-int GetAllocatedPoints(const SpecializedSkill *spec, const uint32_t node_id) {
-  if (spec == nullptr) {
-    return 0;
-  }
-  if (const auto it = spec->allocated_points.find(node_id);
-      it != spec->allocated_points.end()) {
-    return std::max(0, it->second);
-  }
-  return 0;
-}
-
-bool HasAllocated(const SpecializedSkill *spec, const uint32_t node_id) {
-  return GetAllocatedPoints(spec, node_id) > 0;
-}
-
 std::vector<entt::entity> CollectTargetsInRadius(entt::registry &registry,
                                                  const Vector2 center,
                                                  const float radius) {
@@ -189,8 +131,8 @@ void ApplyResistShred(entt::registry &registry, const entt::entity target,
       std::string(BuffIdToString(BuffId::HeavenlySwordFieldResist));
   debuff.name = "Heavenly Sword Resist Shred";
   debuff.type = BuffType::DefenseDown;
-  debuff.duration = 1.25f;
-  debuff.remaining = 1.25f;
+  debuff.duration = GetMech(kHeavenlySwordSkillId, 0u, "resist_shred_duration", 1.25f);
+  debuff.remaining = debuff.duration;
   debuff.is_debuff = true;
 
   StatModifier modifier;
@@ -204,7 +146,8 @@ void ApplyResistShred(entt::registry &registry, const entt::entity target,
     StatModifier slow;
     slow.type = StatType::MoveSpeed;
     slow.mode = ModifierMode::PercentAdd;
-    slow.value = -12.0f;
+    slow.value = -GetMech(kHeavenlySwordSkillId,
+                          HeavenlySwordNodes::FrozenDominion, "slow_percent", 12.0f);
     slow.required_tags = Tag::None;
     slow.source = ModifierSource::Skill;
     debuff.modifiers.push_back(slow);
@@ -231,7 +174,7 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
       damage_mult *= 1.0f + field.afflicted_pressure_bonus_mult;
     }
 
-    ApplySingleHit(registry, field.owner, target, field_entity, field.attunement,
+    ApplySingleHit(registry, field.header.owner, target, field_entity, field.attunement,
                    base_damage * damage_mult);
     ApplyResistShred(registry, target, field);
 
@@ -240,18 +183,24 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
       // 炽阳焚城 (1123): apply or strengthen ignite
       systems::AilmentApplyRequest req;
       req.ailment = AilmentType::Ignite;
-      req.source = field.owner;
-      req.magnitude = base_damage * 0.25f; // Extra ignite magnitude
+      req.source = field.header.owner;
+      req.magnitude = base_damage * GetMech(kHeavenlySwordSkillId,
+                                           HeavenlySwordNodes::SolarIncineration,
+                                           "ignite_magnitude_ratio", 0.25f);
       (void)systems::AilmentApplier::Apply(registry, target, req);
     }
 
     if (field.frozen_dominion) {
       // 霜星封界 (1122): chance to freeze (stagnation)
-      if (utils::ThreadSafeRandom::GetFloat01() < 0.15f) {
+      if (utils::ThreadSafeRandom::GetFloat01() <
+          GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::FrozenDominion,
+                  "freeze_chance", 0.15f)) {
         systems::AilmentApplyRequest req;
         req.ailment = AilmentType::Freeze;
-        req.source = field.owner;
-        req.duration = 1.0f;
+        req.source = field.header.owner;
+        req.duration = GetMech(kHeavenlySwordSkillId,
+                               HeavenlySwordNodes::FrozenDominion,
+                               "freeze_duration", 1.0f);
         (void)systems::AilmentApplier::Apply(registry, target, req);
       }
     }
@@ -260,7 +209,7 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
       // 雷池天罚 (1121): apply shock
       systems::AilmentApplyRequest req;
       req.ailment = AilmentType::Shock;
-      req.source = field.owner;
+      req.source = field.header.owner;
       (void)systems::AilmentApplier::Apply(registry, target, req);
     }
   }
@@ -326,14 +275,17 @@ void ApplyMeteorCoreSlow(entt::registry &registry, const entt::entity target,
   debuff.name = "Heavenly Sword Meteor Core";
   debuff.type = BuffType::SpeedDown;
   debuff.kind = BuffKind::Slow;
-  debuff.duration = 2.0f;
-  debuff.remaining = 2.0f;
+  debuff.duration = GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::MeteorCore,
+                            "slow_duration", 2.0f);
+  debuff.remaining = debuff.duration;
   debuff.is_debuff = true;
 
   StatModifier modifier;
   modifier.type = StatType::MoveSpeed;
   modifier.mode = ModifierMode::PercentAdd;
-  modifier.value = -10.0f * static_cast<float>(points);
+  modifier.value = -GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::MeteorCore,
+                            "slow_percent_per_point", 10.0f) *
+                   static_cast<float>(points);
   modifier.required_tags = Tag::None;
   modifier.source = ModifierSource::Skill;
   debuff.modifiers.push_back(modifier);
@@ -382,7 +334,7 @@ bool ConsumeReturnToSheathBonus(entt::registry &registry, const entt::entity own
   auto view = registry.view<HeavenlySwordFieldComponent>();
   for (const entt::entity field_entity : view) {
     auto &field = view.get<HeavenlySwordFieldComponent>(field_entity);
-    if (field.owner != owner || field.return_to_sheath_timer <= 0.0f ||
+    if (field.header.owner != owner || field.return_to_sheath_timer <= 0.0f ||
         field.return_to_sheath_bonus_mult <= 0.0f ||
         !field.return_to_sheath_ready) {
       continue;
@@ -405,7 +357,7 @@ float GetHeavenlySwordSpinningBonus(const entt::registry &registry,
       continue;
     }
     const auto &field = view.get<HeavenlySwordFieldComponent>(field_entity);
-    if (field.owner != owner || field.spinning_heavens_bonus <= 0.0f) {
+    if (field.header.owner != owner || field.spinning_heavens_bonus <= 0.0f) {
       continue;
     }
     bonus = std::max(bonus, field.spinning_heavens_bonus);
@@ -432,7 +384,7 @@ SpinningCadenceBaselines ResolveSpinningCadenceBaselines(
       continue;
     }
     const auto &field = view.get<HeavenlySwordFieldComponent>(field_entity);
-    if (field.owner != owner) {
+    if (field.header.owner != owner) {
       continue;
     }
     if (field.original_formation_attack_interval > 0.0f) {
@@ -467,10 +419,13 @@ void ApplyHeavenlySwordSpinningBonus(entt::registry &registry,
     }
   }
 
-  if (auto *chan = registry.try_get<ChannelingComponent>(owner);
-      chan != nullptr && chan->skill_id == 5u) {
-    chan->tick_interval = base_channel_tick_interval / interval_mult;
-    chan->tick_timer = std::min(chan->tick_timer, chan->tick_interval);
+  // A1-3 迁移修复：此前写已拆除的旧引导组件字段 tick_interval（静默 no-op），
+  // 现改写真源 BeamChannelComponent::tick_interval；技能5 引导中的剑刃风暴频率由此生效。
+  // 注意：若同时点出 501 剑意共鸣，交付系统会按 Baker 的 sub_interval 每 tick 重算该值。
+  if (auto *beam = registry.try_get<BeamChannelComponent>(owner);
+      beam != nullptr && beam->skill_id == 5u) {
+    beam->tick_interval = base_channel_tick_interval / interval_mult;
+    beam->tick_timer = std::min(beam->tick_timer, beam->tick_interval);
   }
 }
 
@@ -513,10 +468,6 @@ void CastInfiniteBladesWithHeavenlyFollowUp(entt::registry &registry,
     return;
   }
 
-  if (auto *chan = registry.try_get<ChannelingComponent>(owner); chan && chan->skill_id == 5u) {
-    chan->bonus_damage_mult *= 1.0f + bonus_mult;
-    chan->is_empowered = true;
-  }
   if (auto *beam = registry.try_get<BeamChannelComponent>(owner); beam && beam->skill_id == 5u) {
     beam->bonus_damage_mult *= 1.0f + bonus_mult;
     beam->is_empowered = true;
@@ -527,9 +478,9 @@ void CastInfiniteBladesWithHeavenlyFollowUp(entt::registry &registry,
 
 void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
                                   SkillExecution &exec) {
-  const SpecializedSkill *spec = FindHeavenlySpec(registry, owner);
-  const int extra_spend_cap = std::min(
-      2, GetAllocatedPoints(spec, HeavenlySwordNodes::OverflowingTiers));
+  const HeavenlySwordCastSpec spec =
+      ResolveHeavenlySwordCastSpec(registry, owner);
+  const int extra_spend_cap = std::min(2, spec.overflowingTiersPoints);
   const int spend_cap = 5 + extra_spend_cap;
   const int spent_tiers = systems::BladeResourceService::ConsumeUpTo(
       registry, owner, spend_cap, kSkillId);
@@ -538,73 +489,74 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
       systems::BladeResourceService::GetHeavenlyAttunement(registry, owner);
   const auto *skill = SkillRegistry::Get().GetSkill(kSkillId);
   const float base_impact_radius =
-      skill ? skill->GetParam("impact_radius", 90.0f) : 90.0f;
+      skill ? skill->GetParam("impact_radius", spec.impactRadiusFallback)
+            : spec.impactRadiusFallback;
   const float base_field_radius =
-      skill ? skill->GetParam("field_radius", 140.0f) : 140.0f;
+      skill ? skill->GetParam("field_radius", spec.fieldRadiusFallback)
+            : spec.fieldRadiusFallback;
   const float base_field_duration =
-      skill ? skill->GetParam("field_duration", 5.0f) : 5.0f;
+      skill ? skill->GetParam("field_duration", spec.fieldDurationFallback)
+            : spec.fieldDurationFallback;
   const float tier_damage_bonus =
-      skill ? skill->GetParam("tier_damage_bonus", 0.18f) : 0.18f;
+      skill ? skill->GetParam("tier_damage_bonus", spec.tierDamageBonusFallback)
+            : spec.tierDamageBonusFallback;
   const float tier_radius_bonus =
-      skill ? skill->GetParam("tier_radius_bonus", 14.0f) : 14.0f;
+      skill ? skill->GetParam("tier_radius_bonus", spec.tierRadiusBonusFallback)
+            : spec.tierRadiusBonusFallback;
+  const float base_damage_fallback =
+      GetMech(kSkillId, 0u, "base_damage_fallback", 120.0f);
 
   float impact_damage_mult = 1.0f + static_cast<float>(spent_tiers) *
                                          tier_damage_bonus;
-  impact_damage_mult += getModifier(HeavenlySwordNodes::SkyEdgeInfusion, ModifierParam::Effectiveness, 0.04f) *
-                        static_cast<float>(GetAllocatedPoints(
-                            spec, HeavenlySwordNodes::SkyEdgeInfusion)) *
+  impact_damage_mult += spec.skyEdgeInfusionPerPointPerTier *
+                        static_cast<float>(spec.skyEdgeInfusionPoints) *
                         static_cast<float>(spent_tiers);
-  if (HasAllocated(spec, HeavenlySwordNodes::CycleOfAllForms)) {
-    impact_damage_mult *= 0.8f;
+  if (spec.cycleOfAllForms) {
+    impact_damage_mult *= spec.cycleOfAllFormsDamageMult;
   }
 
   const float impact_stability_mult =
-      1.0f + getModifier(HeavenlySwordNodes::SwordCoreCalibration, ModifierParam::Effectiveness, 0.10f) * static_cast<float>(GetAllocatedPoints(
-                        spec, HeavenlySwordNodes::SwordCoreCalibration));
+      1.0f + spec.swordCoreCalibrationPerPoint *
+                 static_cast<float>(spec.swordCoreCalibrationPoints);
   const float center_bonus_mult =
-      getModifier(HeavenlySwordNodes::WorldsplitCore, ModifierParam::Effectiveness, 0.10f) * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::WorldsplitCore));
+      spec.worldsplitCorePerPoint *
+      static_cast<float>(spec.worldsplitCorePoints);
   const float elite_impact_bonus_mult =
-      getModifier(HeavenlySwordNodes::KingslayerIntent, ModifierParam::Effectiveness, 0.08f) * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::KingslayerIntent));
+      spec.kingslayerEliteImpactPerPoint *
+      static_cast<float>(spec.kingslayerIntentPoints);
   const float elite_field_bonus_mult =
-      getModifier(HeavenlySwordNodes::KingslayerIntent, ModifierParam::Effectiveness, 0.04f) * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::KingslayerIntent));
-  const int meteor_core_points =
-      GetAllocatedPoints(spec, HeavenlySwordNodes::MeteorCore);
-  const int scar_points =
-      GetAllocatedPoints(spec, HeavenlySwordNodes::SkyRendAftershock);
+      spec.kingslayerEliteFieldPerPoint *
+      static_cast<float>(spec.kingslayerIntentPoints);
+  const int meteor_core_points = spec.meteorCorePoints;
+  const int scar_points = spec.skyRendAftershockPoints;
   const float spinning_heavens_bonus =
-      0.15f * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::SpinningHeavens));
+      spec.spinningHeavensPerPoint *
+      static_cast<float>(spec.spinningHeavensPoints);
   const float return_to_sheath_bonus_mult =
-      0.08f * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::ReturnToTheSheath));
+      spec.returnToSheathPerPoint *
+      static_cast<float>(spec.returnToTheSheathPoints);
   const float afflicted_pressure_bonus_mult =
-      0.10f * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::TideSpread));
+      spec.tideSpreadPerPoint * static_cast<float>(spec.tideSpreadPoints);
 
   float field_radius =
       base_field_radius + static_cast<float>(spent_tiers) * tier_radius_bonus;
-  field_radius *= 1.0f +
-                  getModifier(HeavenlySwordNodes::CelestialDomain, ModifierParam::RangeMultiplier, 0.08f) *
-                  static_cast<float>(GetAllocatedPoints(
-                              spec, HeavenlySwordNodes::CelestialDomain));
-  if (HasAllocated(spec, HeavenlySwordNodes::SkyPiercingFall)) {
-    field_radius *= getModifier(HeavenlySwordNodes::SkyPiercingFall, ModifierParam::RangeMultiplier, 0.7f);
-    impact_damage_mult *=
-        1.0f + getModifier(HeavenlySwordNodes::SkyPiercingFall, ModifierParam::Effectiveness, 0.35f);
+  field_radius *=
+      1.0f + spec.celestialDomainPerPoint *
+                 static_cast<float>(spec.celestialDomainPoints);
+  if (spec.skyPiercingFall) {
+    field_radius *= spec.skyPiercingRangeMult;
+    impact_damage_mult *= 1.0f + spec.skyPiercingDamageMult;
   }
 
   const float impact_radius = (base_impact_radius + field_radius * 0.25f) *
                               impact_stability_mult;
-  const float center_radius = ComputeCenterRadius(
-      impact_radius, HasAllocated(spec, HeavenlySwordNodes::SkyPiercingFall));
+  const float center_radius =
+      ComputeCenterRadius(impact_radius, spec.skyPiercingFall);
   const std::vector<entt::entity> targets =
       CollectTargetsInRadius(registry, exec.target_pos, impact_radius);
   if (!targets.empty()) {
     const float impact_base_damage =
-        (skill ? skill->base_damage : 120.0f) * impact_damage_mult;
+        (skill ? skill->base_damage : base_damage_fallback) * impact_damage_mult;
     for (const entt::entity target : targets) {
       const auto *target_pos = registry.try_get<Position>(target);
       const bool is_center_hit =
@@ -632,47 +584,58 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   registry.emplace<SkillComponent>(field_entity, kSkillId, owner);
 
   auto &field = registry.emplace<HeavenlySwordFieldComponent>(field_entity);
-  field.owner = owner;
-  field.duration = base_field_duration +
-                   0.5f * static_cast<float>(GetAllocatedPoints(
-                       spec, HeavenlySwordNodes::EnduringHeaven));
-  field.radius = field_radius;
-  field.cast_id = exec.cast_id;
+  registry.emplace<PersistentFieldTag>(field_entity); // 持久场原型标记：交付系统据此跳过自管理脉冲
+  field.header.owner = owner;
+  field.header.duration =
+      base_field_duration + spec.enduringHeavenPerPoint *
+                                static_cast<float>(spec.enduringHeavenPoints);
+  field.header.radius = field_radius;
   field.spent_tiers = spent_tiers;
   field.attunement = attunement;
   field.impact_damage_mult = impact_damage_mult;
   field.field_damage_mult =
-      1.0f + 0.08f * static_cast<float>(spent_tiers) +
-      0.04f * static_cast<float>(GetAllocatedPoints(
-                 spec, HeavenlySwordNodes::EdgeOffering)) *
+      1.0f + GetMech(kSkillId, 0u, "field_damage_per_tier", 0.08f) *
+                 static_cast<float>(spent_tiers) +
+      spec.edgeOfferingPerPointPerTier *
+          static_cast<float>(spec.edgeOfferingPoints) *
           static_cast<float>(spent_tiers);
-  field.damage_interval *=
-      1.0f - 0.05f * static_cast<float>(GetAllocatedPoints(
-                 spec, HeavenlySwordNodes::ResidualPressure));
-  field.damage_interval *=
-      1.0f - 0.08f * static_cast<float>(GetAllocatedPoints(
-                 spec, HeavenlySwordNodes::FieldResonance));
-  field.damage_interval = std::clamp(field.damage_interval, 0.18f, 0.75f);
-  field.resist_reduction = 6.0f;
-  field.extra_resist_reduction = std::min(
-      12.0f, 2.0f * static_cast<float>(GetAllocatedPoints(
-                   spec, HeavenlySwordNodes::ElementalRazing)));
+  field.header.tick_interval *=
+      1.0f - spec.residualPressurePerPoint *
+                 static_cast<float>(spec.residualPressurePoints);
+  field.header.tick_interval *=
+      1.0f -
+      spec.fieldResonancePerPoint * static_cast<float>(spec.fieldResonancePoints);
+  field.header.tick_interval = std::clamp(field.header.tick_interval, 0.18f, 0.75f);
+  field.resist_reduction = GetMech(kSkillId, 0u, "base_resist_reduction", 6.0f);
+  field.extra_resist_reduction =
+      std::min(spec.elementalRazingCap,
+               spec.elementalRazingPerPoint *
+                   static_cast<float>(spec.elementalRazingPoints));
   field.elite_first_second_timer = elite_field_bonus_mult > 0.0f ? 1.0f : 0.0f;
   field.elite_impact_bonus_mult = elite_impact_bonus_mult;
   field.elite_field_bonus_mult = elite_field_bonus_mult;
   field.pending_scar_strikes = scar_points;
-  field.scar_delay_timer = scar_points > 0 ? kScarDelaySeconds : 0.0f;
-  field.scar_interval = scar_points > 0 ? 0.15f : 0.0f;
-  field.scar_damage_mult = 0.18f * static_cast<float>(scar_points);
+  field.scar_delay_timer =
+      scar_points > 0
+          ? GetMech(kSkillId, HeavenlySwordNodes::SkyRendAftershock,
+                    "scar_delay", kScarDelaySeconds)
+          : 0.0f;
+  field.scar_interval =
+      scar_points > 0
+          ? GetMech(kSkillId, HeavenlySwordNodes::SkyRendAftershock,
+                    "scar_interval", 0.15f)
+          : 0.0f;
+  field.scar_damage_mult =
+      spec.skyRendScarPerPoint * static_cast<float>(scar_points);
   field.spinning_heavens_bonus = spinning_heavens_bonus;
   const float current_formation_attack_interval =
       registry.all_of<BladeFormationComponent>(owner)
           ? registry.get<BladeFormationComponent>(owner).attack_interval
           : 1.0f;
   const float current_channel_tick_interval =
-      registry.all_of<ChannelingComponent>(owner) &&
-              registry.get<ChannelingComponent>(owner).skill_id == 5u
-          ? registry.get<ChannelingComponent>(owner).tick_interval
+      registry.all_of<BeamChannelComponent>(owner) &&
+              registry.get<BeamChannelComponent>(owner).skill_id == 5u
+          ? registry.get<BeamChannelComponent>(owner).tick_interval
           : 0.5f;
   const auto baselines = ResolveSpinningCadenceBaselines(
       registry, owner, entt::null, current_formation_attack_interval,
@@ -682,32 +645,42 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   field.return_to_sheath_bonus_mult = return_to_sheath_bonus_mult;
   field.return_to_sheath_ready = false;
   field.afflicted_pressure_bonus_mult = afflicted_pressure_bonus_mult;
-  field.has_trigger_echo = HasAllocated(spec, HeavenlySwordNodes::SwordRainEcho);
-  field.has_cycle = HasAllocated(spec, HeavenlySwordNodes::CycleOfAllForms);
-  field.has_domain_lock = HasAllocated(spec, HeavenlySwordNodes::DomainLock);
-  field.has_array_synchrony = HasAllocated(spec, HeavenlySwordNodes::ArraySynchrony);
-  field.has_polarization =
-      HasAllocated(spec, HeavenlySwordNodes::AttunementPolarization);
+  field.has_trigger_echo = spec.swordRainEcho;
+  field.has_cycle = spec.cycleOfAllForms;
+  field.has_domain_lock = spec.domainLock;
+  field.header.has_linked_synergy = spec.arraySynchrony;
+  field.has_polarization = spec.attunementPolarization;
   field.lightning_tribunal =
       field.has_polarization && attunement == BladeAttunement::Lightning &&
-      HasAllocated(spec, HeavenlySwordNodes::LightningTribunal);
+      spec.lightningTribunal;
   field.frozen_dominion =
       field.has_polarization && attunement == BladeAttunement::Frost &&
-      HasAllocated(spec, HeavenlySwordNodes::FrozenDominion);
+      spec.frozenDominion;
   field.solar_incineration =
       field.has_polarization && attunement == BladeAttunement::Fire &&
-      HasAllocated(spec, HeavenlySwordNodes::SolarIncineration);
+      spec.solarIncineration;
 
   if (field.lightning_tribunal) {
-    field.damage_interval = std::min(0.75f, field.damage_interval * 1.2f);
-    field.field_damage_mult *= 1.3f;
-    field.radius *= 1.2f; // Low frequency but wider area
+    field.header.tick_interval = std::min(
+        0.75f, field.header.tick_interval *
+                   GetMech(kSkillId, HeavenlySwordNodes::LightningTribunal,
+                           "tick_interval_mult", 1.2f));
+    field.field_damage_mult *=
+        GetMech(kSkillId, HeavenlySwordNodes::LightningTribunal,
+                "field_damage_mult", 1.3f);
+    field.header.radius *=
+        GetMech(kSkillId, HeavenlySwordNodes::LightningTribunal, "radius_mult",
+                1.2f); // Low frequency but wider area
   }
   if (field.frozen_dominion) {
-    field.field_damage_mult *= 1.12f;
+    field.field_damage_mult *=
+        GetMech(kSkillId, HeavenlySwordNodes::FrozenDominion, "field_damage_mult",
+                1.12f);
   }
   if (field.solar_incineration) {
-    field.field_damage_mult *= 1.18f;
+    field.field_damage_mult *=
+        GetMech(kSkillId, HeavenlySwordNodes::SolarIncineration,
+                "field_damage_mult", 1.18f);
   }
 
   if (field.has_trigger_echo && spent_tiers > 0) {
@@ -715,8 +688,8 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
     if (!targets.empty()) {
       for (const entt::entity target : targets) {
         ApplySingleHit(registry, owner, target, field_entity, attunement,
-                        (skill ? skill->base_damage : 120.0f) *
-                           getModifier(HeavenlySwordNodes::SwordRainEcho, ModifierParam::Effectiveness, 0.10f) *
+                       (skill ? skill->base_damage : base_damage_fallback) *
+                           spec.swordRainEchoPerTier *
                            static_cast<float>(spent_tiers));
       }
     }
@@ -726,10 +699,10 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   area_field.owner = owner;
   area_field.cast_id = exec.cast_id;
   area_field.source_skill_id = kSkillId;
-  area_field.remaining_duration = field.duration;
-  area_field.pulse_interval = field.damage_interval;
+  area_field.remaining_duration = field.header.duration;
+  area_field.pulse_interval = field.header.tick_interval;
   area_field.timer = 0.0f;
-  area_field.radius = field.radius;
+  area_field.radius = field.header.radius;
   area_field.shape_type = 0;
   PayloadDefinition pdef{};
   pdef.type = PayloadType::Damage;
@@ -739,7 +712,7 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   area_field.payload_count = 1;
 
   LOG_INFO("Heavenly Sword Descent cast: spent={} radius={:.1f}", spent_tiers,
-           field.radius);
+           field.header.radius);
 }
 
 void HeavenlySwordDescent::UpdateField(entt::registry &registry,
@@ -748,18 +721,18 @@ void HeavenlySwordDescent::UpdateField(entt::registry &registry,
                                        float dt,
                                        const systems::SpatialHashGrid &grid) {
   auto *pos = registry.try_get<Position>(entity);
-  if (pos == nullptr || !registry.valid(field.owner)) {
+  if (pos == nullptr || !registry.valid(field.header.owner)) {
     if (registry.valid(entity)) {
       registry.destroy(entity);
     }
     return;
   }
 
-  field.duration -= dt;
+  field.header.duration -= dt;
   if (auto *af = registry.try_get<AreaFieldComponent>(entity)) {
-    af->remaining_duration = field.duration;
+    af->remaining_duration = field.header.duration;
   }
-  field.damage_timer -= dt;
+  field.header.tick_timer -= dt;
   field.linked_cut_cooldown = std::max(0.0f, field.linked_cut_cooldown - dt);
   field.cycle_refund_timer -= dt;
   field.elite_first_second_timer =
@@ -767,33 +740,33 @@ void HeavenlySwordDescent::UpdateField(entt::registry &registry,
   field.scar_delay_timer -= dt;
   field.return_to_sheath_timer =
       std::max(0.0f, field.return_to_sheath_timer - dt);
-  if (field.duration <= 0.0f) {
-    if (registry.valid(field.owner)) {
+  if (field.header.duration <= 0.0f) {
+    if (registry.valid(field.header.owner)) {
       const auto baselines = ResolveSpinningCadenceBaselines(
-          registry, field.owner, entity, field.original_formation_attack_interval,
+          registry, field.header.owner, entity, field.original_formation_attack_interval,
           field.original_channel_tick_interval);
       ApplyHeavenlySwordSpinningBonus(
-          registry, field.owner,
-          GetHeavenlySwordSpinningBonus(registry, field.owner, entity),
+          registry, field.header.owner,
+          GetHeavenlySwordSpinningBonus(registry, field.header.owner, entity),
           baselines.formation_attack_interval, baselines.channel_tick_interval);
     }
     registry.destroy(entity);
     return;
   }
 
-  if (field.spinning_heavens_bonus > 0.0f && registry.valid(field.owner)) {
+  if (field.spinning_heavens_bonus > 0.0f && registry.valid(field.header.owner)) {
     const auto baselines = ResolveSpinningCadenceBaselines(
-        registry, field.owner, entt::null, field.original_formation_attack_interval,
+        registry, field.header.owner, entt::null, field.original_formation_attack_interval,
         field.original_channel_tick_interval);
     ApplyHeavenlySwordSpinningBonus(
-        registry, field.owner,
-        GetHeavenlySwordSpinningBonus(registry, field.owner),
+        registry, field.header.owner,
+        GetHeavenlySwordSpinningBonus(registry, field.header.owner),
         baselines.formation_attack_interval, baselines.channel_tick_interval);
   }
 
   std::vector<entt::entity> targets;
-  grid.query(*pos, field.radius, [&](entt::entity target, const Position &) {
-    if (target == field.owner || target == entity || registry.any_of<KilledTag>(target) ||
+  grid.query(*pos, field.header.radius, [&](entt::entity target, const Position &) {
+    if (target == field.header.owner || target == entity || registry.any_of<KilledTag>(target) ||
         !registry.any_of<EnemyTag>(target)) {
       return;
     }
@@ -814,7 +787,7 @@ void HeavenlySwordDescent::UpdateField(entt::registry &registry,
   if (field.has_cycle && field.cycle_refund_timer <= 0.0f && !targets.empty() &&
       field.cycle_refunds_granted < 2) {
     field.cycle_refund_timer = 1.0f;
-    if (systems::BladeResourceService::Gain(registry, field.owner, 1, kSkillId)) {
+    if (systems::BladeResourceService::Gain(registry, field.header.owner, 1, kSkillId)) {
       ++field.cycle_refunds_granted;
       if (field.return_to_sheath_bonus_mult > 0.0f) {
         field.return_to_sheath_timer = 3.0f;
@@ -824,19 +797,27 @@ void HeavenlySwordDescent::UpdateField(entt::registry &registry,
   }
 
   if (field.pending_scar_strikes > 0 && field.scar_delay_timer <= 0.0f) {
-    const float scar_radius = std::max(24.0f, field.radius * 0.25f);
+    const float scar_radius = std::max(24.0f, field.header.radius * 0.25f);
     auto scar_targets = CollectTargetsInRadius(registry, {pos->x, pos->y}, scar_radius);
     if (!scar_targets.empty()) {
       ++field.echo_strikes_triggered;
       const float base_scar_damage =
-          32.0f * (1.0f + static_cast<float>(field.spent_tiers) * 0.08f) *
+          GetMech(kSkillId, HeavenlySwordNodes::SkyRendAftershock,
+                  "scar_base_damage", 32.0f) *
+          (1.0f + static_cast<float>(field.spent_tiers) *
+                      GetMech(kSkillId, HeavenlySwordNodes::SkyRendAftershock,
+                              "scar_damage_per_tier", 0.08f)) *
           (1.0f + field.scar_damage_mult);
       for (const entt::entity target : scar_targets) {
         float scar_damage = base_scar_damage;
         if (IsEliteOrBoss(registry, target)) {
-          scar_damage *= 1.0f + 0.20f * static_cast<float>(field.pending_scar_strikes);
+          scar_damage *=
+              1.0f +
+              GetMech(kSkillId, HeavenlySwordNodes::SkyRendAftershock,
+                      "scar_elite_damage_per_strike", 0.20f) *
+                  static_cast<float>(field.pending_scar_strikes);
         }
-        ApplySingleHit(registry, field.owner, target, entity, field.attunement,
+        ApplySingleHit(registry, field.header.owner, target, entity, field.attunement,
                        scar_damage);
       }
     }
@@ -845,17 +826,22 @@ void HeavenlySwordDescent::UpdateField(entt::registry &registry,
         field.pending_scar_strikes > 0 ? field.scar_interval : 1.0f;
   }
 
-  if (field.damage_timer > 0.0f || targets.empty()) {
+  if (field.header.tick_timer > 0.0f || targets.empty()) {
     return;
   }
-  field.damage_timer = field.damage_interval;
+  field.header.tick_timer = field.header.tick_interval;
 
-  float base_damage = 28.0f + 6.0f * static_cast<float>(field.spent_tiers);
+  float base_damage =
+      GetMech(kSkillId, 0u, "field_pulse_base_damage", 28.0f) +
+      GetMech(kSkillId, 0u, "field_pulse_damage_per_tier", 6.0f) *
+          static_cast<float>(field.spent_tiers);
   if (field.frozen_dominion) {
-    base_damage *= 1.08f;
+    base_damage *= GetMech(kSkillId, HeavenlySwordNodes::FrozenDominion,
+                           "pulse_damage_mult", 1.08f);
   }
   if (field.solar_incineration) {
-    base_damage *= 1.10f;
+    base_damage *= GetMech(kSkillId, HeavenlySwordNodes::SolarIncineration,
+                           "pulse_damage_mult", 1.10f);
   }
   ApplyFieldDamage(registry, entity, field, targets, base_damage);
 }
@@ -876,30 +862,35 @@ void HeavenlySwordDescent::HandleLinkedHit(entt::registry &registry,
   for (const entt::entity field_entity : view) {
     auto &field = view.get<HeavenlySwordFieldComponent>(field_entity);
     const auto &field_pos = view.get<Position>(field_entity);
-    if (field.owner != evt.source ||
-        !IsInsideField(*target_pos, field_pos, field.radius)) {
+    if (field.header.owner != evt.source ||
+        !IsInsideField(*target_pos, field_pos, field.header.radius)) {
       continue;
     }
 
-    ++field.linked_hit_count;
+    ++field.header.linked_hit_count;
     ApplyResistShred(registry, evt.target, field);
 
-    if (!field.has_array_synchrony || field.linked_cut_cooldown > 0.0f) {
+    if (!field.header.has_linked_synergy || field.linked_cut_cooldown > 0.0f) {
       continue;
     }
 
-    field.linked_cut_cooldown = 0.15f;
+    field.linked_cut_cooldown =
+        GetMech(kSkillId, HeavenlySwordNodes::ArraySynchrony,
+                "linked_cut_cooldown", 0.15f);
     ++field.echo_strikes_triggered;
 
     DamageRequest request;
     request.origin = DamageOrigin::SecondaryProc;
-    request.attacker = field.owner;
+    request.attacker = field.header.owner;
     request.defender = evt.target;
     request.skill_id = kSkillId;
-    request.base_pool = BuildHeavenlyDamagePool(field.attunement, 18.0f);
+    request.base_pool = BuildHeavenlyDamagePool(
+        field.attunement,
+        GetMech(kSkillId, HeavenlySwordNodes::ArraySynchrony,
+                "linked_cut_damage", 18.0f));
     request.additional_tags = BuildDamageTags(field.attunement);
     request.source_entity = field_entity;
-    (void)ResolveDamage(registry, request, field.owner);
+    (void)ResolveDamage(registry, request, field.header.owner);
   }
 }
 

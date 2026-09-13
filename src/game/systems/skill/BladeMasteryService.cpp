@@ -1,5 +1,6 @@
 #include "game/systems/skill/BladeMasteryService.hpp"
 
+#include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/foundation/data/TalentData.hpp"
@@ -16,7 +17,7 @@ void DestroyOwnedFields(entt::registry &registry, const entt::entity owner) {
   std::vector<entt::entity> to_destroy;
   const auto view = registry.view<FieldComponent>();
   for (const entt::entity entity : view) {
-    if (view.template get<FieldComponent>(entity).owner == owner) {
+    if (view.template get<FieldComponent>(entity).header.owner == owner) {
       to_destroy.push_back(entity);
     }
   }
@@ -57,7 +58,7 @@ void CleanupSpecializedFields(entt::registry &registry, const entt::entity owner
     const auto heavenly_view = registry.view<HeavenlySwordFieldComponent>();
     for (const entt::entity field_entity : heavenly_view) {
       const auto &field = heavenly_view.get<HeavenlySwordFieldComponent>(field_entity);
-      if (field.owner != owner) {
+      if (field.header.owner != owner) {
         continue;
       }
       if (field.original_formation_attack_interval > 0.0f) {
@@ -80,10 +81,14 @@ void CleanupSpecializedFields(entt::registry &registry, const entt::entity owner
       auto &ai = sword_view.get<SpiritSwordAI>(sword);
       ai.attack_interval = formation_attack_interval;
     }
-    if (auto *chan = registry.try_get<ChannelingComponent>(owner);
-        chan != nullptr && chan->skill_id == 5u) {
-      chan->tick_interval = channel_tick_interval;
-      chan->tick_timer = std::min(chan->tick_timer, chan->tick_interval);
+    // A1-3 迁移修复：此前写已拆除的旧引导组件字段 tick_interval（静默 no-op），
+    // 现改写真源 BeamChannelComponent::tick_interval；切换专精时技能5 引导频率由此还原。
+    // 覆盖限制：501 构筑下交付系统每 tick 按烘焙 profile 重算 tick_interval，
+    // 本写点仅非 501 构筑生效。
+    if (auto *beam = registry.try_get<BeamChannelComponent>(owner);
+        beam != nullptr && beam->skill_id == 5u) {
+      beam->tick_interval = channel_tick_interval;
+      beam->tick_timer = std::min(beam->tick_timer, beam->tick_interval);
     }
     DestroyOwnedFields<HeavenlySwordFieldComponent>(registry, owner);
   }

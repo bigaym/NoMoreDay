@@ -256,7 +256,12 @@ void Game::init() {
   NoMoreDay::MaterialRegistry::Get().LoadMaterials(
       "assets/data/materials.json");
   NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
-  NoMoreDay::data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json");
+  // 机制表是技能数值唯一来源，加载失败必须阻断启动，禁止运行期静默回退默认值
+  if (!NoMoreDay::data::SkillMechanicsRegistry::Get().LoadFromFile(
+          "assets/data/skill_mechanics.json")) {
+    LOG_CRITICAL("SkillMechanicsRegistry load failed");
+    throw std::runtime_error("SkillMechanicsRegistry load failed");
+  }
   NoMoreDay::data::BladeMasteryRegistry::Get().Load();
   NoMoreDay::SkillSystem::InitHooks();
   NoMoreDay::BuffRegistry::Initialize();

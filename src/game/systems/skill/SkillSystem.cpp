@@ -15,6 +15,7 @@
 #include "game/foundation/components/EquipmentComponent.hpp"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/foundation/components/SkillPointAccess.hpp"
 #include "engine/render/SkillVfxEvent.hpp"
 #include "game/foundation/components/PlayerState.hpp" // For DashComponent
 #include "game/foundation/components/Projectile.hpp"
@@ -39,6 +40,7 @@
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/SkillCastConstraintService.hpp"
+#include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
 #include "game/systems/skill/behaviors/BloodSea.hpp"
 #include "game/systems/skill/SummonCombatBridge.hpp"
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
@@ -1108,12 +1110,16 @@ void SkillSystem::InitHooks() {
             if (const auto *active = registry.try_get<ActiveSkillsComponent>(evt.source)) {
               for (const auto &spec : active->specialized_slots) {
                 if (spec.skill_id == 4u) {
-                  auto it451 = spec.allocated_points.find(451u);
-                  if (it451 != spec.allocated_points.end() && it451->second > 0) {
-                    speedPoints = std::max(speedPoints, static_cast<float>(it451->second));
+                  // 节点点数统一经 helper 读取；每点闪避提速标量由机制表驱动。
+                  const int speedPts = skills::ReadPoints(spec, 451u);
+                  if (speedPts > 0) {
+                    speedPoints = std::max(
+                        speedPoints,
+                        skills::GetMech(4u, 451u, "dodge_speed_per_point", 1.0f) *
+                            static_cast<float>(speedPts));
                   }
-                  auto it455 = spec.allocated_points.find(455u);
-                  if (it455 != spec.allocated_points.end() && it455->second > 0) {
+                  // 以攻代守为布尔节点：点亮即生效。
+                  if (skills::HasNode(spec, 455u)) {
                     powerBoost = true;
                   }
                   break;
@@ -1143,18 +1149,20 @@ void SkillSystem::InitHooks() {
             }
             // Talent 455: 以攻代守 闪避后 More+20% (2s) 并必得 1 层剑意
             if (powerBoost) {
-              BuffEffect powerBuff{
+              // 常量 Buff 模板：std::string 成员只构造一次，避免每个闪避事件重复分配；
+              // AddOrRefresh 只读该模板并复制入组件，不会改写模板状态。
+              static const BuffEffect kBladeWardPowerBuff{
                   .id = "blade_ward_dodge_power",
                   .name = "Offensive Guard",
                   .type = BuffType::PowerBoost,
                   .duration = 2.0f,
                   .remaining = 2.0f,
+                  .modifiers = {{.value = 20.0f,
+                                 .type = StatType::PhysicalDamage,
+                                 .mode = ModifierMode::PercentMult}},
               };
-              powerBuff.modifiers.push_back({.value = 20.0f,
-                                            .type = StatType::PhysicalDamage,
-                                            .mode = ModifierMode::PercentMult});
               registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
-                  .AddOrRefresh(powerBuff);
+                  .AddOrRefresh(kBladeWardPowerBuff);
               registry.get_or_emplace<StatsDirty>(evt.source);
               SkillSystem::GainSwordIntent(registry, evt.source, 1, 4);
             }
@@ -1168,13 +1176,20 @@ void SkillSystem::InitHooks() {
             if (const auto *active = registry.try_get<ActiveSkillsComponent>(evt.source)) {
               for (const auto &spec : active->specialized_slots) {
                 if (spec.skill_id == 4u) {
-                  auto it432 = spec.allocated_points.find(432u);
-                  if (it432 != spec.allocated_points.end() && it432->second > 0) {
-                    blockWard = std::max(blockWard, 10.0f * static_cast<float>(it432->second));
+                  // 节点点数统一经 helper 读取；每点护盾量与剑意几率由机制表驱动。
+                  const int wardPts = skills::ReadPoints(spec, 432u);
+                  if (wardPts > 0) {
+                    blockWard = std::max(
+                        blockWard,
+                        skills::GetMech(4u, 432u, "ward_per_block_per_point", 10.0f) *
+                            static_cast<float>(wardPts));
                   }
-                  auto it435 = spec.allocated_points.find(435u);
-                  if (it435 != spec.allocated_points.end() && it435->second > 0) {
-                    intentChance = std::max(intentChance, 0.15f * static_cast<float>(it435->second));
+                  const int intentPts = skills::ReadPoints(spec, 435u);
+                  if (intentPts > 0) {
+                    intentChance = std::max(
+                        intentChance,
+                        skills::GetMech(4u, 435u, "intent_chance_per_point", 0.15f) *
+                            static_cast<float>(intentPts));
                   }
                   break;
                 }
@@ -1367,23 +1382,6 @@ void SkillSystem::Update(entt::registry &registry,
   BoomerangDeliverySystem::Update(registry, grid, dt);
   OrbitingSentinelDeliverySystem::Update(registry, grid, dt);
 
-  // Update Reactive Ward (Task 2.6)
-  static thread_local std::vector<entt::entity> s_ward_finished;
-  s_ward_finished.clear();
-  auto reactive_ward_view = registry.view<ReactiveWardComponent>();
-  for (auto entity : reactive_ward_view) {
-    auto &rw = reactive_ward_view.get<ReactiveWardComponent>(entity);
-    rw.timer += dt;
-    if (rw.timer >= rw.ward_duration) {
-      s_ward_finished.push_back(entity);
-    }
-  }
-  for (auto e : s_ward_finished) {
-    if (registry.valid(e)) {
-      registry.remove<ReactiveWardComponent>(e);
-    }
-  }
-
   // Update Blade Ward
   auto ward_view = registry.view<BladeWardComponent>();
   for (auto entity : ward_view) {
@@ -1406,17 +1404,11 @@ void SkillSystem::Update(entt::registry &registry,
           registry, entity, 4u, 0u, ResolveEntityWorldPosition(registry, entity));
       EmitSkillVfxEvent(wardExitContext, SkillVfxEventType::BuffExit, 0.9f);
 
-      // 解 B2: 彻底清除 OrbitingSentinelComponent 与 ReactiveWardComponent 驻留
+      // 解 B2: 彻底清除 OrbitingSentinelComponent 驻留
       if (registry.all_of<OrbitingSentinelComponent>(entity)) {
         const auto &sent = registry.get<OrbitingSentinelComponent>(entity);
         if (sent.skill_id == 4u) {
           registry.remove<OrbitingSentinelComponent>(entity);
-        }
-      }
-      if (registry.all_of<ReactiveWardComponent>(entity)) {
-        const auto &rw = registry.get<ReactiveWardComponent>(entity);
-        if (rw.counter_skill_id == 4u) {
-          registry.remove<ReactiveWardComponent>(entity);
         }
       }
       registry.remove<BladeWardComponent>(entity);
@@ -1526,15 +1518,6 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
     exec.has_snapshot = true;
     exec.snapshot.stats = *stats;
     exec.snapshot.skill_id = skill_id;
-    DamagePayloadContext ctx{};
-    ctx.base_damage_min = stats->min_weapon_damage;
-    ctx.base_damage_max = stats->max_weapon_damage;
-    ctx.crit_chance = stats->crit_chance;
-    ctx.crit_multiplier = stats->crit_damage;
-    ctx.increased_damage = 0.0f;
-    ctx.more_damage = 1.0f;
-    ctx.source_skill_id = skill_id;
-    exec.snapshot.payload_context = ctx;
     // No empowerment by default for non-snapshot casts unless we want it?
   }
 
@@ -1594,15 +1577,6 @@ entt::entity SkillSystem::SpawnShadowEcho(
     for (auto &val : snapshot.stats.flat_damage) {
       val *= damageScale;
     }
-    DamagePayloadContext ctx{};
-    ctx.base_damage_min = snapshot.stats.min_weapon_damage;
-    ctx.base_damage_max = snapshot.stats.max_weapon_damage;
-    ctx.crit_chance = stats->crit_chance;
-    ctx.crit_multiplier = stats->crit_damage;
-    ctx.increased_damage = 0.0f;
-    ctx.more_damage = damageScale;
-    ctx.source_skill_id = skill_id;
-    snapshot.payload_context = ctx;
   }
 
   ShadowComponent shadow_comp;
@@ -1771,7 +1745,7 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
         // cooldown. This ensures the cooldown effectively starts AFTER
         // channeling (or duration is added).
         bool isChannelingThis = false;
-        if (auto *chan = registry.try_get<ChannelingComponent>(entity)) {
+        if (auto *chan = registry.try_get<BeamChannelComponent>(entity)) {
           if (chan->skill_id == slot.id) {
             isChannelingThis = true;
           }
@@ -1967,13 +1941,18 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
 
   bool isSwordArrayRelocate = false;
   if (slot.id == 6) {
+    // 节点判定双源：优先读 Baker 烘焙出的 feature_flags（生产常态——StatsSystem::update
+    // 会先经 RebakeSkillProfiles 烘焙）；profile 尚未烘焙时回退到 skills::HasNode 读
+    // allocated_points。该回退不是纯兼容死路：UI 的 SkillAssign 只改槽位、不保证置
+    // StatsDirty，单测也会未经 Rebake 直接调用 TryCast，故保留以避免空指针解引用。
+    // 收敛为单源的前提是「设槽/加专精即触发烘焙」，详见 A1 第二轮报告。
     const bool has675 = bakedProfile ? ((bakedProfile->delivery.feature_flags & 8388608) != 0)
-                                     : (specialized && specialized->allocated_points.contains(675));
+                                     : skills::HasNode(specialized, 675);
     if (has675) {
       size_t activeCount = 0;
       int maxArrays = 1;
-      if (bakedProfile ? ((bakedProfile->delivery.feature_flags & 16) != 0) : (specialized && specialized->allocated_points.contains(610))) maxArrays = 2;
-      if (bakedProfile ? ((bakedProfile->delivery.feature_flags & 32) != 0) : (specialized && specialized->allocated_points.contains(611))) maxArrays = 3;
+      if (bakedProfile ? ((bakedProfile->delivery.feature_flags & 16) != 0) : skills::HasNode(specialized, 610)) maxArrays = 2;
+      if (bakedProfile ? ((bakedProfile->delivery.feature_flags & 32) != 0) : skills::HasNode(specialized, 611)) maxArrays = 3;
 
       for (auto arrEnt : registry.view<SwordArrayComponent>()) {
         if (registry.get<SwordArrayComponent>(arrEnt).owner == entity) {
@@ -2090,16 +2069,6 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
       exec.snapshot.stats = *stats;
       SkillSpecModifierAdapter::ApplyHeavyMomentumToDamageMultipliers(
           exec.snapshot.stats.damage_multipliers, slot.id, skillTags, nodeIds);
-      DamagePayloadContext ctx{};
-      ctx.base_damage_min = stats->min_weapon_damage;
-      ctx.base_damage_max = stats->max_weapon_damage;
-      ctx.crit_chance = stats->crit_chance;
-      ctx.crit_multiplier = stats->crit_damage;
-      ctx.increased_damage = 0.0f;
-      ctx.more_damage = exec.snapshot.stats.damage_multipliers[0];
-      ctx.effective_tags = skillTags;
-      ctx.source_skill_id = slot.id;
-      exec.snapshot.payload_context = ctx;
     }
   }
 
@@ -2135,20 +2104,20 @@ void SkillSystem::HandleSkillInput(entt::registry &registry,
     return;
 
   // 1. Maintain Channeling
-  if (auto *chan = registry.try_get<ChannelingComponent>(entity)) {
-    if (chan->skill_id == slot.id) {
-      chan->channel_timer = 0.25f; // Keep alive
-      chan->target_pos = target_pos;
-      // 技能7 现代交付层：同步光束目标，供 Part1 BeamChannelComponent 分支读取
-      if (auto *beam = registry.try_get<BeamChannelComponent>(entity);
-          beam != nullptr && beam->skill_id == slot.id) {
-        beam->target_pos = target_pos;
+  if (auto *beam = registry.try_get<BeamChannelComponent>(entity)) {
+    if (beam->skill_id == slot.id) {
+      // channel_timer 是技能7 专用的输入保活窗口：按住时刷新、松手归零即结束。
+      // 技能5（InfiniteBlades）不读取该字段，收尾只由 max_channel_time 决定，
+      // 因此仅对技能7 写入，避免技能5 产生无消费点的死写。
+      constexpr uint32_t kMindBladeSkillId = 7u;
+      if (beam->skill_id == kMindBladeSkillId) {
+        beam->channel_timer = 0.25f;
       }
-      // Maybe handle ticking here if we want instant feedback?
-      // No, update loop handles it.
+      // 使光束目标跟随输入
+      beam->target_pos = target_pos;
       return;
     }
-    // If channeling something else, we ignore input (or we could interrupt)
+    // 引导其他技能时忽略该输入（或可在此打断）
     return;
   }
 
@@ -2185,9 +2154,8 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
     return false;
   const auto &node = node_it->second;
 
-  int current_pts = specialized->allocated_points.contains(node_id)
-                        ? specialized->allocated_points.at(node_id)
-                        : 0;
+  // 读点 helper：不存在返回 0（已分配节点点数恒 ≥1）。
+  int current_pts = skills::ReadPoints(specialized, node_id);
   if (current_pts >= node.max_points) {
     LOG_WARN("Cannot add talent point: Node {} already at max ({}/{})", node_id,
              current_pts, node.max_points);
@@ -2195,25 +2163,42 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
   }
 
   bool has_valid_prereq = false;
+  bool has_reachable_prereq = false;
   bool prereq_satisfied = node.prerequisites.empty();
   for (const auto &pre_req : node.prerequisites) {
     const uint32_t pre_id = pre_req.node_id;
-    if (pre_id == 0 || !tree->nodes.contains(pre_id)) {
+    if (pre_id == 0) {
+      continue;
+    }
+    const auto pre_it = tree->nodes.find(pre_id);
+    if (pre_it == tree->nodes.end()) {
       continue;
     }
     has_valid_prereq = true;
-    int pre_pts = specialized->allocated_points.contains(pre_id)
-                      ? specialized->allocated_points.at(pre_id)
-                      : 0;
+    // 读点 helper：不存在返回 0（已分配节点点数恒 ≥1）。
+    int pre_pts = skills::ReadPoints(specialized, pre_id);
     const int required_points =
         (pre_req.required_points > 0) ? pre_req.required_points : 1;
+    // 前置节点自身 max_points 必须能覆盖门槛，否则该前置结构上永不可满足
+    if (pre_it->second.max_points >= required_points) {
+      has_reachable_prereq = true;
+    }
     if (pre_pts >= required_points) {
       prereq_satisfied = true;
       break;
     }
   }
   if (!prereq_satisfied && has_valid_prereq) {
-    LOG_WARN("Cannot add talent point: no prerequisite met for node {}", node_id);
+    if (!has_reachable_prereq) {
+      // 所有有效前置的门槛均超过其 max_points，节点因数据缺陷永久不可达
+      LOG_WARN(
+          "Cannot add talent point: node {} is unreachable - every prerequisite "
+          "requires more points than its max_points allows",
+          node_id);
+    } else {
+      LOG_WARN("Cannot add talent point: no prerequisite met for node {}",
+               node_id);
+    }
     return false;
   }
 
@@ -2261,12 +2246,14 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
 
   if (!s_excluded_nodes.empty()) {
     for (const uint32_t excluded_node_id : s_excluded_nodes) {
-      auto it = specialized->allocated_points.find(excluded_node_id);
-      if (it == specialized->allocated_points.end()) {
+      // 读点 helper：不存在返回 0；已分配节点点数恒 ≥1，故非正即未分配。
+      const int excluded_points =
+          skills::ReadPoints(specialized, excluded_node_id);
+      if (excluded_points <= 0) {
         continue;
       }
-      active->available_talent_points += it->second;
-      specialized->allocated_points.erase(it);
+      active->available_talent_points += excluded_points;
+      specialized->allocated_points.erase(excluded_node_id);
       if (auto *runtime =
               registry.try_get<SkillContractRuntimeComponent>(entity)) {
         runtime->trigger_cooldowns.erase(excluded_node_id);
@@ -2400,8 +2387,7 @@ Tag SkillSystem::GetEffectiveSkillTags(entt::registry &registry,
         if (preferred == 0) {
           continue;
         }
-        auto it = spec.allocated_points.find(preferred);
-        if (it != spec.allocated_points.end() && it->second > 0) {
+        if (skills::HasNode(spec, preferred)) {
           selected_transmuter = preferred;
           break;
         }
@@ -2500,8 +2486,8 @@ bool SkillSystem::CanApplyScopePolicy(const entt::registry &registry,
   case ScopePolicy::GlobalAlways:
     return true;
   case ScopePolicy::GlobalWhileBuffActive:
-    if (const auto *chan = registry.try_get<ChannelingComponent>(entity)) {
-      if (chan->skill_id == source_skill_id) {
+    if (const auto *beam = registry.try_get<BeamChannelComponent>(entity)) {
+      if (beam->skill_id == source_skill_id) {
         return true;
       }
     }
@@ -2566,9 +2552,8 @@ bool SkillSystem::HasAllocatedNode(const entt::registry &registry,
     if (slot.skill_id != skill_id) {
       continue;
     }
-    const auto it = slot.allocated_points.find(node_id);
     // 找到对应技能的专精槽即返回，避免同名节点在其他技能上被误判命中。
-    return it != slot.allocated_points.end() && it->second > 0;
+    return skills::HasNode(slot, node_id);
   }
   return false;
 }

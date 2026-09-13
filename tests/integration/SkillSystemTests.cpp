@@ -250,11 +250,11 @@ TEST_CASE("[Integration] Blade Mastery - Heavenly Sword descent spends tiers and
   REQUIRE(view.begin() != view.end());
   const auto field = *view.begin();
   const auto &fieldComp = view.get<HeavenlySwordFieldComponent>(field);
-  CHECK(fieldComp.owner == player);
+  CHECK(fieldComp.header.owner == player);
   CHECK(fieldComp.spent_tiers == 5);
   CHECK(fieldComp.attunement == BladeAttunement::Lightning);
-  CHECK(fieldComp.duration == doctest::Approx(5.0f));
-  CHECK(fieldComp.radius > 0.0f);
+  CHECK(fieldComp.header.duration == doctest::Approx(5.0f));
+  CHECK(fieldComp.header.radius > 0.0f);
 }
 
 TEST_CASE("[Integration] SkillSystem - Heavenly Sword impact and cycle nodes close remaining runtime gaps") {
@@ -374,9 +374,9 @@ TEST_CASE("[Integration] SkillSystem - Heavenly Sword impact and cycle nodes clo
         registry.get<HealthComponent>(eliteTarget).current;
     outcome.formation_attack_interval =
         registry.get<BladeFormationComponent>(player).attack_interval;
-    REQUIRE(registry.all_of<ChannelingComponent>(player));
+    REQUIRE(registry.all_of<BeamChannelComponent>(player));
     outcome.infinite_blades_damage_mult =
-        registry.get<ChannelingComponent>(player).bonus_damage_mult;
+        registry.get<BeamChannelComponent>(player).bonus_damage_mult;
     outcome.afflicted_health = registry.get<HealthComponent>(afflictedTarget).current;
     auto *refreshedIgnite = afflictedEffects.Get("integration_ignite");
     REQUIRE(refreshedIgnite != nullptr);
@@ -448,9 +448,9 @@ TEST_CASE("[Integration] Blade Mastery - Blood Sea consumes Bloodthirst and crea
   const auto field = *view.begin();
   const auto &fieldComp = view.get<BloodSeaFieldComponent>(field);
   const auto &fieldPos = view.get<Position>(field);
-  CHECK(fieldComp.owner == player);
+  CHECK(fieldComp.header.owner == player);
   CHECK(fieldComp.consumed_bloodthirst == 6);
-  CHECK(fieldComp.duration == doctest::Approx(6.0f));
+  CHECK(fieldComp.header.duration == doctest::Approx(6.0f));
   CHECK(fieldComp.leech_ratio > 0.0f);
   CHECK(fieldPos.x == doctest::Approx(10.0f));
   CHECK(fieldPos.y == doctest::Approx(20.0f));
@@ -838,11 +838,13 @@ TEST_CASE("[Integration] SkillLogic - Specialized Behaviors") {
   }
 
   SUBCASE("Channeling - Infinite Blades") {
-    auto &chan = registry.emplace<ChannelingComponent>(player);
-    chan.skill_id = 5;
-    chan.channel_timer = 1.0f;
-    chan.tick_interval = 0.1f;
-    chan.tick_timer = 0.1f;
+    auto &beam = registry.emplace<BeamChannelComponent>(player);
+    beam.owner = player;
+    beam.skill_id = 5;
+    beam.mode = BeamChannelMode::BarrageEmitter;
+    beam.channel_timer = 1.0f;
+    beam.tick_interval = 0.1f;
+    beam.tick_timer = 0.0f;
 
     SkillSystem::Update(registry, grid, 0.15f);
     CHECK(!registry.view<Projectile>().empty());
@@ -1333,6 +1335,18 @@ TEST_CASE("[Integration] SkillSystem - BladeWard 432 & 435 OnBlock triggers") {
   CombatEventDispatcher::Dispatch(registry, blockEvt);
 
   CHECK(registry.get<CombatStats>(blocker).barrier >= 30.0f);
+
+  // 节点 435 剑意格御：3 点 = 45% 几率每次格挡回 1 层剑意
+  // （intent_chance_per_point 0.15，见 skill_mechanics.json）。概率触发，
+  // 重复派发以可靠观察到至少一次回复（128 次全不触发概率 ~0.55^128）。
+  for (int i = 0; i < 128; ++i) {
+    CombatEvent repeatEvt =
+        CombatEventFactory::CreateOnBlock(blocker, attacker, 50.0f);
+    CombatEventDispatcher::Dispatch(registry, repeatEvt);
+  }
+  const int intentStacks = registry.get<SwordIntentComponent>(blocker).stacks;
+  CHECK(intentStacks >= 1);
+  CHECK(intentStacks <= registry.get<SwordIntentComponent>(blocker).max_stacks);
 }
 
 TEST_CASE("[Integration] SkillSystem - BladeWard 452 defensive trigger on dodge") {
@@ -1390,14 +1404,10 @@ TEST_CASE("[Integration] SkillSystem - BladeWard B2 expiration cleanup") {
   auto &sent = registry.emplace<OrbitingSentinelComponent>(entity);
   sent.skill_id = 4u;
 
-  auto &rw = registry.emplace<ReactiveWardComponent>(entity);
-  rw.counter_skill_id = 4u;
-
   SkillSystem::Update(registry, grid, 0.016f);
 
   CHECK_FALSE(registry.all_of<BladeWardComponent>(entity));
   CHECK_FALSE(registry.all_of<OrbitingSentinelComponent>(entity));
-  CHECK_FALSE(registry.all_of<ReactiveWardComponent>(entity));
 }
 
 TEST_CASE("[Integration] SkillSystem - Key-node cast smoke matrix") {
@@ -1438,7 +1448,7 @@ TEST_CASE("[Integration] SkillSystem - Key-node cast smoke matrix") {
     } else if (skill_id == 9) {
       CHECK(registry.all_of<PhantomTranceComponent>(caster));
     } else if (skill_id == 5 || skill_id == 7) {
-      CHECK(registry.all_of<ChannelingComponent>(caster));
+      CHECK(registry.all_of<BeamChannelComponent>(caster));
     } else if (skill_id == 8) {
       auto view = registry.view<Projectile, BoomerangComponent>();
       CHECK(view.begin() != view.end());

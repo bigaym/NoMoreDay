@@ -7,6 +7,7 @@
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/components/Stats.hpp"
+#include "game/foundation/SharedContext.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
@@ -23,6 +24,7 @@
 #include "game/systems/skill/SummonLifecycleSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -761,7 +763,7 @@ TEST_CASE("[Functional] Skill 3 - Nodes 370 & 371 Ignite Magnitude & Duration Sc
   // Find ignite buff (type == Burn)
   const BuffEffect *ignite = nullptr;
   for (const auto &b : effects->effects) {
-    if (b.type == BuffType::Burn || b.id.find("ignite") != std::string::npos) {
+    if (b.type == BuffType::Burn || b.kind == BuffKind::Ignite) {
       ignite = &b;
       break;
     }
@@ -806,7 +808,7 @@ TEST_CASE("[Functional] Skill 3 - Nodes 372 & 373 Shock Application & Arc Chain 
   REQUIRE(effectsA != nullptr);
   bool hasShock = false;
   for (const auto &b : effectsA->effects) {
-    if (b.type == BuffType::Shock || b.id.find("shock") != std::string::npos) {
+    if (b.type == BuffType::Shock) {
       hasShock = true;
       break;
     }
@@ -840,14 +842,14 @@ TEST_CASE("[Functional] Skill 3 - Node 374 Spirit Corrosion Elemental Resistance
 
   auto *effects = registry.try_get<ActiveEffectsComponent>(enemy);
   REQUIRE(effects != nullptr);
-  auto *shred = effects->Get("SpiritCorrosion_Fire");
+  auto *shred = effects->Get(BuffId::SpiritCorrosionFire);
   REQUIRE(shred != nullptr);
   CHECK(shred->stacks == 1);
   CHECK(shred->modifiers[0].value == doctest::Approx(-8.0f));
 
   // Hit 2
   hitFunc(registry, player, enemy, Tag::Fire, false);
-  shred = effects->Get("SpiritCorrosion_Fire");
+  shred = effects->Get(BuffId::SpiritCorrosionFire);
   CHECK(shred->stacks == 2);
   CHECK(shred->modifiers[0].value == doctest::Approx(-16.0f));
 
@@ -855,7 +857,7 @@ TEST_CASE("[Functional] Skill 3 - Node 374 Spirit Corrosion Elemental Resistance
   for (int i = 0; i < 10; ++i) {
     hitFunc(registry, player, enemy, Tag::Fire, false);
   }
-  shred = effects->Get("SpiritCorrosion_Fire");
+  shred = effects->Get(BuffId::SpiritCorrosionFire);
   CHECK(shred->stacks == 8); // Capped at 8
   CHECK(shred->modifiers[0].value == doctest::Approx(-64.0f));
 }
@@ -894,6 +896,68 @@ TEST_CASE("[Functional] Skill 3 - Node 375 Charge Counter & Elemental Burst") {
   // Enemy should have taken burst damage
   const auto &hp = registry.get<HealthComponent>(enemy);
   CHECK(hp.current < 1000.0f);
+}
+
+TEST_CASE("[Functional] Skill 3 - Node 373 Arc Chain Spatial Grid Equivalence (B2-13)") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+
+  // 同一场景分别在“无 SharedContext（线性回退）”与“注入空间网格”下结算，
+  // 断言两条路径命中的连锁目标集合完全一致。
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+
+  auto runHit = [&](bool useGrid) {
+    entt::registry registry;
+    SharedContext shared{};
+    // 故意使用极小桶数强制哈希碰撞，验证网格路径对重复返回实体的去重
+    systems::SpatialHashGrid grid(4, 4, 50.0f);
+    if (useGrid) {
+      shared.spatialGrid = &grid;
+      registry.ctx().emplace<SharedContext *>(&shared);
+    }
+
+    auto player = CreateTestPlayer(registry, {{372, 1}, {373, 3}});
+    CastBladeFormation(registry, player);
+
+    auto makeEnemy = [&](float x) {
+      auto e = registry.create();
+      registry.emplace<EnemyTag>(e);
+      registry.emplace<Position>(e, x, 100.0f);
+      auto &stats = registry.emplace<CombatStats>(e);
+      stats.health = 500.0f;
+      stats.max_health = 500.0f;
+      registry.emplace<HealthComponent>(e, 500.0f, 500.0f);
+      return e;
+    };
+
+    auto victim = makeEnemy(120.0f);
+    auto nearB = makeEnemy(150.0f);
+    auto nearC = makeEnemy(170.0f);
+    auto far = makeEnemy(600.0f); // 距 victim 480 > 连锁半径 200
+
+    if (useGrid) {
+      grid.rebuild(registry.view<Position>(), registry);
+    }
+
+    hitFunc(registry, player, victim, Tag::Lightning, false);
+
+    return std::array<bool, 3>{
+        registry.get<HealthComponent>(nearB).current < 500.0f,
+        registry.get<HealthComponent>(nearC).current < 500.0f,
+        registry.get<HealthComponent>(far).current < 500.0f};
+  };
+
+  const auto linearHits = runHit(false);
+  const auto gridHits = runHit(true);
+  CHECK(linearHits == gridHits);
+  // 半径内两名敌人都应被连锁命中，半径外敌人不命中（与旧线性遍历同语义）
+  CHECK(linearHits[0] == true);
+  CHECK(linearHits[1] == true);
+  CHECK(linearHits[2] == false);
+  CHECK(gridHits[0] == true);
+  CHECK(gridHits[1] == true);
+  CHECK(gridHits[2] == false);
 }
 
 } // namespace NoMoreDay

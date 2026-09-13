@@ -16,6 +16,7 @@
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/damage/DamageInterceptors.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raylib.h"
 
@@ -688,26 +689,13 @@ void ProjectileSystem::Update(entt::registry &registry,
 
           if (ward->trigger_counter && registry.valid(act.instigator) &&
               registry.all_of<CombatStats>(act.instigator)) {
-            Tag elementTag = Tag::Physical;
-            if (ward->is_lightning_ward) {
-              elementTag = Tag::Lightning;
-            } else if (ward->is_cold_ward) {
-              elementTag = Tag::Cold;
-            }
-            const float counterDmg = 35.0f * (1.0f + ward->counter_damage_more);
-            DamagePool counterPool;
-            counterPool.Add(elementTag, counterDmg);
-            DamageRequest counterRequest;
-            counterRequest.origin = DamageOrigin::ThornsReflect;
-            counterRequest.attacker = target;
-            counterRequest.defender = act.instigator;
-            counterRequest.skill_id = 4;
-            counterRequest.base_pool = counterPool;
-            counterRequest.additional_tags = Tag::Hit | Tag::Melee | Tag::SecondaryHit;
-            counterRequest.source_entity = target;
+            // 先取旋转标记，避免 ResolveDamage 改动组件池后再读守方组件指针。
+            const bool spin = ward->counter_spin;
+            const DamageRequest counterRequest =
+                damage::ResolveSkill4Counter(target, act.instigator, *ward);
             (void)ResolveDamage(registry, counterRequest, target);
 
-            if (ward->counter_spin) {
+            if (spin) {
               particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(
                   act.pos, {0.0f, -80.0f}, 1.2f));
             }

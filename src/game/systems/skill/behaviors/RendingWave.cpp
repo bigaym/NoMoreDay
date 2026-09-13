@@ -94,9 +94,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       if (registry.all_of<ActiveSkillsComponent>(owner)) {
         for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
           if (spec.skill_id == kSkillId) {
-            auto it = spec.allocated_points.find(nid);
-            if (it != spec.allocated_points.end()) return it->second;
-            break;
+            return ReadPoints(spec, nid);
           }
         }
       }
@@ -470,9 +468,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       if (reg.all_of<ActiveSkillsComponent>(actualAttacker)) {
         for (const auto &spec : reg.get<ActiveSkillsComponent>(actualAttacker).specialized_slots) {
           if (spec.skill_id == kSkillId) {
-            auto it = spec.allocated_points.find(nid);
-            if (it != spec.allocated_points.end()) return it->second;
-            break;
+            return ReadPoints(spec, nid);
           }
         }
       }
@@ -533,6 +529,11 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         stacks += 1;
       }
       if (stacks > 0) {
+        // 护甲击碎为跨技能共享的 debuff：与流云刺 152 (FlowingThrust) 使用同一
+        // 运行时 id "ArmorShred"（BuffType::DefenseDown，每层 -10 护甲 Flat，4s）。
+        // 两处 combat 语义一致；仅 .stacks 元数据不同——本处写入投掷层数用于展示，
+        // FlowingThrust 侧以 -10×层数 的修饰符值表达层数。后续如需单一来源，
+        // 建议补 BuffId::ArmorShred 并抽公共构造（见 B2-15 未决项）。
         BuffEffect shred{
           .id = "ArmorShred",
           .name = "Armor Shred",

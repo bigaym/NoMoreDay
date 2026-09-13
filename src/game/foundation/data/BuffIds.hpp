@@ -51,6 +51,10 @@ enum class BuffId : uint8_t {
   BladeBoomerangCombo,      // "blade_boomerang_combo"（833 连环劲：接刃后短时攻速）
   BladeBoomerangFreeCast,   // "blade_boomerang_free_cast"（834 御剑接踵：下次投掷免蓝）
   BladeBoomerangSwift,      // "blade_boomerang_swift"（835 回旋游步：接刃后移速）
+  // 技能3 灵剑蚀甲（374）按元素区分的降抗减益，名称保留历史字面量以兼容
+  // 既有存档与断言。
+  SpiritCorrosionFire,      // "SpiritCorrosion_Fire"（374 蚀甲·火）
+  SpiritCorrosionLightning, // "SpiritCorrosion_Lightning"（374 蚀甲·雷）
   Count,
 };
 
@@ -85,6 +89,8 @@ inline constexpr std::array<std::string_view,
         "blade_boomerang_combo",       // BladeBoomerangCombo（833）
         "blade_boomerang_free_cast",   // BladeBoomerangFreeCast（834）
         "blade_boomerang_swift",       // BladeBoomerangSwift（835）
+        "SpiritCorrosion_Fire",        // SpiritCorrosionFire（374）
+        "SpiritCorrosion_Lightning",   // SpiritCorrosionLightning（374）
 };
 
 [[nodiscard]] constexpr std::string_view BuffIdToString(BuffId id) noexcept {

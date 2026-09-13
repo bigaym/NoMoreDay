@@ -405,7 +405,7 @@ TEST_CASE("[Functional] Skill 6 - Control Nodes 630 Slow, 631 Armor Shred, 632 W
   // 1. 验证 630 缓速
   bool foundSlow = false;
   for (const auto &b : fx->effects) {
-    if (b.type == BuffType::SpeedDown || b.managed_ailment || b.id.find("Slow") != std::string::npos || b.id.find("slow") != std::string::npos) {
+    if (b.type == BuffType::SpeedDown || b.kind == BuffKind::Slow) {
       foundSlow = true;
       break;
     }

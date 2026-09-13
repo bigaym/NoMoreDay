@@ -53,8 +53,8 @@
 | 13 | RD-13 | 251 HeavyMomentum 绑定（倾向保留）；M6 `skill_spec_modifiers.json` HeavyMomentum_Node213 语义；251 满层重置流云刺 CD 的 GDD 出处 | 技能2 数据语义与文档一致性 | 绑定保留待正式裁决；CD 缺出处 | skill2 第3轮 §4 |
 | 14 | RD-14 | 分裂/爆炸子投射物整结构克隆会继承 ignore_resist（253+211 组合下子剑气无视抗性） | 技能1+2 组合语义（跨技能） | 现状继承，语义合理待确认 | skill2 第3轮 §4 记录项 |
 | 15 | RD-15 | 815 治疗与 811 层数近似口径（AilmentEngine Bleed 上限 2 层、Additive 合并） | 技能8 数值近似保真度 | 近似上线 | skill8 §15.7-2 |
-| 16 | RD-16 | ReactiveWardComponent 复活或删除 | 技能4 技术去留（影响 R3-7 处理方式） | 组件闲置 | skill4 §16.7 R3-7 |
-| 17 | RD-17 | `primary_archetype` 死字段删除（SkillDefs.hpp:571 只写不读，需存档/序列化兼容核实） | 技能8 数据结构清理 | 字段仍保留 | skill8 §15.4 N4-3 |
+| 16 | RD-16 | ReactiveWardComponent 复活或删除 | 技能4 技术去留（影响 R3-7 处理方式） | **已裁决（2026-09-13）：删除**（保留原型枚举位，仅删组件结构与 emplace 点；见 skill-abstraction 设计 §7） | skill4 §16.7 R3-7 |
+| 17 | RD-17 | `primary_archetype` 死字段删除（SkillDefs.hpp:571 只写不读，需存档/序列化兼容核实） | 技能8 数据结构清理 | **已裁决（2026-09-13）：删除**（写入 15 处含 BladeBoomerang.cpp:109；删前核实存档布局） | skill8 §15.4 N4-3 |
 | 18 | RD-18 | UMR 并轨启动时机 | 排期类（不阻塞内容） | 路线不变，未启动 | skill1 §5.3-4 |
 
 ---
@@ -107,7 +107,7 @@
 - [ ] **B2-05** [P1] 技能4：TagRegistry 收敛单源 — 源：skill4 §16.7 R3-4
 - [ ] **B2-06** [P1] 技能4：SkillSystem InitHooks 改读 mechanics + BuffEffect static const — 源：skill4 §16.7 R3-6
 - [ ] **B2-07** [P2] 技能4：OrbitingSentinelDeliverySystem 拦截死分支真删除 — 源：skill4 §16.7 R3-5
-- [ ] **B2-08** [P1] 技能4：ReactiveWard 按 RD-16 决议后处理 — 源：skill4 §16.7 R3-7
+- [ ] **B2-08** [P1] 技能4：ReactiveWard 处置（RD-16 已裁决删除：保留原型枚举位，删组件结构与 `BladeWard.cpp:113-117` emplace；归 A1-2）— 源：skill4 §16.7 R3-7
 - [ ] **B2-09** [P2] 技能4：M7 476 锚点、M8 分配器不可达诊断、M9 `skill_4_tree.json` 双源 — 源：skill4 §16.7 R3-14
 - [ ] **B2-10** [P1] 技能5 N10：`allocated_points.find(NODE)` 重复 6+ 处提取 helper；Baker flags 与行为层 `allocated_points` 双源语义统一 — 源：skill5 N10
 - [ ] **B2-11** [P2] 技能5：M3 ChannelingComponent 注释旧语义清理（SkillDefs.hpp:1197-1216，随 B2-01 一并做）— 源：skill5
@@ -116,13 +116,13 @@
 - [ ] **B2-14** [P2] 技能3：374 debuffId `std::string` 改 BuffId 枚举 — 源：skill3 §16.4
 - [ ] **B2-15** [P2] 技能3：351 数据消费统一、ArmorShred id 重命名（消除与 RendingWave.cpp:537 / FlowingThrust.cpp:412 的名称冲突互刷）— 源：skill3 §16.4
 - [ ] **B2-16** [P2] 技能7：714 粗粒度（skill_id==7）精确化（取 711 时其余路径已禁用，可选优化）— 源：skill7 rereview §5-1
-- [ ] **B2-17** [P2] 技能8：N4-3 `primary_archetype` 死字段删除（先核实存档/序列化兼容，对应 RD-17）— 源：skill8 §15.4
+- [ ] **B2-17** [P2] 技能8：N4-3 `primary_archetype` 死字段删除（RD-17 已裁决删除；影响面：Baker 14 处 + `BladeBoomerang.cpp:109` + BakerTests 3 处 CHECK；先核实存档/序列化兼容，归 A1-2）— 源：skill8 §15.4
 - [ ] **B2-18** [P2] 技能1：Slow/Chill legacy buff 收编 ailment 契约（契约补注册时统一处理，与 HazardSystem 同型）— 源：skill1 §6.5-3
 - [ ] **B2-19** [P2] 技能1：第4轮遗留统一处置（MEDIUM-5 四处死数据 `snapshot.payload_context`、UMR 并轨跳过项、ShadowDuplicationHook 特例）— 源：skill1 §6.5-4
 - [ ] **B2-20** [P2] 模块化：逐节点「烘焙→消费」映射表纳入仓库 — 源：模块化实施复审 §9
 - [ ] **B2-21** [P3] 技能6 L5：DeliveryArchetypesTests.cpp:190-210 以技能6 充当 Skyfall 残留域夹具，换独立 ID — 源：skill6 §16.3
 - [ ] **B2-22** [P2] 技能9：技能12「绝影共噬」节点行为实现 + 技能9 联动回归（归入 A-03）— 源：skill9 §14.4-4
-- [ ] **B2-23** [P2] 伤害管线：deprecated 批量入口清理（`DamagePipeline::CalculateBatch` + `ResolveDamageBatch`）及其测试/基准调用点（`tests/unit/DamageElementIndexTests.cpp:109/:167`、`tests/unit/EventConsistencyTests.cpp`、`tests/performance/DamagePipelineBenchmark.cpp`），随技能10~12迁移批次统一处置 — 源：B1-08 遗留登记
+- [x] **B2-23** [P2]（**保留/降级，已裁决 2026-09-13**）伤害管线：deprecated 批量入口（`DamagePipeline::CalculateBatch` + `ResolveDamageBatch`）**保留现状，仅记录**，不迁移测试/基准调用点（`tests/unit/DamageElementIndexTests.cpp:109/:167`、`tests/unit/EventConsistencyTests.cpp`、`tests/performance/DamagePipelineBenchmark.cpp`）。依据：设计 §7/§11.4——保留至有等价替代测试入口；无生产改动 — 源：B1-08 遗留登记
 - [ ] **B2-24** [P2] 技能1/2：热路径字符串比较残留收编——`DamageConditions.cpp:19`（`id.find("Slow")`）、`BladeFormation.cpp:483`（`id.find("ignite")`），沿用 B1-11 的 BuffKind 枚举化思路 — 源：B1-11 复审 F4
 
 ---
@@ -134,7 +134,7 @@
 - [ ] **A-01** 技能1~9 专精实现抽象化/模块化：技能1~9 行为文件合计约 4542 行（FlowingThrust 955 / RendingWave 700 / PhantomTrance 747 / BladeFormation 517 / InfiniteBlades 522 / SwordArray 495 / BladeBoomerang 383 / BladeWard 137 / MindBlade 86）；全 12 技能行为文件合计约 6615 行（另加 HeavenlySwordDescent 832 / SevenStarSlash 681 / BloodSea 560）、Baker 1117 行 18 case。需先重定 DoD（恢复薄装配 ≤100 行/文件，或承认节点逻辑内聚、只抽取「触发/效果/交付」三层参数化模式）
 - [ ] **A-02** 技能10~12 迁移：SevenStarSlash / HeavenlySwordDescent / BloodSea（专精树数据 + 行为 + 契约 + 审查）；含 HeavenlySwordField / BloodSeaField 组件迁移（另立计划），依赖 HeavenlySwordDescent.cpp:184-400、BladeMasteryService.cpp:51-88、SkillSystem.cpp:1080-1092
 - [ ] **A-03** 技能12 绝影共噬节点行为（与 A-02 合并）
-- [ ] **A-04** 技能10 非法标签清算尾项（B1-10 的剩余部分）
+- [x] **A-04** 技能10 非法标签清算尾项（B1-10 的剩余部分）——复核结论：数据侧已无非法标签，技能10 tags 全为已注册项，无需改动；技能10 契约已在 `assets/data/skill_contracts_compact.json` 注册。证据见 §8。
 - [ ] **A-05** B2 结构清理全集（见第 3 节）
 
 ---
@@ -180,6 +180,7 @@
 - **B1-08**：调用链 `DamagePipeline.hpp:42-54`（deprecated 注释）→ `DamageResolutionHooks.cpp:53-67` → `DamagePipeline.cpp:2246-2256`（逐目标 `Calculate`）→ `:1417-1425`（990）。护栏用例 `[Unit] DamagePipeline P1 - Frost amp consistent across single and batch`（7/7）。deprecated 清理登记 B2-23。
 - **B1-09**：`StatsSystem::UpdateBuffs` 删除重复 `ActiveEffects::Update` 与 swordStepDrainMult 段，`EffectSystem.cpp:74-88` 成为唯一 owner 并接管 StatsDirty 感知。`ctest -L ci` 1/1、`ctest -L skill` 2/2。
 - **B1-10**：`assets/data/skills.json` 三处 `sword_skill`→`SwordSkill`（技能2/3/10）；技能6 `Duration` 经查为 legacy 别名映射到 `Tag::DamageOverTime`（`SkillRegistry.cpp:656-660`），保留并登记设计词汇对齐项（N10 调查附录 A）。
+  - **A-04 收尾复核（2026-09-13）**：`rg 'sword_skill|"Duration"' assets/data/` 仅剩 `skills.json:3552`（技能6 `Duration` legacy 别名，保留），技能10 无残留；技能10 tags = `["Physical","Melee","Attack","Area","Hit","SwordSkill"]`，全部命中 `TagRegistry.hpp` 注册项（含 `kLegacyTags` 别名集合，脚本 `audit_tags` 校验 `illegal tags: NONE`，技能树 `add_tags/remove_tags` 亦 `NONE`）；技能10 契约（26 节点/2 转质/6 触发/剑意 3 节点）已在 `skill_contracts_compact.json` 注册，无需重生成。校验：`python scripts/gen_skill_contracts.py --check --check-idempotency --check-determinism` → `[OK] skill_contract blocks are up to date.`（exit 0）；`python scripts/sync_skill_node_icon_ids.py --check` → 技能树 255/76 节点全部 unchanged、missing 0（exit 0）。结论：A-04 无数据改动，仅销项。
 - **B1-11**：`FlowingThrust.cpp:381-385` 热路径改 `GetByKind`（Bleed/Ignite/Chill/Freeze/Slow）；新增 `BuffKind` 值 `Bleed=4..Slow=8`，`kBuffKindCount` 4→9（`DamageConditions.hpp:53`）；各创建点补 `.kind`。
 - **B1-12**：`docs/reviews/2026-09-12-n10-generator-side-effect-investigation.md` 结论「一致」；`python scripts/gen_skill_contracts.py --check --check-idempotency --check-determinism` PASS（exit 0）。
 - **B1-13**：`[Unit] SkillCastConstraintService - Contract guard evaluation`（66/66，含技能3 370+372 及 4~7/9 双转质拒绝）。

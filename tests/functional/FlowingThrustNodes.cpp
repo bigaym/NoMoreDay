@@ -26,6 +26,7 @@ constexpr uint32_t kSkillId = 1;
 constexpr uint32_t kMomentumNode = 112;
 constexpr uint32_t kPhantomShieldNode = 135;
 constexpr uint32_t kBloodDrinkerNode = 153;
+constexpr uint32_t kFreezingWindNode = 172;
 constexpr uint32_t kBoneDeepFrostNode = 173;
 
 void LoadSkillMechanics() {
@@ -463,6 +464,76 @@ TEST_CASE("[Unit] Skill - Flowing Thrust 814 burst scales with bleed stacks") {
   const float twoStacks = runBurst(2);
   CHECK(oneStack > 0.0f);
   CHECK(twoStacks > oneStack);
+}
+
+// 172 凛风回归：Cold 命中施加 30% 减速。减速仍是 legacy SpeedDown 类型，但数值
+// 类别归入 Slow，热路径按 kind 整数查找而非 id 字符串。
+TEST_CASE("[Unit] Skill - Flowing Thrust 172 Freezing Wind applies Slow-class 30% slow") {
+  TestSetupScope scope;
+  LoadSkillMechanics();
+  SkillBehaviorRegistry::Initialize();
+
+  entt::registry registry;
+  auto player = MakePlayer(registry, 0.0f, 0.0f, {{kFreezingWindNode, 1}});
+  auto victim = MakeEnemy(registry, 50.0f, 0.0f);
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+  hitFunc(registry, player, victim, Tag::Cold, false);
+
+  auto *fx = registry.try_get<ActiveEffectsComponent>(victim);
+  REQUIRE(fx != nullptr);
+  const auto *slow = fx->GetByKind(BuffKind::Slow);
+  REQUIRE(slow != nullptr);
+  CHECK(slow->id == "FrostSlow");
+  CHECK(slow->type == BuffType::SpeedDown);
+  REQUIRE(!slow->modifiers.empty());
+  CHECK(slow->modifiers[0].type == StatType::MoveSpeed);
+  CHECK(slow->modifiers[0].value == doctest::Approx(-30.0f));
+}
+
+// 173 霜凝寒骨回归：寒冷层数上限以 AilmentEngine 的 Chill 契约为单一来源，
+// 叠满后转冻结；叠满判定按 (kind=Chill, source_skill_id) 整数比较定位本次
+// FrostChill，替换原 Get("FrostChill") 字符串键查找。
+TEST_CASE("[Unit] Skill - Flowing Thrust 173 chill stacks to contract cap then freezes") {
+  TestSetupScope scope;
+  LoadSkillMechanics();
+  SkillBehaviorRegistry::Initialize();
+  (void)systems::AilmentRegistry::Get().EnsureLoaded();
+
+  entt::registry registry;
+  auto player = MakePlayer(registry, 0.0f, 0.0f, {{kBoneDeepFrostNode, 1}});
+  auto victim = MakeEnemy(registry, 50.0f, 0.0f);
+
+  // 预置一个寒冷类效果，使首次命中 victimHasCold 成立；其 source_skill_id 为 0，
+  // 不应被 173 的叠满判定误命中。
+  auto &vfx = registry.emplace<ActiveEffectsComponent>(victim);
+  vfx.AddOrRefresh(BuffEffect{.id = "PreChill",
+                              .name = "PreChill",
+                              .type = BuffType::SpeedDown,
+                              .kind = BuffKind::Chill,
+                              .duration = 5.0f,
+                              .remaining = 5.0f,
+                              .is_debuff = true});
+
+  const auto *chillContract = systems::AilmentRegistry::Get().Find(AilmentType::Chill);
+  REQUIRE(chillContract != nullptr);
+  const int cap = static_cast<int>(chillContract->max_stacks);
+  REQUIRE(cap >= 1);
+
+  auto hitFunc = SkillBehaviorRegistry::GetHit(kSkillId);
+  REQUIRE(hitFunc != nullptr);
+  for (int i = 0; i < cap; ++i) {
+    hitFunc(registry, player, victim, Tag::Cold, false);
+  }
+
+  // 叠满 → 冻结；本次技能施加的 FrostChill 已被移除（预置寒冷仍在）。
+  CHECK(vfx.GetByKind(BuffKind::Freeze) != nullptr);
+  for (const auto &effect : vfx.effects) {
+    const bool is_own_chill = effect.kind == BuffKind::Chill &&
+                              effect.source_skill_id == static_cast<int>(kSkillId);
+    CHECK_FALSE(is_own_chill);
+  }
 }
 
 } // namespace

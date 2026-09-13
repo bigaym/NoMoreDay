@@ -59,6 +59,31 @@ constexpr uint32_t ElementalErosion = 174;
 constexpr uint32_t ResidualElements = 175;
 } // namespace FlowingThrustNodes
 
+namespace {
+
+// 172 凛风 / 175 余韵余波的减速共用构造：把 legacy SpeedDown buff 归入
+// AilmentEngine 的数值类别 Slow (BuffKind)，热路径按整数 kind 查找，
+// 不再对 id 字符串做比较。减速幅度与时长仍来自技能机制数据（等价映射）。
+void ApplyFrostSlowDebuff(entt::registry &registry, entt::entity target,
+                          float slowMagnitude, float duration) {
+  BuffEffect slow{
+      .id = "FrostSlow",
+      .name = "Frost Slow",
+      .type = BuffType::SpeedDown,
+      .kind = BuffKind::Slow,
+      .duration = duration,
+      .remaining = duration,
+      .is_debuff = true,
+  };
+  slow.modifiers.push_back({.value = -slowMagnitude * 100.0f,
+                            .type = StatType::MoveSpeed,
+                            .mode = ModifierMode::PercentAdd});
+  registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(slow);
+  registry.get_or_emplace<StatsDirty>(target);
+}
+
+} // namespace
+
 struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
   static constexpr uint32_t kSkillId = 1;
   // 技能8 御剑·回旋 协同节点: 拔血流云 (814)。流云刺命中悬停切割区内的
@@ -162,8 +187,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         if (registry.all_of<ActiveSkillsComponent>(owner)) {
           for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
             if (spec.skill_id == kSkillId) {
-              auto it = spec.allocated_points.find(FlowingThrustNodes::Momentum);
-              if (it != spec.allocated_points.end()) momentumPoints = it->second;
+              momentumPoints = ReadPoints(spec, FlowingThrustNodes::Momentum);
               break;
             }
           }
@@ -228,8 +252,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         if (registry.all_of<ActiveSkillsComponent>(owner)) {
           for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
             if (spec.skill_id == kSkillId) {
-              auto it = spec.allocated_points.find(FlowingThrustNodes::InfernalPath);
-              if (it != spec.allocated_points.end()) infernalPoints = it->second;
+              infernalPoints = ReadPoints(spec, FlowingThrustNodes::InfernalPath);
               break;
             }
           }
@@ -338,8 +361,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       for (const auto &spec : act->specialized_slots) {
         if (spec.skill_id == kSkillId) {
           auto getPts = [&](uint32_t nid) -> int {
-            auto it = spec.allocated_points.find(nid);
-            return it != spec.allocated_points.end() ? it->second : 0;
+            return ReadPoints(spec, nid);
           };
           ridingPoints = getPts(FlowingThrustNodes::RidingTheWind);
           deepWoundsPoints = getPts(FlowingThrustNodes::DeepWounds);
@@ -493,6 +515,11 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         stacks += 1;
       }
       if (stacks > 0) {
+        // 护甲击碎为跨技能共享的 debuff：与裂空斩 235 (RendingWave) 使用同一
+        // 运行时 id "ArmorShred"（BuffType::DefenseDown，每层 -10 护甲 Flat，4s）。
+        // 两处战斗语义一致；仅 .stacks 元数据不同——本处以 -10×层数 的修饰符值
+        // 表达层数（AttributePipeline 不对 modifiers 乘 stacks），RendingWave
+        // 另写入投掷层数用于展示。不强行合并，未决见 B2-15。
         BuffEffect shred{
           .id = "ArmorShred",
           .name = "Armor Shred",
@@ -530,33 +557,26 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       victimHasFire = true;
     }
     if (HasTag(element_tag, Tag::Cold)) {
-      // 172 凛风: 减速 30% (legacy SpeedDown buff；Slow 异常未注册 ailment 契约，
-      // 与 ApplyChillDebuff 的既有减速机制保持一致，见 HazardSystem)
+      // 172 凛风: 减速 30% (legacy SpeedDown buff；数值类别归入 Slow，
+      // 与 AilmentEngine 的 Slow 口径一致，见 ApplyFrostSlowDebuff)
       const float slowMagnitude = mech.GetFloat(kSkillId, FlowingThrustNodes::FreezingWind, "slow_magnitude", 0.30f);
       const float slowDuration = mech.GetFloat(kSkillId, FlowingThrustNodes::FreezingWind, "slow_duration", 2.5f);
-      BuffEffect slow{
-        .id = "FrostSlow",
-        .name = "Frost Slow",
-        .type = BuffType::SpeedDown,
-        .kind = BuffKind::Slow,
-        .duration = slowDuration,
-        .remaining = slowDuration,
-        .is_debuff = true
-      };
-      slow.modifiers.push_back({
-        .value = -slowMagnitude * 100.0f,
-        .type = StatType::MoveSpeed,
-        .mode = ModifierMode::PercentAdd
-      });
-      reg.get_or_emplace<ActiveEffectsComponent>(victim).AddOrRefresh(slow);
-      reg.get_or_emplace<StatsDirty>(victim);
+      ApplyFrostSlowDebuff(reg, victim, slowMagnitude, slowDuration);
 
       // 173 霜凝寒骨: 命中减速敌人额外施加 1 层寒冷，寒冷叠满冻结敌人
       if (victimHasCold && boneFrostPoints > 0) {
         const float chillDuration = mech.GetFloat(kSkillId, FlowingThrustNodes::BoneDeepFrost, "chill_duration", 3.0f);
         const float chillSlowPct = mech.GetFloat(kSkillId, FlowingThrustNodes::BoneDeepFrost, "chill_slow_pct", 20.0f);
-        const int freezeAt = static_cast<int>(mech.GetFloat(kSkillId, FlowingThrustNodes::BoneDeepFrost, "chill_stacks_to_freeze", 3.0f));
+        const int freezeFallback = static_cast<int>(mech.GetFloat(kSkillId, FlowingThrustNodes::BoneDeepFrost, "chill_stacks_to_freeze", 3.0f));
         const float freezeDuration = mech.GetFloat(kSkillId, FlowingThrustNodes::BoneDeepFrost, "freeze_duration", 2.5f);
+        // 寒冷层数上限以 AilmentEngine 的 Chill 契约为单一来源（等价映射）；
+        // 契约缺失时回退到 skill_mechanics 的 chill_stacks_to_freeze，保持旧行为。
+        const systems::AilmentContract *chillContract =
+            systems::AilmentRegistry::Get().Find(AilmentType::Chill);
+        const int chillMaxStacks =
+            std::max(1, chillContract
+                            ? static_cast<int>(chillContract->max_stacks)
+                            : freezeFallback);
         auto &vicEffects = reg.get_or_emplace<ActiveEffectsComponent>(victim);
         BuffEffect chill{
           .id = "FrostChill",
@@ -566,7 +586,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           .duration = chillDuration,
           .remaining = chillDuration,
           .stacks = 1,
-          .max_stacks = std::max(1, freezeAt),
+          .max_stacks = chillMaxStacks,
           .is_debuff = true
         };
         chill.modifiers.push_back({
@@ -574,10 +594,24 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           .type = StatType::MoveSpeed,
           .mode = ModifierMode::PercentAdd
         });
+        // 来源技能归属使本 buff 可按 (kind, 来源) 整数比较定位
+        chill.source_skill_id = static_cast<int>(kSkillId);
         vicEffects.AddOrRefresh(chill);
-        if (auto *c = vicEffects.Get("FrostChill"); c && c->stacks >= freezeAt) {
-          // 叠满 → 转为冻结
-          vicEffects.Remove("FrostChill");
+        // 叠满判定：按数值类别 + 来源技能定位本次 FrostChill，替换原来的
+        // Get("FrostChill") 字符串键查找；AilmentEngine 托管的寒冷来源技能为 0，
+        // 不会被误命中。
+        BuffEffect *frostChill = nullptr;
+        for (auto &effect : vicEffects.effects) {
+          if (effect.kind == BuffKind::Chill &&
+              effect.source_skill_id == static_cast<int>(kSkillId)) {
+            frostChill = &effect;
+            break;
+          }
+        }
+        if (frostChill != nullptr && frostChill->stacks >= chillMaxStacks) {
+          // 叠满 → 转为冻结；先拷贝 id 再移除，避免移除时引用元素被搬移。
+          const auto frostChillId = frostChill->id;
+          vicEffects.Remove(frostChillId);
           BuffEffect frozen{
             .id = "Frozen",
             .name = "Frozen",
@@ -731,28 +765,14 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                 (void)systems::AilmentApplier::Apply(reg, spreadTarget, spreadReq);
               }
               if (victimHasCold) {
-                // 传染的减速沿用 172 凛风的 legacy SpeedDown 方式(数值取余韵配置)
+                // 传染的减速与 172 凛风同源：复用同一辅助函数，数值取余韵配置
                 const float spreadSlowMag =
                     mech.GetFloat(kSkillId, FlowingThrustNodes::ResidualElements, "spread_slow_magnitude", 0.30f);
                 const float spreadSlowDur =
                     mech.GetFloat(kSkillId, FlowingThrustNodes::ResidualElements, "spread_slow_duration", 2.5f);
-                BuffEffect spreadSlow{
-                  .id = "FrostSlow",
-                  .name = "Frost Slow",
-                  .type = BuffType::SpeedDown,
-                  .kind = BuffKind::Slow,
-                  .duration = spreadSlowDur,
-                  .remaining = spreadSlowDur,
-                  .is_debuff = true
-                };
-                spreadSlow.modifiers.push_back({
-                  .value = -spreadSlowMag * 100.0f,
-                  .type = StatType::MoveSpeed,
-                  .mode = ModifierMode::PercentAdd
-                });
-                reg.get_or_emplace<ActiveEffectsComponent>(spreadTarget).AddOrRefresh(spreadSlow);
-                reg.get_or_emplace<StatsDirty>(spreadTarget);
+                ApplyFrostSlowDebuff(reg, spreadTarget, spreadSlowMag, spreadSlowDur);
               }
+
               // 传染成功后才写入冷却时间戳
               ftState.last_infect_time = now;
           }
@@ -968,8 +988,7 @@ void UpdateFlowingThrustPhantomShield(entt::registry &registry, float dt) {
     if (const auto *act = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : act->specialized_slots) {
         if (spec.skill_id == kSkillId) {
-          auto it = spec.allocated_points.find(kPhantomShieldNode);
-          if (it != spec.allocated_points.end()) phantomPoints = it->second;
+          phantomPoints = ReadPoints(spec, kPhantomShieldNode);
           break;
         }
       }

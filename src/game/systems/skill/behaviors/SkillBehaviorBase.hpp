@@ -4,7 +4,11 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
+#include <array>
+#include <cstdint>
 #include <string_view>
+
+#include "game/foundation/components/SkillPointAccess.hpp"
 
 namespace NoMoreDay {
 
@@ -19,6 +23,28 @@ struct ElementalConversion {
   }
 };
 
+// 节点 → 元素绑定表：元素转换映射的唯一来源。
+struct ElementalNodeBinding {
+  uint32_t node_id;
+  Tag element;
+  Color projectile_color;
+  Color glow_color;
+};
+
+// 登记 (node_id -> 元素/颜色) 绑定；未登记的旧调用回退到按点数 1/2/3。
+inline constexpr std::array<ElementalNodeBinding, 10> kElementalNodeTable{{
+    {170, Tag::Fire, {255, 80, 20, 255}, {255, 160, 60, 180}},      // 劫火
+    {172, Tag::Cold, {100, 200, 255, 255}, {150, 220, 255, 180}},   // 凛风
+    {270, Tag::Cold, {100, 200, 255, 255}, {150, 220, 255, 180}},   // 霜寒之刃
+    {272, Tag::Lightning, {200, 180, 255, 255}, {230, 200, 255, 180}}, // 雷光
+    {370, Tag::Fire, {255, 80, 20, 255}, {255, 160, 60, 180}},      // 御剑术转火
+    {372, Tag::Lightning, {200, 180, 255, 255}, {230, 200, 255, 180}}, // 御剑术转电
+    {472, Tag::Lightning, {200, 180, 255, 255}, {230, 200, 255, 180}}, // 雷霆法环
+    {474, Tag::Cold, {100, 200, 255, 255}, {150, 220, 255, 180}},   // 霜铠
+    {570, Tag::Fire, {255, 80, 20, 255}, {255, 160, 60, 180}},      // 御剑术·劫火
+    {572, Tag::Cold, {100, 200, 255, 255}, {150, 220, 255, 180}},   // 凛冬暴雪
+}};
+
 [[nodiscard]] inline ElementalConversion ResolveElementalConversion(
     uint32_t element_node_id, int points) noexcept {
     ElementalConversion conv;
@@ -26,31 +52,13 @@ struct ElementalConversion {
         return conv;
     }
 
-    switch (element_node_id) {
-    case 170: // 劫火 (Fire)
-    case 370: // 御剑术转火
-    case 570: // 御剑术·劫火 (Fire)
-        conv.target_element = Tag::Fire;
-        conv.projectile_color = {255, 80, 20, 255};
-        conv.glow_color = {255, 160, 60, 180};
-        return conv;
-    case 172: // 凛风 (Cold)
-    case 270: // 霜寒之刃 (Cold)
-    case 474: // 霜铠 (Cold)
-    case 572: // 凛冬暴雪 (Cold)
-        conv.target_element = Tag::Cold;
-        conv.projectile_color = {100, 200, 255, 255};
-        conv.glow_color = {150, 220, 255, 180};
-        return conv;
-    case 272: // 雷光 (Lightning, was 250 typo)
-    case 372: // 御剑术转电
-    case 472: // 雷霆法环 (Lightning)
-        conv.target_element = Tag::Lightning;
-        conv.projectile_color = {200, 180, 255, 255};
-        conv.glow_color = {230, 200, 255, 180};
-        return conv;
-    default:
-        break;
+    for (const auto &binding : kElementalNodeTable) {
+        if (binding.node_id == element_node_id) {
+            conv.target_element = binding.element;
+            conv.projectile_color = binding.projectile_color;
+            conv.glow_color = binding.glow_color;
+            return conv;
+        }
     }
 
     // Fallback for untyped or legacy calls
@@ -77,8 +85,10 @@ struct ElementalConversion {
 }
 
 namespace skills {
+
 using NoMoreDay::ResolveElementalConversion;
 using NoMoreDay::ElementalConversion;
+
 } // namespace skills
 
 /**

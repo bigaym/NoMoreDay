@@ -61,13 +61,10 @@ void SkillSpecializationBaker::Bake(
   del = BakedDeliveryParams{};
   switch (skill_id) {
   case 1: // 流云刺
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::Mobility);
-    del.secondary_archetype = static_cast<uint8_t>(DeliveryArchetype::DirectStrike);
     del.speed = 400.0f;
     del.duration = 0.375f;
     break;
   case 2: // 裂空斩
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BallisticProjectile);
     // 弹速为相对倍率语义：RendingWave::DoCast 以基准弹速 300 相乘（baseSpeed = 300 × delivery.speed），
     // 1.0 即基准 300 弹速；272 雷光按 speed_bonus_pct 追加至 2.0（弹速 +100%）
     del.speed = 1.0f;
@@ -75,27 +72,22 @@ void SkillSpecializationBaker::Bake(
     out_profile.area_radius = 35.0f;
     break;
   case 3: // 御剑术
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::OrbitingSentinel);
     out_profile.projectile_count = 3;
     break;
   case 4: // 剑气护体
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::OrbitingSentinel);
-    del.secondary_archetype = static_cast<uint8_t>(DeliveryArchetype::ReactiveWard);
+    // 基础交付无专属数值参数，行为层按技能语义选择交付方式
     break;
   case 5: // 万剑归宗
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BeamChannel);
-    del.duration = 5.0f;
+    // 引导上限 max_channel_time 外置于 skill_mechanics 技能5/0 节点，不再在交付层重复写入
     del.sub_interval = 0.3f;
     break;
   case 6: // 剑阵·诛仙
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::AreaField);
     out_profile.area_radius = 150.0f;
     del.duration = 5.0f;
     del.sub_interval = 0.5f;
     break;
   case 7: // 心剑·无影
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BeamChannel);
-    del.duration = 5.0f;
+    // 引导时长由行为层经 skill_mechanics 技能7/0 的 max_channel_time 读取，交付层不再写入 duration
     del.sub_interval = 0.3f;
     // 射程基准外置于技能级键 base_range，交付层缺省回退同键同默认值。
     // 703 心念映射会在该基准上按 range_pct_per_point 放大；若此处缺省，
@@ -103,16 +95,13 @@ void SkillSpecializationBaker::Bake(
     del.range = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_range", 350.0f);
     break;
   case 8: // 御剑·回旋
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
     // 飞行速度与最远距离以技能级 params 为唯一事实源，禁止在交付层硬编码 500/300
     del.speed = skillData->GetParam("speed", 400.0f);
     del.range = skillData->GetParam("max_distance", 300.0f);
     // 滞空时长默认为 0（未点 810 立即折返），由 810 覆写为 0.8s
     del.duration = 0.0f;
     break;
-  case 9: // 绝影绝剑：Mobility 单原型；ReactiveWard 仅保留给技能4
-    del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::Mobility);
-    del.secondary_archetype = static_cast<uint8_t>(DeliveryArchetype::None);
+  case 9: // 绝影绝剑：突进形态
     // 突进基准速度取技能级 dash_speed（不再把 duration 当作旧版反击窗口）
     del.speed = skillData->GetParam("dash_speed", 600.0f);
     // duration 承载绝影形态时长语义，与 trance.duration_sec 同步；975 可在其上追加
@@ -342,26 +331,22 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       del.feature_flags |= 8;
     } else if (node_id == 214) {
       // 星环护体 (Keystone)：环绕周身旋转 3s 持续切割 (max 1)
-      del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::OrbitingSentinel);
       del.feature_flags |= 64;
     } else if (node_id == 215) {
       // 灵剑追击 (Synergy)：活跃灵剑决时 1 柄灵剑伴飞 (max 1)
       del.feature_flags |= 128;
     } else if (node_id == 230) {
       // 回旋劲：最大距离向施法者折返，折返伤害减少 30% (max 1)
-      del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
       del.feature_flags |= 1;
     } else if (node_id == 231) {
       // 重叠打击：折返击中敌人伤害 More +15%...60% (max 4)
       // 由 RendingWave 运行时按 getPts(231) 读 skill_mechanics 计入折返伤害乘区，Baker 无需置位
     } else if (node_id == 232) {
       // 引力陷阱：折返瞬间在最远端生成微型黑洞牵引 (max 1)
-      del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
       del.pull_radius = 120.0f;
       del.feature_flags |= (1 | 16);
     } else if (node_id == 233) {
       // 深渊边缘：黑洞牵引范围增加 20%...60%，消散时击晕 (max 3)
-      del.primary_archetype = static_cast<uint8_t>(DeliveryArchetype::BoomerangProjectile);
       del.pull_radius = 120.0f * (1.0f + 0.20f * static_cast<float>(points));
       del.feature_flags |= (1 | 16 | 512);
     } else if (node_id == 234) {
