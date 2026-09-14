@@ -18,53 +18,17 @@
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/RendingWaveSpecState.gen.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <vector>
 
 namespace NoMoreDay::skills {
 
-namespace RendingWaveNodes {
-// Base Tier (基础核心)
-constexpr uint32_t WaveExpansion = 200;      // 剑气纵横
-constexpr uint32_t Focus = 201;              // 凝神
-constexpr uint32_t Edge = 202;               // 锋芒
-constexpr uint32_t QiBurst = 203;            // 气劲爆发
-
-// Branch A: 剑雨流 (Multi, Split & Orbit)
-constexpr uint32_t MultiWave = 210;          // 多重剑气
-constexpr uint32_t Fracture = 211;           // 碎裂之刃
-constexpr uint32_t ChainReaction = 212;      // 连锁反应
-constexpr uint32_t Scatter = 213;            // 万剑归宗-残篇 (Keystone)
-constexpr uint32_t Orbit = 214;              // 星环护体 (Keystone)
-constexpr uint32_t SpiritPursuit = 215;      // 灵剑追击 (Synergy)
-
-// Branch B: 逆冲流 (Return & Gravity)
-constexpr uint32_t Boomerang = 230;          // 回旋劲
-constexpr uint32_t DoubleHit = 231;          // 重叠打击
-constexpr uint32_t GravityWell = 232;        // 引力陷阱
-constexpr uint32_t AbyssEdge = 233;          // 深渊边缘
-constexpr uint32_t TimeLock = 234;           // 时空停滞 (Keystone)
-constexpr uint32_t SwordStepGravity = 235;   // 御剑引力
-
-// Branch C: 剑意乾坤 (Intent & Amplification)
-constexpr uint32_t QiBrand = 250;            // 剑气烙印
-constexpr uint32_t IntentBurst = 251;        // 剑意爆发
-constexpr uint32_t Bottomless = 252;         // 无底深渊
-constexpr uint32_t ObliterationWave = 253;   // 湮灭波 (Keystone)
-constexpr uint32_t EchoedSlash = 254;        // 回响斩 (Trigger)
-constexpr uint32_t IntentRecovery = 255;     // 意念回流
-
-// Branch D: 灵根变转 (Elemental Conversion)
-constexpr uint32_t FrostForm = 270;          // 霜寒之刃 (Transmuter)
-constexpr uint32_t ShatterCascade = 271;     // 冰晶碎裂
-constexpr uint32_t LightningForm = 272;      // 雷光 (Transmuter)
-constexpr uint32_t StaticConduction = 273;   // 感电传导
-constexpr uint32_t ElementalAffinity = 274;  // 灵根亲和
-constexpr uint32_t Proliferation = 275;      // 异常扩散
-} // namespace RendingWaveNodes
+// 节点常量随 A-01 Phase 4b 信封化迁移至生成头，此处以别名保持既有机制读取引用不变。
+namespace RendingWaveNodes = RendingWaveNodesGen;
 
 struct RendingWaveStateComponent {
   float last_echo_time = -10.0f;
@@ -73,39 +37,28 @@ struct RendingWaveStateComponent {
 struct RendingWave : SkillBehaviorBase<RendingWave> {
   static constexpr uint32_t kSkillId = 2;
 
+  // 技能 2 的节点点数/点亮统一经生成 SpecState 读取（A-01 D-A1）。
+  [[nodiscard]] static RendingWaveSpecStateGen ResolveState(entt::registry &registry,
+                                                            entt::entity owner) {
+    return ResolveSpecState(registry, owner, kSkillId, kRendingWaveTableGen);
+  }
+
   static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
     auto *pos = registry.try_get<Position>(owner);
     auto *stats = registry.try_get<CombatStats>(owner);
     if (!pos || !stats) return;
 
     const auto link = seven_star_shared::ConsumeLinkBuffs(registry, owner, kSkillId, false, exec.cast_id);
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
-    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-          profile = &localProfile;
-          break;
-        }
-      }
-    }
+    const auto *profile =
+        ResolveBakedProfile(registry, owner, kSkillId, localProfile);
 
-    auto getPts = [&](uint32_t nid) -> int {
-      if (registry.all_of<ActiveSkillsComponent>(owner)) {
-        for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-          if (spec.skill_id == kSkillId) {
-            return ReadPoints(spec, nid);
-          }
-        }
-      }
-      return 0;
-    };
+    const RendingWaveSpecStateGen specState = ResolveState(registry, owner);
 
     const auto &mech = data::SkillMechanicsRegistry::Get();
 
     // 剑意结算 (251 剑意爆发: ≥5层消耗全部剑意; 253 湮灭波: 10层巨波)
-    const bool hasIntentBurst = profile ? ((profile->delivery.feature_flags & 4096) != 0) : (getPts(RendingWaveNodes::IntentBurst) > 0);
+    const bool hasIntentBurst = specState.intentBurst;
     int currentIntent = 0;
     if (const auto *res = registry.try_get<BladeResourceComponent>(owner)) {
       currentIntent = res->current;
@@ -128,7 +81,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 252 无底深渊: 消耗剑意施放时 10%...30% 几率返还法力
-    const int pts_252 = getPts(RendingWaveNodes::Bottomless);
+    const int pts_252 = specState.bottomlessPoints;
     if (consumedIntent > 0 && pts_252 > 0) {
       const float refundChance = mech.GetFloat(kSkillId, RendingWaveNodes::Bottomless, "mana_refund_chance_pct_per_point", 10.0f) * static_cast<float>(pts_252);
       if (GetRandomValue(1, 100) <= static_cast<int>(refundChance)) {
@@ -138,7 +91,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 253 湮灭波: 满层(10)剑意巨波
-    const bool hasObliteration = profile ? ((profile->delivery.feature_flags & 32768) != 0) : (getPts(RendingWaveNodes::ObliterationWave) > 0);
+    const bool hasObliteration = specState.obliterationWave;
     const bool isObliteration = (hasObliteration && consumedIntent >= 10);
 
     Vector2 baseDir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
@@ -166,10 +119,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
     // 元素转换 (270 霜寒之刃 / 272 雷光)
     Tag effTag = profile ? profile->effective_tags : Tag::Physical;
-    const int pts_270 = getPts(RendingWaveNodes::FrostForm);
-    const int pts_272 = getPts(RendingWaveNodes::LightningForm);
-    const bool isCold = (effTag == Tag::Cold) || (pts_270 > 0);
-    const bool isLightning = (effTag == Tag::Lightning) || (pts_272 > 0);
+    const bool isCold = (effTag == Tag::Cold) || specState.frostForm;
+    const bool isLightning = (effTag == Tag::Lightning) || specState.lightningForm;
     if (isCold) effTag = Tag::Cold;
     else if (isLightning) effTag = Tag::Lightning;
 
@@ -179,17 +130,17 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     const Tag attunement = systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
 
     // 形态判定
-    const bool isOrbit = profile ? ((profile->delivery.feature_flags & 64) != 0) : (getPts(RendingWaveNodes::Orbit) > 0);
-    const bool isTimeLock = profile ? ((profile->delivery.feature_flags & 32) != 0) : (getPts(RendingWaveNodes::TimeLock) > 0);
-    const bool isBoomerang = profile ? ((profile->delivery.feature_flags & 1) != 0) : (getPts(RendingWaveNodes::Boomerang) > 0 || getPts(RendingWaveNodes::GravityWell) > 0 || getPts(RendingWaveNodes::AbyssEdge) > 0);
-    const bool isSplit = profile ? ((profile->delivery.feature_flags & 4) != 0) : (getPts(RendingWaveNodes::Fracture) > 0);
-    const bool isScatter = profile ? ((profile->delivery.feature_flags & 8) != 0) : (getPts(RendingWaveNodes::Scatter) > 0);
-    const bool isPursuit = profile ? ((profile->delivery.feature_flags & 128) != 0) : (getPts(RendingWaveNodes::SpiritPursuit) > 0);
+    const bool isOrbit = specState.orbit;
+    const bool isTimeLock = specState.timeLock;
+    const bool isBoomerang = specState.boomerang || specState.gravityWell || specState.abyssEdgePoints > 0;
+    const bool isSplit = specState.fracture;
+    const bool isScatter = specState.scatter;
+    const bool isPursuit = specState.spiritPursuit;
 
-    const int pts_212 = getPts(RendingWaveNodes::ChainReaction);
-    const int pts_231 = getPts(RendingWaveNodes::DoubleHit);
-    const int pts_233 = getPts(RendingWaveNodes::AbyssEdge);
-    const int pts_235 = getPts(RendingWaveNodes::SwordStepGravity);
+    const int pts_212 = specState.chainReactionPoints;
+    const int pts_231 = specState.doubleHitPoints;
+    const int pts_233 = specState.abyssEdgePoints;
+    const int pts_235 = specState.swordStepGravityPoints;
     const bool inSwordStep = registry.any_of<PhaseTag>(owner);
     const float maxRange = (profile && profile->delivery.range > 0.0f) ? profile->delivery.range : 400.0f;
 
@@ -255,7 +206,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 投射物波发射函数
-    int totalCount = (profile ? (profile->projectile_count > 0 ? profile->projectile_count : 1) : (1 + getPts(RendingWaveNodes::MultiWave)));
+    int totalCount = (profile ? (profile->projectile_count > 0 ? profile->projectile_count : 1) : (1 + specState.multiWavePoints));
     float spread = 0.4f + (totalCount * 0.05f);
     float startAngle = (totalCount > 1) ? -spread / 2.0f : 0.0f;
     float angleStep = totalCount > 1 ? spread / (totalCount - 1) : 0.0f;
@@ -386,9 +337,9 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         const float doubleHitMore = mech.GetFloat(kSkillId, RendingWaveNodes::DoubleHit, "return_more_pct_per_point", 15.0f) / 100.0f;
         bc.returning_damage_mult = (1.0f - returnPenalty) * (1.0f + doubleHitMore * static_cast<float>(pts_231));
 
-        if (profile && (profile->delivery.feature_flags & 16)) {
+        if (profile != nullptr && (specState.gravityWell || specState.abyssEdgePoints > 0)) {
           float pullR = (profile->delivery.pull_radius > 0.0f) ? profile->delivery.pull_radius : (120.0f * (1.0f + 0.20f * static_cast<float>(pts_233)));
-          if (pts_233 > 0 || (profile->delivery.feature_flags & 512)) {
+          if (specState.abyssEdgePoints > 0) {
             bc.stun_on_apex_end = true;
           }
           if (inSwordStep && pts_235 > 0) {
@@ -407,7 +358,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 254 回响斩 (Trigger): 消耗剑意时向背后触发一道额外的裂空斩 (40% 效力，CD 2s)
-    const bool hasEchoedSlash = profile ? ((profile->delivery.feature_flags & 65536) != 0) : (getPts(RendingWaveNodes::EchoedSlash) > 0);
+    const bool hasEchoedSlash = specState.echoedSlash;
     if (consumedIntent > 0 && hasEchoedSlash) {
       auto &state = registry.get_or_emplace<RendingWaveStateComponent>(owner);
       const float now = static_cast<float>(GetTime());
@@ -466,23 +417,14 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       actualAttacker = summon->owner;
     }
 
-    auto getPts = [&](uint32_t nid) -> int {
-      if (reg.all_of<ActiveSkillsComponent>(actualAttacker)) {
-        for (const auto &spec : reg.get<ActiveSkillsComponent>(actualAttacker).specialized_slots) {
-          if (spec.skill_id == kSkillId) {
-            return ReadPoints(spec, nid);
-          }
-        }
-      }
-      return 0;
-    };
+    const RendingWaveSpecStateGen specState = ResolveState(reg, actualAttacker);
 
     const auto &mech = data::SkillMechanicsRegistry::Get();
-    const int pts_203 = getPts(RendingWaveNodes::QiBurst);
+    const int pts_203 = specState.qiBurstPoints;
     const float ailmentScale = 1.0f + 0.15f * static_cast<float>(pts_203);
 
     // 250 剑气烙印: 25%...100% 几率施加剑气烙印 (受暴伤+4%, max 5)
-    const int pts_250 = getPts(RendingWaveNodes::QiBrand);
+    const int pts_250 = specState.qiBrandPoints;
     if (pts_250 > 0) {
       const float chance = mech.GetFloat(kSkillId, RendingWaveNodes::QiBrand, "brand_chance_pct_per_point", 25.0f) * pts_250;
       if (GetRandomValue(1, 100) <= static_cast<int>(chance)) {
@@ -514,7 +456,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     // 有几率回 1 层剑意。DoCast 消耗剑意时对主波打 IntentConsumedCastTag 标记；
     // 普通施放与 254 回响斩衍生波不带标记，不触发回剑意。214 哨兵攻击的
     // attacker 为玩家锚点，天然不满足标记，同样不触发。
-    const int pts_255 = getPts(RendingWaveNodes::IntentRecovery);
+    const int pts_255 = specState.intentRecoveryPoints;
     if (pts_255 > 0 && reg.all_of<IntentConsumedCastTag>(attacker)) {
       const float chance = mech.GetFloat(kSkillId, RendingWaveNodes::IntentRecovery, "intent_recovery_chance_pct_per_point", 10.0f) * pts_255;
       if (GetRandomValue(1, 100) <= static_cast<int>(chance)) {
@@ -523,7 +465,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 235 御剑引力: 御剑步状态下折返几率施加护甲击碎
-    const int pts_235 = getPts(RendingWaveNodes::SwordStepGravity);
+    const int pts_235 = specState.swordStepGravityPoints;
     if (pts_235 > 0 && reg.any_of<PhaseTag>(actualAttacker)) {
       int rollChance = 50 * pts_235;
       int stacks = rollChance / 100;
@@ -555,8 +497,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 270 霜寒之刃: 命中 100% 寒冷，满血敌人强制冻结 1s
-    const int pts_270 = getPts(RendingWaveNodes::FrostForm);
-    const bool isCold = HasTag(element_tag, Tag::Cold) || (pts_270 > 0);
+    const bool isCold = HasTag(element_tag, Tag::Cold) || specState.frostForm;
     if (isCold) {
       systems::AilmentApplyRequest chillReq{
         .ailment = AilmentType::Chill,
@@ -580,7 +521,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 271 冰晶碎裂: 命中冻结目标触发冰爆
-    const int pts_271 = getPts(RendingWaveNodes::ShatterCascade);
+    const int pts_271 = specState.shatterCascadePoints;
     if (pts_271 > 0 && isCold) {
       bool victimFrozen = false;
       if (auto *fx = reg.try_get<ActiveEffectsComponent>(victim)) {
@@ -633,8 +574,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 272 雷光: 暴击时感电
-    const int pts_272 = getPts(RendingWaveNodes::LightningForm);
-    const bool isLightning = HasTag(element_tag, Tag::Lightning) || (pts_272 > 0);
+    const bool isLightning = HasTag(element_tag, Tag::Lightning) || specState.lightningForm;
     if (isLightning && is_crit) {
       systems::AilmentApplyRequest shockReq{
         .ailment = AilmentType::Shock,
@@ -647,7 +587,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 273 感电传导: 命中感电目标连锁闪电
-    const int pts_273 = getPts(RendingWaveNodes::StaticConduction);
+    const int pts_273 = specState.staticConductionPoints;
     if (pts_273 > 0 && isLightning) {
       bool victimShocked = false;
       if (auto *fx = reg.try_get<ActiveEffectsComponent>(victim)) {
@@ -696,7 +636,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     }
 
     // 275 异常扩散: 击杀带异常敌人时传染周围并回复法力
-    const int pts_275 = getPts(RendingWaveNodes::Proliferation);
+    const int pts_275 = specState.proliferationPoints;
     if (pts_275 > 0) {
       const auto *vicStats = reg.try_get<CombatStats>(victim);
       const bool isKilled = reg.any_of<KilledTag>(victim) || (vicStats && vicStats->health <= 0.0f);

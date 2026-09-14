@@ -1,0 +1,183 @@
+{
+  "version": 1,
+  "skill_id": 5,
+  "pascal_skill": "InfiniteBlades",
+  "state_name": "InfiniteBladesSpecState",
+  "comment": "A-01 Phase 4a 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 500,
+      "identifier": "Rainfall"
+    },
+    {
+      "node_id": 501,
+      "identifier": "Resonance"
+    },
+    {
+      "node_id": 502,
+      "identifier": "MeteoricIron"
+    },
+    {
+      "node_id": 503,
+      "identifier": "Fluidity"
+    },
+    {
+      "node_id": 510,
+      "identifier": "MindLock"
+    },
+    {
+      "node_id": 511,
+      "identifier": "NoEscape"
+    },
+    {
+      "node_id": 512,
+      "identifier": "FateMark"
+    },
+    {
+      "node_id": 513,
+      "identifier": "Execution"
+    },
+    {
+      "node_id": 514,
+      "identifier": "BladeStorm"
+    },
+    {
+      "node_id": 515,
+      "identifier": "BladesToArray"
+    },
+    {
+      "node_id": 530,
+      "identifier": "Composure"
+    },
+    {
+      "node_id": 531,
+      "identifier": "SteeledBody"
+    },
+    {
+      "node_id": 532,
+      "identifier": "AbundantQi"
+    },
+    {
+      "node_id": 533,
+      "identifier": "ColossalBlades"
+    },
+    {
+      "node_id": 534,
+      "identifier": "SwordGod"
+    },
+    {
+      "node_id": 535,
+      "identifier": "Shockwave"
+    },
+    {
+      "node_id": 550,
+      "identifier": "WalkThePath"
+    },
+    {
+      "node_id": 551,
+      "identifier": "SwordStepChannel"
+    },
+    {
+      "node_id": 552,
+      "identifier": "FollowingShadow"
+    },
+    {
+      "node_id": 553,
+      "identifier": "IntentSiphon"
+    },
+    {
+      "node_id": 554,
+      "identifier": "IntentBurst"
+    },
+    {
+      "node_id": 555,
+      "identifier": "Multiplier"
+    },
+    {
+      "node_id": 570,
+      "identifier": "MeteorShower"
+    },
+    {
+      "node_id": 571,
+      "identifier": "DoomsdayAsh"
+    },
+    {
+      "node_id": 572,
+      "identifier": "Blizzard"
+    },
+    {
+      "node_id": 573,
+      "identifier": "AbsoluteZero"
+    },
+    {
+      "node_id": 574,
+      "identifier": "ElementalAttunement"
+    },
+    {
+      "node_id": 575,
+      "identifier": "Catastrophe"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 502,
+      "member": "meteoricIronPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 512,
+      "member": "fateMarkPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 514,
+      "member": "bladeStormPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 551,
+      "member": "swordStepChannelPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 553,
+      "member": "intentSiphonPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 571,
+      "member": "doomsdayAshPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 573,
+      "member": "absoluteZeroPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 575,
+      "member": "catastrophePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 510,
+      "member": "mindLock",
+      "kind": "flag"
+    },
+    {
+      "node_id": 554,
+      "member": "intentBurst",
+      "kind": "flag"
+    },
+    {
+      "node_id": 555,
+      "member": "multiplier",
+      "kind": "flag"
+    },
+    {
+      "node_id": 572,
+      "member": "blizzard",
+      "kind": "flag"
+    }
+  ]
+}

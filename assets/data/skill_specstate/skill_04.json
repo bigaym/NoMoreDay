@@ -1,0 +1,252 @@
+{
+  "version": 1,
+  "skill_id": 4,
+  "pascal_skill": "BladeWard",
+  "state_name": "BladeWardSpecState",
+  "comment": "A-01 Phase 4b 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 400,
+      "identifier": "GoldenBell"
+    },
+    {
+      "node_id": 401,
+      "identifier": "Deflection"
+    },
+    {
+      "node_id": 402,
+      "identifier": "Persist"
+    },
+    {
+      "node_id": 403,
+      "identifier": "Repel"
+    },
+    {
+      "node_id": 410,
+      "identifier": "IronGuard"
+    },
+    {
+      "node_id": 411,
+      "identifier": "FiveGuard"
+    },
+    {
+      "node_id": 412,
+      "identifier": "Mountain"
+    },
+    {
+      "node_id": 413,
+      "identifier": "LastStand"
+    },
+    {
+      "node_id": 414,
+      "identifier": "SwordWardBarrier"
+    },
+    {
+      "node_id": 415,
+      "identifier": "Vitality"
+    },
+    {
+      "node_id": 430,
+      "identifier": "IntentBlock"
+    },
+    {
+      "node_id": 431,
+      "identifier": "Unstoppable"
+    },
+    {
+      "node_id": 432,
+      "identifier": "ShieldBarrier"
+    },
+    {
+      "node_id": 433,
+      "identifier": "BloodBarrier"
+    },
+    {
+      "node_id": 434,
+      "identifier": "PerfectParry"
+    },
+    {
+      "node_id": 435,
+      "identifier": "IntentProc"
+    },
+    {
+      "node_id": 450,
+      "identifier": "PhantomStep"
+    },
+    {
+      "node_id": 451,
+      "identifier": "CounterSpeed"
+    },
+    {
+      "node_id": 452,
+      "identifier": "BlinkCounter"
+    },
+    {
+      "node_id": 453,
+      "identifier": "Aftermath"
+    },
+    {
+      "node_id": 454,
+      "identifier": "SwordStep"
+    },
+    {
+      "node_id": 455,
+      "identifier": "AttackDefend"
+    },
+    {
+      "node_id": 470,
+      "identifier": "CounterBlade"
+    },
+    {
+      "node_id": 471,
+      "identifier": "Vengeance"
+    },
+    {
+      "node_id": 472,
+      "identifier": "StaticField"
+    },
+    {
+      "node_id": 473,
+      "identifier": "ThunderCascade"
+    },
+    {
+      "node_id": 474,
+      "identifier": "FrostArmor"
+    },
+    {
+      "node_id": 475,
+      "identifier": "Permafrost"
+    },
+    {
+      "node_id": 476,
+      "identifier": "Exposure"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 401,
+      "member": "deflectionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 402,
+      "member": "persistPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 403,
+      "member": "repelPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 410,
+      "member": "ironGuardPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 411,
+      "member": "fiveGuardPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 413,
+      "member": "lastStandPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 415,
+      "member": "vitalityPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 430,
+      "member": "intentBlockPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 431,
+      "member": "unstoppablePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 432,
+      "member": "shieldBarrierPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 434,
+      "member": "perfectParryPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 435,
+      "member": "intentProcPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 451,
+      "member": "counterSpeedPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 453,
+      "member": "aftermathPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 454,
+      "member": "swordStepPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 471,
+      "member": "vengeancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 473,
+      "member": "thunderCascadePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 475,
+      "member": "permafrostPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 476,
+      "member": "exposurePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 412,
+      "member": "mountain",
+      "kind": "flag"
+    },
+    {
+      "node_id": 433,
+      "member": "bloodBarrier",
+      "kind": "flag"
+    },
+    {
+      "node_id": 455,
+      "member": "attackDefend",
+      "kind": "flag"
+    },
+    {
+      "node_id": 470,
+      "member": "counterBlade",
+      "kind": "flag"
+    },
+    {
+      "node_id": 472,
+      "member": "staticField",
+      "kind": "flag"
+    },
+    {
+      "node_id": 474,
+      "member": "frostArmor",
+      "kind": "flag"
+    }
+  ]
+}

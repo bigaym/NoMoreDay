@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "skill_id": 2,
+  "pascal_skill": "RendingWave",
+  "state_name": "RendingWaveSpecState",
+  "comment": "A-01 Phase 4b 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 200,
+      "identifier": "WaveExpansion"
+    },
+    {
+      "node_id": 201,
+      "identifier": "Focus"
+    },
+    {
+      "node_id": 202,
+      "identifier": "Edge"
+    },
+    {
+      "node_id": 203,
+      "identifier": "QiBurst"
+    },
+    {
+      "node_id": 210,
+      "identifier": "MultiWave"
+    },
+    {
+      "node_id": 211,
+      "identifier": "Fracture"
+    },
+    {
+      "node_id": 212,
+      "identifier": "ChainReaction"
+    },
+    {
+      "node_id": 213,
+      "identifier": "Scatter"
+    },
+    {
+      "node_id": 214,
+      "identifier": "Orbit"
+    },
+    {
+      "node_id": 215,
+      "identifier": "SpiritPursuit"
+    },
+    {
+      "node_id": 230,
+      "identifier": "Boomerang"
+    },
+    {
+      "node_id": 231,
+      "identifier": "DoubleHit"
+    },
+    {
+      "node_id": 232,
+      "identifier": "GravityWell"
+    },
+    {
+      "node_id": 233,
+      "identifier": "AbyssEdge"
+    },
+    {
+      "node_id": 234,
+      "identifier": "TimeLock"
+    },
+    {
+      "node_id": 235,
+      "identifier": "SwordStepGravity"
+    },
+    {
+      "node_id": 250,
+      "identifier": "QiBrand"
+    },
+    {
+      "node_id": 251,
+      "identifier": "IntentBurst"
+    },
+    {
+      "node_id": 252,
+      "identifier": "Bottomless"
+    },
+    {
+      "node_id": 253,
+      "identifier": "ObliterationWave"
+    },
+    {
+      "node_id": 254,
+      "identifier": "EchoedSlash"
+    },
+    {
+      "node_id": 255,
+      "identifier": "IntentRecovery"
+    },
+    {
+      "node_id": 270,
+      "identifier": "FrostForm"
+    },
+    {
+      "node_id": 271,
+      "identifier": "ShatterCascade"
+    },
+    {
+      "node_id": 272,
+      "identifier": "LightningForm"
+    },
+    {
+      "node_id": 273,
+      "identifier": "StaticConduction"
+    },
+    {
+      "node_id": 274,
+      "identifier": "ElementalAffinity"
+    },
+    {
+      "node_id": 275,
+      "identifier": "Proliferation"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 203,
+      "member": "qiBurstPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 210,
+      "member": "multiWavePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 212,
+      "member": "chainReactionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 231,
+      "member": "doubleHitPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 233,
+      "member": "abyssEdgePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 235,
+      "member": "swordStepGravityPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 250,
+      "member": "qiBrandPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 252,
+      "member": "bottomlessPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 255,
+      "member": "intentRecoveryPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 271,
+      "member": "shatterCascadePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 273,
+      "member": "staticConductionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 275,
+      "member": "proliferationPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 211,
+      "member": "fracture",
+      "kind": "flag"
+    },
+    {
+      "node_id": 213,
+      "member": "scatter",
+      "kind": "flag"
+    },
+    {
+      "node_id": 214,
+      "member": "orbit",
+      "kind": "flag"
+    },
+    {
+      "node_id": 215,
+      "member": "spiritPursuit",
+      "kind": "flag"
+    },
+    {
+      "node_id": 230,
+      "member": "boomerang",
+      "kind": "flag"
+    },
+    {
+      "node_id": 232,
+      "member": "gravityWell",
+      "kind": "flag"
+    },
+    {
+      "node_id": 234,
+      "member": "timeLock",
+      "kind": "flag"
+    },
+    {
+      "node_id": 251,
+      "member": "intentBurst",
+      "kind": "flag"
+    },
+    {
+      "node_id": 253,
+      "member": "obliterationWave",
+      "kind": "flag"
+    },
+    {
+      "node_id": 254,
+      "member": "echoedSlash",
+      "kind": "flag"
+    },
+    {
+      "node_id": 270,
+      "member": "frostForm",
+      "kind": "flag"
+    },
+    {
+      "node_id": 272,
+      "member": "lightningForm",
+      "kind": "flag"
+    }
+  ]
+}

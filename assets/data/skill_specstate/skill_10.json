@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "skill_id": 10,
+  "pascal_skill": "SevenStarSlash",
+  "state_name": "SevenStarSlashSpecState",
+  "comment": "A-01 Phase 3 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 1000,
+      "identifier": "TargetLock"
+    },
+    {
+      "node_id": 1001,
+      "identifier": "CritChance"
+    },
+    {
+      "node_id": 1002,
+      "identifier": "FinalSlash"
+    },
+    {
+      "node_id": 1003,
+      "identifier": "QuickStar"
+    },
+    {
+      "node_id": 1004,
+      "identifier": "ExposedWeakness"
+    },
+    {
+      "node_id": 1005,
+      "identifier": "PoJun"
+    },
+    {
+      "node_id": 1006,
+      "identifier": "ZhanJiang"
+    },
+    {
+      "node_id": 1007,
+      "identifier": "SevenFocus"
+    },
+    {
+      "node_id": 1008,
+      "identifier": "SolitaryStar"
+    },
+    {
+      "node_id": 1009,
+      "identifier": "FlowReturn"
+    },
+    {
+      "node_id": 1010,
+      "identifier": "RevolvingEdge"
+    },
+    {
+      "node_id": 1011,
+      "identifier": "StarScarFollow"
+    },
+    {
+      "node_id": 1012,
+      "identifier": "ChaseStep"
+    },
+    {
+      "node_id": 1013,
+      "identifier": "EndlessSeven"
+    },
+    {
+      "node_id": 1014,
+      "identifier": "DipperHandleReturn"
+    },
+    {
+      "node_id": 1015,
+      "identifier": "VoidTread"
+    },
+    {
+      "node_id": 1016,
+      "identifier": "FallingStarSwitch"
+    },
+    {
+      "node_id": 1017,
+      "identifier": "SwordStepMirage"
+    },
+    {
+      "node_id": 1018,
+      "identifier": "StarVeil"
+    },
+    {
+      "node_id": 1019,
+      "identifier": "GateOfLife"
+    },
+    {
+      "node_id": 1020,
+      "identifier": "LingeringScar"
+    },
+    {
+      "node_id": 1021,
+      "identifier": "PoleStarOrbit"
+    },
+    {
+      "node_id": 1022,
+      "identifier": "Starfall"
+    },
+    {
+      "node_id": 1023,
+      "identifier": "ShatteredConstellation"
+    },
+    {
+      "node_id": 1024,
+      "identifier": "ScarRuin"
+    },
+    {
+      "node_id": 1025,
+      "identifier": "ReturningStep"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 1000,
+      "member": "targetLockPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1001,
+      "member": "critChancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1002,
+      "member": "finalSlashPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1003,
+      "member": "quickStarPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1004,
+      "member": "exposedWeaknessPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1005,
+      "member": "poJunPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1006,
+      "member": "zhanJiangPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1008,
+      "member": "solitaryStarPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1009,
+      "member": "flowReturnPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1010,
+      "member": "revolvingEdgePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1012,
+      "member": "chaseStepPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1015,
+      "member": "voidTreadPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1018,
+      "member": "starVeilPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1019,
+      "member": "gateOfLifePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1020,
+      "member": "lingeringScarPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1023,
+      "member": "shatteredConstellationPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1024,
+      "member": "scarRuinPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1007,
+      "member": "sevenFocus",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1011,
+      "member": "starScarFollow",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1013,
+      "member": "endlessSeven",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1016,
+      "member": "fallingStarSwitch",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1017,
+      "member": "swordStepMirage",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1025,
+      "member": "returningStep",
+      "kind": "flag"
+    }
+  ]
+}

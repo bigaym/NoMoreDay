@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "skill_id": 7,
+  "pascal_skill": "MindBlade",
+  "state_name": "MindBladeSpecState",
+  "comment": "A-01 Phase 4c 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 700,
+      "identifier": "SpiritualFocus"
+    },
+    {
+      "node_id": 701,
+      "identifier": "ShadowlessForm"
+    },
+    {
+      "node_id": 702,
+      "identifier": "Rift"
+    },
+    {
+      "node_id": 703,
+      "identifier": "MindMapping"
+    },
+    {
+      "node_id": 710,
+      "identifier": "MindFlowStack"
+    },
+    {
+      "node_id": 711,
+      "identifier": "SpaceBurst"
+    },
+    {
+      "node_id": 712,
+      "identifier": "VoidTraction"
+    },
+    {
+      "node_id": 713,
+      "identifier": "MentalOverdraw"
+    },
+    {
+      "node_id": 714,
+      "identifier": "Oblivion"
+    },
+    {
+      "node_id": 715,
+      "identifier": "WeaknessInsight"
+    },
+    {
+      "node_id": 730,
+      "identifier": "MindSplit"
+    },
+    {
+      "node_id": 731,
+      "identifier": "ThousandFaces"
+    },
+    {
+      "node_id": 732,
+      "identifier": "ShadowStep"
+    },
+    {
+      "node_id": 733,
+      "identifier": "SwordFlight"
+    },
+    {
+      "node_id": 734,
+      "identifier": "SpiritDisengage"
+    },
+    {
+      "node_id": 735,
+      "identifier": "PreciseCut"
+    },
+    {
+      "node_id": 750,
+      "identifier": "GravityCollapse"
+    },
+    {
+      "node_id": 751,
+      "identifier": "SpaceShatter"
+    },
+    {
+      "node_id": 752,
+      "identifier": "AbyssErosion"
+    },
+    {
+      "node_id": 753,
+      "identifier": "MindStorm"
+    },
+    {
+      "node_id": 754,
+      "identifier": "SwordIntentVoid"
+    },
+    {
+      "node_id": 755,
+      "identifier": "MindFeedback"
+    },
+    {
+      "node_id": 770,
+      "identifier": "GlacialShards"
+    },
+    {
+      "node_id": 771,
+      "identifier": "FrostboneShatter"
+    },
+    {
+      "node_id": 772,
+      "identifier": "OrbitalStrike"
+    },
+    {
+      "node_id": 773,
+      "identifier": "HeavenlyTribulation"
+    },
+    {
+      "node_id": 774,
+      "identifier": "AnomalyCut"
+    },
+    {
+      "node_id": 775,
+      "identifier": "MindResistBreak"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 770,
+      "member": "glacialShards",
+      "kind": "flag"
+    },
+    {
+      "node_id": 772,
+      "member": "orbitalStrike",
+      "kind": "flag"
+    }
+  ]
+}

@@ -154,7 +154,9 @@ def split_top_level(text: str, separator: str = ",") -> list[str]:
 
 INT_RE = re.compile(r"^(\d+)[uUlL]*$")
 STRING_LITERAL_RE = re.compile(r'^"((?:[^"\\]|\\.)*)"$')
-NODE_NS_RE = re.compile(r"\bnamespace\s+([A-Za-z_]\w*Nodes)\s*\{")
+NODE_NS_RE = re.compile(r"\bnamespace\s+([A-Za-z_]\w*Nodes(?:Gen)?)\s*\{")
+# 命名空间别名：`namespace SwordArrayNodes = SwordArrayNodesGen;`（A-01 生成式 SpecState 以别名重导出节点常量）。
+NS_ALIAS_RE = re.compile(r"\bnamespace\s+([A-Za-z_]\w*)\s*=\s*([A-Za-z_]\w*)\s*;")
 CONST_U32_RE = re.compile(
     r"(?:inline\s+|static\s+)?constexpr\s+uint32_t\s+([A-Za-z_]\w*)\s*=\s*([^;]+?)\s*;"
 )
@@ -214,6 +216,7 @@ class SourceFacts:
 
     def __init__(self) -> None:
         self.node_namespaces: dict[str, dict[str, int]] = {}
+        self.namespace_aliases: dict[str, str] = {}
         self.const_exprs: dict[str, list[tuple[Path, str]]] = {}
         self.file_k_skill: dict[Path, list[str]] = {}
         self.class_k_skill: dict[str, list[str]] = {}
@@ -239,6 +242,9 @@ def collect_facts(sources: dict[Path, str]) -> SourceFacts:
         # 本文件 using namespace XxxNodes;
         for m in USING_NS_RE.finditer(text):
             facts.file_using_namespaces.setdefault(path, set()).add(m.group(1))
+        # 命名空间别名（A-01 生成式 SpecState 将节点常量重导出为既有命名空间名）
+        for m in NS_ALIAS_RE.finditer(text):
+            facts.namespace_aliases[m.group(1)] = m.group(2)
         # 结构体/类内的 static constexpr uint32_t kSkillId = ...;
         for m in STRUCT_RE.finditer(text):
             brace = text.find("{", m.end())
@@ -250,6 +256,12 @@ def collect_facts(sources: dict[Path, str]) -> SourceFacts:
             for cm in CONST_U32_RE.finditer(text[brace:end]):
                 if cm.group(1) == "kSkillId":
                     facts.class_k_skill.setdefault(m.group(1), []).append(cm.group(2).strip())
+    # 命名空间别名解析：把目标命名空间的节点表挂到别名下（目标可能后于别名所在文件被扫描）。
+    for alias, target in facts.namespace_aliases.items():
+        if alias not in facts.node_namespaces:
+            table = facts.node_namespaces.get(target)
+            if table is not None:
+                facts.node_namespaces[alias] = table
     # kSkillId 的文件级解析：显式定义优先，否则回退到同名结构体（.cpp 实现 .hpp 结构体方法）
     for name, entries in facts.const_exprs.items():
         if name == "kSkillId":

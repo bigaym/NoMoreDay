@@ -22,84 +22,50 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/SwordArraySpecState.gen.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <vector>
 
 namespace NoMoreDay::skills {
 
-namespace SwordArrayNodes {
-constexpr uint32_t Duration = 600;       // 灵气流转
-constexpr uint32_t Expansion = 601;      // 虚空法网
-constexpr uint32_t Torment = 602;        // 极刑
-constexpr uint32_t Structure = 603;      // 阵基稳固
-constexpr uint32_t TwinArrays = 610;     // 双生剑阵
-constexpr uint32_t TriFormation = 611;   // 三才阵
-constexpr uint32_t Resonance = 612;      // 剑气共鸣
-constexpr uint32_t Connection = 613;     // 千丝万缕
-constexpr uint32_t DashTrigger = 614;    // 流云穿阵
-constexpr uint32_t SwordStepArray = 615; // 御剑阵威
-constexpr uint32_t SlowPressure = 630;   // 迟缓剑压
-constexpr uint32_t ArmorIntent = 631;    // 破甲剑意
-constexpr uint32_t Weaken = 632;         // 虚弱领域
-constexpr uint32_t ExecuteField = 633;   // 绝命法场
-constexpr uint32_t Cage = 634;           // 剑阵牢笼
-constexpr uint32_t ArrayEcho = 635;      // 阵斩回响
-constexpr uint32_t Core = 650;           // 阵眼
-constexpr uint32_t ManaSpring = 651;     // 灵力泉涌
-constexpr uint32_t MindUnity = 652;      // 意念合一
-constexpr uint32_t MobileAura = 653;     // 随身剑垒
-constexpr uint32_t CooldownRecovery = 654; // 剑神领域
-constexpr uint32_t ArrayWard = 655;      // 法阵回护
-constexpr uint32_t FireField = 670;      // 焚天烈焰阵
-constexpr uint32_t InfernalGround = 671; // 炼狱余火
-constexpr uint32_t LightningField = 672; // 九幽雷池
-constexpr uint32_t ChainThunder = 673;   // 连珠落雷
-constexpr uint32_t ArrayCorrosion = 674; // 法阵侵蚀
-constexpr uint32_t Relocate = 675;       // 移形换阵
-} // namespace SwordArrayNodes
+// 节点常量随 A-01 Phase 4a 信封化迁移至生成头，此处以别名保持既有机制读取引用不变。
+namespace SwordArrayNodes = SwordArrayNodesGen;
+
+namespace {
+// 技能 6 的节点点亮/点数统一经生成 SpecState 读取（A-01 D-A1）。
+[[nodiscard]] SwordArraySpecStateGen ResolveState(const entt::registry &registry, entt::entity owner) {
+  return ResolveSpecState(registry, owner, SwordArray::kSkillId, kSwordArrayTableGen);
+}
+} // namespace
 
 void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
   const auto &mechanics = data::SkillMechanicsRegistry::Get();
 
-  const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
   BakedSkillProfile localProfile;
-  const SpecializedSkill *specPtr = nullptr;
-  if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-      if (spec.skill_id == kSkillId) {
-        specPtr = &spec;
-        SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-        profile = &localProfile;
-        break;
-      }
-    }
-  } else if (registry.all_of<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-      if (spec.skill_id == kSkillId) {
-        specPtr = &spec;
-        break;
-      }
-    }
-  }
-
-  auto getPoints = [&](uint32_t node_id) -> int {
-    if (specPtr) {
-      // 读点 helper：已分配节点点数恒 ≥1，正数即已点亮。
-      const int points = skills::ReadPoints(*specPtr, node_id);
-      if (points > 0) return points;
+  const auto *profile =
+      ResolveBakedProfile(registry, owner, kSkillId, localProfile);
+  const SwordArraySpecStateGen specState = ResolveState(registry, owner);
+  // 生成 SpecState 仅承载专精点数/点亮；保留 active_nodes 回退以维持迁移前
+  // getPoints 的语义（无专精分配时由 exec.active_nodes 提供点亮语义）。
+  const auto nodePoints = [&](uint32_t node_id, int stored_points) -> int {
+    if (stored_points > 0) {
+      return stored_points;
     }
     return exec.active_nodes.test(node_id % 100) ? 1 : 0;
+  };
+  const auto nodeActive = [&](uint32_t node_id, bool stored_flag) -> bool {
+    return stored_flag || exec.active_nodes.test(node_id % 100);
   };
 
   // 1. 阵法数量与上限管理
   int max_arrays = 1;
-  if (profile ? ((profile->delivery.feature_flags & 16) != 0) : (getPoints(SwordArrayNodes::TwinArrays) > 0)) {
+  if (nodeActive(SwordArrayNodes::TwinArrays, specState.twinArrays)) {
     max_arrays = 2;
   }
-  if (profile ? ((profile->delivery.feature_flags & 32) != 0) : (getPoints(SwordArrayNodes::TriFormation) > 0)) {
+  if (nodeActive(SwordArrayNodes::TriFormation, specState.triFormation)) {
     max_arrays = 3;
   }
 
@@ -112,7 +78,7 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
   }
 
   // 675 移形换阵: 重按挪阵
-  const bool allow_relocate = profile ? ((profile->delivery.feature_flags & 8388608) != 0) : (getPoints(SwordArrayNodes::Relocate) > 0);
+  const bool allow_relocate = nodeActive(SwordArrayNodes::Relocate, specState.relocate);
   bool chargesExhausted = false;
   if (registry.all_of<ActiveSkillsComponent>(owner)) {
     const auto &active = registry.get<ActiveSkillsComponent>(owner);
@@ -151,7 +117,7 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
   }
 
   // 2. 随身剑垒 (Node 653) 与坐标初始化
-  const bool is_mobile_aura = profile ? ((profile->delivery.feature_flags & 32768) != 0) : (getPoints(SwordArrayNodes::MobileAura) > 0);
+  const bool is_mobile_aura = nodeActive(SwordArrayNodes::MobileAura, specState.mobileAura);
   Vector2 spawn_pos = exec.target_pos;
   if (is_mobile_aura) {
     if (const auto *ownerPos = registry.try_get<Position>(owner)) {
@@ -179,22 +145,22 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
   array.is_mobile_aura = is_mobile_aura;
 
   // 3. 专精机制映射
-  const int pts_630 = getPoints(SwordArrayNodes::SlowPressure);
-  array.has_slow = profile ? ((profile->delivery.feature_flags & 1) != 0) : (pts_630 > 0);
+  const int pts_630 = nodePoints(SwordArrayNodes::SlowPressure, specState.slowPressurePoints);
+  array.has_slow = pts_630 > 0;
   array.slow_magnitude = mechanics.GetFloat(kSkillId, SwordArrayNodes::SlowPressure, "slow_pct_per_point", 0.10f) * static_cast<float>(std::max(1, pts_630));
   array.slow_duration = mechanics.GetFloat(kSkillId, SwordArrayNodes::SlowPressure, "slow_duration", 2.0f);
 
-  const int pts_631 = getPoints(SwordArrayNodes::ArmorIntent);
-  array.has_armor_shred = profile ? ((profile->delivery.feature_flags & 2) != 0) : (pts_631 > 0);
+  const int pts_631 = nodePoints(SwordArrayNodes::ArmorIntent, specState.armorIntentPoints);
+  array.has_armor_shred = pts_631 > 0;
   array.armor_shred_chance = mechanics.GetFloat(kSkillId, SwordArrayNodes::ArmorIntent, "shred_chance_per_point", 0.50f) * static_cast<float>(std::max(1, pts_631));
   array.shred_duration = mechanics.GetFloat(kSkillId, SwordArrayNodes::ArmorIntent, "shred_duration", 4.0f);
   array.shred_armor_per_stack = mechanics.GetFloat(kSkillId, SwordArrayNodes::ArmorIntent, "shred_armor_per_stack", 10.0f);
   array.shred_max_stacks = static_cast<int>(mechanics.GetFloat(kSkillId, SwordArrayNodes::ArmorIntent, "shred_max_stacks", 10.0f));
 
-  const int pts_632 = getPoints(SwordArrayNodes::Weaken);
+  const int pts_632 = nodePoints(SwordArrayNodes::Weaken, specState.weakenPoints);
   array.weaken_less_damage = mechanics.GetFloat(kSkillId, SwordArrayNodes::Weaken, "weaken_less_per_point", 0.06f) * static_cast<float>(pts_632);
 
-  array.has_execute = profile ? ((profile->delivery.feature_flags & 4) != 0) : (getPoints(SwordArrayNodes::ExecuteField) > 0);
+  array.has_execute = nodeActive(SwordArrayNodes::ExecuteField, specState.executeField);
   if (array.has_execute) {
     array.execute_health_threshold_ratio = mechanics.GetFloat(kSkillId, SwordArrayNodes::ExecuteField, "execute_threshold_ratio", 0.12f);
     array.boss_more_damage = 1.0f + mechanics.GetFloat(kSkillId, SwordArrayNodes::ExecuteField, "boss_more_damage_pct", 0.20f);
@@ -202,41 +168,41 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
     array.boss_more_damage = 1.0f;
   }
 
-  array.has_cage = profile ? ((profile->delivery.feature_flags & 2048) != 0) : (getPoints(SwordArrayNodes::Cage) > 0);
+  array.has_cage = nodeActive(SwordArrayNodes::Cage, specState.cage);
 
-  const int pts_650 = getPoints(SwordArrayNodes::Core);
+  const int pts_650 = nodePoints(SwordArrayNodes::Core, specState.corePoints);
   array.core_buff_more_damage = mechanics.GetFloat(kSkillId, SwordArrayNodes::Core, "global_damage_more_per_point", 0.15f) * static_cast<float>(pts_650);
 
-  const int pts_651 = getPoints(SwordArrayNodes::ManaSpring);
+  const int pts_651 = nodePoints(SwordArrayNodes::ManaSpring, specState.manaSpringPoints);
   array.mana_regen_per_sec = mechanics.GetFloat(kSkillId, SwordArrayNodes::ManaSpring, "mana_regen_per_point", 2.0f) * static_cast<float>(pts_651);
 
-  const int pts_652 = getPoints(SwordArrayNodes::MindUnity);
-  array.gain_intent_on_tick = profile ? ((profile->delivery.feature_flags & 8) != 0) : (pts_652 > 0);
+  const int pts_652 = nodePoints(SwordArrayNodes::MindUnity, specState.mindUnityPoints);
+  array.gain_intent_on_tick = pts_652 > 0;
   array.intent_gen_chance = mechanics.GetFloat(kSkillId, SwordArrayNodes::MindUnity, "intent_chance_per_point", 0.333333f) * static_cast<float>(std::max(1, pts_652));
 
-  const int pts_654 = getPoints(SwordArrayNodes::CooldownRecovery);
+  const int pts_654 = nodePoints(SwordArrayNodes::CooldownRecovery, specState.cooldownRecoveryPoints);
   array.cdr_buff = mechanics.GetFloat(kSkillId, SwordArrayNodes::CooldownRecovery, "cdr_pct_per_point", 0.10f) * static_cast<float>(pts_654);
 
-  const int pts_655 = getPoints(SwordArrayNodes::ArrayWard);
+  const int pts_655 = nodePoints(SwordArrayNodes::ArrayWard, specState.arrayWardPoints);
   array.ward_int_mult_per_sec = mechanics.GetFloat(kSkillId, SwordArrayNodes::ArrayWard, "ward_int_pct_per_point", 0.50f) * static_cast<float>(pts_655);
 
-  array.is_fire_field = profile ? ((profile->delivery.feature_flags & 262144) != 0) : (getPoints(SwordArrayNodes::FireField) > 0);
+  array.is_fire_field = nodeActive(SwordArrayNodes::FireField, specState.fireField);
   array.burn_stacks = static_cast<int>(mechanics.GetFloat(kSkillId, SwordArrayNodes::FireField, "burn_stacks", 2.0f));
   array.burn_duration = mechanics.GetFloat(kSkillId, SwordArrayNodes::FireField, "burn_duration", 3.0f);
   array.base_ignite_magnitude = mechanics.GetFloat(kSkillId, SwordArrayNodes::FireField, "base_ignite_magnitude", 15.0f);
 
-  const int pts_671 = getPoints(SwordArrayNodes::InfernalGround);
+  const int pts_671 = nodePoints(SwordArrayNodes::InfernalGround, specState.infernalGroundPoints);
   array.ignite_more_damage = mechanics.GetFloat(kSkillId, SwordArrayNodes::InfernalGround, "ignite_more_per_point", 0.20f) * static_cast<float>(pts_671);
 
-  array.is_lightning_pool = profile ? ((profile->delivery.feature_flags & 1048576) != 0) : (getPoints(SwordArrayNodes::LightningField) > 0);
-  const int pts_673 = getPoints(SwordArrayNodes::ChainThunder);
+  array.is_lightning_pool = nodeActive(SwordArrayNodes::LightningField, specState.lightningField);
+  const int pts_673 = nodePoints(SwordArrayNodes::ChainThunder, specState.chainThunderPoints);
   // 落雷基线从机制表读取 (base_targets: 2)，再随机 2-3 名并叠加 673 每点 +1
   const int baseTargets = static_cast<int>(mechanics.GetFloat(kSkillId, SwordArrayNodes::LightningField, "base_targets", 2.0f));
   array.lightning_targets = baseTargets + utils::ThreadSafeRandom::GetInt(0, 1) + pts_673;
-  array.has_chain_lightning = profile ? ((profile->delivery.feature_flags & 2097152) != 0) : (pts_673 > 0);
+  array.has_chain_lightning = pts_673 > 0;
   array.chain_lightning_damage_pct = mechanics.GetFloat(kSkillId, SwordArrayNodes::ChainThunder, "chain_damage_pct", 0.50f);
 
-  const int pts_674 = getPoints(SwordArrayNodes::ArrayCorrosion);
+  const int pts_674 = nodePoints(SwordArrayNodes::ArrayCorrosion, specState.arrayCorrosionPoints);
   array.corrosion_stacks_per_sec = mechanics.GetFloat(kSkillId, SwordArrayNodes::ArrayCorrosion, "stacks_per_second_per_point", 1.0f) * static_cast<float>(pts_674);
   array.corrosion_resist_per_stack = mechanics.GetFloat(kSkillId, SwordArrayNodes::ArrayCorrosion, "shred_per_stack", 2.0f);
   array.corrosion_max_stacks = static_cast<int>(mechanics.GetFloat(kSkillId, SwordArrayNodes::ArrayCorrosion, "max_stacks", 10.0f));
@@ -246,12 +212,12 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
   // 从烘焙 profile 继承的总增伤乘数 (供 613/614 等硬编码效果力消费，与 650 主伤害路径一致)
   array.damage_more_mult = (profile && profile->more_damage_mult > 0.0f) ? profile->more_damage_mult : 1.0f;
 
-  const int pts_612 = getPoints(SwordArrayNodes::Resonance);
+  const int pts_612 = nodePoints(SwordArrayNodes::Resonance, specState.resonancePoints);
   array.resonance_more_mult = 1.0f + mechanics.GetFloat(kSkillId, SwordArrayNodes::Resonance, "resonance_more_per_point", 0.20f) * static_cast<float>(pts_612);
 
-  array.has_chain_connection = profile ? ((profile->delivery.feature_flags & 128) != 0) : (getPoints(SwordArrayNodes::Connection) > 0);
-  array.has_dash_detonation = profile ? ((profile->delivery.feature_flags & 256) != 0) : (getPoints(SwordArrayNodes::DashTrigger) > 0);
-  const int pts_615 = getPoints(SwordArrayNodes::SwordStepArray);
+  array.has_chain_connection = nodeActive(SwordArrayNodes::Connection, specState.connection);
+  array.has_dash_detonation = nodeActive(SwordArrayNodes::DashTrigger, specState.dashTrigger);
+  const int pts_615 = nodePoints(SwordArrayNodes::SwordStepArray, specState.swordStepArrayPoints);
   array.sword_step_frequency_bonus = mechanics.GetFloat(kSkillId, SwordArrayNodes::SwordStepArray, "freq_bonus_per_point", 0.20f) * static_cast<float>(pts_615);
 
   // 互斥安全防线：火/雷互斥优先保留火

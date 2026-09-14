@@ -19,8 +19,9 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/PhantomTranceSpecState.gen.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <array>
@@ -33,9 +34,23 @@ namespace NoMoreDay::skills {
 namespace {
 
 // 技能9全部专精节点，用于无烘焙档案时按 active_nodes 合成专精后兜底烘焙。
+// 节点常量随 A-01 Phase 4c 信封化迁移至生成头（命名 descriptor 驱动）。
 constexpr std::array<uint32_t, 29> kPhantomTranceNodes = {
-    902, 913, 914, 934, 935, 954, 955, 972, 973, 974, 975, 976, 977, 978, 979,
-    980, 981, 982, 983, 984, 985, 986, 987, 988, 989, 990, 991, 992, 993};
+    PhantomTranceNodesGen::LightAsSwallow, PhantomTranceNodesGen::SpiritFlowPierce,
+    PhantomTranceNodesGen::VoidRealmGift, PhantomTranceNodesGen::SwordFollowsMind,
+    PhantomTranceNodesGen::FateBacklash, PhantomTranceNodesGen::TimeReversal,
+    PhantomTranceNodesGen::FullFocus, PhantomTranceNodesGen::SkyThunder,
+    PhantomTranceNodesGen::OverloadShield, PhantomTranceNodesGen::ClearMind,
+    PhantomTranceNodesGen::Longevity, PhantomTranceNodesGen::CycloneBurst,
+    PhantomTranceNodesGen::DeathDefiance, PhantomTranceNodesGen::BloodRebirth,
+    PhantomTranceNodesGen::ShadowArmor, PhantomTranceNodesGen::VoidBody,
+    PhantomTranceNodesGen::ReverseMeridian, PhantomTranceNodesGen::DesperateGambit,
+    PhantomTranceNodesGen::DeathSpiral, PhantomTranceNodesGen::Bloodthirst,
+    PhantomTranceNodesGen::BlinkStrike, PhantomTranceNodesGen::GroundShrink,
+    PhantomTranceNodesGen::IntentFollowsSpirit, PhantomTranceNodesGen::SwordShadow,
+    PhantomTranceNodesGen::SnowVeil, PhantomTranceNodesGen::WinterEnchant,
+    PhantomTranceNodesGen::MindPierce, PhantomTranceNodesGen::SpiritFeedback,
+    PhantomTranceNodesGen::ShadowEcho};
 
 // 六系伤害类型，用于逆脉增伤与穿行诅咒减伤。
 constexpr std::array<StatType, 6> kDamageStatTypes = {
@@ -66,10 +81,13 @@ constexpr float kShockMagnitude = 15.0f;      // 雷盾脉冲感电强度
                                                        entt::entity owner,
                                                        SkillExecution &exec,
                                                        BakedSkillProfile &scratch) {
+  // 缓存命中：直接取形态参数，避免为合成专精分配 allocated_points。
   if (const auto *profile = SkillSystem::GetBakedSkillProfile(
           registry, owner, PhantomTrance::kSkillId)) {
     return profile->delivery.trance;
   }
+  // 未命中：按 active_nodes 合成专精，交给基元走同一烘焙路径，
+  // 保证测试/兜底与生产数值单源。
   SpecializedSkill synthesized;
   synthesized.skill_id = PhantomTrance::kSkillId;
   for (uint32_t node_id : kPhantomTranceNodes) {
@@ -77,9 +95,9 @@ constexpr float kShockMagnitude = 15.0f;      // 雷盾脉冲感电强度
       synthesized.allocated_points[node_id] = 1;
     }
   }
-  SkillSpecializationBaker::Bake(registry, owner, PhantomTrance::kSkillId,
-                                 &synthesized, scratch, nullptr);
-  return scratch.delivery.trance;
+  return ResolveBakedProfile(registry, owner, PhantomTrance::kSkillId, scratch,
+                             &synthesized)
+      ->delivery.trance;
 }
 
 [[nodiscard]] std::vector<entt::entity>

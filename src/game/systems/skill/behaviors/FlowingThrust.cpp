@@ -19,9 +19,10 @@
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
+#include "game/systems/skill/behaviors/generated/FlowingThrustSpecState.gen.hpp"
 #include "raylib.h"
 #include "raymath.h"
 #include <algorithm>
@@ -29,36 +30,8 @@
 
 namespace NoMoreDay::skills {
 
-namespace FlowingThrustNodes {
-constexpr uint32_t SwiftBlade = 100;
-constexpr uint32_t Gather = 101;
-constexpr uint32_t SwordHeart = 102;
-constexpr uint32_t FlowingSpirit = 103;
-constexpr uint32_t Pierce = 110;
-constexpr uint32_t Chain = 111;
-constexpr uint32_t Momentum = 112;
-constexpr uint32_t Windwalker = 113;
-constexpr uint32_t RidingTheWind = 114;
-constexpr uint32_t Relentless = 115;
-constexpr uint32_t Afterimage = 130;
-constexpr uint32_t ShadowDomain = 131;
-constexpr uint32_t ShadowStrike = 132;
-constexpr uint32_t Swap = 133;
-constexpr uint32_t ShadowBlitz = 134;
-constexpr uint32_t PhantomShield = 135;
-constexpr uint32_t WeakPoint = 150;
-constexpr uint32_t DeepWounds = 151;
-constexpr uint32_t ArterySever = 152;
-constexpr uint32_t BloodDrinker = 153;
-constexpr uint32_t AllIn = 154;
-constexpr uint32_t SeverFate = 155;
-constexpr uint32_t Hellfire = 170;
-constexpr uint32_t InfernalPath = 171;
-constexpr uint32_t FreezingWind = 172;
-constexpr uint32_t BoneDeepFrost = 173;
-constexpr uint32_t ElementalErosion = 174;
-constexpr uint32_t ResidualElements = 175;
-} // namespace FlowingThrustNodes
+// 节点常量随 A-01 Phase 4c 信封化迁移至生成头，此处以别名保持既有机制读取引用不变。
+namespace FlowingThrustNodes = FlowingThrustNodesGen;
 
 namespace {
 
@@ -84,6 +57,12 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
   static constexpr uint32_t kBloodRipSynergySkillId = 8;
   static constexpr uint32_t kBloodRipSynergyNode = 814;
 
+  // 效果层 SpecState 解析入口：唯一调用模板 ResolveSpecState 的位置（A-01 D-A1）。
+  [[nodiscard]] static FlowingThrustSpecStateGen ResolveState(entt::registry &registry,
+                                                              entt::entity owner) {
+    return ResolveSpecState(registry, owner, kSkillId, kFlowingThrustTableGen);
+  }
+
   static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
     auto *pos = registry.try_get<Position>(owner);
     auto *stats = registry.try_get<CombatStats>(owner);
@@ -94,17 +73,10 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       seven_star_shared::ApplyReturningStepOverride(registry, owner, kSkillId);
     }
 
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
-    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-          profile = &localProfile;
-          break;
-        }
-      }
-    }
+    const auto *profile =
+        ResolveBakedProfile(registry, owner, kSkillId, localProfile);
+    const FlowingThrustSpecStateGen specState = ResolveState(registry, owner);
 
     Vector2 startPos = {pos->x, pos->y};
     Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, startPos));
@@ -117,11 +89,14 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       speed *= (1.0f + std::clamp(res->current, 0, 10) * 0.04f);
     }
 
-    const uint32_t flags = profile ? profile->delivery.feature_flags : 0;
-    const bool hasWindwalker = (flags & 4) != 0 || exec.active_nodes.test(FlowingThrustNodes::Windwalker % 100);
-    const bool spawnShadow = (flags & 2) != 0 || exec.active_nodes.test(FlowingThrustNodes::Afterimage % 100);
-    const bool shadowStrike = (flags & 32) != 0 || exec.active_nodes.test(FlowingThrustNodes::ShadowStrike % 100);
-    const bool isSwap = (flags & 8) != 0 || exec.active_nodes.test(FlowingThrustNodes::Swap % 100);
+    const bool hasWindwalker =
+        specState.windwalker || exec.active_nodes.test(FlowingThrustNodes::Windwalker % 100);
+    const bool spawnShadow =
+        specState.afterimage || exec.active_nodes.test(FlowingThrustNodes::Afterimage % 100);
+    const bool shadowStrike =
+        specState.shadowStrike || exec.active_nodes.test(FlowingThrustNodes::ShadowStrike % 100);
+    const bool isSwap =
+        specState.swap || exec.active_nodes.test(FlowingThrustNodes::Swap % 100);
 
     // 113 风行者: 疾风状态 (2s) 移速 +40%，无视体积碰撞，激活御剑步
     if (hasWindwalker) {
@@ -173,18 +148,10 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       // 112 势如破竹: 位移距离增加 10%...40%（每点 +10%），
       // 读取 skill_mechanics.json 112 节点配置；未分配 112 时倍率为 1。
       const bool hasMomentum =
-          (flags & 256) != 0 || exec.active_nodes.test(FlowingThrustNodes::Momentum % 100);
+          specState.momentumPoints > 0 || exec.active_nodes.test(FlowingThrustNodes::Momentum % 100);
       float dashRangeMult = 1.0f;
       if (hasMomentum) {
-        int momentumPoints = 0;
-        if (registry.all_of<ActiveSkillsComponent>(owner)) {
-          for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-            if (spec.skill_id == kSkillId) {
-              momentumPoints = ReadPoints(spec, FlowingThrustNodes::Momentum);
-              break;
-            }
-          }
-        }
+        const int momentumPoints = specState.momentumPoints;
         const float rangePct = mech.GetFloat(kSkillId, FlowingThrustNodes::Momentum, "dash_range_pct_per_point", 10.0f) / 100.0f;
         dashRangeMult = 1.0f + rangePct * static_cast<float>(momentumPoints);
       }
@@ -241,15 +208,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       // (余烬持续/宽度读 skill_mechanics.json，171 每点 +0.5s / 宽度 +25%)
       if (profile && HasTag(profile->effective_tags, Tag::Fire)) {
         const auto &mech = data::SkillMechanicsRegistry::Get();
-        int infernalPoints = 0;
-        if (registry.all_of<ActiveSkillsComponent>(owner)) {
-          for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-            if (spec.skill_id == kSkillId) {
-              infernalPoints = ReadPoints(spec, FlowingThrustNodes::InfernalPath);
-              break;
-            }
-          }
-        }
+        const int infernalPoints = specState.infernalPathPoints;
         const float baseDuration = mech.GetFloat(kSkillId, FlowingThrustNodes::Hellfire, "ember_duration", 2.0f);
         const float baseWidth = mech.GetFloat(kSkillId, FlowingThrustNodes::Hellfire, "ember_width", 60.0f);
         const float widthPerPointPct =
@@ -340,35 +299,16 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     const auto &mech = data::SkillMechanicsRegistry::Get();
 
     const auto *profile = SkillSystem::GetBakedSkillProfile(reg, actualAttacker, kSkillId);
-    int ridingPoints = 0;
-    int deepWoundsPoints = 0;
-    int arteryPoints = 0;
-    int severFatePoints = 0;
-    int relentlessPoints = 0;
-    int boneFrostPoints = 0;
-    int elementalErosionPoints = 0;
-    int residualElementsPoints = 0;
-    bool hasAllIn = false;
-
-    if (auto *act = reg.try_get<ActiveSkillsComponent>(actualAttacker)) {
-      for (const auto &spec : act->specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          auto getPts = [&](uint32_t nid) -> int {
-            return ReadPoints(spec, nid);
-          };
-          ridingPoints = getPts(FlowingThrustNodes::RidingTheWind);
-          deepWoundsPoints = getPts(FlowingThrustNodes::DeepWounds);
-          arteryPoints = getPts(FlowingThrustNodes::ArterySever);
-          severFatePoints = getPts(FlowingThrustNodes::SeverFate);
-          relentlessPoints = getPts(FlowingThrustNodes::Relentless);
-          boneFrostPoints = getPts(FlowingThrustNodes::BoneDeepFrost);
-          elementalErosionPoints = getPts(FlowingThrustNodes::ElementalErosion);
-          residualElementsPoints = getPts(FlowingThrustNodes::ResidualElements);
-          hasAllIn = getPts(FlowingThrustNodes::AllIn) > 0;
-          break;
-        }
-      }
-    }
+    const FlowingThrustSpecStateGen specState = ResolveState(reg, actualAttacker);
+    const int ridingPoints = specState.ridingTheWindPoints;
+    const int deepWoundsPoints = specState.deepWoundsPoints;
+    const int arteryPoints = specState.arterySeverPoints;
+    const int severFatePoints = specState.severFatePoints;
+    const int relentlessPoints = specState.relentlessPoints;
+    const int boneFrostPoints = specState.boneDeepFrostPoints;
+    const int elementalErosionPoints = specState.elementalErosionPoints;
+    const int residualElementsPoints = specState.residualElementsPoints;
+    const bool hasAllIn = specState.allInPoints > 0;
 
     // 1. 基础命中回蓝 (基底描述：若命中目标，回复少量法力)
     if (auto *st = reg.try_get<CombatStats>(actualAttacker)) {
@@ -982,15 +922,7 @@ void UpdateFlowingThrustPhantomShield(entt::registry &registry, float dt) {
     entt::entity owner = owners[i];
 
     // 仅流云刺专精分配了 135 时生效
-    int phantomPoints = 0;
-    if (const auto *act = registry.try_get<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : act->specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          phantomPoints = ReadPoints(spec, kPhantomShieldNode);
-          break;
-        }
-      }
-    }
+    const int phantomPoints = FlowingThrust::ResolveState(registry, owner).phantomShieldPoints;
     if (phantomPoints <= 0) {
       continue;
     }

@@ -1,0 +1,258 @@
+{
+  "version": 1,
+  "skill_id": 3,
+  "pascal_skill": "BladeFormation",
+  "state_name": "BladeFormationSpecState",
+  "comment": "A-01 Phase 4b 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 300,
+      "identifier": "SwordPool"
+    },
+    {
+      "node_id": 301,
+      "identifier": "SwiftIntent"
+    },
+    {
+      "node_id": 302,
+      "identifier": "EdgedSpirit"
+    },
+    {
+      "node_id": 303,
+      "identifier": "ElementalCore"
+    },
+    {
+      "node_id": 310,
+      "identifier": "SearchRadius"
+    },
+    {
+      "node_id": 311,
+      "identifier": "InfiniteSheath"
+    },
+    {
+      "node_id": 312,
+      "identifier": "Network"
+    },
+    {
+      "node_id": 313,
+      "identifier": "Godspeed"
+    },
+    {
+      "node_id": 314,
+      "identifier": "Concentrate"
+    },
+    {
+      "node_id": 315,
+      "identifier": "SwordStepResonance"
+    },
+    {
+      "node_id": 330,
+      "identifier": "GiantSword"
+    },
+    {
+      "node_id": 331,
+      "identifier": "WeakPointCrit"
+    },
+    {
+      "node_id": 332,
+      "identifier": "DeadlyEdge"
+    },
+    {
+      "node_id": 333,
+      "identifier": "SwordPressure"
+    },
+    {
+      "node_id": 334,
+      "identifier": "Crush"
+    },
+    {
+      "node_id": 335,
+      "identifier": "GiantSwordRift"
+    },
+    {
+      "node_id": 350,
+      "identifier": "Ward"
+    },
+    {
+      "node_id": 351,
+      "identifier": "BladeOrbit"
+    },
+    {
+      "node_id": 352,
+      "identifier": "RetaliationWeb"
+    },
+    {
+      "node_id": 353,
+      "identifier": "Immortality"
+    },
+    {
+      "node_id": 354,
+      "identifier": "SpellEcho"
+    },
+    {
+      "node_id": 355,
+      "identifier": "ArrayResonance"
+    },
+    {
+      "node_id": 370,
+      "identifier": "ElementFire"
+    },
+    {
+      "node_id": 371,
+      "identifier": "BlazingDance"
+    },
+    {
+      "node_id": 372,
+      "identifier": "ElementLightning"
+    },
+    {
+      "node_id": 373,
+      "identifier": "ArcChain"
+    },
+    {
+      "node_id": 374,
+      "identifier": "SpiritCorrosion"
+    },
+    {
+      "node_id": 375,
+      "identifier": "Charge"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 300,
+      "member": "swordPoolPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 301,
+      "member": "swiftIntentPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 302,
+      "member": "edgedSpiritPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 303,
+      "member": "elementalCorePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 310,
+      "member": "searchRadiusPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 312,
+      "member": "networkPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 315,
+      "member": "swordStepResonancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 331,
+      "member": "weakPointCritPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 332,
+      "member": "deadlyEdgePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 333,
+      "member": "swordPressurePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 334,
+      "member": "crushPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 350,
+      "member": "wardPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 352,
+      "member": "retaliationWebPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 371,
+      "member": "blazingDancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 373,
+      "member": "arcChainPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 374,
+      "member": "spiritCorrosionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 375,
+      "member": "chargePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 311,
+      "member": "infiniteSheath",
+      "kind": "flag"
+    },
+    {
+      "node_id": 313,
+      "member": "godspeed",
+      "kind": "flag"
+    },
+    {
+      "node_id": 314,
+      "member": "concentrate",
+      "kind": "flag"
+    },
+    {
+      "node_id": 330,
+      "member": "giantSword",
+      "kind": "flag"
+    },
+    {
+      "node_id": 351,
+      "member": "bladeOrbit",
+      "kind": "flag"
+    },
+    {
+      "node_id": 353,
+      "member": "immortality",
+      "kind": "flag"
+    },
+    {
+      "node_id": 354,
+      "member": "spellEcho",
+      "kind": "flag"
+    },
+    {
+      "node_id": 355,
+      "member": "arrayResonance",
+      "kind": "flag"
+    },
+    {
+      "node_id": 370,
+      "member": "elementFire",
+      "kind": "flag"
+    },
+    {
+      "node_id": 372,
+      "member": "elementLightning",
+      "kind": "flag"
+    }
+  ]
+}

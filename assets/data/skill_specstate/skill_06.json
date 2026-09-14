@@ -1,0 +1,238 @@
+{
+  "version": 1,
+  "skill_id": 6,
+  "pascal_skill": "SwordArray",
+  "state_name": "SwordArraySpecState",
+  "comment": "A-01 Phase 4a 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 600,
+      "identifier": "Duration"
+    },
+    {
+      "node_id": 601,
+      "identifier": "Expansion"
+    },
+    {
+      "node_id": 602,
+      "identifier": "Torment"
+    },
+    {
+      "node_id": 603,
+      "identifier": "Structure"
+    },
+    {
+      "node_id": 610,
+      "identifier": "TwinArrays"
+    },
+    {
+      "node_id": 611,
+      "identifier": "TriFormation"
+    },
+    {
+      "node_id": 612,
+      "identifier": "Resonance"
+    },
+    {
+      "node_id": 613,
+      "identifier": "Connection"
+    },
+    {
+      "node_id": 614,
+      "identifier": "DashTrigger"
+    },
+    {
+      "node_id": 615,
+      "identifier": "SwordStepArray"
+    },
+    {
+      "node_id": 630,
+      "identifier": "SlowPressure"
+    },
+    {
+      "node_id": 631,
+      "identifier": "ArmorIntent"
+    },
+    {
+      "node_id": 632,
+      "identifier": "Weaken"
+    },
+    {
+      "node_id": 633,
+      "identifier": "ExecuteField"
+    },
+    {
+      "node_id": 634,
+      "identifier": "Cage"
+    },
+    {
+      "node_id": 635,
+      "identifier": "ArrayEcho"
+    },
+    {
+      "node_id": 650,
+      "identifier": "Core"
+    },
+    {
+      "node_id": 651,
+      "identifier": "ManaSpring"
+    },
+    {
+      "node_id": 652,
+      "identifier": "MindUnity"
+    },
+    {
+      "node_id": 653,
+      "identifier": "MobileAura"
+    },
+    {
+      "node_id": 654,
+      "identifier": "CooldownRecovery"
+    },
+    {
+      "node_id": 655,
+      "identifier": "ArrayWard"
+    },
+    {
+      "node_id": 670,
+      "identifier": "FireField"
+    },
+    {
+      "node_id": 671,
+      "identifier": "InfernalGround"
+    },
+    {
+      "node_id": 672,
+      "identifier": "LightningField"
+    },
+    {
+      "node_id": 673,
+      "identifier": "ChainThunder"
+    },
+    {
+      "node_id": 674,
+      "identifier": "ArrayCorrosion"
+    },
+    {
+      "node_id": 675,
+      "identifier": "Relocate"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 612,
+      "member": "resonancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 615,
+      "member": "swordStepArrayPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 630,
+      "member": "slowPressurePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 631,
+      "member": "armorIntentPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 632,
+      "member": "weakenPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 650,
+      "member": "corePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 651,
+      "member": "manaSpringPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 652,
+      "member": "mindUnityPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 654,
+      "member": "cooldownRecoveryPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 655,
+      "member": "arrayWardPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 671,
+      "member": "infernalGroundPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 673,
+      "member": "chainThunderPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 674,
+      "member": "arrayCorrosionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 610,
+      "member": "twinArrays",
+      "kind": "flag"
+    },
+    {
+      "node_id": 611,
+      "member": "triFormation",
+      "kind": "flag"
+    },
+    {
+      "node_id": 613,
+      "member": "connection",
+      "kind": "flag"
+    },
+    {
+      "node_id": 614,
+      "member": "dashTrigger",
+      "kind": "flag"
+    },
+    {
+      "node_id": 633,
+      "member": "executeField",
+      "kind": "flag"
+    },
+    {
+      "node_id": 634,
+      "member": "cage",
+      "kind": "flag"
+    },
+    {
+      "node_id": 653,
+      "member": "mobileAura",
+      "kind": "flag"
+    },
+    {
+      "node_id": 670,
+      "member": "fireField",
+      "kind": "flag"
+    },
+    {
+      "node_id": 672,
+      "member": "lightningField",
+      "kind": "flag"
+    },
+    {
+      "node_id": 675,
+      "member": "relocate",
+      "kind": "flag"
+    }
+  ]
+}

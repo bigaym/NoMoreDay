@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "skill_id": 1,
+  "pascal_skill": "FlowingThrust",
+  "state_name": "FlowingThrustSpecState",
+  "comment": "A-01 Phase 4c 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 100,
+      "identifier": "SwiftBlade"
+    },
+    {
+      "node_id": 101,
+      "identifier": "Gather"
+    },
+    {
+      "node_id": 102,
+      "identifier": "SwordHeart"
+    },
+    {
+      "node_id": 103,
+      "identifier": "FlowingSpirit"
+    },
+    {
+      "node_id": 110,
+      "identifier": "Pierce"
+    },
+    {
+      "node_id": 111,
+      "identifier": "Chain"
+    },
+    {
+      "node_id": 112,
+      "identifier": "Momentum"
+    },
+    {
+      "node_id": 113,
+      "identifier": "Windwalker"
+    },
+    {
+      "node_id": 114,
+      "identifier": "RidingTheWind"
+    },
+    {
+      "node_id": 115,
+      "identifier": "Relentless"
+    },
+    {
+      "node_id": 130,
+      "identifier": "Afterimage"
+    },
+    {
+      "node_id": 131,
+      "identifier": "ShadowDomain"
+    },
+    {
+      "node_id": 132,
+      "identifier": "ShadowStrike"
+    },
+    {
+      "node_id": 133,
+      "identifier": "Swap"
+    },
+    {
+      "node_id": 134,
+      "identifier": "ShadowBlitz"
+    },
+    {
+      "node_id": 135,
+      "identifier": "PhantomShield"
+    },
+    {
+      "node_id": 150,
+      "identifier": "WeakPoint"
+    },
+    {
+      "node_id": 151,
+      "identifier": "DeepWounds"
+    },
+    {
+      "node_id": 152,
+      "identifier": "ArterySever"
+    },
+    {
+      "node_id": 153,
+      "identifier": "BloodDrinker"
+    },
+    {
+      "node_id": 154,
+      "identifier": "AllIn"
+    },
+    {
+      "node_id": 155,
+      "identifier": "SeverFate"
+    },
+    {
+      "node_id": 170,
+      "identifier": "Hellfire"
+    },
+    {
+      "node_id": 171,
+      "identifier": "InfernalPath"
+    },
+    {
+      "node_id": 172,
+      "identifier": "FreezingWind"
+    },
+    {
+      "node_id": 173,
+      "identifier": "BoneDeepFrost"
+    },
+    {
+      "node_id": 174,
+      "identifier": "ElementalErosion"
+    },
+    {
+      "node_id": 175,
+      "identifier": "ResidualElements"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 112,
+      "member": "momentumPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 114,
+      "member": "ridingTheWindPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 115,
+      "member": "relentlessPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 135,
+      "member": "phantomShieldPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 151,
+      "member": "deepWoundsPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 152,
+      "member": "arterySeverPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 154,
+      "member": "allInPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 155,
+      "member": "severFatePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 171,
+      "member": "infernalPathPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 173,
+      "member": "boneDeepFrostPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 174,
+      "member": "elementalErosionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 175,
+      "member": "residualElementsPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 113,
+      "member": "windwalker",
+      "kind": "flag"
+    },
+    {
+      "node_id": 130,
+      "member": "afterimage",
+      "kind": "flag"
+    },
+    {
+      "node_id": 132,
+      "member": "shadowStrike",
+      "kind": "flag"
+    },
+    {
+      "node_id": 133,
+      "member": "swap",
+      "kind": "flag"
+    }
+  ]
+}

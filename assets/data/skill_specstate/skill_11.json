@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "skill_id": 11,
+  "pascal_skill": "HeavenlySwordDescent",
+  "state_name": "HeavenlySwordCastSpec",
+  "comment": "A-01 Phase 3 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 1100,
+      "identifier": "SwordCoreCalibration"
+    },
+    {
+      "node_id": 1101,
+      "identifier": "CelestialDomain"
+    },
+    {
+      "node_id": 1102,
+      "identifier": "SkyEdgeInfusion"
+    },
+    {
+      "node_id": 1103,
+      "identifier": "ResidualPressure"
+    },
+    {
+      "node_id": 1104,
+      "identifier": "WorldsplitCore"
+    },
+    {
+      "node_id": 1105,
+      "identifier": "KingslayerIntent"
+    },
+    {
+      "node_id": 1106,
+      "identifier": "MeteorCore"
+    },
+    {
+      "node_id": 1107,
+      "identifier": "SkyPiercingFall"
+    },
+    {
+      "node_id": 1108,
+      "identifier": "SkyRendAftershock"
+    },
+    {
+      "node_id": 1109,
+      "identifier": "EdgeOffering"
+    },
+    {
+      "node_id": 1110,
+      "identifier": "OverflowingTiers"
+    },
+    {
+      "node_id": 1111,
+      "identifier": "SwordRainEcho"
+    },
+    {
+      "node_id": 1112,
+      "identifier": "SpinningHeavens"
+    },
+    {
+      "node_id": 1113,
+      "identifier": "CycleOfAllForms"
+    },
+    {
+      "node_id": 1114,
+      "identifier": "ReturnToTheSheath"
+    },
+    {
+      "node_id": 1115,
+      "identifier": "DomainLock"
+    },
+    {
+      "node_id": 1116,
+      "identifier": "FieldResonance"
+    },
+    {
+      "node_id": 1117,
+      "identifier": "ArraySynchrony"
+    },
+    {
+      "node_id": 1118,
+      "identifier": "TideSpread"
+    },
+    {
+      "node_id": 1119,
+      "identifier": "EnduringHeaven"
+    },
+    {
+      "node_id": 1120,
+      "identifier": "AttunementPolarization"
+    },
+    {
+      "node_id": 1121,
+      "identifier": "LightningTribunal"
+    },
+    {
+      "node_id": 1122,
+      "identifier": "FrozenDominion"
+    },
+    {
+      "node_id": 1123,
+      "identifier": "SolarIncineration"
+    },
+    {
+      "node_id": 1124,
+      "identifier": "ElementalRazing"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 1100,
+      "member": "swordCoreCalibrationPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1101,
+      "member": "celestialDomainPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1102,
+      "member": "skyEdgeInfusionPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1103,
+      "member": "residualPressurePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1104,
+      "member": "worldsplitCorePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1105,
+      "member": "kingslayerIntentPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1106,
+      "member": "meteorCorePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1108,
+      "member": "skyRendAftershockPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1109,
+      "member": "edgeOfferingPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1110,
+      "member": "overflowingTiersPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1112,
+      "member": "spinningHeavensPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1114,
+      "member": "returnToTheSheathPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1116,
+      "member": "fieldResonancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1118,
+      "member": "tideSpreadPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1119,
+      "member": "enduringHeavenPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1124,
+      "member": "elementalRazingPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1113,
+      "member": "cycleOfAllForms",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1107,
+      "member": "skyPiercingFall",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1111,
+      "member": "swordRainEcho",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1115,
+      "member": "domainLock",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1117,
+      "member": "arraySynchrony",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1120,
+      "member": "attunementPolarization",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1121,
+      "member": "lightningTribunal",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1122,
+      "member": "frozenDominion",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1123,
+      "member": "solarIncineration",
+      "kind": "flag"
+    }
+  ]
+}

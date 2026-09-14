@@ -19,78 +19,48 @@
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/physics/PhysicsUtils.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/BladeWardSpecState.gen.hpp"
 #include <algorithm>
 #include <cmath>
 #include <vector>
 
 namespace NoMoreDay::skills {
 
-namespace BladeWardNodes {
-constexpr uint32_t GoldenBell      = 400; // 金钟罩
-constexpr uint32_t Deflection      = 401; // 拨云见日
-constexpr uint32_t Persist         = 402; // 持久
-constexpr uint32_t Repel           = 403; // 剑压外放
-constexpr uint32_t IronGuard       = 410; // 厚积薄发
-constexpr uint32_t LastStand       = 413; // 破釜沉舟
-constexpr uint32_t Vitality        = 415; // 坚韧回生
-constexpr uint32_t Unstoppable     = 431; // 势不可挡
-constexpr uint32_t BloodBarrier    = 433; // 鲜血壁垒
-constexpr uint32_t PerfectParry    = 434; // 无瑕之御
-constexpr uint32_t Aftermath       = 453; // 流风余韵
-constexpr uint32_t SwordStep       = 454; // 御剑闪步
-constexpr uint32_t Permafrost      = 475; // 永冻领域
-constexpr uint32_t FiveGuard       = 411; // 五行御守
-constexpr uint32_t Mountain        = 412; // 不动如山 (Keystone)
-constexpr uint32_t IntentBlock     = 430; // 剑意格挡
-constexpr uint32_t ShieldBarrier   = 432; // 剑盾屏障
-constexpr uint32_t IntentProc      = 435; // 剑意格御
-constexpr uint32_t CounterSpeed    = 451; // 借力打力 (闪避提速)
-constexpr uint32_t BlinkCounter    = 452; // 瞬身反打 (Trigger 流云刺)
-constexpr uint32_t AttackDefend    = 455; // 以攻代守
-constexpr uint32_t CounterBlade    = 470; // 剑气反震 (Keystone)
-constexpr uint32_t Vengeance       = 471; // 以眼还眼 (反击增伤)
-constexpr uint32_t StaticField     = 472; // 雷霆法环 (Transmuter Lightning)
-constexpr uint32_t ThunderCascade  = 473; // 雷贯长虹
-constexpr uint32_t FrostArmor      = 474; // 霜铠 (Transmuter Cold)
-constexpr uint32_t Exposure        = 476; // 元素曝光（双前置 473/474，OR 语义；布局锚点取首前置 473，仅视觉偏差）
-} // namespace BladeWardNodes
+// 节点常量随 A-01 Phase 4b 信封化迁移至生成头，此处以别名保持既有机制读取引用不变。
+namespace BladeWardNodes = BladeWardNodesGen;
 
 struct BladeWard : SkillBehaviorBase<BladeWard> {
   static constexpr uint32_t kSkillId = 4;
 
+  // 技能 4 的节点点数/点亮统一经生成 SpecState 读取（A-01 D-A1）。
+  [[nodiscard]] static BladeWardSpecStateGen ResolveState(entt::registry &registry,
+                                                          entt::entity owner) {
+    return ResolveSpecState(registry, owner, kSkillId, kBladeWardTableGen);
+  }
+
   static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
     const auto &mechanics = data::SkillMechanicsRegistry::Get();
 
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
-    const SpecializedSkill *specPtr = nullptr;
-    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          specPtr = &spec;
-          SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-          profile = &localProfile;
-          break;
-        }
-      }
-    } else if (registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          specPtr = &spec;
-          break;
-        }
-      }
-    }
-
-    auto getPoints = [&](uint32_t node_id) -> int {
-      if (specPtr) {
-        // 读点 helper：已分配节点点数恒 ≥1，正数即已点亮。
-        const int points = skills::ReadPoints(*specPtr, node_id);
-        if (points > 0) return points;
+    const auto *profile =
+        ResolveBakedProfile(registry, owner, kSkillId, localProfile);
+    const BladeWardSpecStateGen specState = ResolveState(registry, owner);
+    // 原 getPoints 语义：专精点数 > 0 时取点数，否则回退 exec.active_nodes 点亮位
+    // （已分配节点点数恒 ≥1，正数即已点亮）。
+    const auto nodePoints = [&](uint32_t node_id, int stored_points) -> int {
+      if (stored_points > 0) {
+        return stored_points;
       }
       return exec.active_nodes.test(node_id % 100) ? 1 : 0;
+    };
+    const auto nodeActive = [&](uint32_t node_id, bool stored_active) -> bool {
+      return stored_active || exec.active_nodes.test(node_id % 100);
+    };
+    // 档案命中时以烘焙状态为准，未命中回退 active_nodes，等价迁移前 profile 三元式。
+    const auto nodeFlag = [&](uint32_t node_id, bool stored_active) -> bool {
+      return profile != nullptr ? stored_active : nodeActive(node_id, stored_active);
     };
 
     // 1. 减伤与属性 Buff 配置 (L1 优化: 直接使用静态 std::string，避免重复堆分配)
@@ -106,20 +76,20 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     };
     ward_buff.modifiers.push_back({.value = base_dr, .type = StatType::ResistPhysical, .mode = ModifierMode::Flat});
 
-    const int fiveGuardPts = getPoints(BladeWardNodes::FiveGuard);
+    const int fiveGuardPts = nodePoints(BladeWardNodes::FiveGuard, specState.fiveGuardPoints);
     if (fiveGuardPts > 0) {
       const float resistVal = mechanics.GetFloat(kSkillId, BladeWardNodes::FiveGuard, "all_resist_per_point", 6.0f) * static_cast<float>(fiveGuardPts);
       ward_buff.modifiers.push_back({.value = resistVal, .type = StatType::ResistAll, .mode = ModifierMode::Flat});
     }
 
-    const int intentBlockPts = getPoints(BladeWardNodes::IntentBlock);
+    const int intentBlockPts = nodePoints(BladeWardNodes::IntentBlock, specState.intentBlockPoints);
     if (intentBlockPts > 0) {
       const float blockVal = mechanics.GetFloat(kSkillId, BladeWardNodes::IntentBlock, "block_chance_per_point", 4.0f) * static_cast<float>(intentBlockPts);
       ward_buff.modifiers.push_back({.value = blockVal, .type = StatType::BlockChance, .mode = ModifierMode::Flat});
     }
 
     // 402 持久：维持法力消耗降低（ResourceCostReduction 以百分比点数计量）。
-    const int persistPts = getPoints(BladeWardNodes::Persist);
+    const int persistPts = nodePoints(BladeWardNodes::Persist, specState.persistPoints);
     const float persistManaReduction =
         mechanics.GetFloat(kSkillId, BladeWardNodes::Persist, "mana_cost_reduction_per_point", 0.15f) *
         static_cast<float>(persistPts);
@@ -130,7 +100,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     }
 
     // 431 势不可挡：格挡效果提升（BlockRating 百分比乘算）。
-    const int unstoppablePts = getPoints(BladeWardNodes::Unstoppable);
+    const int unstoppablePts = nodePoints(BladeWardNodes::Unstoppable, specState.unstoppablePoints);
     const float unstoppableBlockEffect =
         mechanics.GetFloat(kSkillId, BladeWardNodes::Unstoppable, "block_eff_pct_per_point", 0.15f) *
         static_cast<float>(unstoppablePts);
@@ -160,29 +130,29 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     // 偏转几率计算 (解 H8, M12): 基础 10% + 拨云见日每点 4%
     const float base_defl = mechanics.GetFloat(kSkillId, BladeWardNodes::Deflection, "base_deflection", 0.10f);
     const float defl_per_pt = mechanics.GetFloat(kSkillId, BladeWardNodes::Deflection, "deflection_pct_per_point", 0.04f);
-    ward.interception_chance = base_defl + defl_per_pt * static_cast<float>(getPoints(BladeWardNodes::Deflection));
+    ward.interception_chance = base_defl + defl_per_pt * static_cast<float>(nodePoints(BladeWardNodes::Deflection, specState.deflectionPoints));
     if (exec.is_empowered) {
       ward.interception_chance = std::min(1.0f, ward.interception_chance * 1.5f);
     }
 
     // 专精状态映射
-    ward.is_solidified = profile ? ((profile->delivery.feature_flags & 8) != 0) : (getPoints(BladeWardNodes::Mountain) > 0);
-    ward.trigger_counter = profile ? ((profile->delivery.feature_flags & 128) != 0) : (getPoints(BladeWardNodes::CounterBlade) > 0);
-    const int vengeancePts = getPoints(BladeWardNodes::Vengeance);
+    ward.is_solidified = nodeFlag(BladeWardNodes::Mountain, specState.mountain);
+    ward.trigger_counter = nodeFlag(BladeWardNodes::CounterBlade, specState.counterBlade);
+    const int vengeancePts = nodePoints(BladeWardNodes::Vengeance, specState.vengeancePoints);
     ward.counter_damage_more = mechanics.GetFloat(kSkillId, BladeWardNodes::Vengeance, "counter_more_damage_per_point", 0.20f) * static_cast<float>(vengeancePts);
 
-    ward.is_lightning_ward = profile ? ((profile->delivery.feature_flags & 512) != 0) : (getPoints(BladeWardNodes::StaticField) > 0);
-    ward.is_cold_ward = profile ? ((profile->delivery.feature_flags & 1024) != 0) : (getPoints(BladeWardNodes::FrostArmor) > 0);
-    ward.counter_spin = profile ? ((profile->delivery.feature_flags & 2048) != 0) : (getPoints(BladeWardNodes::ThunderCascade) > 0);
+    ward.is_lightning_ward = nodeFlag(BladeWardNodes::StaticField, specState.staticField);
+    ward.is_cold_ward = nodeFlag(BladeWardNodes::FrostArmor, specState.frostArmor);
+    ward.counter_spin = nodeFlag(BladeWardNodes::ThunderCascade, specState.thunderCascadePoints > 0);
 
-    const int speedPts = getPoints(BladeWardNodes::CounterSpeed);
+    const int speedPts = nodePoints(BladeWardNodes::CounterSpeed, specState.counterSpeedPoints);
     ward.dodge_speed_points = static_cast<float>(speedPts);
-    ward.dodge_power_boost = (getPoints(BladeWardNodes::AttackDefend) > 0);
+    ward.dodge_power_boost = nodeActive(BladeWardNodes::AttackDefend, specState.attackDefend);
 
-    const int intentProcPts = getPoints(BladeWardNodes::IntentProc);
+    const int intentProcPts = nodePoints(BladeWardNodes::IntentProc, specState.intentProcPoints);
     ward.block_intent_chance = mechanics.GetFloat(kSkillId, BladeWardNodes::IntentProc, "intent_chance_per_point", 0.15f) * static_cast<float>(intentProcPts);
 
-    const int barrierPts = getPoints(BladeWardNodes::ShieldBarrier);
+    const int barrierPts = nodePoints(BladeWardNodes::ShieldBarrier, specState.shieldBarrierPoints);
     ward.block_ward_amount = mechanics.GetFloat(kSkillId, BladeWardNodes::ShieldBarrier, "ward_per_block_per_point", 10.0f) * static_cast<float>(barrierPts);
 
     // 4. 专精节点运行时数值烘焙（机制表驱动，供运行时、命中结算与反击站点消费）
@@ -192,7 +162,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
 
     // 403 剑压外放：反击几率加成并入偏转几率（偏转是剑气护体的几率型反击路径），
     // 射程加成消费于反击剑气实体的飞行射程。
-    const int repelPts = getPoints(BladeWardNodes::Repel);
+    const int repelPts = nodePoints(BladeWardNodes::Repel, specState.repelPoints);
     ward.counter_chance_bonus =
         mechanics.GetFloat(kSkillId, BladeWardNodes::Repel, "counter_chance_per_point", 0.10f) *
         static_cast<float>(repelPts);
@@ -204,7 +174,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     }
 
     // 410 厚积薄发：护甲减伤提升 + 每千护甲额外减伤（动态部分在 Update 中按当前护甲折算）。
-    const int ironGuardPts = getPoints(BladeWardNodes::IronGuard);
+    const int ironGuardPts = nodePoints(BladeWardNodes::IronGuard, specState.ironGuardPoints);
     ward.armor_dr_bonus =
         mechanics.GetFloat(kSkillId, BladeWardNodes::IronGuard, "dr_bonus_pct_per_point", 0.10f) *
         static_cast<float>(ironGuardPts);
@@ -213,7 +183,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
         static_cast<float>(ironGuardPts);
 
     // 413 破釜沉舟：低血时基础减伤与护甲倍率提升。
-    const int lastStandPts = getPoints(BladeWardNodes::LastStand);
+    const int lastStandPts = nodePoints(BladeWardNodes::LastStand, specState.lastStandPoints);
     if (lastStandPts > 0) {
       ward.last_stand_threshold = mechanics.GetFloat(kSkillId, BladeWardNodes::LastStand, "low_health_threshold", 0.35f);
       ward.last_stand_base_dr = mechanics.GetFloat(kSkillId, BladeWardNodes::LastStand, "base_dr", 0.24f);
@@ -221,7 +191,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     }
 
     // 415 坚韧回生：按已损生命的每秒回复比例。
-    const int vitalityPts = getPoints(BladeWardNodes::Vitality);
+    const int vitalityPts = nodePoints(BladeWardNodes::Vitality, specState.vitalityPoints);
     ward.missing_hp_regen_pct =
         mechanics.GetFloat(kSkillId, BladeWardNodes::Vitality, "missing_hp_regen_pct_per_point", 0.005f) *
         static_cast<float>(vitalityPts);
@@ -230,10 +200,10 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     // 运行时采用命名常量，已在实现报告中标注该歧义。
     const float bloodBarrierActive =
         mechanics.GetFloat(kSkillId, BladeWardNodes::BloodBarrier, "blood_barrier_active", 1.0f);
-    ward.has_blood_barrier = (getPoints(BladeWardNodes::BloodBarrier) > 0) && bloodBarrierActive > 0.0f;
+    ward.has_blood_barrier = nodeActive(BladeWardNodes::BloodBarrier, specState.bloodBarrier) && bloodBarrierActive > 0.0f;
 
     // 434 无瑕之御：周期性获得完全招架充能（施放即就绪）。
-    const int perfectParryPts = getPoints(BladeWardNodes::PerfectParry);
+    const int perfectParryPts = nodePoints(BladeWardNodes::PerfectParry, specState.perfectParryPoints);
     if (perfectParryPts > 0) {
       ward.perfect_parry_interval =
           mechanics.GetFloat(kSkillId, BladeWardNodes::PerfectParry, "perfect_parry_interval", 5.0f);
@@ -247,21 +217,21 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
         static_cast<float>(intentProcPts);
 
     // 453 流风余韵：瞬身反打触发后按已损生命回复。
-    const int aftermathPts = getPoints(BladeWardNodes::Aftermath);
+    const int aftermathPts = nodePoints(BladeWardNodes::Aftermath, specState.aftermathPoints);
     ward.aftermath_heal_pct =
         mechanics.GetFloat(kSkillId, BladeWardNodes::Aftermath, "heal_missing_hp_pct_per_point", 0.05f) *
         static_cast<float>(aftermathPts);
 
     // 454 御剑闪步：闪避后获得闪避等级。
-    const int swordStepPts = getPoints(BladeWardNodes::SwordStep);
+    const int swordStepPts = nodePoints(BladeWardNodes::SwordStep, specState.swordStepPoints);
     ward.sword_step_dodge_rating =
         mechanics.GetFloat(kSkillId, BladeWardNodes::SwordStep, "dodge_rating_flat_per_point", 50.0f) *
         static_cast<float>(swordStepPts);
 
     // 472 雷霆法环 / 473 雷贯长虹：雷电系周期脉冲与感电强化。
-    const int staticPts = getPoints(BladeWardNodes::StaticField);
-    const int cascadePts = getPoints(BladeWardNodes::ThunderCascade);
-    if (ward.is_lightning_ward || staticPts > 0 || cascadePts > 0) {
+    const bool hasStaticField = nodeActive(BladeWardNodes::StaticField, specState.staticField);
+    const int cascadePts = nodePoints(BladeWardNodes::ThunderCascade, specState.thunderCascadePoints);
+    if (ward.is_lightning_ward || hasStaticField || cascadePts > 0) {
       ward.static_interval = mechanics.GetFloat(kSkillId, BladeWardNodes::StaticField, "static_interval", 0.5f);
       ward.static_radius = mechanics.GetFloat(kSkillId, BladeWardNodes::StaticField, "static_radius", 50.0f);
     }
@@ -279,7 +249,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     if (ward.is_cold_ward) {
       const float permafrostBonus =
           mechanics.GetFloat(kSkillId, BladeWardNodes::Permafrost, "radius_pct_per_point", 0.20f) *
-          static_cast<float>(getPoints(BladeWardNodes::Permafrost));
+          static_cast<float>(nodePoints(BladeWardNodes::Permafrost, specState.permafrostPoints));
       ward.permafrost_radius_bonus = permafrostBonus;
       ward.frost_radius = mechanics.GetFloat(kSkillId, BladeWardNodes::FrostArmor, "frost_radius", 80.0f) *
                           (1.0f + permafrostBonus);
@@ -287,7 +257,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     }
 
     // 476 元素曝光：命中施加对应元素易伤，节点可叠点提升比例。
-    const int exposurePts = getPoints(BladeWardNodes::Exposure);
+    const int exposurePts = nodePoints(BladeWardNodes::Exposure, specState.exposurePoints);
     if (exposurePts > 0) {
       ward.exposure_pct =
           mechanics.GetFloat(kSkillId, BladeWardNodes::Exposure, "exposure_pct_per_point", 0.04f) *

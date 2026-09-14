@@ -19,51 +19,17 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/StunApplication.hpp"
+#include "game/systems/skill/behaviors/generated/BladeBoomerangSpecState.gen.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "raylib.h"
 #include "raymath.h"
 
 namespace NoMoreDay::skills {
 
-namespace BladeBoomerangNodes {
-// 基础核心
-constexpr uint32_t Lightweight = 800;
-constexpr uint32_t VelocityNode = 801;
-constexpr uint32_t Sharpness = 802;
-constexpr uint32_t Feedback = 803;
-// 分支 A: 滞空切割与流血
-constexpr uint32_t Hovering = 810;
-constexpr uint32_t Bleed = 811;
-constexpr uint32_t CritMulti = 812;
-constexpr uint32_t SonicBoom = 813;
-constexpr uint32_t BloodRip = 814;
-constexpr uint32_t EyeOfStorm = 815;
-// 分支 B: 多重投掷与接剑
-constexpr uint32_t TriBlade = 830;
-constexpr uint32_t BladeDance = 831;
-constexpr uint32_t Catch = 832;
-constexpr uint32_t Combo = 833;
-constexpr uint32_t SwordStepCatch = 834;
-constexpr uint32_t ReturnDance = 835;
-// 分支 C: 磁力与巨阙
-constexpr uint32_t Magnet = 850;
-constexpr uint32_t Area = 851;
-constexpr uint32_t IntentGain = 852;
-constexpr uint32_t MindIntent = 853;
-constexpr uint32_t Giant = 854;
-constexpr uint32_t ColossusEcho = 855;
-// 分支 D: 灵根路径与异象
-constexpr uint32_t AshPath = 870;
-constexpr uint32_t Wildfire = 871;
-constexpr uint32_t Electro = 872;
-constexpr uint32_t HighVoltage = 873;
-constexpr uint32_t ElementalWake = 874;
-constexpr uint32_t PathPen = 875;
-constexpr uint32_t ElementShield = 876;
-} // namespace BladeBoomerangNodes
+// 节点常量与效果层 SpecState 信封见生成头 BladeBoomerangSpecState.gen.hpp（A-01）。
 
 // feature_flags 位定义（与 SkillSpecializationBaker case8 写入值保持一致）
 namespace BladeBoomerangFlags {
@@ -73,13 +39,19 @@ constexpr uint32_t Giant = 1u << 20;   // 854 巨阙（禁用侧刃 + 命中硬�
 } // namespace BladeBoomerangFlags
 
 // 节点常量在本文件内大量作为 GetFloat 的节点键使用，统一引入以保持可读性
-using namespace BladeBoomerangNodes;
+using namespace BladeBoomerangNodesGen;
 
 struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
   static constexpr uint32_t kSkillId = 8;
 
   // 兼容旧键名，避免其他翻译单元/工具按旧标识引用时编译失败
-  static constexpr uint32_t kHoverCutNode = BladeBoomerangNodes::Hovering;
+  static constexpr uint32_t kHoverCutNode = BladeBoomerangNodesGen::Hovering;
+
+  // 效果层节点语义的唯一次解析点：DoCast/DoHit 共用同一信封实例。
+  [[nodiscard]] static BladeBoomerangSpecStateGen
+  ResolveState(const entt::registry &registry, entt::entity owner) {
+    return ResolveSpecState(registry, owner, kSkillId, kBladeBoomerangTableGen);
+  }
 
   static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
     auto *pos = registry.try_get<Position>(owner);
@@ -94,17 +66,9 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     const float baseRadius = sd ? sd->GetParam("radius", 40.0f) : 40.0f;
     const float basePullStrength = sd ? sd->GetParam("pull_strength", 300.0f) : 300.0f;
 
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
-    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-          profile = &localProfile;
-          break;
-        }
-      }
-    }
+    const auto *profile =
+        ResolveBakedProfile(registry, owner, kSkillId, localProfile);
     BakedDeliveryParams defaultDelivery;
     defaultDelivery.speed = sd ? sd->GetParam("speed", 400.0f) : 400.0f;
     defaultDelivery.range = sd ? sd->GetParam("max_distance", 300.0f) : 300.0f;
@@ -145,15 +109,8 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     // 802 锋锐: 引擎无“附加物理点伤”的 StatType（PhysicalDamage 处于百分比乘区），
     // 其暴击率部分由 skills.json 的 stat_modifiers(CritChance Flat) 经 GetStatWithTags 生效，
     // 附加点伤部分在交付层按专精点数直接累加到武器基础伤害。
-    int points802 = 0;
-    if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-      for (const auto &s : active->specialized_slots) {
-        if (s.skill_id == kSkillId) {
-          points802 = ReadPoints(s, Sharpness);
-          break;
-        }
-      }
-    }
+    const BladeBoomerangSpecStateGen specState = ResolveState(registry, owner);
+    const int points802 = specState.sharpnessPoints;
 
     // 854 巨阙: 附加总护甲 5% 的基础物理伤害
     float baseMin = stats->min_weapon_damage;
@@ -180,6 +137,8 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       dir = Vector2Normalize(dir);
     }
 
+    // 交付参数位（由 SkillSpecializationBaker case8 写入，D6：节点语义不入此）：
+    // 850 磁力场决定折返牵引，854 巨阙决定弹体体积；节点语义判定见 DoHit 信封。
     const bool hasMagnet = (del.feature_flags & BladeBoomerangFlags::Magnet) != 0;
     const bool isGiant = (del.feature_flags & BladeBoomerangFlags::Giant) != 0;
     const float giantSizeMult = isGiant ? mech.GetFloat(kSkillId, Giant, "giant_size_mult", 2.0f) : 1.0f;
@@ -294,16 +253,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     BakedDeliveryParams defaultDelivery;
     const BakedDeliveryParams &del = profile ? profile->delivery : defaultDelivery;
 
-    auto specPoints = [&](uint32_t node) -> int {
-      if (auto *active = registry.try_get<ActiveSkillsComponent>(caster)) {
-        for (const auto &s : active->specialized_slots) {
-          if (s.skill_id == kSkillId) {
-            return ReadPoints(s, node);
-          }
-        }
-      }
-      return 0;
-    };
+    const BladeBoomerangSpecStateGen specState = ResolveState(registry, caster);
     auto findBoomerang = [&]() -> entt::entity {
       if (registry.all_of<BoomerangComponent>(attacker)) {
         return attacker;
@@ -318,7 +268,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
 
     // 811 放血: 概率施加一层流血，并按该层总伤折算累计到本次飞行的流血池
     const float bleedChance = del.bleed_chance > 0.0f ? del.bleed_chance
-                                                      : 0.25f * static_cast<float>(specPoints(Bleed));
+                                                      : 0.25f * static_cast<float>(specState.bleedPoints);
     if (bleedChance > 0.0f &&
         GetRandomValue(1, 100) <= static_cast<int>(bleedChance * 100.0f + 0.5f)) {
       const float mag = mech.GetFloat(kSkillId, Bleed, "magnitude",
@@ -336,7 +286,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     }
 
     // 813 剑鸣: 仅 810 悬停切割期间生效——概率施加护甲击碎，命中已有击碎则延长 1s
-    const int pts813 = specPoints(SonicBoom);
+    const int pts813 = specState.sonicBoomPoints;
     if (pts813 > 0) {
       const entt::entity boomerang = findBoomerang();
       bool inHoverCut = false;
@@ -382,7 +332,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     }
 
     // 854 巨阙: 命中必定打断动作并造成硬直（击晕）；未烘焙时按专精点数回退判定
-    const bool isGiant = del.giant_armor_scale > 0.0f || specPoints(Giant) > 0;
+    const bool isGiant = del.giant_armor_scale > 0.0f || specState.giantPoints > 0;
     if (isGiant) {
       const float stunDur = mech.GetFloat(kSkillId, Giant, "stun_duration", 1.5f);
       (void)ApplyStun(registry, target, caster, stunDur,
@@ -392,7 +342,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     // 852 意随剑舞: 折返命中概率 +1 剑意
     const float intentChance =
         del.intent_gain_chance > 0.0f ? del.intent_gain_chance
-                                      : 0.15f * static_cast<float>(specPoints(IntentGain));
+                                      : 0.15f * static_cast<float>(specState.intentGainPoints);
     if (intentChance > 0.0f) {
       const entt::entity boomerang = findBoomerang();
       const bool isReturning =

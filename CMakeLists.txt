@@ -191,6 +191,26 @@ add_custom_command(
 
 add_custom_target(GenerateTags DEPENDS ${TAG_HEADER})
 
+# --- Skill SpecState Generation (A-01 Phase 3) ---
+# 生成器产出 behaviors/generated/*.gen.hpp；产物为随仓库提交的源文件，
+# 此目标仅用于本地重新生成，不强制加入其它构建目标的依赖。
+set(SPECSTATE_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/gen_skill_contracts.py")
+set(SPECSTATE_DESCRIPTOR_DIR "${CMAKE_SOURCE_DIR}/assets/data/skill_specstate")
+set(SPECSTATE_GENERATED_DIR
+    "${CMAKE_SOURCE_DIR}/src/game/systems/skill/behaviors/generated")
+file(GLOB SPECSTATE_GENERATED_HEADERS CONFIGURE_DEPENDS
+    "${SPECSTATE_GENERATED_DIR}/*.gen.hpp")
+
+add_custom_command(
+    OUTPUT ${SPECSTATE_GENERATED_HEADERS}
+    COMMAND Python3::Interpreter ${SPECSTATE_SCRIPT} --gen-specstate
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    DEPENDS ${SPECSTATE_SCRIPT} ${SPECSTATE_DESCRIPTOR_DIR}
+    COMMENT "Generating SpecState headers from skill_specstate descriptors..."
+)
+
+add_custom_target(GenerateSpecState DEPENDS ${SPECSTATE_GENERATED_HEADERS})
+
 # --- Skill Behaviors (Object Library) ---
 # Using OBJECT library ensures all behaviors are linked even if they have no explicit references,
 # which is necessary for the static registration pattern to work.

@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "skill_id": 12,
+  "pascal_skill": "BloodSea",
+  "state_name": "BloodSeaCastSpec",
+  "comment": "A-01 Phase 3 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 1200,
+      "identifier": "BloodCurtainOpening"
+    },
+    {
+      "node_id": 1201,
+      "identifier": "PressureTideRise"
+    },
+    {
+      "node_id": 1202,
+      "identifier": "BloodthirstEdge"
+    },
+    {
+      "node_id": 1203,
+      "identifier": "BloodMistPursuit"
+    },
+    {
+      "node_id": 1204,
+      "identifier": "OppressiveEnd"
+    },
+    {
+      "node_id": 1205,
+      "identifier": "HuntingBloodTrail"
+    },
+    {
+      "node_id": 1206,
+      "identifier": "DyingEdge"
+    },
+    {
+      "node_id": 1207,
+      "identifier": "BottomlessPurgatory"
+    },
+    {
+      "node_id": 1208,
+      "identifier": "SeveredVeinAftershock"
+    },
+    {
+      "node_id": 1209,
+      "identifier": "BloodDrinkingTide"
+    },
+    {
+      "node_id": 1210,
+      "identifier": "DesperateReclaim"
+    },
+    {
+      "node_id": 1211,
+      "identifier": "FreshBloodReturn"
+    },
+    {
+      "node_id": 1212,
+      "identifier": "BloodWaveRedrink"
+    },
+    {
+      "node_id": 1213,
+      "identifier": "DrinkTheSeaAndLive"
+    },
+    {
+      "node_id": 1214,
+      "identifier": "LifeHuntReturn"
+    },
+    {
+      "node_id": 1215,
+      "identifier": "HuntingMiasma"
+    },
+    {
+      "node_id": 1216,
+      "identifier": "BladeMistResonance"
+    },
+    {
+      "node_id": 1217,
+      "identifier": "PhantomDevour"
+    },
+    {
+      "node_id": 1218,
+      "identifier": "HuntingBloodPressure"
+    },
+    {
+      "node_id": 1219,
+      "identifier": "LingeringBloodMist"
+    },
+    {
+      "node_id": 1220,
+      "identifier": "VoidErosionMiasma"
+    },
+    {
+      "node_id": 1221,
+      "identifier": "CrimsonTorrent"
+    },
+    {
+      "node_id": 1222,
+      "identifier": "BloodRingDevour"
+    },
+    {
+      "node_id": 1223,
+      "identifier": "BoneGnawingEmber"
+    },
+    {
+      "node_id": 1224,
+      "identifier": "MiasmaShred"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 1200,
+      "member": "bloodCurtainOpeningPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1201,
+      "member": "pressureTideRisePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1202,
+      "member": "bloodthirstEdgePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1203,
+      "member": "bloodMistPursuitPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1204,
+      "member": "oppressiveEndPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1205,
+      "member": "huntingBloodTrailPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1206,
+      "member": "dyingEdgePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1208,
+      "member": "severedVeinAftershockPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1209,
+      "member": "bloodDrinkingTidePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1210,
+      "member": "desperateReclaimPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1212,
+      "member": "bloodWaveRedrinkPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1214,
+      "member": "lifeHuntReturnPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1215,
+      "member": "huntingMiasmaPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1216,
+      "member": "bladeMistResonancePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1218,
+      "member": "huntingBloodPressurePoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1219,
+      "member": "lingeringBloodMistPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1223,
+      "member": "boneGnawingEmberPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1224,
+      "member": "miasmaShredPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 1207,
+      "member": "bottomlessPurgatory",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1211,
+      "member": "triggerBurst",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1213,
+      "member": "recoveryKeystone",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1217,
+      "member": "sharedDevouring",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1220,
+      "member": "voidKeystone",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1221,
+      "member": "torrentForm",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1222,
+      "member": "ringForm",
+      "kind": "flag"
+    }
+  ]
+}

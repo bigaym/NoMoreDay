@@ -99,7 +99,8 @@ ExtractNodeConstantsFromCpp(const std::filesystem::path &cppPath) {
 
   for (auto it = begin; it != end; ++it) {
     const std::string nsName = (*it)[1].str();
-    if (!nsName.ends_with("Nodes")) {
+    // 生成式 SpecState 头使用 `<Pascal>NodesGen` 命名空间（A-01），一并纳入扫描。
+    if (!nsName.ends_with("Nodes") && !nsName.ends_with("NodesGen")) {
       continue;
     }
 
@@ -272,15 +273,19 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in specialization data tab
   REQUIRE(!legalIds.empty());
 
   const std::array<std::filesystem::path, 10> behaviorFiles = {
-      "src/game/systems/skill/behaviors/FlowingThrust.cpp",
-      "src/game/systems/skill/behaviors/RendingWave.cpp",
-      "src/game/systems/skill/behaviors/BladeFormation.cpp",
-      "src/game/systems/skill/behaviors/BladeWard.cpp",
-      "src/game/systems/skill/behaviors/InfiniteBlades.cpp",
-      "src/game/systems/skill/behaviors/SwordArray.cpp",
-      "src/game/systems/skill/behaviors/MindBlade.cpp",
-      "src/game/systems/skill/behaviors/BladeBoomerang.cpp",
-      "src/game/systems/skill/behaviors/PhantomTrance.cpp",
+      // 技能 1/7/9 的节点常量随 A-01 Phase 4c 信封化迁移至生成头，改为校验生成头。
+      "src/game/systems/skill/behaviors/generated/FlowingThrustSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/MindBladeSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/PhantomTranceSpecState.gen.hpp",
+      // 技能 2/3/4 的节点常量随 A-01 Phase 4b 信封化迁移至生成头，改为校验生成头。
+      "src/game/systems/skill/behaviors/generated/RendingWaveSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/BladeFormationSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/BladeWardSpecState.gen.hpp",
+      // 技能 5/6 的节点常量随 A-01 Phase 4a 信封化迁移至生成头，改为校验生成头。
+      "src/game/systems/skill/behaviors/generated/InfiniteBladesSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/SwordArraySpecState.gen.hpp",
+      // 技能 8 的节点常量随 A-01 信封化迁移至生成头，改为校验生成头。
+      "src/game/systems/skill/behaviors/generated/BladeBoomerangSpecState.gen.hpp",
       // 技能 10 的节点常量随 A2-1 迁移至共享头，改为校验头文件。
       "src/game/systems/skill/behaviors/SevenStarSlashShared.hpp"};
 

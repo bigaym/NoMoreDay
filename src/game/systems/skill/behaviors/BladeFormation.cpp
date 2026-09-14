@@ -11,8 +11,9 @@
 #include "game/foundation/components/SkillDefs.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/BladeFormationSpecState.gen.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/AIComponent.hpp"
@@ -27,129 +28,72 @@
 
 namespace NoMoreDay::skills {
 
-namespace BladeFormationNodes {
-constexpr uint32_t SwordPool = 300;
-constexpr uint32_t SwiftIntent = 301;
-constexpr uint32_t EdgedSpirit = 302;
-constexpr uint32_t ElementalCore = 303;
-constexpr uint32_t SearchRadius = 310;
-constexpr uint32_t InfiniteSheath = 311;
-constexpr uint32_t Network = 312;
-constexpr uint32_t Godspeed = 313;
-constexpr uint32_t Concentrate = 314;
-constexpr uint32_t SwordStepResonance = 315;
-constexpr uint32_t GiantSword = 330;
-constexpr uint32_t WeakPointCrit = 331;
-constexpr uint32_t DeadlyEdge = 332;
-constexpr uint32_t SwordPressure = 333;
-constexpr uint32_t Crush = 334;
-constexpr uint32_t Ward = 350;
-constexpr uint32_t BladeOrbit = 351;
-constexpr uint32_t RetaliationWeb = 352;
-constexpr uint32_t Immortality = 353;
-constexpr uint32_t SpellEcho = 354;
-constexpr uint32_t ArrayResonance = 355;
-constexpr uint32_t ElementFire = 370;
-constexpr uint32_t BlazingDance = 371;
-constexpr uint32_t ElementLightning = 372;
-constexpr uint32_t ArcChain = 373;
-constexpr uint32_t SpiritCorrosion = 374;
-constexpr uint32_t Charge = 375;
-} // namespace BladeFormationNodes
+// 节点常量随 A-01 Phase 4b 信封化迁移至生成头，此处以别名保持既有机制读取引用不变。
+namespace BladeFormationNodes = BladeFormationNodesGen;
 
 struct BladeFormation : SkillBehaviorBase<BladeFormation> {
   static constexpr uint32_t kSkillId = 3;
 
+  // 技能 3 的节点点数/点亮统一经生成 SpecState 读取（A-01 D-A1）。
+  [[nodiscard]] static BladeFormationSpecStateGen ResolveState(entt::registry &registry,
+                                                               entt::entity owner) {
+    return ResolveSpecState(registry, owner, kSkillId, kBladeFormationTableGen);
+  }
+
   // 节点点亮的判定：生产路径必定已 Bake（RebakeSkillProfiles 预热，或 DoCast
-  // 就地烘焙），故直接读烘焙产物的 feature_flags（生产单一来源）。
+  // 就地烘焙），故以生成 SpecState 还原的节点点亮状态为准（A-01 D6）。
   // profile 为空时回退 SkillExecution.active_nodes，仅用于兼容绕过 TryCast 的
   // 直接行为调用（行为层/集成测试依赖此路径，见 SkillSystemTests
   // "Blade Ascendant key branches run"），生产不可达。
-  [[nodiscard]] static bool HasNodeFlag(const BakedSkillProfile *profile,
-                                        uint32_t flag, const SkillExecution &exec,
-                                        uint32_t node_id) {
-    return profile != nullptr ? (profile->delivery.feature_flags & flag) != 0
-                              : exec.active_nodes.test(node_id % 100);
-  }
-
-  // 从活跃技能槽按需读取节点投入点数：DoHit 无法访问 DoCast 的局部点数缓存，
-  // 仅用于需按点数判定的即时效果（如 331 弱点锁定溅射）。
-  [[nodiscard]] static int ReadAttackerPoints(entt::registry &reg,
-                                              entt::entity attacker,
-                                              uint32_t node) {
-    const auto *active = reg.try_get<ActiveSkillsComponent>(attacker);
-    if (!active) {
-      return 0;
-    }
-    for (const auto &spec : active->specialized_slots) {
-      if (spec.skill_id == kSkillId) {
-        return ReadPoints(spec, node);
-      }
-    }
-    return 0;
+  [[nodiscard]] static bool HasNodeFlag(const BakedSkillProfile *profile, bool active,
+                                        const SkillExecution &exec, uint32_t node_id) {
+    return profile != nullptr ? active : exec.active_nodes.test(node_id % 100);
   }
 
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec) {
     auto &formation = registry.get_or_emplace<BladeFormationComponent>(owner);
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
-    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-          profile = &localProfile;
-          break;
-        }
-      }
-    }
+    const auto *profile =
+        ResolveBakedProfile(registry, owner, kSkillId, localProfile);
 
-    // 提取分配点数
-    int pts300 = 0, pts301 = 0, pts302 = 0, pts303 = 0, pts310 = 0, pts312 = 0;
-    int pts315 = 0, pts331 = 0, pts332 = 0, pts333 = 0, pts334 = 0;
-    int pts350 = 0, pts352 = 0, pts371 = 0, pts373 = 0, pts374 = 0, pts375 = 0;
-    if (registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &s : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (s.skill_id == kSkillId) {
-          pts300 = ReadPoints(s, BladeFormationNodes::SwordPool);
-          pts301 = ReadPoints(s, BladeFormationNodes::SwiftIntent);
-          pts302 = ReadPoints(s, BladeFormationNodes::EdgedSpirit);
-          pts303 = ReadPoints(s, BladeFormationNodes::ElementalCore);
-          pts310 = ReadPoints(s, BladeFormationNodes::SearchRadius);
-          pts312 = ReadPoints(s, BladeFormationNodes::Network);
-          pts315 = ReadPoints(s, BladeFormationNodes::SwordStepResonance);
-          pts331 = ReadPoints(s, BladeFormationNodes::WeakPointCrit);
-          pts332 = ReadPoints(s, BladeFormationNodes::DeadlyEdge);
-          pts333 = ReadPoints(s, BladeFormationNodes::SwordPressure);
-          pts334 = ReadPoints(s, BladeFormationNodes::Crush);
-          pts350 = ReadPoints(s, BladeFormationNodes::Ward);
-          pts352 = ReadPoints(s, BladeFormationNodes::RetaliationWeb);
-          pts371 = ReadPoints(s, BladeFormationNodes::BlazingDance);
-          pts373 = ReadPoints(s, BladeFormationNodes::ArcChain);
-          pts374 = ReadPoints(s, BladeFormationNodes::SpiritCorrosion);
-          pts375 = ReadPoints(s, BladeFormationNodes::Charge);
-          break;
-        }
-      }
-    }
+    // 节点点数统一经生成 SpecState 读取（A-01 D-A1 / D6）。
+    const BladeFormationSpecStateGen specState = ResolveState(registry, owner);
+    const int pts300 = specState.swordPoolPoints;
+    const int pts301 = specState.swiftIntentPoints;
+    const int pts302 = specState.edgedSpiritPoints;
+    const int pts303 = specState.elementalCorePoints;
+    const int pts310 = specState.searchRadiusPoints;
+    const int pts312 = specState.networkPoints;
+    const int pts315 = specState.swordStepResonancePoints;
+    const int pts331 = specState.weakPointCritPoints;
+    const int pts332 = specState.deadlyEdgePoints;
+    const int pts333 = specState.swordPressurePoints;
+    const int pts334 = specState.crushPoints;
+    const int pts350 = specState.wardPoints;
+    const int pts352 = specState.retaliationWebPoints;
+    const int pts371 = specState.blazingDancePoints;
+    const int pts373 = specState.arcChainPoints;
+    const int pts374 = specState.spiritCorrosionPoints;
+    const int pts375 = specState.chargePoints;
 
     const auto &mech = data::SkillMechanicsRegistry::Get();
 
     // 标志位与天赋状态装配
-    formation.has_giant_sword = HasNodeFlag(profile, 2, exec, BladeFormationNodes::GiantSword);
-    formation.melee_orbit = HasNodeFlag(profile, 4, exec, BladeFormationNodes::BladeOrbit);
-    formation.has_immortality = HasNodeFlag(profile, 8, exec, BladeFormationNodes::Immortality);
+    formation.has_giant_sword = HasNodeFlag(profile, specState.giantSword, exec, BladeFormationNodes::GiantSword);
+    formation.melee_orbit = HasNodeFlag(profile, specState.bladeOrbit, exec, BladeFormationNodes::BladeOrbit);
+    formation.has_immortality = HasNodeFlag(profile, specState.immortality, exec, BladeFormationNodes::Immortality);
     if (formation.has_immortality && formation.immortality_cooldown <= 0.0f) {
       formation.immortality_ready = true;
     }
-    formation.has_godspeed = HasNodeFlag(profile, 16, exec, BladeFormationNodes::Godspeed);
-    formation.has_concentrate = HasNodeFlag(profile, 32, exec, BladeFormationNodes::Concentrate);
-    formation.has_spell_echo = HasNodeFlag(profile, 32768, exec, BladeFormationNodes::SpellEcho);
+    formation.has_godspeed = HasNodeFlag(profile, specState.godspeed, exec, BladeFormationNodes::Godspeed);
+    formation.has_concentrate = HasNodeFlag(profile, specState.concentrate, exec, BladeFormationNodes::Concentrate);
+    formation.has_spell_echo = HasNodeFlag(profile, specState.spellEcho, exec, BladeFormationNodes::SpellEcho);
 
     formation.pts303 = pts303;
     formation.pts333 = pts333;
     formation.pts334 = pts334;
-    formation.has_array_resonance = HasNodeFlag(profile, 65536, exec, BladeFormationNodes::ArrayResonance);
+    formation.has_array_resonance = HasNodeFlag(profile, specState.arrayResonance, exec, BladeFormationNodes::ArrayResonance);
     formation.has_fire = profile != nullptr
         ? HasTag(profile->effective_tags, Tag::Fire)
         : exec.active_nodes.test(BladeFormationNodes::ElementFire % 100);
@@ -167,13 +111,13 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         : (200.0f * (1.0f + 0.20f * static_cast<float>(pts310)));
 
     // 灵力网络 (Node 312)
-    formation.mana_regen_per_sword = HasNodeFlag(profile, 512, exec, BladeFormationNodes::Network)
+    formation.mana_regen_per_sword = HasNodeFlag(profile, specState.networkPoints > 0, exec, BladeFormationNodes::Network)
         ? mech.GetFloat(kSkillId, BladeFormationNodes::Network, "mana_regen_per_sword_per_point", 3.0f) * static_cast<float>(pts312)
         : 0.0f;
 
     // 御剑共振 (Node 315)
     const bool hasSwordStepResonance =
-        HasNodeFlag(profile, 64, exec, BladeFormationNodes::SwordStepResonance);
+        HasNodeFlag(profile, specState.swordStepResonancePoints > 0, exec, BladeFormationNodes::SwordStepResonance);
     formation.sword_step_haste = hasSwordStepResonance
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::SwordStepResonance, "resonance_freq_pct_per_point", 20.0f) / 100.0f) * static_cast<float>(pts315)
         : 0.0f;
@@ -182,12 +126,12 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         : 0.0f;
 
     // 灵剑护体减伤比例 (Node 350)
-    formation.ward_dr_per_sword = HasNodeFlag(profile, 8192, exec, BladeFormationNodes::Ward)
+    formation.ward_dr_per_sword = HasNodeFlag(profile, specState.wardPoints > 0, exec, BladeFormationNodes::Ward)
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::Ward, "ward_dr_pct_per_sword_per_point", 1.0f) / 100.0f) * static_cast<float>(pts350)
         : 0.0f;
 
     // 反击剑网格挡率 (Node 352)
-    formation.block_chance_per_sword = HasNodeFlag(profile, 16384, exec, BladeFormationNodes::RetaliationWeb)
+    formation.block_chance_per_sword = HasNodeFlag(profile, specState.retaliationWebPoints > 0, exec, BladeFormationNodes::RetaliationWeb)
         ? (mech.GetFloat(kSkillId, BladeFormationNodes::RetaliationWeb, "block_chance_per_sword_per_point", 2.0f) / 100.0f) * static_cast<float>(pts352)
         : 0.0f;
 
@@ -209,7 +153,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     // 伤害与单发倍率 (Node 330 巨剑: 1.25f 即基底 0.5f 的 2.5 倍 / +150% 伤害; Node 311: 0.6f 衰减; Node 302: 锋灵 moreMult)
     const float baseDamageScale = formation.has_giant_sword ? 1.25f : 0.5f;
     const bool hasInfiniteSheath =
-        HasNodeFlag(profile, 1, exec, BladeFormationNodes::InfiniteSheath);
+        HasNodeFlag(profile, specState.infiniteSheath, exec, BladeFormationNodes::InfiniteSheath);
     formation.damage_penalty = hasInfiniteSheath ? 0.6f : 1.0f;
     const float moreMult = profile ? profile->more_damage_mult : (1.0f + 0.10f * static_cast<float>(pts302));
     const float finalDamageScale = baseDamageScale * formation.damage_penalty * moreMult;
@@ -248,13 +192,22 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     }
     formation.attack_interval = attackInterval;
 
+    // 近战环绕 (Node 351) 半径与近战接触参数统一从 skill_mechanics 读取；
+    // 角速度 (360/180 度/秒) 无对应机制键，沿用历史常量，不臆造新键。
+    const float meleeOrbitRadius =
+        mech.GetFloat(kSkillId, BladeFormationNodes::BladeOrbit, "melee_orbit_radius", 50.0f);
+    const float meleeOrbitHitRadius =
+        mech.GetFloat(kSkillId, BladeFormationNodes::BladeOrbit, "melee_orbit_hit_radius", 30.0f);
+    const float meleeOrbitBaseDamage =
+        mech.GetFloat(kSkillId, BladeFormationNodes::BladeOrbit, "melee_orbit_base_damage", 25.0f);
+
     // 环绕哨兵组件装配
     auto &sentinel = registry.emplace_or_replace<OrbitingSentinelComponent>(owner);
     sentinel.anchor_entity = owner;
     sentinel.skill_id = kSkillId;
     sentinel.count = formation.max_swords;
     sentinel.angular_velocity = formation.melee_orbit ? 360.0f : 180.0f;
-    sentinel.orbit_radius = formation.melee_orbit ? 50.0f : 60.0f;
+    sentinel.orbit_radius = formation.melee_orbit ? meleeOrbitRadius : 60.0f;
     sentinel.attack_interval = formation.attack_interval;
 
     // 元素附魔与转质确定
@@ -270,7 +223,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       element = systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
       const float convBonus = (pts303 > 0)
           ? (mech.GetFloat(kSkillId, BladeFormationNodes::ElementalCore, "conv_efficiency_pct_per_point", 10.0f) / 100.0f) * static_cast<float>(pts303)
-          : ((profile && (profile->delivery.feature_flags & 256) != 0) ? 0.10f : 0.0f);
+          : ((profile != nullptr && specState.elementalCorePoints > 0) ? 0.10f : 0.0f);
       convRatio = std::min(1.0f, 0.5f + convBonus);
     }
 
@@ -359,8 +312,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         cb.damage_scale = finalDamageScale;
         cb.bonus_crit = bonusCrit;
         cb.bonus_crit_damage = bonusCritDamage;
-        cb.melee_orbit_hit_radius = 30.0f;
-        cb.melee_orbit_base_damage = 25.0f;
+        cb.melee_orbit_hit_radius = meleeOrbitHitRadius;
+        cb.melee_orbit_base_damage = meleeOrbitBaseDamage;
 
         if (element != Tag::None) {
           auto &m = registry.emplace_or_replace<SkillModifierComponent>(sword);
@@ -747,7 +700,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     // GDD L257 明文限定巨剑形态，与同分支 333/334 一致加 has_giant_sword 门控；
     // 点亮判定按需从活跃技能槽读取，仅暴击时付出读取成本。
     if (formation->has_giant_sword && is_crit && reg.all_of<Position>(victim)
-        && ReadAttackerPoints(reg, attacker, BladeFormationNodes::WeakPointCrit) > 0) {
+        && ResolveState(reg, attacker).weakPointCritPoints > 0) {
       const float splashRadius = mech.GetFloat(
           kSkillId, BladeFormationNodes::WeakPointCrit, "splash_radius", 60.0f);
       const auto &vPos = reg.get<Position>(victim);

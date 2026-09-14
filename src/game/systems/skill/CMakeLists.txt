@@ -24,6 +24,7 @@ add_library(NoMoreDayGameSkill STATIC
     ShadowSystem.cpp
     SkillCastConstraintService.cpp
     SkillDisplayPreviewService.cpp
+    SkillProfileResolve.cpp
     SkillSpecializationBaker.cpp
     SkillSystem.cpp
     SummonAISystem.cpp

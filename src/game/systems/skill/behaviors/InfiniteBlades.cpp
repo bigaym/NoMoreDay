@@ -15,56 +15,23 @@
 #include "game/foundation/data/BuffIds.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/InfiniteBladesSpecState.gen.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include <algorithm>
 #include <cmath>
 
 namespace NoMoreDay::skills {
 
-namespace InfiniteBladesNodes {
-// Base Tier
-constexpr uint32_t Rainfall = 500;
-constexpr uint32_t Resonance = 501;
-constexpr uint32_t MeteoricIron = 502;
-constexpr uint32_t Fluidity = 503;
-
-// Branch A
-constexpr uint32_t MindLock = 510;
-constexpr uint32_t NoEscape = 511;
-constexpr uint32_t FateMark = 512;
-constexpr uint32_t Execution = 513;
-constexpr uint32_t BladeStorm = 514;
-constexpr uint32_t BladesToArray = 515;
-
-// Branch B
-constexpr uint32_t Composure = 530;
-constexpr uint32_t SteeledBody = 531;
-constexpr uint32_t AbundantQi = 532;
-constexpr uint32_t ColossalBlades = 533;
-constexpr uint32_t SwordGod = 534;
-constexpr uint32_t Shockwave = 535;
-
-// Branch C
-constexpr uint32_t WalkThePath = 550;
-constexpr uint32_t SwordStepChannel = 551;
-constexpr uint32_t FollowingShadow = 552;
-constexpr uint32_t IntentSiphon = 553;
-constexpr uint32_t IntentBurst = 554;
-constexpr uint32_t Multiplier = 555;
-
-// Branch D
-constexpr uint32_t MeteorShower = 570;
-constexpr uint32_t DoomsdayAsh = 571;
-constexpr uint32_t Blizzard = 572;
-constexpr uint32_t AbsoluteZero = 573;
-constexpr uint32_t ElementalAttunement = 574;
-constexpr uint32_t Catastrophe = 575;
-} // namespace InfiniteBladesNodes
-
 struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
   static constexpr uint32_t kSkillId = 5;
+
+  // 效果层 SpecState 唯一读取入口（A-01 D-A1）：节点引用统一经生成表解析。
+  [[nodiscard]] static InfiniteBladesSpecStateGen ResolveState(const entt::registry &registry,
+                                                               entt::entity owner) {
+    return ResolveSpecState(registry, owner, kSkillId, kInfiniteBladesTableGen);
+  }
 
   static void DoCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
     // 513 天诛 (Execution) 等触发调用处理：当 trigger_depth > 0 时，作为天诛穿透必爆主剑降落，
@@ -139,17 +106,11 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     beam.bonus_crit_chance = 0.0f;
     beam.bonus_armor_pen = 0.0f;
 
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
     BakedSkillProfile localProfile;
-    if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-      for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr);
-          profile = &localProfile;
-          break;
-        }
-      }
-    }
+    const auto *profile =
+        ResolveBakedProfile(registry, owner, kSkillId, localProfile);
+    // 节点点亮/点数统一经生成 SpecState 读取；交付数值仍取自 profile（D6）。
+    const InfiniteBladesSpecStateGen specState = ResolveState(registry, owner);
 
     // 501 剑意共鸣: 发射频率加成 (写入 sub_interval)
     if (profile && profile->delivery.sub_interval > 0.0f) {
@@ -157,7 +118,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     }
 
     // 551 御剑风雷: 若在处于御剑步状态时开始引导，引导期间获得闪避加成 (+50..150)
-    if (profile && (profile->delivery.feature_flags & 65536) != 0) {
+    if (specState.swordStepChannelPoints > 0) {
       bool inSwordStep = false;
       if (const auto *effects = registry.try_get<ActiveEffectsComponent>(owner)) {
         inSwordStep = (effects->Get(BuffId::SwordStep) != nullptr);
@@ -166,44 +127,34 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
         inSwordStep = registry.any_of<PhaseTag>(owner);
       }
       if (inSwordStep) {
-        int pts_551 = 0;
-        if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-          for (const auto &spec : active->specialized_slots) {
-            if (spec.skill_id == kSkillId) {
-              pts_551 = ReadPoints(spec, InfiniteBladesNodes::SwordStepChannel);
-              break;
-            }
-          }
-        }
-        if (pts_551 > 0) {
-          auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
-          // 闪避加成随 buff 修饰符携带，随 buff 生命周期生效/失效（N5 修复）：
-          // 直接累加 dodge_rating 会被 AttributePipeline 属性重算整体覆盖。
-          const float dodgeBonus =
-              data::SkillMechanicsRegistry::Get().GetFloat(5, 551, "dodge_rating_per_point", 50.0f) *
-              static_cast<float>(pts_551);
-          BuffEffect dodgeBuff{
-              .id = "SwordStepChannelDodge",
-              .name = "Sword Step Channel Dodge",
-              .type = BuffType::SpeedUp,
-              .duration = 5.0f,
-              .remaining = 5.0f,
-              .stacks = 1,
-              .max_stacks = 1,
-              .is_debuff = false};
-          dodgeBuff.modifiers.push_back({.value = dodgeBonus,
-                                         .type = StatType::DodgeRating,
-                                         .mode = ModifierMode::Flat,
-                                         .source = ModifierSource::Buff});
-          effects.AddOrRefresh(dodgeBuff);
-          // 标记属性重算，使 buff 修饰符在属性管线消费路径生效
-          registry.get_or_emplace<StatsDirty>(owner);
-        }
+        const int pts_551 = specState.swordStepChannelPoints;
+        auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+        // 闪避加成随 buff 修饰符携带，随 buff 生命周期生效/失效（N5 修复）：
+        // 直接累加 dodge_rating 会被 AttributePipeline 属性重算整体覆盖。
+        const float dodgeBonus =
+            data::SkillMechanicsRegistry::Get().GetFloat(5, 551, "dodge_rating_per_point", 50.0f) *
+            static_cast<float>(pts_551);
+        BuffEffect dodgeBuff{
+            .id = "SwordStepChannelDodge",
+            .name = "Sword Step Channel Dodge",
+            .type = BuffType::SpeedUp,
+            .duration = 5.0f,
+            .remaining = 5.0f,
+            .stacks = 1,
+            .max_stacks = 1,
+            .is_debuff = false};
+        dodgeBuff.modifiers.push_back({.value = dodgeBonus,
+                                       .type = StatType::DodgeRating,
+                                       .mode = ModifierMode::Flat,
+                                       .source = ModifierSource::Buff});
+        effects.AddOrRefresh(dodgeBuff);
+        // 标记属性重算，使 buff 修饰符在属性管线消费路径生效
+        registry.get_or_emplace<StatsDirty>(owner);
       }
     }
 
     // 554 意气爆发: 若拥有满层 (10层) 剑意，消耗所有剑意使本次引导获得 100% 暴击率
-    if (profile && (profile->delivery.feature_flags & 524288) != 0) {
+    if (specState.intentBurst) {
       auto *intent = registry.try_get<SwordIntentComponent>(owner);
       // 满层阈值外置: intent_cost (默认 10 层)
       const int intentCost =
@@ -212,7 +163,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
         SkillSystem::ConsumeSwordIntent(registry, owner, intentCost, kSkillId);
         beam.bonus_crit_chance += 1.0f; // 意气爆发必暴（归一化）
         // 555 意念合一: 触发意气爆发时，暴伤额外提升
-        if ((profile->delivery.feature_flags & 1048576) != 0) {
+        if (specState.multiplier) {
           beam.bonus_damage_mult *= (1.0f + profile->delivery.bonus_crit_damage);
         }
       }
@@ -237,7 +188,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     }
 
     // 510 神识锁定: 开启 aim_assist
-    beam.aim_assist = profile ? ((profile->delivery.feature_flags & 8) != 0) : false;
+    beam.aim_assist = specState.mindLock;
   }
 
   static void DoHit(entt::registry &reg, entt::entity attacker, entt::entity victim, Tag hit_tag, bool is_crit) {
@@ -247,29 +198,17 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     // 与 SkillSystem 命中分发门一致，避免溅射命中相邻满层目标时递归扩散（N12 收窄）。
     if (HasTag(hit_tag, Tag::SecondaryHit)) return;
 
-    int pts_512 = 0;
-    int pts_514 = 0;
-    int pts_553 = 0;
-    int pts_571 = 0;
-    int pts_573 = 0;
-    int pts_575 = 0;
-    int pts_502 = 0;
-    int pts_572 = 0;
-    if (const auto *active = reg.try_get<ActiveSkillsComponent>(attacker)) {
-      for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == kSkillId) {
-          pts_512 = ReadPoints(spec, InfiniteBladesNodes::FateMark);
-          pts_514 = ReadPoints(spec, InfiniteBladesNodes::BladeStorm);
-          pts_553 = ReadPoints(spec, InfiniteBladesNodes::IntentSiphon);
-          pts_571 = ReadPoints(spec, InfiniteBladesNodes::DoomsdayAsh);
-          pts_573 = ReadPoints(spec, InfiniteBladesNodes::AbsoluteZero);
-          pts_575 = ReadPoints(spec, InfiniteBladesNodes::Catastrophe);
-          pts_502 = ReadPoints(spec, InfiniteBladesNodes::MeteoricIron);
-          pts_572 = ReadPoints(spec, InfiniteBladesNodes::Blizzard);
-          break;
-        }
-      }
-    }
+    // 节点点亮/点数统一经生成 SpecState 读取（A-01 D-A1）。
+    const InfiniteBladesSpecStateGen specState = ResolveState(reg, attacker);
+    const int pts_512 = specState.fateMarkPoints;
+    const int pts_514 = specState.bladeStormPoints;
+    const int pts_553 = specState.intentSiphonPoints;
+    const int pts_571 = specState.doomsdayAshPoints;
+    const int pts_573 = specState.absoluteZeroPoints;
+    const int pts_575 = specState.catastrophePoints;
+    const int pts_502 = specState.meteoricIronPoints;
+    // 572 凛冬暴雪为转化节点（已选形态），使用处仅判 `> 0`。
+    const int pts_572 = specState.blizzard ? 1 : 0;
 
     // 512 天降命印: 20%..100% 几率附加命印 (BuffKind::FateMark, max 5)
     if (pts_512 > 0) {

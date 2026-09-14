@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "skill_id": 9,
+  "pascal_skill": "PhantomTrance",
+  "state_name": "PhantomTranceSpecState",
+  "comment": "A-01 Phase 4c 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 902,
+      "identifier": "LightAsSwallow"
+    },
+    {
+      "node_id": 913,
+      "identifier": "SpiritFlowPierce"
+    },
+    {
+      "node_id": 914,
+      "identifier": "VoidRealmGift"
+    },
+    {
+      "node_id": 934,
+      "identifier": "SwordFollowsMind"
+    },
+    {
+      "node_id": 935,
+      "identifier": "FateBacklash"
+    },
+    {
+      "node_id": 954,
+      "identifier": "TimeReversal"
+    },
+    {
+      "node_id": 955,
+      "identifier": "FullFocus"
+    },
+    {
+      "node_id": 972,
+      "identifier": "SkyThunder"
+    },
+    {
+      "node_id": 973,
+      "identifier": "OverloadShield"
+    },
+    {
+      "node_id": 974,
+      "identifier": "ClearMind"
+    },
+    {
+      "node_id": 975,
+      "identifier": "Longevity"
+    },
+    {
+      "node_id": 976,
+      "identifier": "CycloneBurst"
+    },
+    {
+      "node_id": 977,
+      "identifier": "DeathDefiance"
+    },
+    {
+      "node_id": 978,
+      "identifier": "BloodRebirth"
+    },
+    {
+      "node_id": 979,
+      "identifier": "ShadowArmor"
+    },
+    {
+      "node_id": 980,
+      "identifier": "VoidBody"
+    },
+    {
+      "node_id": 981,
+      "identifier": "ReverseMeridian"
+    },
+    {
+      "node_id": 982,
+      "identifier": "DesperateGambit"
+    },
+    {
+      "node_id": 983,
+      "identifier": "DeathSpiral"
+    },
+    {
+      "node_id": 984,
+      "identifier": "Bloodthirst"
+    },
+    {
+      "node_id": 985,
+      "identifier": "BlinkStrike"
+    },
+    {
+      "node_id": 986,
+      "identifier": "GroundShrink"
+    },
+    {
+      "node_id": 987,
+      "identifier": "IntentFollowsSpirit"
+    },
+    {
+      "node_id": 988,
+      "identifier": "SwordShadow"
+    },
+    {
+      "node_id": 989,
+      "identifier": "SnowVeil"
+    },
+    {
+      "node_id": 990,
+      "identifier": "WinterEnchant"
+    },
+    {
+      "node_id": 991,
+      "identifier": "MindPierce"
+    },
+    {
+      "node_id": 992,
+      "identifier": "SpiritFeedback"
+    },
+    {
+      "node_id": 993,
+      "identifier": "ShadowEcho"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 902,
+      "member": "lightAsSwallow",
+      "kind": "flag"
+    },
+    {
+      "node_id": 913,
+      "member": "spiritFlowPierce",
+      "kind": "flag"
+    },
+    {
+      "node_id": 914,
+      "member": "voidRealmGift",
+      "kind": "flag"
+    },
+    {
+      "node_id": 934,
+      "member": "swordFollowsMind",
+      "kind": "flag"
+    },
+    {
+      "node_id": 935,
+      "member": "fateBacklash",
+      "kind": "flag"
+    },
+    {
+      "node_id": 954,
+      "member": "timeReversal",
+      "kind": "flag"
+    },
+    {
+      "node_id": 955,
+      "member": "fullFocus",
+      "kind": "flag"
+    },
+    {
+      "node_id": 972,
+      "member": "skyThunder",
+      "kind": "flag"
+    },
+    {
+      "node_id": 973,
+      "member": "overloadShield",
+      "kind": "flag"
+    },
+    {
+      "node_id": 974,
+      "member": "clearMind",
+      "kind": "flag"
+    },
+    {
+      "node_id": 975,
+      "member": "longevity",
+      "kind": "flag"
+    },
+    {
+      "node_id": 976,
+      "member": "cycloneBurst",
+      "kind": "flag"
+    },
+    {
+      "node_id": 977,
+      "member": "deathDefiance",
+      "kind": "flag"
+    },
+    {
+      "node_id": 978,
+      "member": "bloodRebirth",
+      "kind": "flag"
+    },
+    {
+      "node_id": 979,
+      "member": "shadowArmor",
+      "kind": "flag"
+    },
+    {
+      "node_id": 980,
+      "member": "voidBody",
+      "kind": "flag"
+    },
+    {
+      "node_id": 981,
+      "member": "reverseMeridian",
+      "kind": "flag"
+    },
+    {
+      "node_id": 982,
+      "member": "desperateGambit",
+      "kind": "flag"
+    },
+    {
+      "node_id": 983,
+      "member": "deathSpiral",
+      "kind": "flag"
+    },
+    {
+      "node_id": 984,
+      "member": "bloodthirst",
+      "kind": "flag"
+    },
+    {
+      "node_id": 985,
+      "member": "blinkStrike",
+      "kind": "flag"
+    },
+    {
+      "node_id": 986,
+      "member": "groundShrink",
+      "kind": "flag"
+    },
+    {
+      "node_id": 987,
+      "member": "intentFollowsSpirit",
+      "kind": "flag"
+    },
+    {
+      "node_id": 988,
+      "member": "swordShadow",
+      "kind": "flag"
+    },
+    {
+      "node_id": 989,
+      "member": "snowVeil",
+      "kind": "flag"
+    },
+    {
+      "node_id": 990,
+      "member": "winterEnchant",
+      "kind": "flag"
+    },
+    {
+      "node_id": 991,
+      "member": "mindPierce",
+      "kind": "flag"
+    },
+    {
+      "node_id": 992,
+      "member": "spiritFeedback",
+      "kind": "flag"
+    },
+    {
+      "node_id": 993,
+      "member": "shadowEcho",
+      "kind": "flag"
+    }
+  ]
+}

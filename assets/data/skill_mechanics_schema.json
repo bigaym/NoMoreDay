@@ -390,6 +390,31 @@
     ],
     [
       3,
+      351,
+      "melee_orbit_base_damage"
+    ],
+    [
+      3,
+      351,
+      "melee_orbit_hit_radius"
+    ],
+    [
+      3,
+      351,
+      "melee_orbit_radius"
+    ],
+    [
+      3,
+      351,
+      "melee_orbit_speed"
+    ],
+    [
+      3,
+      351,
+      "melee_orbit_tick_interval"
+    ],
+    [
+      3,
       352,
       "block_chance_per_sword_per_point"
     ],
@@ -2533,31 +2558,6 @@
       3,
       335,
       "trigger_icd"
-    ],
-    [
-      3,
-      351,
-      "melee_orbit_base_damage"
-    ],
-    [
-      3,
-      351,
-      "melee_orbit_hit_radius"
-    ],
-    [
-      3,
-      351,
-      "melee_orbit_radius"
-    ],
-    [
-      3,
-      351,
-      "melee_orbit_speed"
-    ],
-    [
-      3,
-      351,
-      "melee_orbit_tick_interval"
     ],
     [
       3,

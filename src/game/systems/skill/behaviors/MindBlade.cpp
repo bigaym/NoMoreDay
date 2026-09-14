@@ -9,16 +9,18 @@
 #include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
-#include "game/systems/skill/SkillSpecializationBaker.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/MindBladeSpecState.gen.hpp"
 
 namespace NoMoreDay::skills {
 
-namespace MindBladeNodes {
-// 分支 D 转质节点：两者互斥由数据层契约保证，行为层只做元素映射。
-constexpr uint32_t GlacialShards = 770; // 天外冰晶 → Cold
-constexpr uint32_t OrbitalStrike = 772; // 神雷天罡 → Lightning
-} // namespace MindBladeNodes
+namespace {
+// 效果层 SpecState 解析入口：唯一调用模板 ResolveSpecState 的位置（A-01 D-A1）。
+[[nodiscard]] MindBladeSpecStateGen ResolveState(entt::registry &registry, entt::entity owner) {
+  return ResolveSpecState(registry, owner, MindBlade::kSkillId, kMindBladeTableGen);
+}
+} // namespace
 
 void MindBlade::OnCast(entt::registry &registry, entt::entity owner, SkillExecution &exec) {
   // 引导元数据统一挂载 BeamChannelComponent：输入保活窗口由 channel_timer 独立承担。
@@ -36,33 +38,20 @@ void MindBlade::OnCast(entt::registry &registry, entt::entity owner, SkillExecut
   beam.bonus_damage_mult = 1.0f;
   beam.bonus_crit_chance = 0.0f;
 
-  const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
   BakedSkillProfile localProfile;
-  if (!profile && registry.all_of<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : registry.get<ActiveSkillsComponent>(owner).specialized_slots) {
-      if (spec.skill_id == kSkillId) { SkillSpecializationBaker::Bake(registry, owner, kSkillId, &spec, localProfile, nullptr); profile = &localProfile; break; }
-    }
-  }
+  const auto *profile =
+      ResolveBakedProfile(registry, owner, kSkillId, localProfile);
 
   // 转质元素：优先按 770/772 的已投点数映射（数据层保证互斥，映射方向以此为准），
   // 再退化为烘焙元素标签，最后回落到御天诀共鸣。
+  // 与 GetSkill7Point 口径一致：仅存在记录不算激活，必须已投点数 > 0；
+  // 770/772 的互斥 max1 语义仍由数据层契约保证。
+  const MindBladeSpecStateGen specState = ResolveState(registry, owner);
   Tag elementTag = Tag::None;
-  if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : active->specialized_slots) {
-      if (spec.skill_id != kSkillId) continue;
-      // 与 GetSkill7Point 口径一致：仅存在记录不算激活，必须已投点数 > 0；
-      // 770/772 的互斥 max1 语义仍由数据层契约保证。
-      const bool hasGlacial =
-          skills::HasNode(spec, MindBladeNodes::GlacialShards);
-      const bool hasOrbital =
-          skills::HasNode(spec, MindBladeNodes::OrbitalStrike);
-      if (hasGlacial) {
-        elementTag = Tag::Cold;
-      } else if (hasOrbital) {
-        elementTag = Tag::Lightning;
-      }
-      break;
-    }
+  if (specState.glacialShards) {
+    elementTag = Tag::Cold;
+  } else if (specState.orbitalStrike) {
+    elementTag = Tag::Lightning;
   }
   if (elementTag == Tag::None && profile &&
       (profile->effective_tags & (Tag::Cold | Tag::Lightning)) != Tag::None) {

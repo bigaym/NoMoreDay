@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "skill_id": 8,
+  "pascal_skill": "BladeBoomerang",
+  "state_name": "BladeBoomerangSpecState",
+  "comment": "A-01 Phase 3 命名 descriptor：仅承载「节点 id -> SpecState 标识符」命名；结构/拓扑来自 talent_tree / skill_contracts_compact.json / skill_mechanics.json。",
+  "nodes": [
+    {
+      "node_id": 800,
+      "identifier": "Lightweight"
+    },
+    {
+      "node_id": 801,
+      "identifier": "VelocityNode"
+    },
+    {
+      "node_id": 802,
+      "identifier": "Sharpness"
+    },
+    {
+      "node_id": 803,
+      "identifier": "Feedback"
+    },
+    {
+      "node_id": 810,
+      "identifier": "Hovering"
+    },
+    {
+      "node_id": 811,
+      "identifier": "Bleed"
+    },
+    {
+      "node_id": 812,
+      "identifier": "CritMulti"
+    },
+    {
+      "node_id": 813,
+      "identifier": "SonicBoom"
+    },
+    {
+      "node_id": 814,
+      "identifier": "BloodRip"
+    },
+    {
+      "node_id": 815,
+      "identifier": "EyeOfStorm"
+    },
+    {
+      "node_id": 830,
+      "identifier": "TriBlade"
+    },
+    {
+      "node_id": 831,
+      "identifier": "BladeDance"
+    },
+    {
+      "node_id": 832,
+      "identifier": "Catch"
+    },
+    {
+      "node_id": 833,
+      "identifier": "Combo"
+    },
+    {
+      "node_id": 834,
+      "identifier": "SwordStepCatch"
+    },
+    {
+      "node_id": 835,
+      "identifier": "ReturnDance"
+    },
+    {
+      "node_id": 850,
+      "identifier": "Magnet"
+    },
+    {
+      "node_id": 851,
+      "identifier": "Area"
+    },
+    {
+      "node_id": 852,
+      "identifier": "IntentGain"
+    },
+    {
+      "node_id": 853,
+      "identifier": "MindIntent"
+    },
+    {
+      "node_id": 854,
+      "identifier": "Giant"
+    },
+    {
+      "node_id": 855,
+      "identifier": "ColossusEcho"
+    },
+    {
+      "node_id": 870,
+      "identifier": "AshPath"
+    },
+    {
+      "node_id": 871,
+      "identifier": "Wildfire"
+    },
+    {
+      "node_id": 872,
+      "identifier": "Electro"
+    },
+    {
+      "node_id": 873,
+      "identifier": "HighVoltage"
+    },
+    {
+      "node_id": 874,
+      "identifier": "ElementalWake"
+    },
+    {
+      "node_id": 875,
+      "identifier": "PathPen"
+    },
+    {
+      "node_id": 876,
+      "identifier": "ElementShield"
+    }
+  ],
+  "bindings": [
+    {
+      "node_id": 802,
+      "member": "sharpnessPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 811,
+      "member": "bleedPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 813,
+      "member": "sonicBoomPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 852,
+      "member": "intentGainPoints",
+      "kind": "point"
+    },
+    {
+      "node_id": 854,
+      "member": "giantPoints",
+      "kind": "point"
+    }
+  ]
+}
