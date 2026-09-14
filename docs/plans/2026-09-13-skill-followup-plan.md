@@ -16,39 +16,41 @@
 
 ## 2. 对账后的状态表
 
+> 下表为计划执行前的对账快照；执行完成后的终态见每行「终态」与 `docs/plans/2026-09-12-skill1-9-followup-backlog.md §9.4`。
+
 ### 2.1 B1（非性能）
 
-| ID | 状态 | 剩余工作 |
-|---|---|---|
-| B1-01 | OPEN | skill3 372 瞬移+静电场、375 引爆、331 溅射、355 剑阵元素附加 |
-| B1-02 | OPEN | skill4 476 曝光、472/474 数值、402/403/410/413/415/431/433/434/453/454/473/475 |
-| B1-03 | PARTIAL | 435 `crit_bonus`（`skill_mechanics.json:330`）无消费；455 已接线 |
-| B1-04 | PARTIAL | `counter_swords`（`:356` =5）无消费 → 5 道反击剑气实体未实现 |
-| B1-05 | PARTIAL | 535/552/532/533 收窄外置；534/512 按 D8 |
-| B1-06 | OPEN | 并入设计修订 4.3 |
-| B1-07 | OPEN | `Buff.hpp` 增 `RemoveByKind(kind, source_skill_id)` 重载 |
-| B1-08~14,16~19 | CLOSED | — |
-| B1-15/19 | CLOSED（backlog 过期） | 2026-09-13 计划 T6.4 已闭合，仅需勾选 |
-| B1-20 | PARTIAL | 仅缺 `interception_chance=0.5` 骰子分布契约测试 |
-| B1-21/22/23 | BLOCKED→采证 | 现行测试环境或 headless |
-| B1-24/26 | EXCLUDED | 性能 |
-| B1-25 | CLOSED | CombatV2 已清空，仅确认 |
+| ID | 状态（对账时） | 剩余工作 | 终态 |
+|---|---|---|---|
+| B1-01 | OPEN | skill3 372 瞬移+静电场、375 引爆、331 溅射、355 剑阵元素附加 | CLOSED（C1.1-C1.4） |
+| B1-02 | OPEN | skill4 476 曝光、472/474 数值、402/403/410/413/415/431/433/434/453/454/473/475 | CLOSED（C2.1-C2.3） |
+| B1-03 | PARTIAL | 435 `crit_bonus`（`skill_mechanics.json:330`）无消费；455 已接线 | CLOSED（C2.4 + rd-rulings plan §4 B3） |
+| B1-04 | PARTIAL | `counter_swords`（`:356` =5）无消费 → 5 道反击剑气实体未实现 | CLOSED（C2.5 + 470 键消费） |
+| B1-05 | PARTIAL | 535/552/532/533 收窄外置；534/512 按 D8 | CLOSED（C3.1-C3.4） |
+| B1-06 | OPEN | 并入设计修订 4.3 | CLOSED（RD-12：扇形洪流，无代码改动） |
+| B1-07 | OPEN | `Buff.hpp` 增 `RemoveByKind(kind, source_skill_id)` 重载 | CLOSED（C4.1-C4.2） |
+| B1-08~14,16~19 | CLOSED | — | CLOSED |
+| B1-15/19 | CLOSED（backlog 过期） | 2026-09-13 计划 T6.4 已闭合，仅需勾选 | CLOSED（已勾选，见 backlog §9.4） |
+| B1-20 | PARTIAL | 仅缺 `interception_chance=0.5` 骰子分布契约测试 | CLOSED（D1.1 + 模块化复审 §8，backlog 注记已订正） |
+| B1-21/22/23 | BLOCKED→采证 | 现行测试环境或 headless | BLOCKED（无交互运行环境，见 backlog §2.3） |
+| B1-24/26 | EXCLUDED | 性能 | EXCLUDED |
+| B1-25 | CLOSED | CombatV2 已清空，仅确认 | CLOSED |
 
 ### 2.2 B2 与新增
 
-| ID | 状态 | 剩余工作 |
-|---|---|---|
-| B2-15 | PARTIAL | ArmorShred → `BuffId` 枚举；4~5 处字符串站点；统一 stacks 语义 |
-| B2-16 | OPEN(可选) | `SkillSpecializationBaker.cpp:1069-1074` 精确到 node 711 |
-| B2-18 | PARTIAL | `ApplyFrostSlowDebuff`（`FlowingThrust.cpp:67-83`）走 ailment 契约 |
-| B2-24 | CLOSED | — |
-| 新-1 | OPEN | 技能10 系数双源（`getModifier` vs `GetMech`）+ `slash_count` 死键 |
-| 新-2 | OPEN | `SkillMechanicsRegistry` 键名拼写加载期校验 |
-| 新-3 | OPEN | 测试隔离：`TestSetupScope` 未重置技能注册表；handler 非 RAII 泄漏 |
-| 新-4 | OPEN | `SkillSystem.cpp` 973 on-hit 同步豁免理由过期（P2-P4 已完成） |
-| 新-5 | OPEN | 文档口径：crit 单位旧措辞、backlog 勾选对账 |
-| B2-23 | CLOSED(保留) | — |
-| RD-18 | 裁决延后 | 不启动 |
+| ID | 状态（对账时） | 剩余工作 | 终态 |
+|---|---|---|---|
+| B2-15 | PARTIAL | ArmorShred → `BuffId` 枚举；4~5 处字符串站点；统一 stacks 语义 | CLOSED（枚举/多层断言完成 + 351 数据消费统一，见 backlog §9.4） |
+| B2-16 | OPEN(可选) | `SkillSpecializationBaker.cpp:1069-1074` 精确到 node 711 | CLOSED（C5.1 评估后拒绝，证据 `:1070-1079`） |
+| B2-18 | PARTIAL | `ApplyFrostSlowDebuff`（`FlowingThrust.cpp:67-83`）走 ailment 契约 | CLOSED（方案 B：补注册 `Slow` + 单源构建口，3 护栏测试零改动，见 backlog §9.4） |
+| B2-24 | CLOSED | — | CLOSED |
+| 新-1 | OPEN | 技能10 系数双源（`getModifier` vs `GetMech`）+ `slash_count` 死键 | CLOSED（A2：`GetMech` 单源 + 死键删除） |
+| 新-2 | OPEN | `SkillMechanicsRegistry` 键名拼写加载期校验 | CLOSED（R3：生成器 + 加载期校验） |
+| 新-3 | OPEN | 测试隔离：`TestSetupScope` 未重置技能注册表；handler 非 RAII 泄漏 | CLOSED（D1.2） |
+| 新-4 | OPEN | `SkillSystem.cpp` 973 on-hit 同步豁免理由过期（P2-P4 已完成） | CLOSED（D1.3） |
+| 新-5 | OPEN | 文档口径：crit 单位旧措辞、backlog 勾选对账 | CLOSED（D1.4；backlog B1-01~07 漏勾于 2026-09-13 文档债批次补齐，见 backlog §9.4） |
+| B2-23 | CLOSED(保留) | — | CLOSED |
+| RD-18 | 裁决延后 | 不启动 | 延后 |
 
 ## 3. Wave A — 契约 / 数据 / 生成器基础
 
@@ -171,7 +173,7 @@
 ### C5. 其它
 
 - [x] C5.1 B2-16 skill7 714 精确到 node 711（可选，若低成本）。
-  - [~] C5.2 B2-18 `ApplyFrostSlowDebuff`（`FlowingThrust.cpp:67-83`）走 `AilmentEngine`/契约，去 legacy SpeedDown 分支。——部分完成：legacy `BuffType` 字面量已改走 `AilmentAdapter::ToLegacyBuffType`，手工 `AddOrRefresh` 载体保留（整体收编被 3 条既有用例锁定 `id="FrostSlow"`（`FlowingThrustNodes.cpp:471`、`SkillSpecializationBakerTests.cpp:777` SUBCASE :885、`SkillSpecializationBakerTests.cpp:1257`）与 `AilmentType::Slow` 未注册阻塞，详见复审）。
+  - [x] C5.2 B2-18 `ApplyFrostSlowDebuff`（`FlowingThrust.cpp:65-78`）统一走单源构建口 `AilmentAdapter::BuildMoveSpeedDebuff`。——已闭合（方案 B）：补注册 `AilmentType::Slow`（`ailment_contracts.json:+75-86`、`AilmentEngine.cpp:449-455`）+ 单源构建口；`id="FrostSlow"`/`type=SpeedDown`/`kind=Slow`/`{-30.0,MoveSpeed}` 逐字不变，3 条护栏用例零 diff。**订正原引用**：`FlowingThrustNodes.cpp:471` → `tests/functional/FlowingThrustNodes.cpp:470`、`SkillSpecializationBakerTests.cpp:899-904/:1313-1315`（原 `:777` 为父 TEST_CASE）。详见设计 `docs/designs/2026-09-13-skill1-slow-chill-ailment-contract-design.md`。
 - **DoD**：`ApplyFrostSlowDebuff` 不再手工 `AddOrRefresh` legacy buff。
 
 ## 6. Wave D — 结构 / 测试 / 文档债务与运行时采证

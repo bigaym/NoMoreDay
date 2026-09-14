@@ -88,13 +88,16 @@
 
 ### 2.1 实现缺口
 
-- [ ] **B1-01** [P1] 技能3 四项机制实现：372 瞬移+静电场 / 375 引爆 / 331 溅射 / 355 剑阵元素附加（数据已就绪）— 源：skill3 §16.4 MI-2/3/4/5
-- [ ] **B1-02** [P1] 技能4 C5 剩余约 13 节点：476 曝光（完全无实现，优先）、472 静电光环、474 冰龙卷、402/403/410/413/415/431/433/434/453/454/473/475 — 源：skill4 §16.4 R3-8
-- [ ] **B1-03** [P2] 技能4：455 一次性语义修正（依 RD-06）+ 435 crit_bonus 实现 + 435 断言 — 源：skill4 §16.7 R3-12
-- [ ] **B1-04** [P1] 技能4：35.0f 基伤改读 mechanics `470.base_damage`；Melee 反击 5 道剑气实体（M3/M11 形态）— 源：skill4 §16.7 R3-3 剩余
-- [ ] **B1-05** [P2] 技能5 N12 修正集（依 RD-11）：535 收窄至普通怪、552 环形落点、554/532/533 硬编码外置、534/512 按裁决处理 — 源：skill5 N12
-- [ ] **B1-06** [P2] 技能5 N13 基底天降形态实现（依 RD-12）— 源：skill5 N13
-- [ ] **B1-07** [P2] 技能8 N4-2：RemoveByKind 增加 source_skill_id 过滤重载（Buff.hpp:277-280），SkillSystem.cpp:1923 传 8u — 源：skill8 §15.4
+- [x] **B1-01** [P1] 技能3 四项机制实现：372 瞬移+静电场 / 375 引爆 / 331 溅射 / 355 剑阵元素附加（数据已就绪）— 源：skill3 §16.4 MI-2/3/4/5〔销项 2026-09-13：Wave C C1.1-C1.4；372/331/375 `BladeFormation.cpp:373/540/691-699/746`，355 `SummonAISystem.cpp:164-168` 改读 `array_haste_pct`；M-1/M-3/375 引爆复核见 review §8.1，见 §9.4〕
+- [x] **B1-02** [P1] 技能4 C5 剩余约 13 节点：476 曝光（完全无实现，优先）、472 静电光环、474 冰龙卷、402/403/410/413/415/431/433/434/453/454/473/475 — 源：skill4 §16.4 R3-8〔销项 2026-09-13：Wave C C2.1-C2.3；476 元素曝光入 `BladeWard.cpp`，472/474 及其余十二节点消费 `skill_mechanics.json:275-382`，见 §9.4〕
+- [x] **B1-03** [P2] 技能4：455 一次性语义修正（依 RD-06）+ 435 crit_bonus 实现 + 435 断言 — 源：skill4 §16.7 R3-12〔销项 2026-09-13：455 见 `docs/plans/2026-09-13-skill-rd-rulings-plan.md` §4 B3/§10 Wave D；435 见 Wave C C2.4（`SkillSystem.cpp:1250-1270`），见 §9.4〕
+- [x] **B1-04** [P1] 技能4：35.0f 基伤改读 mechanics `470.base_damage`；Melee 反击 5 道剑气实体（M3/M11 形态）— 源：skill4 §16.7 R3-3 剩余〔销项 2026-09-13：`DamageInterceptors.hpp:55` 改读 `GetMech(4,470,"base_damage",35.0f)`；counter_swords 见 Wave C C2.5，见 §9.4〕
+- [x] **B1-05** [P2] 技能5 N12 修正集（依 RD-11）：535 收窄至普通怪、552 环形落点、554/532/533 硬编码外置、534/512 按裁决处理 — 源：skill5 N12〔销项 2026-09-13：Wave C C3.1-C3.4（535 `BeamChannelDeliverySystem.cpp:953-967`、552 `:1114-1116`、532/533 外置、534/512 按 D8），见 §9.4〕
+- [x] **B1-06** [P2] 技能5 N13 基底天降形态实现（依 RD-12）— 源：skill5 N13〔销项 2026-09-13：RD-12 裁决基底为扇形剑气洪流，无 Skyfall 值（`DeliveryArchetypes.hpp:153-156` 仅 ContinuousLaser/BarrageEmitter），GDD L340 已修订，无代码改动，见 §9.4〕
+- [x] **B1-07** [P2] 技能8 N4-2：RemoveByKind 增加 source_skill_id 过滤重载（Buff.hpp:277-280），SkillSystem.cpp:1923 传 8u — 源：skill8 §15.4〔销项 2026-09-13：Wave C C4.1-C4.2（`Buff.hpp:319-331` 重载 + `SkillSystem.cpp:1982-1988` 传 8u），见 §9.4〕
+- [x] **B1-27** [P3] 机制键消费侧盲区：代码 `GetMech` 消费但 `skill_mechanics.json` 表内缺失的键不告警（现 `SkillMechanicsRegistry` 仅覆盖「表内键名拼写 / 未消费」方向）— 源：followup review §5 M-2 / §8.1 / §8.4（R3 追加项）〔核销 2026-09-13：**前提不成立**——消费侧校验早在 `31cc67e6` 已实现：`src/game/foundation/data/SkillMechanicsRegistry.cpp:314-320` 方向二（`schema.readTuples` 缺失告警）、`:321-327` 方向三（动态键缺失），加载期 `:161` 无条件调用且 warning-only；本次仅补隔离回归测试 `tests/unit/SkillMechanicsKeySchemaTests.cpp:139`（`[Unit] SkillMechanicsKeySchema - Consumed Tuple Missing Is Diagnosed`，辅助 `:48`）；`build.bat` EXIT=0、`-L unit` 8/8、`-L ci` 1/1、`gen_skill_mechanics_schema.py --check` OK。残留：生成器 `--check` 对 missing key 仅 `WARN` 且退出 0，如需硬门禁另立；review §5 M-2 口径过时，以代码为准，见 §9.4〕
+- [x] **B1-28** [P2] GDD §3.5「血相改写」分支与数据漂移 — 源：followup review §8.4 / rd-rulings plan §9-3 / 本次文档债务修订（设计 `docs/designs/2026-09-13-skill12-branchD-gdd-data-alignment-design.md`，已落地）〔销项 2026-09-13：用户裁定 D1=a/D2=a/D3=a/D4=a/D5=a；GDD §5.3.2 全 25 节点名称与前置对齐数据 `name_key`/`prerequisites`、多前置用「或」（引擎 OR：`SkillSystem.cpp:2230-2255` 命中即 break、`UISkillTalentTree.cpp:95-115`、`UISkillSpecRenderer.cpp:45-66`），1223/1224 采用数据 `desc_key`，并同步 §5.3.1/关键节点清单/§5.4 交叉引用；自检 `rg "污秽侵蚀|渴血回流|腐血蔓延|滞腐深渊" GDD` = 0、程序化对拍 names/prereq 25/25 一致。仅 GDD 文档改动，零运行时影响；原「`{1202:3 且 1209:3}`（且非或）」有误已订正，见 §9.4〕
+- [x] **B1-29** [P3] 技能12 数据文案债务（B1-28 裁定 D5=b）：`assets/data/mastery_skill_trees.json` 的 `desc_key` 与机制不符——1220（`:2238`）写「抗性侵蚀 5/10/15」但 `max_points=1` 且机制为固定值（`skill_mechanics.json:1111-1116`）、漏报约 45% 物理占比转虚空；1223（`:2312`）`1s/2s/3s`+`15%/30%/45%` 与 `miasma_duration_per_point`/`void_damage_per_point`（`:1130-1132`）不符；1224（`:2342`）`4/8/12` 与 `resist_shred_per_point=2.0`（`:1134-1135`）不符。需核对档位后修数据显示文案 — 源：B1-28 设计提案 §3.3〔销项 2026-09-13：核对 `BloodSea.cpp:116-129,337-403,421` 机制真值后改写三处 `desc_key`（仅 3 行文案、机制零改动）——1220 固定值「伤害 +18%、脉冲 +8%、抗性侵蚀 +4、物理占比 45%」、1223 每点「0.25s/0.5s/0.75s、脉冲 +6%/12%/18%」、1224 每点「+2/+4/+6」；同步 GDD `设计文档/职业设计草案_剑修.md:1260-1262`；验证 `validate_json` / `gen_skill_contracts.py --check --check-idempotency --check-determinism` / `sync_skill_node_icon_ids.py --check` / `gen_skill_mechanics_schema.py --check` 全 EXIT 0，`build.bat` EXIT 0 零警告、`-l ci` 1/1、`-l skill` 2/2，见 §9.4〕
 - [x] **B1-08** [P1] 技能9：990 冰增幅接入 `DamagePipeline::CalculateBatch`（当前仅 Calculate 单目标生效；CalculateBatch 已 deprecated、生产批量走 ResolveDamageBatch→逐目标 Calculate，属潜在一致性缺口而非线上缺陷）— 源：skill9 §14.4-1
 - [x] **B1-09** [P1] 技能9：消除 EffectSystem 与 `StatsSystem::UpdateBuffs` 对 `ActiveEffectsComponent::Update` 的双重调用（双倍衰减隐患，既存问题）— 源：skill9 §14.4-2
 - [x] **B1-10** [P1] 技能9：跨技能非法标签清理——`assets/data/skills.json:714`（技能2 `sword_skill`）、`:1456`（技能3 `sword_skill`）、`:6349`（技能10 `sword_skill`）改 `SwordSkill`；`:3552`（技能6 `Duration`）调查后处置；技能10 部分随 A-04 — 源：skill9 §14.4-4、M2 §11.5
@@ -105,12 +108,12 @@
 
 - [x] **B1-13** [P1] 技能3：互斥「双点被拒」正向用例补强（SkillCastConstraintService 测试）— 源：skill3 §16.4
 - [x] **B1-14** [P1] 技能4：keystone 角色精确集合断言（现断言不拒绝多出的 Keystone，参考 SkillContractRegistryTests.cpp:82-110 加 count 相等）+ DamagePipelineP1Tests 新增 Batch/Calculate 反击一致性用例 — 源：skill4 §16.5
-- [ ] **B1-15** [P2] 技能4：435 剑意回复断言（伴随 B1-03）— 源：skill4 §16.5
+- [x] **B1-15** [P2] 技能4：435 剑意回复断言（伴随 B1-03）— 源：skill4 §16.5〔销项 2026-09-13：随 B1-03 Wave C C2.4，见 §9.4〕
 - [x] **B1-16** [P1] 技能7：775 Lightning×730 组合、752 次级撕裂中心测试覆盖；M4 projectile 链路测试（P2）— 源：skill7 rereview §5-5/§5-6
 - [x] **B1-17** [P1] 技能8：`GetEffectiveSkillTags` 的 `role != Transmuter` 过滤补技能3~7 专项回归 — 源：skill8 §15.7
 - [x] **B1-18** [P1] 技能2：`crit_chance` 未归一化疑点核实——**不成立**：`stats->crit_chance` 为归一化 0..1（Stats.hpp:115 默认 0.05、AttributePipeline.cpp:774 写回 /100），DamagePipeline.cpp:1324-1327 注释明示分数制、:1606/:1850 直接比较；SkillSystem 三处直拷（:1532/:1600/:2096）正确。原记录（skill2 §4、行号 1787）基于旧单位前提。遗留：技能1/2 审查文档中 crit 单位旧口径残留待文档清理 — 源：skill2 第3轮 §4
 - [x] **B1-19** [P2] 技能2：技能3 373 / 技能6 633 的 `trigger_skill_id=2` 既有数据核实 — 源：skill2 第3轮 §4 记录项〔销项 2026-09-13：T6.4 核实真实链接为技能3 node 335（`skills.json:1999`）与技能6 node 635（`skills.json:4128`），373/633 为天赋树条目、无 trigger 字段；断言落在 `SkillContractRegistryTests.cpp`，数据零改动，见 §9〕
-- [~] **B1-20** [P2] 模块化：复审 §9 建议项核销（more_damage_mult 单位断言、SpawnShadow 统一工厂、Rebake 幂等/拦截骰子分布契约测试），未闭环部分并入 B2 — 源：模块化实施复审 §9〔拦截骰子分布子项已由 2026-09-13 计划 D1.1 闭环（SkillSystemTests 骰子分布契约测试），其余子项待 Wave E〕
+- [x] **B1-20** [P2] 模块化：复审 §9 建议项核销（more_damage_mult 单位断言、SpawnShadow 统一工厂、Rebake 幂等/拦截骰子分布契约测试），未闭环部分并入 B2 — 源：模块化实施复审 §9〔销项 2026-09-13：more_damage_mult/SpawnShadow/Rebake 幂等见模块化复审 §8 整改确认（`SkillSpecializationBakerTests.cpp:113-166` 幂等用例）；拦截骰子分布见 followup plan D1.1（`SkillSystemTests.cpp:1210-1262`，400 次统计带）。原「其余子项待 Wave E」注记作废，见 §9.4〕
 
 ### 2.3 验证任务
 
@@ -139,10 +142,10 @@
 - [x] **B2-12** [P2] 技能5：M4 双组件结构冗余收敛（随 B2-01 一并做）— 源：skill5〔销项 0ef68d2d：A1-2 T2.5，见 §9〕
 - [x] **B2-13** [P2] 技能3：373 O(N) 敌人遍历空间网格化（待 DoHit 签名扩展）— 源：skill3 §16.4〔销项 0ef68d2d：A1-5 T5.2，见 §9〕
 - [x] **B2-14** [P2] 技能3：374 debuffId `std::string` 改 BuffId 枚举 — 源：skill3 §16.4〔销项 0ef68d2d：A1-5 T5.3，见 §9〕
-- [ ] **B2-15** [P2] 技能3：351 数据消费统一、ArmorShred id 重命名（消除与 RendingWave.cpp:537 / FlowingThrust.cpp:412 的名称冲突互刷）— 源：skill3 §16.4（PARTIAL：ArmorShred 枚举化/迁移**已完成**——`BuffId::ArmorShred` 位于 `src/game/foundation/data/BuffIds.hpp`，`rg '"ArmorShred"' src/` == 0；仅余 351 数据消费重命名未做，见计划 §2.2）
-- [ ] **B2-16** [P2] 技能7：714 粗粒度（skill_id==7）精确化（取 711 时其余路径已禁用，可选优化）— 源：skill7 rereview §5-1（OPEN 可选，见计划 §2.2）
+- [x] **B2-15** [P2] 技能3：351 数据消费统一、ArmorShred id 重命名（消除与 RendingWave.cpp:537 / FlowingThrust.cpp:412 的名称冲突互刷）— 源：skill3 §16.4〔销项 2026-09-13：ArmorShred 枚举化/迁移完成（`BuffId::ArmorShred` 位于 `src/game/foundation/data/BuffIds.hpp`，`rg '"ArmorShred"' src/` == 0；多层 stacks 断言 `RendingWaveNodes.cpp:615-656`）；**351 数据消费完成**——`melee_orbit_radius/speed/tick_interval/base_damage/hit_radius` 由 `BladeFormation.cpp:266,371,372` 与 `SummonAISystem.cpp:55-64` 经 `GetFloat(3,351,...)` 消费（5 键与硬编码等值、行为不变），`skill_mechanics_schema.json` 已重生成（472 entries）；`build.bat` EXIT=0 零警告、`-L ci` 1/1、1525/1525 用例全绿，见 §9.4〕
+- [x] **B2-16** [P2] 技能7：714 粗粒度（skill_id==7）精确化（取 711 时其余路径已禁用，可选优化）— 源：skill7 rereview §5-1〔销项 2026-09-13：C5.1 评估后**拒绝**（收益不足、风险不划算且无玩家可见影响），证据 `SkillSpecializationBaker.cpp:1070-1079` 代码注释 + 计划评审剩余风险 5，见 §9.4〕
 - [x] **B2-17** [P2] 技能8：N4-3 `primary_archetype` 死字段删除（RD-17 已裁决删除；影响面：Baker 14 处 + `BladeBoomerang.cpp:109` + BakerTests 3 处 CHECK；先核实存档/序列化兼容，归 A1-2）— 源：skill8 §15.4〔销项 0ef68d2d：A1-2 T2.2（RD-17）；rg `primary_archetype` in src/ = 0，见 §9〕
-- [ ] **B2-18** [P2] 技能1：Slow/Chill legacy buff 收编 ailment 契约（契约补注册时统一处理，与 HazardSystem 同型）— 源：skill1 §6.5-3（PARTIAL：`ApplyFrostSlowDebuff` 未走 ailment 契约，见计划 §2.2）
+- [x] **B2-18** [P2] 技能1：Slow/Chill legacy buff 收编 ailment 契约（契约补注册时统一处理，与 HazardSystem 同型）— 源：skill1 §6.5-3〔销项 2026-09-13：方案 B 落地——`assets/data/ailment_contracts.json:+75-86` 补注册 `Slow`（`legacy_buff_type=SpeedDown`、`damage_tag=None`）+ `AilmentEngine.cpp:449-455 LoadBuiltins` 注册；新增单源构建口 `AilmentAdapter::BuildMoveSpeedDebuff`（`AilmentEngine.cpp:524-547`）供 `FlowingThrust.cpp:65-78` 与 `HazardSystem.cpp:379-383` 复用；D5 前置修正 `TagFromString("None")`（`TagRegistry.hpp:161-164`）、`DefaultDamageTag(Slow)=Tag::None`、`Tick()` 的 `None` 跳过守卫（`AilmentEngine.cpp:822-826`）；3 处护栏测试零 diff；新用例 `tests/unit/AilmentEngineTests.cpp:283-381`；`build.bat` EXIT=0 零警告、`-l ci/skill/unit/integration/combat/contract` 全绿，见 §9.4〕
 - [x] **B2-19** [P2] 技能1：第4轮遗留统一处置（MEDIUM-5 四处死数据 `snapshot.payload_context`、UMR 并轨跳过项、ShadowDuplicationHook 特例）— 源：skill1 §6.5-4〔销项 0ef68d2d：A1-2 T2.3 + A1-5 T5.7，见 §9〕
 - [x] **B2-20** [P2] 模块化：逐节点「烘焙→消费」映射表纳入仓库 — 源：模块化实施复审 §9〔销项 0ef68d2d：A1-6 T6.1（`docs/designs/2026-09-13-skill-baker-consumer-map.md`）+ T6.2 断言，见 §9〕
 - [x] **B2-21** [P3] 技能6 L5：DeliveryArchetypesTests.cpp:190-210 以技能6 充当 Skyfall 残留域夹具，换独立 ID — 源：skill6 §16.3〔销项 0ef68d2d：A1-6 T6.3，见 §9〕
@@ -256,4 +259,26 @@
 
 ### 9.3 保留未勾选
 
-B1-15（伴随 B1-03 PARTIAL）、B1-20、B1-21/22/23、B1-24/26、B2-15（PARTIAL）、B2-16（OPEN 可选）、B2-18（PARTIAL），及后续计划新增项均维持未勾选。
+B1-21/22/23（运行时采证阻塞）、B1-24/26（性能），以及 A 工作包、O 类条目维持未勾选。
+
+### 9.4 Wave C / 裁决补充销项（2026-09-13）
+
+来源：`docs/plans/2026-09-13-skill-followup-plan.md` §5 Wave C（C1/C2/C3/C4/C5）与 `docs/plans/2026-09-13-skill-rd-rulings-plan.md`；复审 `docs/reviews/2026-09-13-skill-followup-review.md` 结论 **提交**（§8.3 证据：`build.bat` EXIT=0 零警告、`ctest -L ci` 连续 5 轮全绿 1512 用例/113293 断言、数据脚本三连 PASS）。
+
+| ID | 实现来源 | 证据 |
+|---|---|---|
+| B1-01 | Wave C C1.1-C1.4 | 372/331/375 `BladeFormation.cpp:373/540/691-699/746`；355 `SummonAISystem.cpp:164-168` 改读 `array_haste_pct`（原 `:172` 硬编码 1.50f） |
+| B1-02 | Wave C C2.1-C2.3 | 476 元素曝光 `BladeWard.cpp`；472/474 与 402~475 十二节点消费 `skill_mechanics.json:275-382` |
+| B1-03 | Wave C C2.4 + rd-rulings plan §4 B3 / §10 Wave D | 435 `crit_bonus`（`skill_mechanics.json:330`）消费于 `SkillSystem.cpp:1250-1270`；455 改「下一次攻击」一次性 More+20%（`DamagePipeline.cpp` 按 `attack_key`/`source_cast_id` 聚合消费） |
+| B1-04 | Wave C C2.5 + 470 键 | `DamageInterceptors.hpp:55` 读 `GetMech(4,470,"base_damage",35.0f)`；`counter_swords`（`:356`）Melee 反击 5 道剑气（复用 `ResolveSkill4Counter`） |
+| B1-05 | Wave C C3.1-C3.4 | 535 `BeamChannelDeliverySystem.cpp:953-967`；552 `:1114-1116`；532/533 外置；534/512 按 D8 |
+| B1-06 | RD-12 裁决 | 基底=扇形剑气洪流；GDD L340 已修订；无 Skyfall 值（`DeliveryArchetypes.hpp:153-156`），代码零改动 |
+| B1-07 | Wave C C4.1-C4.2 | `Buff.hpp:319-331` `RemoveByKind(kind, source_skill_id)` 重载；`SkillSystem.cpp:1982-1988` 传 8u；FreeCast 异 kind/异 source/通配三路径测试 |
+| B1-15 | Wave C C2.4 | 随 B1-03 435 断言 |
+| B1-20 | 模块化复审 §8 + Wave D D1.1 | more_damage_mult 消费 / SpawnShadow 工厂 / Rebake 幂等（`SkillSpecializationBakerTests.cpp:113-166`）；骰子分布统计断言 `SkillSystemTests.cpp:1210-1262` |
+| B2-16 | C5.1 评估 | 拒绝（收益不足）；`SkillSpecializationBaker.cpp:1070-1079` 注释 + 计划评审剩余风险 5 |
+| B1-27 | `31cc67e6` 已实现的消费侧校验 + 本次隔离测试 | `src/game/foundation/data/SkillMechanicsRegistry.cpp:314-327`；`tests/unit/SkillMechanicsKeySchemaTests.cpp:48,139` |
+| B1-28 | 用户裁定 D1-D5 + 子代理落地 | GDD `设计文档/职业设计草案_剑修.md` §5.3.2 全 25 节点对齐数据 `name_key`/`prerequisites`；提案 `docs/designs/2026-09-13-skill12-branchD-gdd-data-alignment-design.md`；自检旧名 `rg` 0 命中、25/25 对拍一致 |
+| B2-15 | 351 机制键消费统一 | `BladeFormation.cpp:266,371,372`、`SummonAISystem.cpp:55-64` 改读 `GetFloat(3,351,...)`；测试 `tests/functional/BladeFormationNodes.cpp:185-233`；`skill_mechanics_schema.json` 重生成；`build.bat` EXIT=0 零警告、`-l ci` 1/1、1525/1525 |
+| B1-29 | 技能12 三节点 desc 文案对齐机制 | `assets/data/mastery_skill_trees.json:2238,2312,2342`（仅 `desc_key`）；GDD `设计文档/职业设计草案_剑修.md:1260-1262`；验证四脚本 EXIT 0、`build.bat` 零警告、1525/1525 |
+| B2-18 | 方案 B 落地（补注册 Slow + 单源构建口） | `assets/data/ailment_contracts.json:75-86`；`AilmentEngine.cpp:449-455,524-547,822-826`；`TagRegistry.hpp:161-164`；`FlowingThrust.cpp:65-78`；`HazardSystem.cpp:379-383`；测试 `tests/unit/AilmentEngineTests.cpp:283-381`；`build.bat` 零警告、6 标签全绿 |
