@@ -181,6 +181,56 @@ TEST_CASE("[Functional] Skill 3 - AI Profile and Melee Orbit Assembly (C6 & C7)"
     const auto *formation = registry.try_get<BladeFormationComponent>(player);
     REQUIRE(formation != nullptr);
     CHECK(formation->melee_orbit == true);
+
+    // 351 数据消费：环绕半径与近战接触参数须取自 skill_mechanics (skill 3 / node 351)。
+    // 期望值同样从注册表读取，若代码退回内联硬编码，数据一旦变更本断言即失败。
+    const auto &mech = data::SkillMechanicsRegistry::Get();
+    const float expRadius =
+        mech.GetFloat(kSkillId, 351u, "melee_orbit_radius", 50.0f);
+    const float expHitRadius =
+        mech.GetFloat(kSkillId, 351u, "melee_orbit_hit_radius", 30.0f);
+    const float expBaseDamage =
+        mech.GetFloat(kSkillId, 351u, "melee_orbit_base_damage", 25.0f);
+
+    const auto &sentinel = registry.get<OrbitingSentinelComponent>(player);
+    CHECK(sentinel.orbit_radius == doctest::Approx(expRadius));
+
+    const auto &combatProf = registry.get<SummonCombatProfile>(sword);
+    CHECK(combatProf.melee_orbit_hit_radius == doctest::Approx(expHitRadius));
+    CHECK(combatProf.melee_orbit_base_damage == doctest::Approx(expBaseDamage));
+  }
+
+  SUBCASE("Node 351 Melee Orbit Runtime Consumes Mechanics (speed/radius/tick)") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{351, 1}});
+    CastBladeFormation(registry, player);
+
+    auto swords = GetSwordsForOwner(registry, player);
+    REQUIRE(swords.size() == 3);
+    auto sword = swords[0];
+
+    const auto &mech = data::SkillMechanicsRegistry::Get();
+    const float expSpeed =
+        mech.GetFloat(kSkillId, 351u, "melee_orbit_speed", 6.0f);
+    const float expRadius =
+        mech.GetFloat(kSkillId, 351u, "melee_orbit_radius", 50.0f);
+    const float expTick =
+        mech.GetFloat(kSkillId, 351u, "melee_orbit_tick_interval", 0.2f);
+
+    // 固定起始角度与计时器，使位置与重置值可由公式直接推导。
+    auto &ai = registry.get<SpiritSwordAI>(sword);
+    ai.orbit_angle = 0.0f;
+    ai.attack_timer = 0.0f;
+
+    systems::SpatialHashGrid grid(128, 128, 40.0f);
+    systems::SummonAISystem::Update(registry, 1.0f, grid);
+
+    const auto *ownerPos = registry.try_get<Position>(player);
+    REQUIRE(ownerPos != nullptr);
+    const auto &pos = registry.get<Position>(sword);
+    CHECK(pos.x == doctest::Approx(ownerPos->x + std::cos(expSpeed) * expRadius));
+    CHECK(pos.y == doctest::Approx(ownerPos->y + std::sin(expSpeed) * expRadius));
+    CHECK(ai.attack_timer == doctest::Approx(expTick));
   }
 }
 

@@ -49,16 +49,19 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
 
     if (formation && formation->melee_orbit &&
         aiProfile.role == SummonRole::Melee) {
-      const float speed = 6.0f;
+      // 近战环绕 (Node 351) 速度/半径/接触间隔统一从 skill_mechanics 读取，
+      // 缺键回退历史默认值，禁止内联硬编码。
+      const auto &mech = data::SkillMechanicsRegistry::Get();
+      const float speed = mech.GetFloat(3u, 351u, "melee_orbit_speed", 6.0f);
       ai.orbit_angle += dt * speed;
 
-      const float radius = 50.0f;
+      const float radius = mech.GetFloat(3u, 351u, "melee_orbit_radius", 50.0f);
       pos.x = ownerPos->x + std::cos(ai.orbit_angle) * radius;
       pos.y = ownerPos->y + std::sin(ai.orbit_angle) * radius;
 
       ai.attack_timer -= dt;
       if (ai.attack_timer <= 0.0f) {
-        ai.attack_timer = 0.2f;
+        ai.attack_timer = mech.GetFloat(3u, 351u, "melee_orbit_tick_interval", 0.2f);
         SummonCombatBridge::ApplyMeleeOrbitContact(registry, entity, grid, pos);
       }
       continue;

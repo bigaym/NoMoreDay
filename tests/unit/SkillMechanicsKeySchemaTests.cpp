@@ -43,6 +43,25 @@ std::string BuildUniformMechanics(uint32_t misspelledSkill) {
   return json;
 }
 
+// 构造 12 个必需技能、节点 100 含 "probe" 的合法机制表；movedSkill 非 0 时把该
+// 技能的 "probe" 搬到 movedNode，键名仍合法，用于单独制造「消费三元组缺失」。
+std::string BuildRelocatedMechanics(uint32_t movedSkill, uint32_t movedNode) {
+  std::string json = "{";
+  for (uint32_t id = 1; id <= 12; ++id) {
+    if (id > 1) {
+      json += ",";
+    }
+    if (id == movedSkill) {
+      json += "\"" + std::to_string(id) + "\":{\"" +
+              std::to_string(movedNode) + "\":{\"probe\":1.0}}";
+    } else {
+      json += "\"" + std::to_string(id) + "\":{\"100\":{\"probe\":1.0}}";
+    }
+  }
+  json += "}";
+  return json;
+}
+
 // 与 BuildUniformMechanics(0) 完全匹配的 schema：登记 12 个正确三元组。
 std::string BuildUniformSchema() {
   std::string json = "{\"version\":1,\"entries\":[";
@@ -115,6 +134,24 @@ TEST_CASE("[Unit] SkillMechanicsKeySchema - Misspelled Key Is Diagnosed") {
   CHECK(warnings.size() >= 2);
   CHECK(Contains(warnings, "probe_typo"));
   CHECK(Contains(warnings, "1:100:probe"));
+}
+
+TEST_CASE("[Unit] SkillMechanicsKeySchema - Consumed Tuple Missing Is Diagnosed") {
+  SkillMechanicsRegistry::Get().ResetForTests();
+  // 键名 "probe" 在全表仍存在（方向一不触发），仅代码登记的 (1,100,"probe") 被搬到
+  // 节点 200；预期只产生一条消费侧告警，隔离验证「代码消费但表内三元组缺失」。
+  const auto mechanics = WriteTempText("key_schema_consumed_mechanics.json",
+                                       BuildRelocatedMechanics(1, 200));
+  const auto schema =
+      WriteTempText("key_schema_consumed_schema.json", BuildUniformSchema());
+
+  REQUIRE(SkillMechanicsRegistry::Get().LoadFromFile(mechanics.string(),
+                                                      schema.string()));
+  const auto &warnings = SkillMechanicsRegistry::Get().GetLastLoadWarnings();
+  CHECK(warnings.size() == 1);
+  CHECK(Contains(warnings, "1:100:probe"));
+  CHECK(Contains(warnings,
+                 "is read by code but missing from the mechanics table"));
 }
 
 TEST_CASE("[Unit] SkillMechanicsKeySchema - Valid Load Produces No Warnings") {
