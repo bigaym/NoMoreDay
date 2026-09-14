@@ -45,6 +45,7 @@
 #include "game/systems/skill/SummonCombatBridge.hpp"
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
 #include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
+#include "game/systems/skill/PersistentFieldSystem.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 #include "game/systems/skill/behaviors/BladeWardRuntime.hpp"
 #include "game/systems/skill/behaviors/PhantomTrance.hpp"
@@ -726,7 +727,7 @@ void SkillSystem::InitHooks() {
           if (swift != nullptr && swift->remaining > 0.0f) {
             if (auto *stats = registry.try_get<CombatStats>(caster)) {
               stats->mana = std::min(stats->max_mana, stats->mana + 1.0f);
-              registry.get_or_emplace<StatsDirty>(caster);
+              (void)registry.get_or_emplace<StatsDirty>(caster);
             }
             if (evt.isCrit) {
               swift->remaining =
@@ -1159,7 +1160,7 @@ void SkillSystem::InitHooks() {
                                             .mode = ModifierMode::PercentAdd});
               registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
                   .AddOrRefresh(speedBuff);
-              registry.get_or_emplace<StatsDirty>(evt.source);
+              (void)registry.get_or_emplace<StatsDirty>(evt.source);
             }
             // Talent 455: 以攻代守 闪避后挂「下一次攻击」待消费标记（2s 窗口）。
             // 标记不带属性 modifier：+20% 全局 More 由伤害结算在消费标记时一次性施加，
@@ -1205,7 +1206,7 @@ void SkillSystem::InitHooks() {
                                             .mode = ModifierMode::Flat});
               registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
                   .AddOrRefresh(stepBuff);
-              registry.get_or_emplace<StatsDirty>(evt.source);
+              (void)registry.get_or_emplace<StatsDirty>(evt.source);
             }
           } else if (evType == CombatEventType::OnBlock) {
             float blockWard = 0.0f;
@@ -1244,7 +1245,7 @@ void SkillSystem::InitHooks() {
               if (auto *stats = registry.try_get<CombatStats>(evt.source)) {
                 stats->barrier += blockWard;
                 (void)registry.get_or_emplace<BarrierComponent>(evt.source);
-                registry.get_or_emplace<StatsDirty>(evt.source);
+                (void)registry.get_or_emplace<StatsDirty>(evt.source);
               }
             }
             // Talent 435: 剑意格御 15%..45% 几率回 1 层剑意
@@ -1265,7 +1266,7 @@ void SkillSystem::InitHooks() {
                                                 .mode = ModifierMode::Flat});
                   registry.get_or_emplace<ActiveEffectsComponent>(evt.source)
                       .AddOrRefresh(critBuff);
-                  registry.get_or_emplace<StatsDirty>(evt.source);
+                  (void)registry.get_or_emplace<StatsDirty>(evt.source);
                 }
               }
             }
@@ -1410,17 +1411,8 @@ void SkillSystem::Update(entt::registry &registry,
     skills::SwordArray::Update(registry, entity, array, dt, grid);
   }
 
-  auto heavenly_field_view = registry.view<HeavenlySwordFieldComponent, Position>();
-  for (auto entity : heavenly_field_view) {
-    auto &field = heavenly_field_view.get<HeavenlySwordFieldComponent>(entity);
-    skills::HeavenlySwordDescent::UpdateField(registry, entity, field, dt, grid);
-  }
-
-  auto blood_sea_view = registry.view<BloodSeaFieldComponent, Position>();
-  for (auto entity : blood_sea_view) {
-    auto &field = blood_sea_view.get<BloodSeaFieldComponent>(entity);
-    skills::BloodSea::UpdateField(registry, entity, field, dt, grid);
-  }
+  // 持久场（技能 11/12）统一由 PersistentFieldSystem 调度更新。
+  skills::PersistentFieldSystem::Update(registry, grid, dt);
 
   // Update Flowing Thrust Ember Trails (170 劫火余烬带 / 171 业火焚途站位加成)
   skills::UpdateFlowingThrustEmbers(registry, dt);
@@ -1743,7 +1735,7 @@ void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
         // New Design: Clear ALL stacks after grace period (default 5s)
         intent.stacks = 0;
         intent.time_since_last_gain = 0.0f;
-        registry.get_or_emplace<StatsDirty>(entity); // NEW: Notify stats system
+        (void)registry.get_or_emplace<StatsDirty>(entity); // NEW: Notify stats system
         LOG_INFO("Entity {} Sword Intent cleared (Inactive for {:.1f}s)",
                  (uint32_t)entity, intent.grace_period);
       }
@@ -2333,7 +2325,7 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
 
   active->available_talent_points--;
   specialized->allocated_points[node_id] = current_pts + 1;
-  registry.get_or_emplace<StatsDirty>(entity);
+  (void)registry.get_or_emplace<StatsDirty>(entity);
 
   LOG_INFO("Entity {} spent talent point on Skill {} -> Node {} ({}/{})",
            (uint32_t)entity, skill_id, node_id,
@@ -2377,7 +2369,7 @@ bool SkillSystem::ResetTalents(entt::registry &registry, entt::entity entity,
     }
   }
 
-  registry.get_or_emplace<StatsDirty>(entity);
+  (void)registry.get_or_emplace<StatsDirty>(entity);
   LOG_INFO("Entity {} reset talents for Skill {}. Refunded {} points.",
            (uint32_t)entity, skill_id, points_to_refund);
 
@@ -2406,7 +2398,7 @@ bool SkillSystem::ClearAllTalents(entt::registry &registry,
     runtime->active_transmuter_node_by_skill.clear();
     runtime->trigger_cooldowns.clear();
   }
-  registry.get_or_emplace<StatsDirty>(entity);
+  (void)registry.get_or_emplace<StatsDirty>(entity);
   LOG_INFO("Entity {} cleared all talents. Refunded {} points.",
            (uint32_t)entity, total_refunded);
 
@@ -2643,7 +2635,7 @@ bool SkillSystem::GainSwordIntent(entt::registry &registry, entt::entity entity,
   }
   intent->time_since_last_gain = 0.0f;
   intent->decay_tick_timer = 0.0f;
-  registry.get_or_emplace<StatsDirty>(entity);
+  (void)registry.get_or_emplace<StatsDirty>(entity);
   LOG_INFO("SwordIntent gain: entity={} skill={} delta={} stacks={}/{}",
            static_cast<uint32_t>(entity), source_skill_id, intent->stacks - before,
            intent->stacks, intent->max_stacks);
@@ -2675,7 +2667,7 @@ bool SkillSystem::ConsumeSwordIntent(entt::registry &registry,
   intent->stacks -= amount;
   intent->time_since_last_gain = 0.0f;
   intent->decay_tick_timer = 0.0f;
-  registry.get_or_emplace<StatsDirty>(entity);
+  (void)registry.get_or_emplace<StatsDirty>(entity);
   CombatEventDispatcher::Dispatch(
       registry, CombatEventFactory::CreateResourceConsumed(
                     entity, Tag::SwordSkill, static_cast<float>(amount),

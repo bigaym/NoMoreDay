@@ -7,6 +7,7 @@
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"

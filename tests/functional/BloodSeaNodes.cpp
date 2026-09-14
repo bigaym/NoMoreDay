@@ -15,6 +15,7 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
@@ -552,6 +553,48 @@ TEST_CASE("[Functional] Skill 12 - node 1217 gated 2s empower window") {
     const float leech_off = heal_off / damage_off;
     CHECK(leech_on == doctest::Approx(leech_off * 1.2f).epsilon(0.02));
   }
+}
+
+// T4.2：技能 12 技能级参数兜底常量回归。用「桩技能数据（params 为空）+ 零血怒」
+// 触发 DoCast 的 GetParam 兜底分支。
+//
+// 降级说明：计划 §2.4 期望直断 field.header.duration == kFieldDurationDefault(4.8f) /
+// radius == kFieldRadiusDefault(120.0f)，但 DoCast 中 effective_consumed = max(1, consumed)
+// 恒 ≥1，故 duration/radius 必然在兜底常量上叠加一层血欲系数（GetMech 兜底 0.2f / 6.0f），
+// 无法直接观测到裸常量；此处改为「常量值固化 + 叠加系数后的行为断言」双重锚定。
+TEST_CASE("[Functional] BloodSea - DoCast constexpr fallback constants") {
+  TestSetupScope scope;
+
+  // 常量值固化：与迁移前 POD 内联默认值逐项一致。
+  CHECK(skills::BloodSea::kFieldDurationDefault == doctest::Approx(4.8f));
+  CHECK(skills::BloodSea::kFieldRadiusDefault == doctest::Approx(120.0f));
+  CHECK(skills::BloodSea::kFieldTickDefault == doctest::Approx(0.25f));
+  CHECK(skills::BloodSea::kLeechRatioDefault == doctest::Approx(0.12f));
+
+  // 覆盖 skills.json 中技能 12 的数据并清空 params，使 DoCast 走字段缺失兜底路径。
+  SkillData stub{};
+  stub.id = kSkillId;
+  SkillRegistry::Get().RegisterSkill(stub);
+
+  entt::registry registry;
+  const entt::entity owner = test::skill_keynode_matrix::CreateCaster(registry);
+  // 零血怒：effective_consumed 被钳制为 1，叠加一层血欲的 GetMech 兜底系数。
+  ConfigureCaster(registry, owner, {}, /*bloodthirst=*/0);
+  CastBloodSea(registry, owner, {0.0f, 0.0f});
+
+  const auto *field = FindField(registry);
+  REQUIRE(field != nullptr);
+  CHECK(field->header.duration ==
+        doctest::Approx(skills::BloodSea::kFieldDurationDefault + 0.2f)); // 4.8+0.2
+  CHECK(field->header.radius ==
+        doctest::Approx(skills::BloodSea::kFieldRadiusDefault + 6.0f)); // 120+6
+  CHECK(field->header.tick_interval ==
+        doctest::Approx(skills::BloodSea::kFieldTickDefault)); // 0.25f
+  CHECK(field->leech_ratio ==
+        doctest::Approx(skills::BloodSea::kLeechRatioDefault)); // 0.12f
+  // kBloodthirstDamageBonusDefault 经单层血欲倍率间接落库：1 + 1 * 0.12。
+  CHECK(field->bonus_damage_mult ==
+        doctest::Approx(1.0f + skills::BloodSea::kBloodthirstDamageBonusDefault));
 }
 
 } // namespace NoMoreDay

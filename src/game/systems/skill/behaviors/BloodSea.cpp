@@ -9,6 +9,7 @@
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/SkillPointAccess.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
@@ -297,13 +298,6 @@ float DealPulse(entt::registry &registry, const entt::entity field_entity,
 void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
                       SkillExecution &exec) {
   const BloodSeaCastSpec spec = ResolveBloodSeaCastSpec(registry, owner);
-
-  // 技能级参数回退：非节点绑定，等价于迁移前 POD 内联默认值（设计 §2.4）。
-  constexpr float kFieldDurationDefault = 4.8f;
-  constexpr float kFieldRadiusDefault = 120.0f;
-  constexpr float kFieldTickDefault = 0.25f;
-  constexpr float kBloodthirstDamageBonusDefault = 0.12f;
-  constexpr float kLeechRatioDefault = 0.12f;
 
   // 机制系数：入口处一次性读取，node/key/default 与迁移前绑定表逐项一致。
   const float low_life_threshold =
@@ -737,6 +731,23 @@ void BloodSea::HandleLinkedHit(entt::registry &registry, const CombatEvent &evt)
     (void)DealPulse(registry, field_entity, field, targets,
                     linked_damage);
   }
+}
+
+BloodSeaHudSnapshot QueryBloodSeaHud(const entt::registry &registry,
+                                     const entt::entity player) {
+  BloodSeaHudSnapshot snapshot;
+  const auto field_view = registry.view<BloodSeaFieldComponent>();
+  for (const entt::entity entity : field_view) {
+    const auto &field = field_view.get<BloodSeaFieldComponent>(entity);
+    if (field.header.owner != player ||
+        field.header.duration <= snapshot.remaining_duration) {
+      continue;
+    }
+    snapshot.remaining_duration = field.header.duration;
+    snapshot.has_void_keystone = field.has_void_keystone;
+    snapshot.miasma_duration_bonus = field.miasma_duration_bonus;
+  }
+  return snapshot;
 }
 
 REGISTER_SKILL_BEHAVIOR(BloodSea)

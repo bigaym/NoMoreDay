@@ -11,12 +11,14 @@
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/contracts/CombatEvents.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/PersistentFieldSystem.hpp"
 
 #include <algorithm>
 
@@ -27,14 +29,6 @@ namespace {
 constexpr float kCenterRadiusRatio = 0.3f;
 constexpr float kSkyPiercingCenterRadiusRatio = 0.45f;
 constexpr float kScarDelaySeconds = 0.25f;
-
-// 技能级参数回退（skills.json params 缺失时的兜底值）：字面量与迁移前
-// HeavenlySwordCastSpec 字段默认值逐项一致（设计 §2.3）。
-constexpr float kImpactRadiusFallback = 90.0f;
-constexpr float kFieldRadiusFallback = 140.0f;
-constexpr float kFieldDurationFallback = 5.0f;
-constexpr float kTierDamageBonusFallback = 0.18f;
-constexpr float kTierRadiusBonusFallback = 14.0f;
 
 SkillBehaviorRegistry::CastFunc s_originalBladeFormationCast = nullptr;
 SkillBehaviorRegistry::CastFunc s_originalInfiniteBladesCast = nullptr;
@@ -961,6 +955,71 @@ void HeavenlySwordDescent::HandleLinkedHit(entt::registry &registry,
     request.source_entity = field_entity;
     (void)ResolveDamage(registry, request, field.header.owner);
   }
+}
+
+void HeavenlySwordDescent::OnMasterySwitchCleanup(entt::registry &registry,
+                                                  const entt::entity owner) {
+  float formation_attack_interval = 1.0f;
+  float channel_tick_interval = 0.5f;
+  const auto heavenly_view = registry.view<HeavenlySwordFieldComponent>();
+  for (const entt::entity field_entity : heavenly_view) {
+    const auto &field = heavenly_view.get<HeavenlySwordFieldComponent>(field_entity);
+    if (field.header.owner != owner) {
+      continue;
+    }
+    if (field.original_formation_attack_interval > 0.0f) {
+      formation_attack_interval = field.original_formation_attack_interval;
+    }
+    if (field.original_channel_tick_interval > 0.0f) {
+      channel_tick_interval = field.original_channel_tick_interval;
+    }
+    break;
+  }
+  if (auto *formation = registry.try_get<BladeFormationComponent>(owner)) {
+    formation->attack_interval = formation_attack_interval;
+  }
+  auto sword_view = registry.view<SpiritSwordTag, SummonComponent, SpiritSwordAI>();
+  for (const entt::entity sword : sword_view) {
+    const auto &summon = sword_view.get<SummonComponent>(sword);
+    if (summon.owner != owner || summon.skill_id != 3u) {
+      continue;
+    }
+    auto &ai = sword_view.get<SpiritSwordAI>(sword);
+    ai.attack_interval = formation_attack_interval;
+  }
+  // A1-3 迁移修复：此前写已拆除的旧引导组件字段 tick_interval（静默 no-op），
+  // 现改写真源 BeamChannelComponent::tick_interval；切换专精时技能5 引导频率由此还原。
+  // 覆盖限制：501 构筑下交付系统每 tick 按烘焙 profile 重算 tick_interval，
+  // 本写点仅非 501 构筑生效。
+  if (auto *beam = registry.try_get<BeamChannelComponent>(owner);
+      beam != nullptr && beam->skill_id == 5u) {
+    beam->tick_interval = channel_tick_interval;
+    beam->tick_timer = std::min(beam->tick_timer, beam->tick_interval);
+  }
+  DestroyOwnedPersistentFields(registry, owner, kHeavenlySwordSkillId);
+}
+
+HeavenlyFieldHudSnapshot QueryHeavenlyFieldHud(const entt::registry &registry,
+                                               const entt::entity player) {
+  HeavenlyFieldHudSnapshot snapshot;
+  const auto field_view = registry.view<HeavenlySwordFieldComponent>();
+  for (const entt::entity entity : field_view) {
+    const auto &field = field_view.get<HeavenlySwordFieldComponent>(entity);
+    if (field.header.owner == player &&
+        field.header.duration > snapshot.remaining_duration) {
+      snapshot.remaining_duration = field.header.duration;
+    }
+  }
+  const auto area_view = registry.view<AreaFieldComponent>();
+  for (const entt::entity entity : area_view) {
+    const auto &field = area_view.get<AreaFieldComponent>(entity);
+    if (field.owner == player &&
+        field.source_skill_id == kHeavenlySwordSkillId &&
+        field.remaining_duration > snapshot.remaining_duration) {
+      snapshot.remaining_duration = field.remaining_duration;
+    }
+  }
+  return snapshot;
 }
 
 REGISTER_SKILL_BEHAVIOR(HeavenlySwordDescent)

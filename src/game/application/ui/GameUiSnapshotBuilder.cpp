@@ -40,6 +40,8 @@
 #include "game/systems/item/storage/ItemStorageService.hpp" // ItemStore version authority (P5)
 #include "game/systems/skill/BladeMasteryService.hpp" // mastery unlock state (R8)
 #include "game/systems/skill/SkillSystem.hpp" // mutual-keystone exclusions (R8)
+#include "game/systems/skill/behaviors/BloodSea.hpp" // QueryBloodSeaHud
+#include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp" // QueryHeavenlyFieldHud
 #include "game/systems/world/EnemyConstants.hpp" // NEXT_LEVEL_PORTAL_KILL_REQUIREMENT
 
 namespace NoMoreDay::ui {
@@ -377,28 +379,16 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
       playerSnap.swordIntentStacks = intent->stacks;
       playerSnap.swordIntentMaxStacks = intent->max_stacks;
     }
-    // R5: active field windows (read-only query, same semantics as the HUD's
-    // FindActiveHeavenlyFieldDuration / FindActiveBloodSeaField helpers).
+    // R5: active field windows（只读查询门面，表现层不依赖底层场组件）。
     {
-      const auto fieldView =
-          registry.template view<const HeavenlySwordFieldComponent>();
-      for (const entt::entity entity : fieldView) {
-        const auto& field =
-            fieldView.template get<const HeavenlySwordFieldComponent>(entity);
-        if (field.header.owner == player &&
-            field.header.duration > playerSnap.heavenlyFieldDuration) {
-          playerSnap.heavenlyFieldDuration = field.header.duration;
-        }
+      const auto heavenlyField = skills::QueryHeavenlyFieldHud(registry, player);
+      if (heavenlyField.remaining_duration > playerSnap.heavenlyFieldDuration) {
+        playerSnap.heavenlyFieldDuration = heavenlyField.remaining_duration;
       }
-      const auto bloodView =
-          registry.template view<const BloodSeaFieldComponent>();
-      for (const entt::entity entity : bloodView) {
-        const auto& field =
-            bloodView.template get<const BloodSeaFieldComponent>(entity);
-        if (field.header.owner == player) {
-          playerSnap.bloodSeaHasVoidKeystone = field.has_void_keystone;
-          playerSnap.bloodSeaMiasmaBonus = field.miasma_duration_bonus;
-        }
+      const auto bloodSeaField = skills::QueryBloodSeaHud(registry, player);
+      if (bloodSeaField.remaining_duration > 0.0f) {
+        playerSnap.bloodSeaHasVoidKeystone = bloodSeaField.has_void_keystone;
+        playerSnap.bloodSeaMiasmaBonus = bloodSeaField.miasma_duration_bonus;
       }
       const auto areaFieldView =
           registry.template view<const AreaFieldComponent>();

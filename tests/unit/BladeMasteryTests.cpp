@@ -3,6 +3,7 @@
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
@@ -258,6 +259,7 @@ TEST_CASE("[Unit] Blade Mastery Service - Demon Blade field cleanup on state cha
   const auto firstField = registry.create();
   auto &firstState = registry.emplace<BloodSeaFieldComponent>(firstField);
   registry.emplace<PersistentFieldTag>(firstField); // 夹具同步：持久场标记
+  registry.emplace<SkillComponent>(firstField, 12u, player); // 夹具同步：场技能归属
   firstState.header.owner = player;
   firstState.header.duration = 5.0f;
 
@@ -270,6 +272,7 @@ TEST_CASE("[Unit] Blade Mastery Service - Demon Blade field cleanup on state cha
   const auto secondField = registry.create();
   auto &secondState = registry.emplace<BloodSeaFieldComponent>(secondField);
   registry.emplace<PersistentFieldTag>(secondField); // 夹具同步：持久场标记
+  registry.emplace<SkillComponent>(secondField, 12u, player); // 夹具同步：场技能归属
   secondState.header.owner = player;
   secondState.header.duration = 4.0f;
 

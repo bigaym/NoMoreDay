@@ -3,6 +3,7 @@
 #include "SkillBehaviorBase.hpp"
 
 #include "game/systems/physics/SpatialGrid.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/systems/skill/behaviors/generated/BloodSeaSpecState.gen.hpp"
 
 #include <cstdint>
@@ -33,6 +34,13 @@ ResolveBloodSeaCastSpec(const entt::registry &registry, const entt::entity owner
 struct BloodSea : SkillBehaviorBase<BloodSea> {
   static constexpr uint32_t kSkillId = kBloodSeaSkillId;
 
+  // 技能级参数回退：非节点绑定，等价于迁移前 POD 内联默认值（设计 §2.4）。
+  static constexpr float kFieldDurationDefault = 4.8f;
+  static constexpr float kFieldRadiusDefault = 120.0f;
+  static constexpr float kFieldTickDefault = 0.25f;
+  static constexpr float kLeechRatioDefault = 0.12f;
+  static constexpr float kBloodthirstDamageBonusDefault = 0.12f;
+
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec);
   static void UpdateField(entt::registry &registry, entt::entity entity,
@@ -40,6 +48,17 @@ struct BloodSea : SkillBehaviorBase<BloodSea> {
                           const systems::SpatialHashGrid &grid);
   static void HandleLinkedHit(entt::registry &registry, const CombatEvent &evt);
 };
+
+// HUD 只读快照：表现层只取所需时序值，不接触 40+ 字段的底层组件定义。
+struct BloodSeaHudSnapshot {
+  float remaining_duration = 0.0f;
+  bool has_void_keystone = false;
+  float miasma_duration_bonus = 0.0f;
+};
+
+// 查询施法者当前血海场的剩余时长与构筑标志（0 表示无活动场）。
+[[nodiscard]] BloodSeaHudSnapshot QueryBloodSeaHud(const entt::registry &registry,
+                                                   entt::entity player);
 
 void RegisterBloodSea();
 

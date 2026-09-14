@@ -18,6 +18,7 @@ add_library(NoMoreDayGameSkill STATIC
     ElementPathSystem.cpp
     MobilityDeliverySystem.cpp
     OrbitingSentinelDeliverySystem.cpp
+    PersistentFieldSystem.cpp
     ProcEngine.cpp
     ProjectileSystem.cpp
     ShadowDuplicationHook.cpp

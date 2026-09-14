@@ -25,6 +25,7 @@
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/StashComponent.hpp"
 #include "game/foundation/components/vfx/HoloBladeComponent.hpp"
 #include "game/foundation/data/BiomeRegistry.hpp"

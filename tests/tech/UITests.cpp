@@ -16,6 +16,7 @@
 #include "game/application/ui/UISkillHub.hpp"
 #include "game/application/ui/UISkillTalentTree.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"

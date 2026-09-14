@@ -7,6 +7,7 @@
 #include "game/foundation/components/Progression.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"

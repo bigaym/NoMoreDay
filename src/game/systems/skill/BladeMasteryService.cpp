@@ -5,6 +5,8 @@
 #include "game/foundation/data/BladeMasteryRegistry.hpp"
 #include "game/foundation/data/TalentData.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/PersistentFieldSystem.hpp"
+#include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 
 namespace NoMoreDay::systems {
 
@@ -12,85 +14,13 @@ namespace {
 
 bool g_debug_unlock_override_enabled = false;
 
-template <typename FieldComponent>
-void DestroyOwnedFields(entt::registry &registry, const entt::entity owner) {
-  std::vector<entt::entity> to_destroy;
-  const auto view = registry.view<FieldComponent>();
-  for (const entt::entity entity : view) {
-    if (view.template get<FieldComponent>(entity).header.owner == owner) {
-      to_destroy.push_back(entity);
-    }
-  }
-  for (const entt::entity entity : to_destroy) {
-    if (registry.valid(entity)) {
-      registry.destroy(entity);
-    }
-  }
-}
-
-void DestroyOwnedAreaFields(entt::registry &registry, const entt::entity owner,
-                            const uint32_t skill_id) {
-  std::vector<entt::entity> to_destroy;
-  const auto view = registry.view<AreaFieldComponent>();
-  for (const entt::entity entity : view) {
-    const auto &field = view.get<AreaFieldComponent>(entity);
-    if (field.owner == owner && (skill_id == 0 || field.source_skill_id == skill_id)) {
-      to_destroy.push_back(entity);
-    }
-  }
-  for (const entt::entity entity : to_destroy) {
-    if (registry.valid(entity)) {
-      registry.destroy(entity);
-    }
-  }
-}
-
 void CleanupSpecializedFields(entt::registry &registry, const entt::entity owner,
                               const BladeMasteryId selected_mastery) {
   if (selected_mastery != BladeMasteryId::DemonBlade) {
-    DestroyOwnedAreaFields(registry, owner, 12u);
-    DestroyOwnedFields<BloodSeaFieldComponent>(registry, owner);
+    skills::DestroyOwnedPersistentFields(registry, owner, 12u);
   }
   if (selected_mastery != BladeMasteryId::HeavenlySword) {
-    DestroyOwnedAreaFields(registry, owner, 11u);
-    float formation_attack_interval = 1.0f;
-    float channel_tick_interval = 0.5f;
-    const auto heavenly_view = registry.view<HeavenlySwordFieldComponent>();
-    for (const entt::entity field_entity : heavenly_view) {
-      const auto &field = heavenly_view.get<HeavenlySwordFieldComponent>(field_entity);
-      if (field.header.owner != owner) {
-        continue;
-      }
-      if (field.original_formation_attack_interval > 0.0f) {
-        formation_attack_interval = field.original_formation_attack_interval;
-      }
-      if (field.original_channel_tick_interval > 0.0f) {
-        channel_tick_interval = field.original_channel_tick_interval;
-      }
-      break;
-    }
-    if (auto *formation = registry.try_get<BladeFormationComponent>(owner)) {
-      formation->attack_interval = formation_attack_interval;
-    }
-    auto sword_view = registry.view<SpiritSwordTag, SummonComponent, SpiritSwordAI>();
-    for (const entt::entity sword : sword_view) {
-      const auto &summon = sword_view.get<SummonComponent>(sword);
-      if (summon.owner != owner || summon.skill_id != 3u) {
-        continue;
-      }
-      auto &ai = sword_view.get<SpiritSwordAI>(sword);
-      ai.attack_interval = formation_attack_interval;
-    }
-    // A1-3 迁移修复：此前写已拆除的旧引导组件字段 tick_interval（静默 no-op），
-    // 现改写真源 BeamChannelComponent::tick_interval；切换专精时技能5 引导频率由此还原。
-    // 覆盖限制：501 构筑下交付系统每 tick 按烘焙 profile 重算 tick_interval，
-    // 本写点仅非 501 构筑生效。
-    if (auto *beam = registry.try_get<BeamChannelComponent>(owner);
-        beam != nullptr && beam->skill_id == 5u) {
-      beam->tick_interval = channel_tick_interval;
-      beam->tick_timer = std::min(beam->tick_timer, beam->tick_interval);
-    }
-    DestroyOwnedFields<HeavenlySwordFieldComponent>(registry, owner);
+    skills::HeavenlySwordDescent::OnMasterySwitchCleanup(registry, owner);
   }
 }
 

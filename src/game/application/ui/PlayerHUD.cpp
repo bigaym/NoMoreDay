@@ -4,6 +4,8 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/BloodSea.hpp"
+#include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/application/ui/UIRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include <string>
@@ -46,41 +48,6 @@ const char *ResolveAttunementName(const BladeAttunement attunement) {
     default:
         return "None";
     }
-}
-
-float FindActiveHeavenlyFieldDuration(const entt::registry& registry,
-                                      const entt::entity player) {
-    float remaining = 0.0f;
-    const auto view = registry.view<const HeavenlySwordFieldComponent>();
-    for (const entt::entity entity : view) {
-        const auto& field = view.get<const HeavenlySwordFieldComponent>(entity);
-        if (field.header.owner == player && field.header.duration > remaining) {
-            remaining = field.header.duration;
-        }
-    }
-    const auto areaView = registry.view<const AreaFieldComponent>();
-    for (const entt::entity entity : areaView) {
-        const auto& field = areaView.get<const AreaFieldComponent>(entity);
-        if (field.owner == player && field.source_skill_id == 11u && field.remaining_duration > remaining) {
-            remaining = field.remaining_duration;
-        }
-    }
-    return remaining;
-}
-
-const BloodSeaFieldComponent* FindActiveBloodSeaField(const entt::registry& registry,
-                                                       const entt::entity player) {
-    float remaining = 0.0f;
-    const BloodSeaFieldComponent* activeField = nullptr;
-    const auto view = registry.view<const BloodSeaFieldComponent>();
-    for (const entt::entity entity : view) {
-        const auto& field = view.get<const BloodSeaFieldComponent>(entity);
-        if (field.header.owner == player && field.header.duration > remaining) {
-            remaining = field.header.duration;
-            activeField = &field;
-        }
-    }
-    return activeField;
 }
 
 std::string FormatDurationLabel(const char* label, const float duration) {
@@ -139,7 +106,8 @@ std::string PlayerHUD::ResolveBladeResourceRuntimeDetailText(
     (void)stats;
 
     if (bladeResource.kind == BladeResourceKind::SpiritBladeTier) {
-        const float remaining = FindActiveHeavenlyFieldDuration(registry, player);
+        const float remaining =
+            skills::QueryHeavenlyFieldHud(registry, player).remaining_duration;
         if (remaining > 0.0f) {
             return FormatDurationLabel("Field Active", remaining);
         }
@@ -157,9 +125,6 @@ std::string PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
     const entt::registry& registry, const entt::entity player,
     const BladeMasteryComponent& mastery,
     const BladeResourceComponent& bladeResource, const CombatStats& stats) {
-    (void)registry;
-    (void)player;
-
     if (bladeResource.kind == BladeResourceKind::Bloodthirst &&
         mastery.blood_oath_active && stats.max_health > 0.0f) {
         const float healthRatio =
@@ -167,11 +132,9 @@ std::string PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
         if (healthRatio <= 0.35f) {
             return TextFormat("Danger: %.0f%% HP", healthRatio * 100.0f);
         }
-        if (const auto* activeField = FindActiveBloodSeaField(registry, player)) {
-            if (activeField->has_void_keystone &&
-                activeField->miasma_duration_bonus > 0.0f) {
-                return "Miasma Pressure";
-            }
+        const auto bloodSea = skills::QueryBloodSeaHud(registry, player);
+        if (bloodSea.has_void_keystone && bloodSea.miasma_duration_bonus > 0.0f) {
+            return "Miasma Pressure";
         }
         const auto areaView = registry.view<const AreaFieldComponent>();
         for (const entt::entity entity : areaView) {

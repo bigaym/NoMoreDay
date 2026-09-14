@@ -15,6 +15,7 @@
 #include "game/contracts/impl/CombatEventDispatcher.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillMechanicsRegistry.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
@@ -313,6 +314,34 @@ TEST_CASE("[Functional] Skill 11 - externalized coefficients drive field on cast
     // 0.5 * (1 - 0.05*2) * (1 - 0.08*2) = 0.5 * 0.9 * 0.84 = 0.378。
     CHECK(field->header.tick_interval == doctest::Approx(0.378f));
   }
+}
+
+// T4.1：技能 11 技能级参数兜底常量回归。用「桩技能数据（params 为空）+ 零剑意层数」
+// 稳定触发 DoCast 的 GetParam 兜底分支，锚定提升为公开 static constexpr 的兜底值。
+TEST_CASE("[Functional] HeavenlySwordDescent - DoCast constexpr fallback constants") {
+  TestSetupScope scope;
+
+  // 覆盖 skills.json 中技能 11 的数据并清空 params，使 DoCast 走字段缺失兜底路径。
+  SkillData stub{};
+  stub.id = kSkillId;
+  SkillRegistry::Get().RegisterSkill(stub);
+
+  entt::registry registry;
+  const entt::entity owner = test::skill_keynode_matrix::CreateCaster(registry);
+  // 零层数：spent_tiers=0，避免 tier_radius_bonus 叠加，直接观测基础半径兜底值。
+  ConfigureCaster(registry, owner, {}, /*blade_tiers=*/0);
+  CastHeavenlySword(registry, owner, {0.0f, 0.0f});
+
+  const auto *field = FindField(registry);
+  REQUIRE(field != nullptr);
+  CHECK(field->header.duration ==
+        doctest::Approx(skills::HeavenlySwordDescent::kFieldDurationFallback)); // 5.0f
+  CHECK(field->header.radius ==
+        doctest::Approx(skills::HeavenlySwordDescent::kFieldRadiusFallback)); // 140.0f
+  // 组件默认 tick=0.5，无节点修正时经 clamp(0.18f, 0.75f) 不改变结果。
+  CHECK(field->header.tick_interval == doctest::Approx(0.5f));
+  // resist_reduction 走 GetMech 兜底（非五常量之一），一并锚定。
+  CHECK(field->resist_reduction == doctest::Approx(6.0f));
 }
 
 } // namespace NoMoreDay
