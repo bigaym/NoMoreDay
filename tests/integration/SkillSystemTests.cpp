@@ -8,6 +8,7 @@
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/PlayerState.hpp"
 #include "game/foundation/components/Projectile.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
@@ -1261,6 +1262,60 @@ TEST_CASE("[Integration] SkillSystem - BladeWard interception_chance 0.5 honors 
   CHECK(interceptedCount <= kTrials * 65 / 100);
 }
 
+TEST_CASE("[Integration] SkillSystem - BladeWard interception_chance 1.0 never misses") {
+  TestSetupScope scope;
+  // 回归护栏：GetRandomValue(0, 1000) 为闭区间，roll/1000 可达 1.0。
+  // 旧判定 `roll/1000.0f < chance` 在 chance==1.0 且 roll==1000 时判负，
+  // 导致 100% 拦截概率漏拦；修复后 chance>=1.0 直接判定生效。
+  // 4000 次独立 trial 下，旧代码出现至少一次漏拦的概率约 98%，
+  // 可有效捕获该边界回归；新代码路径不掷骰，恒定 100% 拦截。
+  SetRandomSeed(20260914u);
+
+  constexpr int kTrials = 4000;
+  int interceptedCount = 0;
+
+  for (int i = 0; i < kTrials; ++i) {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    auto defender = registry.create();
+    registry.emplace<PlayerTag>(defender);
+    registry.emplace<Position>(defender, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(defender);
+    registry.emplace<SwordIntentComponent>(defender).stacks = 0;
+    auto &ward = registry.emplace<BladeWardComponent>(defender);
+    ward.sword_count = 1;
+    ward.interception_chance = 1.0f;
+    ward.is_solidified = false;
+
+    auto attacker = registry.create();
+    registry.emplace<EnemyTag>(attacker);
+    registry.emplace<Position>(attacker, 2.0f, 0.0f);
+    registry.emplace<CombatStats>(attacker);
+    registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+
+    auto projEnt = registry.create();
+    registry.emplace<Position>(projEnt, 0.0f, 0.0f);
+    registry.emplace<Velocity>(projEnt, 0.0f, 0.0f);
+    auto &proj = registry.emplace<Projectile>(projEnt);
+    proj.owner = attacker;
+    proj.radius = 20.0f;
+    proj.speed = 0.0f;
+    proj.lifeTime = 1.0f;
+    registry.emplace<SkillComponent>(projEnt, 2u, attacker);
+
+    ProjectileSystem::Update(registry, grid, 0.016f);
+
+    // 拦截成功会消耗唯一一柄飞剑，据此统计判定结果。
+    if (ward.sword_count == 0) {
+      ++interceptedCount;
+    }
+  }
+
+  // 100% 拦截概率必须每次生效，不允许任何一次掷骰边界漏拦。
+  CHECK(interceptedCount == kTrials);
+}
+
 TEST_CASE("[Integration] SkillSystem - BladeWard 470 counter on Melee and Block") {
   TestSetupScope scope;
   entt::registry registry;
@@ -1272,14 +1327,18 @@ TEST_CASE("[Integration] SkillSystem - BladeWard 470 counter on Melee and Block"
   {
     auto defender = registry.create();
     registry.emplace<PlayerTag>(defender);
-    registry.emplace<CombatStats>(defender);
+    // accuracy=1.0：默认命中率 0.97 会经 effective_dodge = dodge - (accuracy-1)
+    // 产生 3% 有效闪避，可能让反击命中被闪避，导致用例偶发失败；此处固定必中。
+    auto &defStats = registry.emplace<CombatStats>(defender);
+    defStats.accuracy = 1.0f;
     auto &ward = registry.emplace<BladeWardComponent>(defender);
     ward.trigger_counter = true;
     ward.counter_damage_more = 0.2f;
 
     auto attacker = registry.create();
     registry.emplace<EnemyTag>(attacker);
-    registry.emplace<CombatStats>(attacker);
+    auto &atkStats = registry.emplace<CombatStats>(attacker);
+    atkStats.accuracy = 1.0f;
     registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
 
     DamagePool pool;
@@ -1302,12 +1361,16 @@ TEST_CASE("[Integration] SkillSystem - BladeWard 470 counter on Melee and Block"
     registry.emplace<PlayerTag>(defender);
     auto &defStats = registry.emplace<CombatStats>(defender);
     defStats.block_chance = 1.0f; // 100% block
+    // accuracy=1.0：默认命中率 0.97 会转化为 3% 有效闪避，闪避判定先于格挡，
+    // 偶发跳过格挡/反击路径；固定必中以确保稳定命中 100% 格挡分支。
+    defStats.accuracy = 1.0f;
     auto &ward = registry.emplace<BladeWardComponent>(defender);
     ward.trigger_counter = true;
 
     auto attacker = registry.create();
     registry.emplace<EnemyTag>(attacker);
-    registry.emplace<CombatStats>(attacker);
+    auto &atkStats = registry.emplace<CombatStats>(attacker);
+    atkStats.accuracy = 1.0f;
     registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
 
     DamagePool pool;

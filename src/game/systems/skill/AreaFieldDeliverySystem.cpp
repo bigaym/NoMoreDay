@@ -267,7 +267,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
                 mod.source = ModifierSource::Skill;
                 slow.modifiers.push_back(mod);
                 effects.AddOrRefresh(slow);
-                registry.get_or_emplace<StatsDirty>(target);
+                (void)registry.get_or_emplace<StatsDirty>(target);
               }
 
               // 631 破甲剑意: 50%..200% 几率施加护甲击碎 (Armor Shred) 并正确按层数叠乘
@@ -317,7 +317,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
                     shred.modifiers.push_back(mod);
                     effects.AddOrRefresh(shred);
                   }
-                  registry.get_or_emplace<StatsDirty>(target);
+                  (void)registry.get_or_emplace<StatsDirty>(target);
                 }
               }
 
@@ -340,7 +340,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
                   weaken.modifiers.push_back(mod);
                 }
                 effects.AddOrRefresh(weaken);
-                registry.get_or_emplace<StatsDirty>(target);
+                (void)registry.get_or_emplace<StatsDirty>(target);
               }
 
               // 674 法阵侵蚀: 每秒施加 1..4 层降抗 (TypeB), 最多 10 层, 持续 3s (SkillOnly 挂载)
@@ -383,7 +383,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
                   corrosion.modifiers.push_back(mod);
                   effects.AddOrRefresh(corrosion);
                 }
-                registry.get_or_emplace<StatsDirty>(target);
+                (void)registry.get_or_emplace<StatsDirty>(target);
               }
             }
           } else if (payload.type == PayloadType::Ailment) {

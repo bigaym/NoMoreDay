@@ -149,7 +149,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
                                        .source = ModifierSource::Buff});
         effects.AddOrRefresh(dodgeBuff);
         // 标记属性重算，使 buff 修饰符在属性管线消费路径生效
-        registry.get_or_emplace<StatsDirty>(owner);
+        (void)registry.get_or_emplace<StatsDirty>(owner);
       }
     }
 

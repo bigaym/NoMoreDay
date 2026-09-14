@@ -509,7 +509,10 @@ void ProjectileSystem::Update(entt::registry &registry,
             // Interception Logic
             if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
               const float chance = std::clamp(static_cast<float>(ward->sword_count) * ward->interception_chance, 0.0f, 1.0f);
-              if (chance > 0.0f && ((float)GetRandomValue(0, 1000) / 1000.0f < chance)) {
+              // 必中边缘保护：GetRandomValue(0,1000) 为闭区间，除以 1000 后可达 1.0，
+              // 使 100% 拦截概率在 roll==1000 时被 `<` 判负而漏拦截；对 >=1.0 的概率直接判定生效
+              // （与 DamagePipeline 的必中/必闪边缘保护保持一致）。
+              if (chance > 0.0f && (chance >= 1.0f || ((float)GetRandomValue(0, 1000) / 1000.0f < chance))) {
                 DeferredAction hitAct;
                 hitAct.type = DeferredAction::Damage;
                 hitAct.entity = entity;

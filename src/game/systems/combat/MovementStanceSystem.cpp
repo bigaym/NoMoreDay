@@ -25,7 +25,7 @@ void MovementStanceSystem::Update(entt::registry& registry, float dt) {
                 stanceComp.movingTimer += dt;
                 if (stanceComp.movingTimer >= stanceComp.requiredMoveTime) {
                     stanceComp.stance = MovementStance::SwordRiding;
-                    registry.get_or_emplace<StatsDirty>(entity);
+                    (void)registry.get_or_emplace<StatsDirty>(entity);
                     
                     if (auto* color = registry.try_get<ColorComponent>(entity)) {
                         color->color = SKYBLUE;
@@ -36,7 +36,7 @@ void MovementStanceSystem::Update(entt::registry& registry, float dt) {
         } else {
             if (stanceComp.stance != MovementStance::Walking) {
                 stanceComp.stance = MovementStance::Walking;
-                registry.get_or_emplace<StatsDirty>(entity);
+                (void)registry.get_or_emplace<StatsDirty>(entity);
                 if (auto* color = registry.try_get<ColorComponent>(entity)) {
                     color->color = WHITE;
                 }
@@ -73,7 +73,7 @@ void MovementStanceSystem::OnTakeDamage(entt::registry& registry, entt::entity e
         if (stanceComp->stance != MovementStance::Walking) {
             stanceComp->stance = MovementStance::Walking;
             stanceComp->movingTimer = 0.0f;
-            registry.get_or_emplace<StatsDirty>(entity);
+            (void)registry.get_or_emplace<StatsDirty>(entity);
             
             // Reset visual
             if (auto* color = registry.try_get<ColorComponent>(entity)) {

@@ -89,7 +89,8 @@ TEST_CASE("[Unit] DamageElementIndex - batch kernels Shadow/Poison resist "
     const Tag element = is_shadow ? Tag::Shadow : Tag::Poison;
     const float expected = is_shadow ? 90.0f : 25.0f;
     for (const bool force_scalar : {true, false}) {
-      CAPTURE(is_shadow, force_scalar);
+      CAPTURE(is_shadow);
+      CAPTURE(force_scalar);
       entt::registry registry;
       auto attacker = MakeAttacker(registry);
       std::vector<entt::entity> defenders;

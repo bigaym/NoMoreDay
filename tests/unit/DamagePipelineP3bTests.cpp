@@ -266,7 +266,8 @@ TEST_CASE("[Unit] DamagePipeline P3b - concurrent batch matches serial reference
   for (int threads : {4, 8}) {
     tf::Executor executor(threads);
     for (int round = 0; round < kRounds; ++round) {
-      CAPTURE(threads, round);
+      CAPTURE(threads);
+      CAPTURE(round);
       const RunOutcome parallel = RunBatch(kTargets, false, &executor, 0, false,
                                            0.0f);
       // 并行派发下计数器跨任务累加，故只校验总量与参考一致。

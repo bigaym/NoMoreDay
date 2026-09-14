@@ -31,7 +31,7 @@ SkillTreeController::SkillTreeController(UiRuntime& runtime,
   if (m_runtime.CreateNode(desc)) {
     m_rootNodeId = desc.id;
     // Hidden until EnterGameplay / Toggle; mirrors the panel default.
-    m_runtime.SetNodeVisible(m_rootNodeId, false);
+    (void)m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
   // U8: wire the hover channel (tree -> tooltip) and the sibling-close
   // channel (host). Both are optional for headless unit tests.
@@ -47,7 +47,7 @@ void SkillTreeController::EnterGameplay() {
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
   m_hub.ResetSelection();
   if (m_rootNodeId != kInvalidUiId) {
-    m_runtime.SetNodeVisible(m_rootNodeId, false);
+    (void)m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
 }
 
@@ -57,7 +57,7 @@ void SkillTreeController::LeaveGameplay() {
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
   m_hub.ResetSelection();
   if (m_rootNodeId != kInvalidUiId) {
-    m_runtime.SetNodeVisible(m_rootNodeId, false);
+    (void)m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
   m_inGameplay = false;
 }
@@ -94,7 +94,7 @@ void SkillTreeController::Toggle() {
     m_hub.ResetSelection();
   }
   if (m_rootNodeId != kInvalidUiId) {
-    m_runtime.SetNodeVisible(m_rootNodeId, m_visible);
+    (void)m_runtime.SetNodeVisible(m_rootNodeId, m_visible);
   }
 }
 
@@ -102,7 +102,7 @@ void SkillTreeController::Close() {
   m_visible = false;
   m_selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
   if (m_rootNodeId != kInvalidUiId) {
-    m_runtime.SetNodeVisible(m_rootNodeId, false);
+    (void)m_runtime.SetNodeVisible(m_rootNodeId, false);
   }
 }
 

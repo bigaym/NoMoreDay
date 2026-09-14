@@ -7,6 +7,7 @@
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/skill/components/PersistentFieldComponents.hpp"
 #include "game/foundation/components/TriggerRuleComponent.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
@@ -2261,8 +2262,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
           test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
       const auto eliteTarget =
           test::skill_keynode_matrix::CreateTarget(registry, {22.0f, 0.0f});
-      registry.get<HealthComponent>(eliteTarget).max = 5000.0f;
-      registry.get<HealthComponent>(eliteTarget).current = 5000.0f;
+      registry.get<HealthComponent>(eliteTarget).max = 50000.0f;
+      registry.get<HealthComponent>(eliteTarget).current = 50000.0f;
       registry.emplace<EnemyRarityComponent>(eliteTarget, EnemyRarityComponent::ELITE);
       const auto distantTarget =
           test::skill_keynode_matrix::CreateTarget(registry, {140.0f, 0.0f});
@@ -2314,6 +2315,7 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
     CHECK(impactNodes.distant_health_after_cast < baseline.distant_health_after_cast);
     CHECK(impactNodes.center_health_after_cast < baseline.center_health_after_cast);
     CHECK(impactNodes.elite_health_after_first_tick < baseline.elite_health_after_first_tick);
+    CHECK(impactNodes.elite_health_after_delayed_window > 0.0f);
     CHECK(impactNodes.elite_health_after_delayed_window <
           impactNodes.elite_health_after_first_tick);
     CHECK(impactNodes.has_center_slow);

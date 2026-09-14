@@ -37,7 +37,7 @@ void EnsureSkillMechanics() {
   data::SkillMechanicsRegistry::Get().ResetForTests();
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json"));
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
-  systems::AilmentRegistry::Get().EnsureLoaded();
+  (void)systems::AilmentRegistry::Get().EnsureLoaded();
   SkillBehaviorRegistry::Initialize();
   CombatEventDispatcher::Clear();
   SkillSystem::ShutdownHooks();

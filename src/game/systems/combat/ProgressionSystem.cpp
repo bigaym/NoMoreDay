@@ -84,7 +84,7 @@ void ProgressionSystem::LevelUp(entt::registry& registry, entt::entity entity) {
         // primStats->vitality += 2.0f;
         
         // 标记属性为脏，以触发 CombatStats 的重新计算
-        registry.get_or_emplace<StatsDirty>(entity);
+        (void)registry.get_or_emplace<StatsDirty>(entity);
     }
 }
 
@@ -105,7 +105,7 @@ bool ProgressionSystem::AllocateAttribute(entt::registry& registry, entt::entity
     }
 
     stats.available_attribute_points--;
-    registry.get_or_emplace<StatsDirty>(entity);
+    (void)registry.get_or_emplace<StatsDirty>(entity);
     return true;
 }
 

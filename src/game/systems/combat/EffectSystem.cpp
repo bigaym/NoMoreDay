@@ -84,7 +84,7 @@ void EffectSystem::update(entt::registry &registry, float dt) {
       // ActiveEffects 生命周期的唯一 owner（StatsSystem::UpdateBuffs 不再衰减），
       // 因此由这里承担集合变化感知。
       if (activeEffects.effects.size() != before) {
-          registry.get_or_emplace<StatsDirty>(entity);
+          (void)registry.get_or_emplace<StatsDirty>(entity);
       }
       
       // 状态同步逻辑 (SyncStatusFlags)

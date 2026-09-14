@@ -488,7 +488,7 @@ private:
 
       // Trigger recalculation to apply multipliers via StatsSystem
       if (!wasBerserk)
-        registry.get_or_emplace<StatsDirty>(enemy);
+        (void)registry.get_or_emplace<StatsDirty>(enemy);
 
       // Apply scale multiplier
       if (auto *sprite = registry.try_get<SpriteComponent>(enemy)) {
@@ -1291,7 +1291,7 @@ public:
             soulEater.stacks++;
 
             // 触发属性重算
-            registry.get_or_emplace<StatsDirty>(eater);
+            (void)registry.get_or_emplace<StatsDirty>(eater);
 
             LOG_INFO("SoulEater: Entity {} gained stack (now {})",
                      static_cast<uint32_t>(eater), soulEater.stacks);

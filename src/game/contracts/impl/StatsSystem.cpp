@@ -651,7 +651,7 @@ bool StatsSystem::AllocateAttributePoints(entt::registry &registry,
   stats->available_attribute_points -= total;
 
   // Request a full stat recalculation on the next StatsSystem::update.
-  registry.get_or_emplace<StatsDirty>(player);
+  (void)registry.get_or_emplace<StatsDirty>(player);
   return true;
 }
 

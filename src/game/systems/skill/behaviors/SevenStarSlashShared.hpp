@@ -150,7 +150,7 @@ inline void GrantSwordStep(entt::registry &registry, entt::entity owner,
                              .mode = ModifierMode::PercentAdd});
   effects.AddOrRefresh(swift);
   registry.emplace_or_replace<PhaseTag>(owner);
-  registry.get_or_emplace<StatsDirty>(owner);
+  (void)registry.get_or_emplace<StatsDirty>(owner);
 }
 
 inline void GrantReturningStepDefense(entt::registry &registry,

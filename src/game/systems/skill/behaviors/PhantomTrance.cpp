@@ -242,7 +242,7 @@ void ApplyDeathSeal(entt::registry &registry, entt::entity owner,
                               .mode = ModifierMode::PercentMult});
   }
   registry.get_or_emplace<ActiveEffectsComponent>(owner).AddOrRefresh(seal);
-  registry.get_or_emplace<StatsDirty>(owner);
+  (void)registry.get_or_emplace<StatsDirty>(owner);
 }
 
 void ApplyVoidBody(entt::registry &registry, entt::entity owner,
@@ -272,8 +272,8 @@ void ApplyWard(entt::registry &registry, entt::entity owner,
   }
   stats->barrier += stats->max_health * params.ward_pct;
   stats->barrier_delay = Mech().GetFloat(PhantomTrance::kSkillId, 0, "ward_duration", 2.0f);
-  registry.get_or_emplace<BarrierComponent>(owner);
-  registry.get_or_emplace<StatsDirty>(owner);
+  (void)registry.get_or_emplace<BarrierComponent>(owner);
+  (void)registry.get_or_emplace<StatsDirty>(owner);
 }
 
 void RegisterEchoRule(entt::registry &registry, entt::entity owner,
@@ -383,7 +383,7 @@ void RefreshLastStand(entt::registry &registry, entt::entity owner,
     }
   }
   pt.last_stand_buff_value = value;
-  registry.get_or_emplace<StatsDirty>(owner);
+  (void)registry.get_or_emplace<StatsDirty>(owner);
 }
 
 // 穿行诅咒：对半径内敌人施加六系减伤（负 PercentMult）。
@@ -409,7 +409,7 @@ void ApplyPassWeaken(entt::registry &registry, entt::entity owner,
                                   .mode = ModifierMode::PercentMult});
     }
     registry.get_or_emplace<ActiveEffectsComponent>(enemy).AddOrRefresh(weaken);
-    registry.get_or_emplace<StatsDirty>(enemy);
+    (void)registry.get_or_emplace<StatsDirty>(enemy);
   }
 }
 
@@ -502,7 +502,7 @@ void UpdateEnchantPenetration(entt::registry &registry, entt::entity owner,
     shred.modifiers.push_back(
         {.value = -pen_points, .type = resist_type, .mode = ModifierMode::Flat});
     registry.get_or_emplace<ActiveEffectsComponent>(enemy).AddOrRefresh(shred);
-    registry.get_or_emplace<StatsDirty>(enemy);
+    (void)registry.get_or_emplace<StatsDirty>(enemy);
   }
 }
 
@@ -668,7 +668,7 @@ void TickFormEffects(entt::registry &registry, entt::entity owner,
       if (auto *live_stats = registry.try_get<CombatStats>(owner)) {
         live_stats->mana =
             std::min(live_stats->max_mana, live_stats->mana + params.void_gift_mana_per_sec);
-        registry.get_or_emplace<StatsDirty>(owner);
+        (void)registry.get_or_emplace<StatsDirty>(owner);
       }
     }
   }
@@ -797,7 +797,7 @@ void PhantomTrance::DoCast(entt::registry &registry, entt::entity owner,
   }
 
   if (stats) {
-    registry.get_or_emplace<StatsDirty>(owner);
+    (void)registry.get_or_emplace<StatsDirty>(owner);
   }
 }
 

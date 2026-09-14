@@ -327,7 +327,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
                          .is_debuff = true};
         shred.modifiers.push_back({.value = -10.0f, .type = StatType::Armor, .mode = ModifierMode::Flat});
         registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(shred);
-        registry.get_or_emplace<StatsDirty>(target);
+        (void)registry.get_or_emplace<StatsDirty>(target);
       }
     }
 

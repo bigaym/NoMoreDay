@@ -123,7 +123,7 @@ void ApplyArmorShred(entt::registry &registry, entt::entity victim, int stacks,
                              .type = StatType::Armor,
                              .mode = ModifierMode::Flat});
   effects.AddOrRefresh(shred);
-  registry.get_or_emplace<StatsDirty>(victim);
+  (void)registry.get_or_emplace<StatsDirty>(victim);
 
   const BuffEffect *existing = effects.Get("Skill7ArmorShred");
   if (existing && existing->stacks >= highStackThreshold) {
@@ -140,7 +140,7 @@ void ApplyArmorShred(entt::registry &registry, entt::entity victim, int stacks,
                               .type = StatType::Armor,
                               .mode = ModifierMode::PercentAdd});
     effects.AddOrRefresh(deep);
-    registry.get_or_emplace<StatsDirty>(victim);
+    (void)registry.get_or_emplace<StatsDirty>(victim);
   }
 }
 
@@ -304,7 +304,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
                             static_cast<float>(pts755);
       const float maxMana = stats->max_mana > 0.0f ? stats->max_mana : stats->mana;
       stats->mana = std::min(maxMana, stats->mana + restore);
-      registry.get_or_emplace<StatsDirty>(caster);
+      (void)registry.get_or_emplace<StatsDirty>(caster);
     }
     if (IsHeavyEnemy(registry, victim)) {
       (void)SkillSystem::GainSwordIntent(
@@ -465,7 +465,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
       if (!stats || stats->mana >= blinkCost) {
         if (stats) {
           stats->mana -= blinkCost;
-          registry.get_or_emplace<StatsDirty>(caster);
+          (void)registry.get_or_emplace<StatsDirty>(caster);
         }
         Vector2 dir = Vector2Subtract(beam.interrupt_target, {pos.x, pos.y});
         const float len = Vector2Length(dir);
@@ -491,7 +491,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
              .type = StatType::MoveSpeed,
              .mode = ModifierMode::PercentAdd});
         effects.AddOrRefresh(haste);
-        registry.get_or_emplace<StatsDirty>(caster);
+        (void)registry.get_or_emplace<StatsDirty>(caster);
       }
     }
     finish();
@@ -777,7 +777,7 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
         return true;
       }
       stats->mana -= manaCost;
-      registry.get_or_emplace<StatsDirty>(caster);
+      (void)registry.get_or_emplace<StatsDirty>(caster);
     }
   }
 
@@ -1055,7 +1055,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
                   .mode = ModifierMode::Flat});
               effects.AddOrRefresh(armorBuff);
             }
-            registry.get_or_emplace<StatsDirty>(entity);
+            (void)registry.get_or_emplace<StatsDirty>(entity);
           }
         }
 
@@ -1070,7 +1070,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
                   data::SkillMechanicsRegistry::Get().GetFloat(5u, 532, "max_barrier", 1000.0f);
               st->barrier = std::min(st->max_barrier > 0.0f ? st->max_barrier : defaultBarrierCap,
                                      st->barrier + wardPerSecPerPoint * static_cast<float>(pts_532) * beam.tick_interval);
-              registry.get_or_emplace<StatsDirty>(entity);
+              (void)registry.get_or_emplace<StatsDirty>(entity);
             }
           }
         }
@@ -1093,7 +1093,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
             continue;
           }
           stats->mana -= mana_cost;
-          registry.get_or_emplace<StatsDirty>(entity);
+          (void)registry.get_or_emplace<StatsDirty>(entity);
         }
       }
 

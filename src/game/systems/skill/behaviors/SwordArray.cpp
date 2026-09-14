@@ -424,7 +424,7 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity, SwordArra
           mod.source = ModifierSource::Skill;
           slow.modifiers.push_back(mod);
           effects.AddOrRefresh(slow);
-          registry.get_or_emplace<StatsDirty>(target);
+          (void)registry.get_or_emplace<StatsDirty>(target);
         }
       });
     }

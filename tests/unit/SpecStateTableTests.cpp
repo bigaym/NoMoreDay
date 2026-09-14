@@ -122,7 +122,7 @@ TEST_CASE("[Unit] Skill SpecStateTable - skill 8 table matches runtime ReadPoint
           skills::ResolveSpecState(registry, owner, kSkill8, skills::kBladeBoomerangTableGen);
 
       const auto expected = [&](uint32_t other) { return other == node ? pts : 0; };
-      CAPTURE(node, pts);
+      CAPTURE(node); CAPTURE(pts);
       CHECK(state.sharpnessPoints == expected(BoomNodes::Sharpness));
       CHECK(state.bleedPoints == expected(BoomNodes::Bleed));
       CHECK(state.sonicBoomPoints == expected(BoomNodes::SonicBoom));

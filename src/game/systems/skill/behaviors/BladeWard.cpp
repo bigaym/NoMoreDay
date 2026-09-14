@@ -265,7 +265,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
       ward.exposure_duration = mechanics.GetFloat(kSkillId, BladeWardNodes::Exposure, "exposure_duration", 3.0f);
     }
 
-    registry.get_or_emplace<StatsDirty>(owner);
+    (void)registry.get_or_emplace<StatsDirty>(owner);
   }
 };
 
@@ -297,7 +297,7 @@ void ApplyElementalExposure(entt::registry &registry, entt::entity target,
                                 .type = resist_type,
                                 .mode = ModifierMode::Flat});
   registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(exposure);
-  registry.get_or_emplace<StatsDirty>(target);
+  (void)registry.get_or_emplace<StatsDirty>(target);
 }
 
 // 473 雷贯长虹：对目标施加减速与雷元素易伤，并补挂雷异常以驱动既有异常系统。
@@ -327,7 +327,7 @@ void ApplyThunderShock(entt::registry &registry, entt::entity owner,
                                  .mode = ModifierMode::Flat});
     }
     registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(shock);
-    registry.get_or_emplace<StatsDirty>(target);
+    (void)registry.get_or_emplace<StatsDirty>(target);
   }
   // 感电强度由机制表 473 段驱动（默认值与原硬编码一致）；持续时长与层数
   // 沿用异常契约既有口径。

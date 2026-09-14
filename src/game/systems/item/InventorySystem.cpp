@@ -448,7 +448,7 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
     equipment->set(slot, item);
 
     // 核心修复：标记属性需要重新烘焙
-    registry.get_or_emplace<StatsDirty>(character);
+    (void)registry.get_or_emplace<StatsDirty>(character);
 
     LOG_INFO("背包: 角色 {} 将 '{}' 装备到槽位 {}", (uint32_t)character, itemComp->name, (int)slot);
     return true;
@@ -510,7 +510,7 @@ bool InventorySystem::unequipItem(entt::registry &registry, entt::entity charact
         inventory->items.push_back(item);
 
     // 核心修复：标记属性需要重新烘焙
-    registry.get_or_emplace<StatsDirty>(character);
+    (void)registry.get_or_emplace<StatsDirty>(character);
 
     const auto *itemComp = registry.try_get<ItemComponent>(item);
     LOG_INFO("背包: 角色 {} 从槽位 {} 卸下了 '{}'", (uint32_t)character, itemComp ? itemComp->name : "未知", (int)slot);
@@ -806,7 +806,7 @@ bool InventorySystem::moveEquippedItemToInventorySlot(entt::registry &registry, 
         // Move to empty target slot
         equip->set(sourceSlot, entt::null);
         inv->items[targetInventoryIndex] = itemToUnequip;
-        registry.get_or_emplace<StatsDirty>(character);
+        (void)registry.get_or_emplace<StatsDirty>(character);
         return true;
     }
 }

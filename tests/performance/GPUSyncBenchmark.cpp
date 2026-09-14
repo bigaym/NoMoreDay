@@ -73,7 +73,7 @@ TEST_CASE("[Performance] GPUEntitySync - Sync Performance Benchmark") {
     // Re-dirty periodically to simulate gameplay
     if (i % 5 == 0) {
       registry.view<CombatStats>().each([&registry](auto entity, auto &) {
-        registry.get_or_emplace<StatsDirty>(entity);
+        (void)registry.get_or_emplace<StatsDirty>(entity);
       });
     }
 

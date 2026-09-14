@@ -45,7 +45,7 @@ void ApplyFrostSlowDebuff(entt::registry &registry, entt::entity target,
       AilmentType::Slow, "FrostSlow", "Frost Slow", "", BuffKind::Slow,
       slowMagnitude, duration);
   registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(slow);
-  registry.get_or_emplace<StatsDirty>(target);
+  (void)registry.get_or_emplace<StatsDirty>(target);
 }
 
 } // namespace
@@ -866,7 +866,7 @@ void UpdateFlowingThrustEmbers(entt::registry &registry, float dt) {
           .mode = ModifierMode::PercentAdd
         });
         registry.get_or_emplace<ActiveEffectsComponent>(zone.owner).AddOrRefresh(pathBuff);
-        registry.get_or_emplace<StatsDirty>(zone.owner);
+        (void)registry.get_or_emplace<StatsDirty>(zone.owner);
       }
     }
   }
@@ -948,7 +948,7 @@ void UpdateFlowingThrustPhantomShield(entt::registry &registry, float dt) {
         stats->barrier += wardValue;
         // 超额护盾依赖 BarrierComponent 的 last_damage_time 参与 decay 判定
         (void)registry.get_or_emplace<BarrierComponent>(owner);
-        registry.get_or_emplace<StatsDirty>(owner);
+        (void)registry.get_or_emplace<StatsDirty>(owner);
       }
       // buff 仅作状态展示（UI 图标/剩余时间），数值由上面的 barrier 超额段承载
       BuffEffect ward{

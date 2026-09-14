@@ -66,7 +66,7 @@ void AddPercentBuff(entt::registry &registry, entt::entity owner,
   buff.modifiers.push_back(
       {.value = value, .type = stat, .mode = ModifierMode::PercentAdd});
   effects.AddOrRefresh(buff);
-  registry.get_or_emplace<StatsDirty>(owner);
+  (void)registry.get_or_emplace<StatsDirty>(owner);
 }
 
 // 折返阶段击杀标记：接刃时供 835 判定使用
@@ -198,7 +198,7 @@ void HandleCatch(entt::registry &registry, entt::entity blade,
   if (bc.catch_mana > 0.0f) {
     if (auto *stats = registry.try_get<CombatStats>(owner)) {
       stats->mana = std::min(stats->max_mana, stats->mana + bc.catch_mana);
-      registry.get_or_emplace<StatsDirty>(owner);
+      (void)registry.get_or_emplace<StatsDirty>(owner);
     }
     for (auto other : registry.view<BoomerangComponent>()) {
       auto &otherBc = registry.get<BoomerangComponent>(other);
@@ -223,7 +223,7 @@ void HandleCatch(entt::registry &registry, entt::entity blade,
             registry, owner, BuffIdToString(BuffId::SwordStep))) {
       step->remaining += bc.step_extend_sec;
       step->duration += bc.step_extend_sec;
-      registry.get_or_emplace<StatsDirty>(owner);
+      (void)registry.get_or_emplace<StatsDirty>(owner);
 
       auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
       BuffEffect freeCast;

@@ -187,7 +187,7 @@ TEST_CASE("[Unit] Skill SpecStateMapping - production tables match expected mapp
   }
   for (size_t i = 0; i < node_ids.size(); ++i) {
     for (size_t j = i + 1; j < node_ids.size(); ++j) {
-      CAPTURE(node_ids[i], node_ids[j]);
+      CAPTURE(node_ids[i]); CAPTURE(node_ids[j]);
       CHECK(node_ids[i] != node_ids[j]);
     }
   }
@@ -212,12 +212,12 @@ TEST_CASE("[Unit] Skill SpecStateMapping - all mapped nodes on (full table)") {
   for (size_t i = 0; i < kExpectedPoints.size(); ++i) {
     const auto &mapping = kExpectedPoints[i];
     const int actual = state.*(mapping.member);
-    CAPTURE(mapping.label, mapping.node);
+    CAPTURE(mapping.label); CAPTURE(mapping.node);
     CHECK(actual == static_cast<int>(i + 1));
   }
   for (const auto &mapping : kExpectedFlags) {
     const bool actual = state.*(mapping.member);
-    CAPTURE(mapping.label, mapping.node);
+    CAPTURE(mapping.label); CAPTURE(mapping.node);
     CHECK(actual == true);
   }
   // 转质标志位来自运行时选择，未设置时保持关闭。
@@ -265,7 +265,7 @@ TEST_CASE("[Unit] Skill SpecStateMapping - points fields preserve 0 / non-zero v
           skills::ResolveSpecState(registry, owner);
 
       const int actual = state.*(mapping.member);
-      CAPTURE(mapping.label, mapping.node, points);
+      CAPTURE(mapping.label); CAPTURE(mapping.node); CAPTURE(points);
       CHECK(actual == points);
       // 只有该字段被写入，其余整数字段保持默认。
       for (const auto member : kAllIntMembers) {
@@ -290,7 +290,7 @@ TEST_CASE("[Unit] Skill SpecStateMapping - flag fields follow ReadPoints > 0") {
           skills::ResolveSpecState(registry, owner);
 
       const bool actual = state.*(mapping.member);
-      CAPTURE(mapping.label, mapping.node, points);
+      CAPTURE(mapping.label); CAPTURE(mapping.node); CAPTURE(points);
       CHECK(actual == (points > 0));
       for (const auto member : kAllIntMembers) {
         CHECK(state.*member == 0);

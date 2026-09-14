@@ -367,7 +367,7 @@ TEST_CASE(
 
   for (std::size_t i = 0; i < kFlagConsumerCount; ++i) {
     const FlagSpec &spec = kFlagConsumers[i];
-    CAPTURE(i, spec.semantic);
+    CAPTURE(i); CAPTURE(spec.semantic);
 
     const uint32_t bit = spec.bit;
     CHECK(bit != 0u);
@@ -399,7 +399,7 @@ TEST_CASE(
   uint32_t declared_dead_mask = 0u;
   for (std::size_t i = 0; i < kKnownDeadFlagCount; ++i) {
     const DeadFlagSpec &dead = kKnownDeadFlagBits[i];
-    CAPTURE(i, dead.bit, dead.reason);
+    CAPTURE(i); CAPTURE(dead.bit); CAPTURE(dead.reason);
 
     CHECK(dead.bit != 0u);
     const bool is_single_bit = (dead.bit & (dead.bit - 1u)) == 0u;
@@ -476,7 +476,7 @@ TEST_CASE(
                                      nullptr);
 
       const uint32_t flags = profile.delivery.feature_flags;
-      CAPTURE(skill_id, node_id);
+      CAPTURE(skill_id); CAPTURE(node_id);
       const bool registered = AllProducedBitsRegistered(flags);
       CHECK(registered);
       observed_mask |= flags;
@@ -491,7 +491,7 @@ TEST_CASE(
   for (std::size_t i = 0; i < kFlagConsumerCount; ++i) {
     const uint32_t bit = kFlagConsumers[i].bit;
     const bool covered = (observed_mask & bit) != 0u;
-    CAPTURE(bit, kFlagConsumers[i].semantic);
+    CAPTURE(bit); CAPTURE(kFlagConsumers[i].semantic);
     CHECK(covered);
   }
 }
@@ -514,7 +514,7 @@ TEST_CASE(
 
   for (std::size_t i = 0; i < representative_count; ++i) {
     const RepresentativeBake &rb = kRepresentativeBakes[i];
-    CAPTURE(rb.skill_id, rb.node_id, rb.expected_mask);
+    CAPTURE(rb.skill_id); CAPTURE(rb.node_id); CAPTURE(rb.expected_mask);
 
     SpecializedSkill spec;
     spec.skill_id = rb.skill_id;
