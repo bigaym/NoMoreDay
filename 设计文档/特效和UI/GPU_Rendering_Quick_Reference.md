@@ -1,8 +1,8 @@
 # GPU 渲染系统 — AI Agent 快速访问手册
 
-> **版本**: 1.1 | **日期**: 2026-03-03  
+> **版本**: 1.1  
 > **定位**: AI Agent 快速查阅渲染系统架构、数据结构、管线流程的**操作手册**  
-> **ABI 版本**: `GPU_ABI_VERSION = 5` | **RenderGraph 契约版本**: `RENDERGRAPH_CONTRACT_VERSION = 3`  
+> **ABI 版本**: `GPU_ABI_VERSION = 5` | **RenderGraph 契约版本**: `RENDERGRAPH_CONTRACT_VERSION = 4`  
 > **图形 API**: OpenGL 4.3+ (MSVC-only, Windows)  
 > **框架**: Raylib (底层) + 自研 RenderGraph / MDI / Compute 管线
 
@@ -47,7 +47,7 @@ src/engine/render/
 ├── MaterialManager.hpp/cpp       # 材质系统 (Schema V3, SSBO 同步)
 ├── MaterialDefs.hpp              # 材质定义与 JSON Schema
 ├── LootTextBatcher.hpp/cpp       # 战利品文字批处理
-├── PopupRenderer.hpp/cpp         # [已废弃] CPU 伤害数字渲染 (Low/Med 回退)
+├── PopupRenderer.hpp/cpp         # CPU 伤害数字渲染 (Low/Med 回退)
 ├── UIRenderer.hpp/cpp            # UI 渲染
 │
 ├── core/
@@ -74,7 +74,7 @@ src/engine/render/
 │   ├── JFAPass                   # V5 Jump Flood 距离场
 │   ├── RadianceCascadesPass      # V5 Radiance Cascades GI
 │   ├── GICompositePass           # V5 GI 合成到场景
-│   ├── FluidSimulationPass       # V5 SPH 流体 (NO-GO)
+│   ├── FluidSimulationPass       # V5 SPH 流体 (未启用)
 │   ├── VFXPass                   # 粒子/轨迹/特效
 │   ├── GPUTextPass               # V4 GPU 文字 MDI 绘制
 │   ├── GPULootPass               # V4 GPU 战利品 MDI 绘制
@@ -159,7 +159,6 @@ GameLoop::Update()
   └── RenderSystem::render()
         ├── GPUEntitySystem::UploadGPU()      // 实体数据 CPU→GPU
         ├── GPUTextSystem::Update()           // 文字命令上传
-        ├── GPULootSystem::Update()           // 战利品数据同步
         ├── LightManager::Sync()              // 光源 SSBO 同步
         ├── MaterialManager::Sync()           // 材质 SSBO 同步
         ├── RenderGraph::Build()              // 构建 Pass 拓扑
@@ -175,11 +174,11 @@ GameLoop::Update()
               ├── JFAPass            (Read: OccluderMask → Write: DistanceField)
               ├── RadianceCascadesPass(Read: DF+Emissive → Write: RadianceMap)
               ├── GICompositePass    (Read: Radiance → Write: SceneColor)
+              ├── FluidSimulationPass (Write: SceneColor)
+              ├── VolumetricLightPass (Write: SceneColor)
               ├── VFXPass            (Write: SceneColor)
               ├── GPUTextPass        (Read: TextQuadSSBO → Write: SceneColor)
-              ├── GPULootPass        (Read: LootSSBO → Write: SceneColor)
               ├── UIWorldPass        (Write: SceneColor)
-              ├── VolumetricLightPass (Write: SceneColor)
               ├── PostProcessPass    (Read: SceneColor → Write: PostProcessColor)
               ├── DistortionPass     (Read: PostProcess → Write: DistortionColor)
               └── CompositePass      (Read: Distortion → Write: BackBuffer)
@@ -261,21 +260,22 @@ renderGraph.AddPass(std::make_shared<MyPass>());
 | 0 | `SSBO_ENTITY_DATA` | `GPUEntity` (64B) | GPUEntitySystem |
 | 1 | `SSBO_VISIBLE_ID` | `uint32_t[]` | MDIRenderer (剔除输出) |
 | 2 | `SSBO_COMMAND` | `DrawArraysIndirectCommand` | MDIRenderer |
-| 3 | `SSBO_VISUAL_STATS` | `GPUVisualStats` (16B) | MDIRenderer |
+| 3 | `SSBO_VISUAL_STATS` | `GPUVisualStats` (64B) | MDIRenderer |
 | 4 | `SSBO_LABEL_INSTANCE` | `GPULabelInstance` | RenderSystem |
 | 5 | `SSBO_BEAM_INSTANCE` | `GPUBeamInstance` | RenderSystem |
 | 6 | `SSBO_SKILL_EFFECTS` | `GPUSkillEffect` | GPUSkillEffectSystem |
 | 7 | `SSBO_POPUP_DATA` | `GPUPopup` | PopupRenderer |
-| 8 | `SSBO_GLYPH_INSTANCE` / `SSBO_TEXT_QUAD` | `GPUTextQuad` (40B) | GPUTextPass |
+| 8 | `SSBO_GLYPH_INSTANCE` | Glyph 实例数据 | CPU 标签文字批量渲染 |
 | 9 | `SSBO_LIGHT_DATA` | `GPULight` (64B) | LightManager |
 | 10 | `SSBO_TRAIL_HEADERS` | `GPUTrailHeader` (32B) | TrailSystem |
 | 11 | `SSBO_TRAIL_POINTS` | `GPUTrailPoint` (32B) | TrailSystem |
-| 12 | `SSBO_MATERIAL_DATA` | `GPUMaterialDataV3` (64B) | MaterialManager |
+| 12 | `SSBO_MATERIAL_DATA` | `GPUMaterialDataV3` (128B) | MaterialManager |
 | 13 | `SSBO_DISTORTION_DATA` | `GPUDistortionSource` (16B) | DistortionPass |
 | 14 | `SSBO_HOLOBLADE_INSTANCE` | HoloBlade 数据 | HoloBladeSystem |
 | 15 | `SSBO_LOOT_INSTANCE` | `GPULootInstance` (32B) | GPULootSystem |
+| 16 | `SSBO_TEXT_QUAD` | `GPUTextQuad` (40B) | GPUTextPass |
 
-> ⚠️ **OpenGL 4.3 最低保证 16 个 SSBO Binding**，目前已用满 0-15。
+> ⚠️ **OpenGL 4.3 最低保证 16 个 SSBO Binding (0-15)**；全局共享 binding 现为 17 项，其中 `SSBO_TEXT_QUAD` 占用 binding 16，依赖硬件 `GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS > 16`，`GPUTextSystem` 初始化时做运行时校验。
 
 ### 4.2 Compute Shader 本地 Binding (临时)
 
@@ -302,9 +302,9 @@ Compute Shader 独占执行，其内部 binding 不与全局冲突：
 | 结构体 | 大小 | 用途 | Binding |
 |--------|:---:|------|:---:|
 | `GPUEntity` | 64B | 实体物理/变换/标志 | 0 |
-| `GPUVisualStats` | 16B | 发光/状态效果 | 3 |
+| `GPUVisualStats` | 64B | 发光/状态效果 | 3 |
 | `GPUParticle` | 64B | 粒子 (位置/速度/生命/颜色/动画) | ParticleCS:0 |
-| `GPUMaterialDataV3` | 64B | 材质 Schema V3 (颜色/法线/粗糙/金属/纹理槽) | 12 |
+| `GPUMaterialDataV3` | 128B | 材质 Schema V3 (颜色/法线/粗糙/金属/纹理槽) | 12 |
 | `GPULight` | 64B | 光源 (位置/半径/颜色/类型/阴影/优先级) | 9 |
 | `GPUDistortionSource` | 16B | 屏幕扭曲源 | 13 |
 | `GPUTrailHeader` | 32B | 轨迹头 (索引/计数/宽度/颜色) | 10 |
@@ -348,7 +348,7 @@ enum class LightType : uint8_t {
 | `gpuTextEnabled` | bool | false | V4 GPU 文字 (否则 CPU 回退) |
 | `gpuLootEnabled` | bool | false | V4 GPU 战利品 (否则 CPU) |
 | `giEnabled` | bool | false | V5 全局光照 |
-| `fluidEnabled` | bool | false | V5 流体 (NO-GO) |
+| `fluidEnabled` | bool | false | V5 流体 (未启用) |
 | `v3Enabled` | bool | false | V3 总开关 |
 | `distortionEnabled` | bool | false | 扭曲后处理 |
 | `volumetricLightEnabled` | bool | false | 体积光 (Ultra) |
@@ -372,7 +372,7 @@ enum class LightType : uint8_t {
 | Tier | 典型场景 | 关键特性 |
 |:---:|---|---|
 | **Low** | 集显/低端 | Bloom关/阴影关/Clustered关/CPU文字/CPU战利品 |
-| **Medium** | 入门独显 | 基础Bloom/SDF阴影/256光源/CPU文字/CPU战利品 |
+| **Medium** | 入门独显 | 基础Bloom/阴影关/256光源/GPU文字/CPU战利品 |
 | **High** | 中端独显 | 全Bloom/Hybrid阴影/1024光源/GPU文字/GPU战利品/GI基础/16步高度阴影 |
 | **Ultra** | 高端独显 | 全特效/4096光源/全GI/64步高度阴影+自投影/POM/体积光/色彩分级 |
 
@@ -463,15 +463,16 @@ Initialize(atlasTexture, glyphMetrics) → SubmitText(cmd) → Update(dt) → [T
 - MDI Quad 绘制: `GPUTextQuad` SSBO → instanced draw
 - Feature Flag: `gpuTextEnabled` / 未就绪自动回退 CPU
 
-### 9.4 GPULootSystem — V4 战利品渲染
+### 9.4 战利品标签渲染（CPU 标签管线）
 
 ```
-Initialize() → SyncFromECS(registry) → [FrustumCullCS → IndirectArgsCS → GridHashCS → RepulsionCS → PositionUpdateCS] → GPULootPass::Execute()
+BuildCpuLootLabels(frame) → 优先级预算筛选/排序/防重叠布局 → 标签/字形/光束实例缓冲
 ```
 
-- 5 阶段 Compute 管线
-- 力导向标签避让 (32px Cell, 阻尼+锁定)
-- Feature Flag: `gpuLootEnabled`
+- 底板与图标：`ui/label_instanced.vert/frag` + `SSBO_LABEL_INSTANCE` (binding 4)
+- 文字：`ui/glyph_msdf.frag` + `SSBO_GLYPH_INSTANCE` (binding 8)，采样 GPUTextSystem MSDF 图集
+- 光效：`SSBO_BEAM_INSTANCE` (binding 5)
+- 预算筛选：`LootLabelBudget::SelectLootLabels`
 
 ### 9.5 LightManager — 光源管理
 
@@ -482,7 +483,7 @@ Initialize() → SyncFromECS(registry) → [FrustumCullCS → IndirectArgsCS →
 
 ### 9.6 MaterialManager — 材质系统
 
-- Schema V3: `GPUMaterialData` 64B
+- Schema V3: `GPUMaterialDataV3` (128B)
 - `Texture2DArray` 分层管理 (Albedo/Normal/Mask/Detail)
 - JSON 资产解析 + 热重载
 - SSBO Binding 12
@@ -521,8 +522,8 @@ Initialize() → SyncFromECS(registry) → [FrustumCullCS → IndirectArgsCS →
 struct GPUMyData { float x, y; uint32_t flags; float pad; }; // 16B
 static_assert(sizeof(GPUMyData) == 16);
 
-// 2. RenderConstants.hpp — 如需全局 binding (目前已满 0-15!)
-//    → 优先使用 Compute 本地 binding 或复用时间片
+// 2. RenderConstants.hpp — 全局 binding 0-15 已占用，16 为 SSBO_TEXT_QUAD
+//    (需硬件支持 >16) → 新增数据优先使用 Compute 本地 binding 或复用时间片
 
 // 3. 创建 ComputeBuffer 或 PersistentBuffer
 ComputeBuffer myBuffer;
@@ -580,8 +581,8 @@ Shader cs = ResourceManager::LoadComputeShader("assets/shaders/my_compute.comp")
 | 常量 | 值 | 说明 |
 |------|:---:|------|
 | `GPU::MAX_ENTITIES` | 200,000 | 最大实体数 |
-| `GPU::MAX_PARTICLES` | 200,000 | 最大粒子数 |
-| `GPU::MAX_SKILL_EFFECTS` | 1,024 | 技能特效上限 |
+| `GPU::MAX_PARTICLES` | 100,000 | 最大粒子数 |
+| `GPU::MAX_SKILL_EFFECTS` | 10,000 | 技能特效上限 |
 | `GPU::MAX_POPUPS` | 2,048 | 弹出文字上限 |
 | `GPU::MAX_GLYPHS` | 4,096 | 文字字形上限 |
 | `kMaxTotalClusteredLights` | 4,096 | Clustered 光源上限 |
@@ -596,7 +597,7 @@ Shader cs = ResourceManager::LoadComputeShader("assets/shaders/my_compute.comp")
 
 | 约束 | 说明 |
 |------|------|
-| **SSBO Binding 已满** | 全局 0-15 全部占用，新增数据必须用 Compute 本地 binding 或时间片复用 |
+| **SSBO Binding 紧张** | 全局 0-15 已占用、16 为 `SSBO_TEXT_QUAD`（需硬件支持 >16），新增数据优先用 Compute 本地 binding 或时间片复用 |
 | **FBO 0 禁止硬编码** | 除 CompositePass 最终输出外，禁止写入 FBO 0 |
 | **帧序不可变** | Input→Movement→AI→Combat→SpatialGrid→Physics→Render |
 | **MSVC Only** | 仅支持 MSVC 编译器 |
@@ -612,20 +613,14 @@ Shader cs = ResourceManager::LoadComputeShader("assets/shaders/my_compute.comp")
 | ABI struct 手写 GLSL | 被 CI 拒绝，必须用生成链路 |
 | rlgl 状态污染 | Pass 边界强制 `rlDrawRenderBatchActive()` + ScopedGLState |
 | Resize 后 FBO 失效 | FramebufferHandle 自动重建/重设 |
-| `GPUUtils` 状态丢失 | 已修复 (BUG-20260213-001)，注意 Pass 间状态隔离 |
+| `GPUUtils` 状态丢失 | 注意 Pass 间状态隔离 |
 | PersistentBuffer 跨帧读写 | 必须用 Fence 同步，参考 PersistentBuffer::WaitSync() |
 
 ### 13.3 版本演进关系
 
 ```
-V2 (已完成) → RenderGraph/MDI/粒子/轨迹/材质/VFX/后处理
-V3 (已完成) → ABI治理/Clustered/阴影/Material2.0/VFX联动
-V4 (已完成) → GPU Text/Loot/PBR材质/4096光源/高度阴影/POM
-V5 (已完成) → JFA距离场/Radiance Cascades GI/SPH(NO-GO)
+V2 → RenderGraph/MDI/粒子/轨迹/材质/VFX/后处理
+V3 → ABI治理/Clustered/阴影/Material2.0/VFX联动
+V4 → GPU Text/Loot/PBR材质/4096光源/高度阴影/POM
+V5 → JFA距离场/Radiance Cascades GI/SPH(未启用)
 ```
-
----
-
-> **修订记录**  
-> - 2026-03-03: 更新 Material ABI 命名（`GPUMaterialDataV3`），补充 `clusteredLightingV4Enabled` 在 LightCulling 中不再控制 256 光源回退分支
-> - 2026-02-21: 首版，基于 V2-V5 全部已完成状态编写

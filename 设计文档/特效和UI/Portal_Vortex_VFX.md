@@ -14,22 +14,22 @@ Replace the primitive `DrawRing` based portal rendering with a high-fidelity, sh
 
 ### 3.1 Shader: `portal_vortex.fs`
 **Inputs (Uniforms):**
-- `sampler2D uTexture`: Base noise texture (`vfx_energy_noise.png`).
+- `sampler2D texture0`: Base noise texture (`vfx_energy_noise.png`).
+- `vec4 colDiffuse`: Raylib material diffuse color.
 - `vec4 uColor`: Tint color (HDR enabled).
 - `float uTime`: Global time for animation.
 - `float uSwirlStrength`: Intensity of the spiral distortion (Default: 3.0).
 - `float uCoreSize`: Radius of the dark/bright center (Default: 0.15).
 
 **Algorithm:**
-1. **UV Mapping**: Convert UV (0..1) to Centered (-1..1).
-2. **Aspect Correction**: Scale Y by 0.6 (3:5 ratio) to work in circular logic, then stretch back for rendering.
-3. **Polar Conversion**: Calculate `radius` (r) and `angle` (theta).
-4. **Swirl Math**: `theta += uSwirlStrength / (r + 0.1) * sin(uTime)`; // Non-linear twist
-5. **Texture Sampling**: Sample noise texture with `vec2(theta / TWO_PI, r - uTime * speed)`.
-6. **Masking**:
-   - **Outer Mask**: Smoothstep falloff at r=0.5.
-   - **Core Mask**: Inverse falloff at r=uCoreSize.
-7. **Color Grading**: `finalColor = texture * uColor * (1.0 + r * 2.0)` (Brighter edges).
+1. **UV Mapping**: Convert UV (0..1) to Centered (-1..1) with `uv = fragTexCoord * 2.0 - 1.0`.
+2. **Radial Gate**: `r = length(uv)`; `discard` when `r >= 1.0`.
+3. **Polar Conversion**: `angle = atan(uv.y, uv.x)`.
+4. **Swirl Phase**: `theta = angle + uSwirlStrength / (r + 0.1) - uTime * 2.0`.
+5. **Texture Sampling**: Sample noise with `vec2(theta / TWO_PI, r - uTime * 0.5)`; T scrolls inward over time and only the R channel drives intensity.
+6. **Masking**: Outer mask `outerMask = smoothstep(1.0, 0.6, r)`; `discard` when `outerMask <= 0.001`.
+7. **Brightness**: `brightness = 1.0 + (1.0 - smoothstep(uCoreSize, 0.6, r)) * 2.0`; center glow `centerGlow = 1.0 - smoothstep(0.0, uCoreSize, r)`.
+8. **Color Grading**: `baseColor = uColor.rgb * texture.r * brightness + uColor.rgb * centerGlow * 2.0`; `alpha = uColor.a * outerMask * texture.a + centerGlow * uColor.a`, then multiplied by `fragColor.a`.
 
 ### 3.2 Colors (Tint)
 - **Town Portal**: `GOLD` (R=1.0, G=0.8, B=0.2)
@@ -43,11 +43,12 @@ Replace the primitive `DrawRing` based portal rendering with a high-fidelity, sh
    - In `PortalSystem::Render`, replace `DrawRing` loop.
    - Use `BeginShaderMode(vortexShader)`.
    - Draw a simple `DrawTexturePro` (using a blank white texture or the noise texture itself) on a Quad.
+   - Aspect ratio is carried by `destRect` rather than the shader: `visualWidth = portal.radius * 1.5`, `visualHeight = visualWidth * 5.0 / 3.0` (3:5).
    - `EndShaderMode()`.
 3. **Optimizations**:
    - Batch rendering if possible (though portals are few).
    - Use `uTime` from `GetTime()`.
 
 ## 5. Assets
-- **Shader**: `assets/shaders/vfx/portal_vortex.fs`
+- **Shader**: `assets/shaders/vfx/portal_vortex.vs`, `assets/shaders/vfx/portal_vortex.fs`
 - **Texture**: `assets/textures/vfx/vfx_energy_noise.png` (Existing)

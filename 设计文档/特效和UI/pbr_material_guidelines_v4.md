@@ -44,7 +44,7 @@ python scripts/pbr_pipeline_ci.py --albedo <albedo.png> --out-dir <dir> --name <
 
 ## Runtime Notes
 - Material schema v3 with v2 auto-mapping defaults is supported.
-- GPU ABI version is `4`; material payload uses `GPUMaterialDataV3` (128B).
+- GPU ABI version is `5`; material payload uses `GPUMaterialDataV3` (128B).
 - Tier policy:
 - Low: albedo only.
 - Medium: +normal diffuse.

@@ -1,9 +1,8 @@
 # GPU 渲染系统 V5 — 完整设计规格书
 
 > **文档版本**: 1.0  
-> **创建日期**: 2026-02-15  
-> **定位**: V4 实施完成后的**次世代全局光照预研与落地规范**  
-> **基线来源**: `ARPG渲染引擎V3-V5规划.md` + 2026-02 Radiance Cascades / JFA 技术检索
+> **定位**: **次世代全局光照预研与落地规范**  
+> **技术来源**: Radiance Cascades / JFA
 
 ---
 
@@ -62,7 +61,7 @@ V5 包含前沿研究技术（辐射级联、Holographic RC），实施过程中
 
 ## 2. 前置条件与 V4 产出依赖
 
-V5 启动需要 V4 以下产出**已完成并通过验收**：
+V5 复用 V4 以下产出：
 
 | V4 产出 | V5 依赖原因 |
 |---------|------------|
@@ -72,9 +71,9 @@ V5 启动需要 V4 以下产出**已完成并通过验收**：
 | RenderGraph V4 Pass 序列 | GI Pass 需要插入到正确位置 |
 | ABI V4 生成链路 | V5 结构体继承 V4 治理 |
 
-**如果 V4 未全部完成**，V5 可以在以下条件下提前启动 JFA 预研：
-- V4-A（GPU Text/Loot）已完成
-- V4-B（PBR 材质）至少 Schema 与 Emission 通道已落地
+V5 的 JFA 预研可独立于其余 V4 产出先行推进：
+- GPU Text / Loot 管线已可用
+- PBR 材质至少 Schema 与 Emission 通道已落地
 
 ---
 
@@ -251,7 +250,7 @@ void main() {
 #### RenderGraph 中的位置
 
 ```
-Scene → LightCulling → Shadow → Lighting → [Radiance Cascades] → Volumetric → VFX → ...
+Scene → Shadow → LightCulling → Lighting → [Radiance Cascades] → Volumetric → VFX → ...
                                                     ↑
                                             插入在 Lighting 之后、
                                             Volumetric 之前
@@ -433,7 +432,7 @@ SPH 在 V5 中定位为**技术探索**：
 ### 6.1 RenderGraph Pass 序列（V5 完整版）
 
 ```
-Scene → LightCulling → Shadow → Lighting
+Scene → Shadow → LightCulling → Lighting
     → [OccluderExtract] → [JFA] → [RadianceCascades] → [GI Composite]
     → Volumetric → VFX → UIWorld → PostProcess → Distortion → Composite
 ```
@@ -486,7 +485,7 @@ render.fluid.maxParticles = 10000       // 流体粒子上限
 ### 7.3 复用结构（来自 V4，不变更）
 
 - `GPUMaterialDataV3` — 读取 Emission 通道
-- `GPULightV2` — 投影到 Emissive Buffer
+- `GPULight` — 投影到 Emissive Buffer
 
 ### 7.4 强制规则
 
@@ -677,16 +676,17 @@ static_assert(sizeof(RadianceCascadeConfig) == 32);
 ### 13.2 GPUFluidParticle (48 bytes)
 
 ```cpp
-struct GPUFluidParticle {
+struct alignas(16) GPUFluidParticle {
     glm::vec2 position;     // 8
     glm::vec2 velocity;     // 8
+    glm::vec4 color;        // 16  (rgb + emissive intensity)
     float     density;      // 4
     float     pressure;     // 4
-    glm::vec4 color;        // 16  (rgb + emissive intensity)
     float     lifetime;     // 4
     uint32_t  flags;        // 4   type, active, etc.
 };
 static_assert(sizeof(GPUFluidParticle) == 48);
+static_assert(alignof(GPUFluidParticle) == 16);
 ```
 
 ### 13.3 GPUFluidConfig (32 bytes)
@@ -724,11 +724,3 @@ static_assert(sizeof(GPUFluidConfig) == 32);
 ### OpenGL Compute
 8. Khronos OpenGL Wiki — glMemoryBarrier: <https://wikis.khronos.org/opengl/GlMemoryBarrier>
 9. OpenGL Shading Language 4.60 Specification (memory model / barriers): <https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf>
-
----
-
-> **修订说明（2026-02-15）**  
-> 本文档为 V5 首版设计规格书，从 `GPU_Rendering_System_V4_V5.md` 拆分而来。  
-> V5 定位为 V4 完成后的**次世代 GI 预研与落地**，含明确的预研声明与兜底策略。  
-> 后续实施需基于 V4 实际性能基线修订 §8 帧预算。  
-> V4 规范见 `GPU_Rendering_System_V4.md`。

@@ -1,8 +1,8 @@
-# 美术资源需求清单 (Asset Requirement List) - 2026.01.27 更新
+# 美术资源需求清单 (Asset Requirement List)
 
 ## 1. 概述 (Overview)
 
-本清单基于 **Phase 11 (职业深度)** 和 **Phase 12 (局外成长)** 的开发需求整理，旨在补全项目当前缺失的核心 UI 与环境资源。
+本清单补齐项目当前缺失的核心 UI 与环境资源，并约定资源目录与命名规范。
 **核心风格**: **水墨黑暗幻想 (Dark Ink-Wash Fantasy)** + **金石质感 (Bronze & Jade)**。
 **技术标准**: **2K 分辨率基准 (2560x1440)**。项目 UI 逻辑以 2K 为 1:1 参考，低分辨率屏幕将自动向下缩放。
 
@@ -34,7 +34,7 @@
 ---
 
 ## 4. 核心功能面板 (Gameplay Panels)
-**优先级**: **P0** (服务于 Phase 11 & 12)
+**优先级**: **P0**
 
 ### A. 技能与天赋 (Skill & Talent Tree)
 | 资源名称 | 文件名建议 | 推荐规格 | 视觉描述 |
@@ -98,7 +98,7 @@
 ---
 
 ## 8. 主界面 (Main Menu & Polish)
-**优先级**: **P2** (Phase 14)
+**优先级**: **P2**
 
 | 资源名称 | 文件名建议 | 推荐规格 | 视觉描述 |
 | :--- | :--- | :--- | :--- |
@@ -163,3 +163,42 @@
 **Ascension Altar (专精祭坛)**
 > **Setting**: Aspect Ratio 4:3 or 16:9
 > **Prompt:** An ancient stone altar floating in a void, surrounded by floating broken islands. Three spectral avatars stand behind the altar: a Sword Saint, a Sky Sword summoner, and a Demon Blade wielder. Mystical atmosphere, glowing runes, fog and clouds. Wide angle shot, cinematic composition, dark fantasy RPG concept art. 8k resolution, high fidelity.
+
+---
+
+## 10. 目录与命名规范 (Directory & Naming)
+
+资产按「类别/类型」分目录存放，同一类型默认以 `<type>_<N>.png` 序号命名；同一类型内需要语义区分时使用 `<语义>_NoMoreDay_Asset_<编号>_.png`。
+
+| 类别 | 目录 | 命名模式 |
+| :--- | :--- | :--- |
+| 环境 / 地块 | `assets/generated/Environment/tile/` | `tile_<N>.png` |
+| 环境 / 墙体 | `assets/generated/Environment/wall/` | `wall_<N>.png` |
+| 环境 / 装饰物 | `assets/generated/Environment/prop/` | `prop_<N>.png` |
+| 环境 / 场景 | `assets/generated/Environment/env/` | `env_<N>.png` |
+| 插画 / 背景 | `assets/generated/Illustrations/bg/` | `bg_<N>.png` |
+| 插画 / 界面 | `assets/generated/Illustrations/ui/` | `ui_<N>.png` |
+| UI 核心 / 按钮 | `assets/generated/UI_Core/btn/` | `btn_<N>.png` |
+| UI 核心 / 指针 | `assets/generated/UI_Core/cursor/` | `cursor_<N>.png` |
+| UI 核心 / 边框 | `assets/generated/UI_Core/frame/` | `frame_<N>.png` |
+| UI 核心 / 面板 | `assets/generated/UI_Core/panel/` | `panel_<N>.png` |
+| UI 核心 / 滚动条 | `assets/generated/UI_Core/scrollbar/` | `scrollbar_<N>.png` |
+| UI 核心 / 页签 | `assets/generated/UI_Core/tab/` | `tab_<N>.png` |
+| HUD / 边框 | `assets/generated/UI_HUD/frame/` | `frame_<N>.png` |
+| HUD / 主界面 | `assets/generated/UI_HUD/hud/` | `hud_<N>.png` |
+| UI 面板 / 背景 | `assets/generated/UI_Panels/bg/` | `bg_<N>.png` |
+| UI 面板 / 卡牌 | `assets/generated/UI_Panels/card/` | `card_<N>.png` |
+| UI 面板 / 分隔线 | `assets/generated/UI_Panels/divider/` | `divider_<N>.png` |
+| UI 面板 / 连线 | `assets/generated/UI_Panels/link/` | `link_<N>.png` |
+| UI 面板 / 拼接 | `assets/generated/UI_Panels/mosaic/` | `mosaic_<N>.png` |
+| UI 面板 / 节点 | `assets/generated/UI_Panels/node/` | `node_<N>.png` |
+| UI 面板 / 槽位 | `assets/generated/UI_Panels/slot/` | `slot_<N>.png` |
+| UI 按钮 (具名) | `assets/generated/UI_Buttons_New/` | `btn_<材质>_<形状>_NoMoreDay_Asset_<编号>_.png` |
+| 特效 / 序列帧 | `assets/generated/VFX/vfx/` | `vfx_<N>.png` |
+| 特效 / 专用纹理 | `assets/textures/vfx/` | `vfx_<语义>.png` |
+
+### 10.1 命名细则 (Naming Rules)
+
+*   **UI 按钮具名**: 材质 (`frost` / `obsidian` / `porcelain`) + 形状 (`square` / `wide_2x1` / `wide_3x1`)，例如 `btn_frost_wide_2x1_NoMoreDay_Asset_01431_.png`。
+*   **VFX 专用纹理**: 沿用 `vfx_` 前缀语义命名，例如 `vfx_ink_splatter.png`、`vfx_rune_array.png`、`vfx_aura_noise.png`、`vfx_trail_smooth.png`、`vfx_circle_shockwave.png`。
+*   **序号占位**: 尚未语义化的批量资源统一使用 `<type>_<N>` 数字后缀，便于后续逐张替换。

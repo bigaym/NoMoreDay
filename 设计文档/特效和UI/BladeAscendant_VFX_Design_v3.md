@@ -1,8 +1,6 @@
 # 剑修技能特效统一设计文档 V3
 
-> **文档ID**: `blade_ascendant_vfx_v3_20260222`  
-> **日期**: 2026-02-22  
-> **状态**: Draft — 取代 V1 (`BladeAscendant_VFX_Design.md`) 与 V2 (`BladeAscendant_SkillVFX_Design_v2.md`)  
+> **文档ID**: `blade_ascendant_vfx_v3`  
 > **关联系统**: `SkillSystem` / `GPUSkillEffectSystem` / `VFXPass` / `RenderGraph`  
 > **依赖约束**: `GPU_Rendering_Quick_Reference.md`
 
@@ -72,7 +70,7 @@
 
 ### 2.1 剑意系统 (Sword Intent: 0-10 Stacks)
 
-> ⚠️ **跳过** — 剑意积攒/巅峰/神通释放的视觉表现沿用现有渲染方案（已在 T2 `blade_ascendant_skill_rendering_integration_20260221` 中实现），不纳入本次 VFX 重设计范围。以下仅作参考记录。
+剑意视觉由世界层 `SwordIntentVisualSystem` 与 HUD 层 `SwordIntentWidget` 实现。世界层依层数输出脚下光环（`DrawCircleLinesV`，半径 `16 + 层数 * 1.4 + 脉动 * 2`）、满层级金色六边形环、暴击反馈八角环与层数阈值环，并以 `GPUParticleSystem` 粒子与 `GPUTrailRenderer` 轨迹表现剑意流转；HUD 层以 `assets/textures/ui/ui_sword_icon.png` 绘制 10 枚剑形图标，激活图标满不透明，末位激活图标按 `1.2 + 0.1 * sin(time * 5)` 脉动并在满层转金。
 
 #### 积攒阶段 (0-9 层)
 
@@ -121,17 +119,16 @@
 ### 2.3 残影系统 (Afterimage — 需天赋"剑气留形")
 
 #### 留影生成
-- 在起点生成角色的半透明网格快照 (α=0.5)
-- 残影初始为天青白色调，逐渐褪为墨色
-- 微弱的上下浮动 (sin 0.3Hz, amplitude 1px)
+- 在起点生成角色的半透明精灵快照，承载于 `VisualGhost` 组件（`texture` / `source` / `color` / `alpha` / `scale` / `rotation`）
+- 快照沿用施法者 `SpriteComponent` 的纹理与缩放，色调取天青白 `Color{180, 220, 255, 255}`
 
 #### 残影模仿
 - 模仿施法时，残影播放对应技能的简化版粒子特效 (50% 粒子密度)
 - 残影自身闪烁一次 (白色 flash 40ms)
 
 #### 残影消散 (4s 后或模仿完毕)
-- 自下而上的溶解效果 (Dissolve, 使用 `vfx_noise_cloud`)
-- 消散时释放少量墨色碎片粒子 (4-6 ptc)
+- `GhostSystem` 每帧按 `fadeSpeed` 递减 `alpha`，归零后销毁实体
+- 渲染以 `DrawTexturePro` 按当前 `alpha` 淡出精灵 (`Fade(ghost.color, ghost.alpha)`)
 
 ---
 
@@ -1030,7 +1027,6 @@ struct SkillVfxEvent {
   SkillVfxEventType type;
   Vector2 origin;
   Vector2 target;
-  Tag effectiveTags;          // 含元素标签的有效标签集
   uint32_t nodeRoleMask;      // Keystone/Trigger/Synergy/Transmuter bit mask
   uint8_t qualityTier;        // Low(0) / Medium(1) / High(2) / Ultra(3)
   float intensity;            // 0.0 - 1.0
@@ -1096,8 +1092,9 @@ DistortionPass:
 元素变转 **不新增** SSBO 结构体，通过以下方式实现：
 
 - `GPUSkillEffect.flags` 低 4 位编码 `elementType` (0-4)
-- Shader 中 `switch(elementType)` 选择对应色板和粒子行为
-- 色板数据通过 Uniform 或 UBO push，不占用 SSBO binding
+- 元素色板由 `assets/shaders/vfx/vfx_element_switch.glslinc` 提供，经 `assets/shaders/skills/skill_common.glslinc` 引入，Shader 调用 `NmdSelectElementPalette(elementType, fallbackColor)` 选择元素主色
+- 调色板：Fire `vec3(1.00, 0.47, 0.16)`、Cold `vec3(0.47, 0.82, 1.00)`、Lightning `vec3(0.98, 0.96, 0.51)`、Void `vec3(0.69, 0.37, 1.00)`；Physical 及未知元素回退调用方传入的 `fallbackColor`
+- 调色板随 include 编译期展开，不占用 SSBO binding
 
 ### 8.3 ABI 变更规则
 
@@ -1201,15 +1198,15 @@ DistortionPass:
 
 | 文件 | 用途 | 新增/修改 |
 |------|------|-----------|
-| `vfx_trail.vert/frag` | 拖尾网格 (UV 滚动 + 顶点色淡出) | 修改: 增加元素色板 uniform |
-| `vfx_distortion.frag` | 屏幕空间扭曲 | 复用 |
+| `trail/trail.vert`, `trail/trail.frag` | 拖尾网格 (UV 滚动 + 顶点色/进度淡出) | 复用 |
+| `vfx/distortion.fs` | 屏幕空间扭曲 | 复用 |
 | `vfx_dissolve.frag` | 噪声阈值溶解 | 复用 |
-| `vfx_particle_compute.glsl` | 剑雨粒子模拟 | 复用 |
+| `particle.compute` | 剑雨/通用粒子模拟 | 复用 |
 | `vfx_aura.frag` | 角色边缘光/剑意光环 | 修改: 支持元素色 |
-| `vfx_element_switch.glslinc` | 元素色板选择器 (include) | **新增** |
+| `vfx/vfx_element_switch.glslinc` | 元素色板选择器 (include) | **新增** |
 | `vfx_resist_overlay.frag` | 抗性 debuff 叠加渲染 | **新增** |
-| `vfx_beam.vert/frag` | 光束/射线渲染 (UV 滚动) | **新增** |
-| `vfx_array_ground.frag` | 剑阵地面法阵 (旋转 + 元素色) | **新增** |
+| `vfx/beam_instanced.vert`, `vfx/beam_instanced.frag` | 光束/射线渲染 (UV 滚动) | **新增** |
+| `aoe_array.frag` | 剑阵地面法阵 (旋转 + 元素色) | **新增** |
 | `vfx_afterimage.frag` | 残影溶解 + 色调偏移 | **新增** |
 
 ---
@@ -1231,16 +1228,9 @@ DistortionPass:
 
 ### 12.2 Track 映射
 
-> 规划落地于 `conductor/tracks.md`，并按 Track 资产驱动实施。
-
-- Track A: `blade_ascendant_vfx_infrastructure_20260222` — VFX 基础设施（事件契约扩展 + 配方驱动骨架 + Tier/回退钩子）
-- Track B: `blade_ascendant_vfx_base_forms_20260222` — 核心技能基础 VFX（3.1-3.9 Base Form）
-- Track C: `blade_ascendant_vfx_transmutation_20260222` — 元素变转 VFX（Element Variants）
-- Track D: `blade_ascendant_vfx_keystone_trigger_20260222` — Keystone / Trigger / Synergy 特殊 VFX
-- Track E: `blade_ascendant_vfx_global_systems_20260222` — 剑意 / 御剑步 / 抗性削弱五型全局系统 VFX
-- Track F: `blade_ascendant_vfx_validation_gate_20260222` — 验证门禁（功能/合同/回退/预算/稳定性）
-
----
-
-> **修订记录**
-> - 2026-02-22: V3 初版，统一 V1 (美术构想) + V2 (渲染契约)，新增元素变转/Keystone/抗性五型视觉设计
+- Track A — VFX 基础设施（事件契约扩展 + 配方驱动骨架 + Tier/回退钩子）
+- Track B — 核心技能基础 VFX（3.1-3.9 Base Form）
+- Track C — 元素变转 VFX（Element Variants）
+- Track D — Keystone / Trigger / Synergy 特殊 VFX
+- Track E — 剑意 / 御剑步 / 抗性削弱五型全局系统 VFX
+- Track F — 验证门禁（功能/合同/回退/预算/稳定性）
