@@ -6,6 +6,7 @@
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
+#include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
@@ -375,18 +376,11 @@ void HazardSystem::ApplyChillDebuff(entt::registry &registry,
                                     float slowAmount) {
   auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(target);
 
-  BuffEffect chill;
-  chill.id = "frozen_chill";
-  chill.name = "冰冻减速";
-  chill.description = "被冰霜减速";
-  chill.type = BuffType::SpeedDown;
-  chill.kind = BuffKind::Chill;
-  chill.is_debuff = true;
-  chill.duration = duration;
-  chill.remaining = duration;
-  chill.modifiers.push_back({.value = -slowAmount * 100.0f,
-                             .type = StatType::MoveSpeed,
-                             .mode = ModifierMode::PercentAdd});
+  // B2-18：与流云刺 172/175 共用 AilmentAdapter 的单源减速构建口；id 保持
+  // frozen_chill、kind 保持 Chill（D3/D4 保守默认），仅消除重复的字段拼装。
+  auto chill = systems::AilmentAdapter::BuildMoveSpeedDebuff(
+      AilmentType::Chill, "frozen_chill", "冰冻减速", "被冰霜减速",
+      BuffKind::Chill, slowAmount, duration);
 
   effects.AddOrRefresh(chill);
 }

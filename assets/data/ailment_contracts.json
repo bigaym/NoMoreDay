@@ -72,6 +72,18 @@
       "base_duration": 3.0,
       "damage_tag": "Lightning",
       "legacy_buff_type": "Shock"
+    },
+    {
+      "type": "Slow",
+      "max_stacks": 1,
+      "refresh_policy": "Refresh",
+      "overwrite_policy": "Strongest",
+      "immunity_and_resistance": 1.0,
+      "tick_interval": 1.0,
+      "damage_pool_policy": "PerStack",
+      "base_duration": 2.5,
+      "damage_tag": "None",
+      "legacy_buff_type": "SpeedDown"
     }
   ]
 }

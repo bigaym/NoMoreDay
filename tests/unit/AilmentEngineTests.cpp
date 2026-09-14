@@ -280,4 +280,103 @@ TEST_CASE("[Unit] AilmentEngine - additive merge updates source_skill_id") {
   CHECK(bleedEffects[1]->source_skill_id == 999);
 }
 
+TEST_CASE("[Unit] AilmentEngine - B2-18 Slow contract registered as non-damaging "
+          "identity") {
+  TestSetupScope scope;
+  auto &contracts = systems::AilmentRegistry::Get();
+  contracts.ResetForTests();
+  REQUIRE(contracts.EnsureLoaded());
+
+  // 新增 Slow 不得挤掉既有 6 条契约。
+  CHECK(contracts.Find(AilmentType::Poison) != nullptr);
+  CHECK(contracts.Find(AilmentType::Ignite) != nullptr);
+  CHECK(contracts.Find(AilmentType::Bleed) != nullptr);
+  CHECK(contracts.Find(AilmentType::Chill) != nullptr);
+  CHECK(contracts.Find(AilmentType::Freeze) != nullptr);
+  CHECK(contracts.Find(AilmentType::Shock) != nullptr);
+
+  const auto *slow = contracts.Find(AilmentType::Slow);
+  REQUIRE(slow != nullptr);
+  CHECK(slow->max_stacks == 1);
+  CHECK(slow->refresh_policy == systems::RefreshPolicy::Refresh);
+  CHECK(slow->overwrite_policy == systems::OverwritePolicy::Strongest);
+  CHECK(slow->immunity_and_resistance == doctest::Approx(1.0f));
+  CHECK(slow->tick_interval == doctest::Approx(1.0f));
+  CHECK(slow->damage_pool_policy == systems::DamagePoolPolicy::PerStack);
+  CHECK(slow->base_duration == doctest::Approx(2.5f));
+  // D5：Slow 为纯移速减益身份，不产生 tick 伤害。
+  CHECK(slow->damage_tag == Tag::None);
+  CHECK(slow->legacy_buff_type == BuffType::SpeedDown);
+
+  // 「无伤害」必须能被字符串表达，否则 JSON 的 "None" 会静默回退到默认元素。
+  const auto parsedNone = TagFromString("None");
+  REQUIRE(parsedNone.has_value());
+  CHECK(*parsedNone == Tag::None);
+}
+
+TEST_CASE("[Unit] AilmentEngine - B2-18 Slow contract never ticks damage") {
+  TestSetupScope scope;
+  RequireDefaultContracts();
+  REQUIRE(systems::AilmentRegistry::Get().Find(AilmentType::Slow) != nullptr);
+
+  entt::registry registry;
+  const auto target = registry.create();
+  registry.emplace<ActiveEffectsComponent>(target);
+  registry.emplace<Position>(target, 6.0f, 4.0f);
+  registry.emplace<HealthComponent>(target, 400.0f, 400.0f);
+
+  systems::AilmentApplyRequest slow;
+  slow.ailment = AilmentType::Slow;
+  // 即便误把减速幅度当伤害传入，契约也必须保证不结算 tick 伤害。
+  slow.magnitude = 30.0f;
+  slow.duration = 2.5f;
+  CHECK(systems::AilmentApplier::Apply(registry, target, slow));
+
+  const float hpBefore = registry.get<HealthComponent>(target).current;
+  for (int i = 0; i < 120; ++i) {
+    systems::AilmentTickDriver::Tick(registry, 0.05f);
+  }
+  CHECK(registry.get<HealthComponent>(target).current ==
+        doctest::Approx(hpBefore));
+}
+
+TEST_CASE("[Unit] AilmentEngine - B2-18 move-speed debuff builder is single-source") {
+  TestSetupScope scope;
+
+  // 流云刺 172/175 的 FrostSlow 载体（identity=Slow，0.30 比例 → -30%）。
+  const auto frostSlow = systems::AilmentAdapter::BuildMoveSpeedDebuff(
+      AilmentType::Slow, "FrostSlow", "Frost Slow", "", BuffKind::Slow, 0.30f,
+      2.5f);
+  CHECK(frostSlow.id == "FrostSlow");
+  CHECK(frostSlow.name == "Frost Slow");
+  CHECK(frostSlow.type == BuffType::SpeedDown);
+  CHECK(frostSlow.kind == BuffKind::Slow);
+  CHECK(frostSlow.is_debuff);
+  CHECK(frostSlow.duration == doctest::Approx(2.5f));
+  CHECK(frostSlow.remaining == doctest::Approx(2.5f));
+  REQUIRE(frostSlow.modifiers.size() == 1);
+  CHECK(frostSlow.modifiers[0].type == StatType::MoveSpeed);
+  CHECK(frostSlow.modifiers[0].mode == ModifierMode::PercentAdd);
+  CHECK(frostSlow.modifiers[0].value == doctest::Approx(-30.0f));
+
+  // HazardSystem 冰冻球的 frozen_chill 载体（identity=Chill，0.5 比例 → -50%）。
+  const auto frozenChill = systems::AilmentAdapter::BuildMoveSpeedDebuff(
+      AilmentType::Chill, "frozen_chill", "冰冻减速", "被冰霜减速", BuffKind::Chill,
+      0.5f, 3.0f);
+  CHECK(frozenChill.id == "frozen_chill");
+  CHECK(frozenChill.name == "冰冻减速");
+  CHECK(frozenChill.description == "被冰霜减速");
+  CHECK(frozenChill.type == BuffType::SpeedDown);
+  CHECK(frozenChill.kind == BuffKind::Chill);
+  CHECK(frozenChill.duration == doctest::Approx(3.0f));
+  REQUIRE(frozenChill.modifiers.size() == 1);
+  CHECK(frozenChill.modifiers[0].type == StatType::MoveSpeed);
+  CHECK(frozenChill.modifiers[0].mode == ModifierMode::PercentAdd);
+  CHECK(frozenChill.modifiers[0].value == doctest::Approx(-50.0f));
+
+  // 纯移速减益：两个创建点都不携带 tick 伤害。
+  CHECK(frostSlow.tick_damage == 0.0f);
+  CHECK(frozenChill.tick_damage == 0.0f);
+}
+
 } // namespace NoMoreDay

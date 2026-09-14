@@ -158,6 +158,10 @@ constexpr std::string_view GetTagName(Tag tag) {
 
 // Helper to get Tag from string name
 constexpr std::optional<Tag> TagFromString(std::string_view name) {
+    // B2-18：ailment 契约需显式表达「无伤害」语义（AilmentType::Slow 为纯移速
+    // 减益，不产生 tick 伤害），故把 None 纳入可解析列表。Tag::None == 0，
+    // 对 ParseTagList / SkillDefs::from_json 等既有调用方仍是空掩码，行为不变。
+    if (name == "None") return Tag::None;
     if (name == "Physical") return Tag::Physical;
     if (name == "Fire") return Tag::Fire;
     if (name == "Cold") return Tag::Cold;

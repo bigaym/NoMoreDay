@@ -3,6 +3,7 @@
 #include "game/foundation/components/Buff.hpp"
 #include "game/contracts/CombatEvents.hpp"
 #include <optional>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -79,6 +80,13 @@ public:
   [[nodiscard]] static std::optional<AilmentType>
   TryMapLegacyBuff(const BuffEffect &effect);
   [[nodiscard]] static BuffType ToLegacyBuffType(AilmentType ailment);
+  // B2-18：移速减速载体的唯一构建口；slowFraction 为 0..1 比例
+  // （0.3f → modifiers 中的 -30% MoveSpeed PercentAdd），identity 决定 legacy
+  // BuffType（Slow/Chill → SpeedDown）。不写 tick_damage，不产生 DoT。
+  [[nodiscard]] static BuffEffect
+  BuildMoveSpeedDebuff(AilmentType identity, std::string id, std::string name,
+                       std::string description, BuffKind kind,
+                       float slowFraction, float duration);
   [[nodiscard]] static Tag ResolveDamageTag(AilmentType ailment,
                                             const BuffEffect &effect);
 

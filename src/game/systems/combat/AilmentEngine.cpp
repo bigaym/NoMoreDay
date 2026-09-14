@@ -15,6 +15,7 @@
 #include <fstream>
 #include <limits>
 #include <type_traits>
+#include <utility>
 
 namespace NoMoreDay::systems {
 namespace {
@@ -163,6 +164,10 @@ Tag DefaultDamageTag(AilmentType ailment) {
     return Tag::Cold;
   case AilmentType::Shock:
     return Tag::Lightning;
+  case AilmentType::Slow:
+    // B2-18：Slow 为纯移速减益身份，无伤害元素；Tag::None 使
+    // SyncAilmentSnapshot 与 Tick 跳过伤害结算。
+    return Tag::None;
   default:
     return Tag::Poison;
   }
@@ -441,6 +446,13 @@ void AilmentRegistry::LoadBuiltins() {
   setContract(AilmentType::Shock, 1, RefreshPolicy::Refresh,
               OverwritePolicy::Strongest, 1.0f, DamagePoolPolicy::PerStack, 3.0f,
               Tag::Lightning, BuffType::Shock);
+  // B2-18：Slow 身份型契约（172/175 与 HazardSystem 减速载体共用的异常类别）。
+  // damage_tag=Tag::None 表示不产生 tick 伤害——移速修正由 BuffEffect::modifiers
+  // 承载，见 AilmentAdapter::BuildMoveSpeedDebuff。base_duration 与
+  // skill_mechanics.json 的 172.slow_duration 等价映射。
+  setContract(AilmentType::Slow, 1, RefreshPolicy::Refresh,
+              OverwritePolicy::Strongest, 1.0f, DamagePoolPolicy::PerStack, 2.5f,
+              Tag::None, BuffType::SpeedDown);
 }
 
 std::optional<AilmentType> AilmentAdapter::TryMapLegacyBuff(
@@ -507,6 +519,30 @@ BuffType AilmentAdapter::ToLegacyBuffType(AilmentType ailment) {
   default:
     return BuffType::DamageOverTime;
   }
+}
+
+BuffEffect AilmentAdapter::BuildMoveSpeedDebuff(
+    AilmentType identity, std::string id, std::string name,
+    std::string description, BuffKind kind, float slowFraction,
+    float duration) {
+  // B2-18：移速减速载体的唯一构建口。ailment 契约的 magnitude 语义是每 tick
+  // 伤害、不承载 StatModifier，故移速修正在此统一构造（而非复写 AilmentApplier），
+  // 供流云刺 172/175 与 HazardSystem 冰冻球减速共用，避免同一 id 在多创建点
+  // 出现 type/kind/modifiers 漂移（见 2026-09-12 评审 F1/F7）。
+  // 本函数不设置 tick_damage：减速为纯移速减益，不产生 tick 伤害。
+  BuffEffect effect;
+  effect.id = std::move(id);
+  effect.name = std::move(name);
+  effect.description = std::move(description);
+  effect.type = ToLegacyBuffType(identity);
+  effect.kind = kind;
+  effect.is_debuff = true;
+  effect.duration = duration;
+  effect.remaining = duration;
+  effect.modifiers.push_back({.value = -slowFraction * 100.0f,
+                              .type = StatType::MoveSpeed,
+                              .mode = ModifierMode::PercentAdd});
+  return effect;
 }
 
 Tag AilmentAdapter::ResolveDamageTag(AilmentType ailment, const BuffEffect &effect) {
@@ -783,7 +819,11 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         continue;
       }
       const AilmentContract *contract = contracts.Find(*ailment);
-      if (!contract || effect.tick_damage <= 0.0f) {
+      // B2-18：damage_tag==Tag::None 的身份型契约（AilmentType::Slow）不产生
+      // tick 伤害。注册 Slow 后若有调用方误走 AilmentApplier，必须在此跳过，
+      // 避免把减速幅度当成 DoT 底数结算。
+      if (!contract || contract->damage_tag == Tag::None ||
+          effect.tick_damage <= 0.0f) {
         continue;
       }
 

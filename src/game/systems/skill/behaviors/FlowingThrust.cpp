@@ -62,27 +62,15 @@ constexpr uint32_t ResidualElements = 175;
 
 namespace {
 
-// 172 凛风 / 175 余韵余波的减速共用构造：减速归入 AilmentEngine 的 Slow
-// 契约类别（BuffKind::Slow），legacy BuffType 由 AilmentAdapter 统一映射，
-// 热路径按整数 kind 查找，不再对 id 字符串做比较。减速幅度与时长仍来自
-// 技能机制数据（等价映射）。
-// C5.2 收编范围：AilmentApplier 构建的异常体不携带 MoveSpeed 修正，且既有
-// 回归用例按 id="FrostSlow"/type/kind 锁定该载体，因此这里只收编类别与类型
-// 映射；载体的手工 AddOrRefresh 暂时保留。
+// 172 凛风 / 175 余韵余波的减速共用构造：B2-18 后走 AilmentAdapter 的单源
+// 减速构建口（与 HazardSystem 冰冻球减速同型），id="FrostSlow"/type/kind
+// 逐字保持不变；减速幅度与时长仍来自技能机制数据（等价映射）。
+// Slow 异常契约（ailment_contracts.json）只承载身份，不产生 tick 伤害。
 void ApplyFrostSlowDebuff(entt::registry &registry, entt::entity target,
                           float slowMagnitude, float duration) {
-  BuffEffect slow{
-      .id = "FrostSlow",
-      .name = "Frost Slow",
-      .type = systems::AilmentAdapter::ToLegacyBuffType(AilmentType::Slow),
-      .kind = BuffKind::Slow,
-      .duration = duration,
-      .remaining = duration,
-      .is_debuff = true,
-  };
-  slow.modifiers.push_back({.value = -slowMagnitude * 100.0f,
-                            .type = StatType::MoveSpeed,
-                            .mode = ModifierMode::PercentAdd});
+  auto slow = systems::AilmentAdapter::BuildMoveSpeedDebuff(
+      AilmentType::Slow, "FrostSlow", "Frost Slow", "", BuffKind::Slow,
+      slowMagnitude, duration);
   registry.get_or_emplace<ActiveEffectsComponent>(target).AddOrRefresh(slow);
   registry.get_or_emplace<StatsDirty>(target);
 }
