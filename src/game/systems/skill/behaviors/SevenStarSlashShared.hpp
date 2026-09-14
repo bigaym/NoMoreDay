@@ -8,6 +8,7 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/generated/SevenStarSlashSpecState.gen.hpp"
 
 #include <entt/entt.hpp>
 #include <algorithm>
@@ -254,149 +255,20 @@ inline void ApplyReturningStepOverride(entt::registry &registry,
 
 namespace NoMoreDay::skills {
 
-// 技能 10（七星斩）节点 id：行为实现与单测共享的唯一定义，禁止在其他 TU 重复声明。
-namespace SevenStarSlashNodes {
-constexpr uint32_t TargetLock = 1000;
-constexpr uint32_t CritChance = 1001;
-constexpr uint32_t FinalSlash = 1002;
-constexpr uint32_t QuickStar = 1003;
-constexpr uint32_t ExposedWeakness = 1004;
-constexpr uint32_t PoJun = 1005;
-constexpr uint32_t ZhanJiang = 1006;
-constexpr uint32_t SevenFocus = 1007;
-constexpr uint32_t SolitaryStar = 1008;
-constexpr uint32_t FlowReturn = 1009;
-constexpr uint32_t RevolvingEdge = 1010;
-constexpr uint32_t StarScarFollow = 1011;
-constexpr uint32_t ChaseStep = 1012;
-constexpr uint32_t EndlessSeven = 1013;
-constexpr uint32_t VoidTread = 1015;
-constexpr uint32_t FallingStarSwitch = 1016;
-constexpr uint32_t SwordStepMirage = 1017;
-constexpr uint32_t StarVeil = 1018;
-constexpr uint32_t GateOfLife = 1019;
-constexpr uint32_t LingeringScar = 1020;
-constexpr uint32_t PoleStarOrbit = 1021;
-constexpr uint32_t Starfall = 1022;
-constexpr uint32_t ShatteredConstellation = 1023;
-constexpr uint32_t ScarRuin = 1024;
-constexpr uint32_t ReturningStep = 1025;
-} // namespace SevenStarSlashNodes
+// 技能 10（七星斩）节点常量与 SpecState 由 A-02 生成头统一提供（设计 §2.2），
+// 此处仅以别名承接既有引用点，不再手写节点常量、POD 与绑定表。
+namespace SevenStarSlashNodes = SevenStarSlashNodesGen;
+using SevenStarSlashSpecState = SevenStarSlashSpecStateGen;
 
-// 七星斩 SpecState（POD）：DoCast 内一次性解析，循环内只读字段。
-// 行为实现与单测共享同一定义，避免测试镜像漂移（设计 §4.7 DoD#7）。
-struct SevenStarSlashSpecState {
-  int targetLockPoints = 0;
-  int critChancePoints = 0;
-  int finalSlashPoints = 0;
-  int quickStarPoints = 0;
-  int exposedWeaknessPoints = 0;
-  int poJunPoints = 0;
-  int zhanJiangPoints = 0;
-  bool sevenFocus = false;
-  int solitaryStarPoints = 0;
-  int flowReturnPoints = 0;
-  int revolvingEdgePoints = 0;
-  bool starScarFollow = false;
-  int chaseStepPoints = 0;
-  bool endlessSeven = false;
-  int voidTreadPoints = 0;
-  bool fallingStarSwitch = false;
-  bool swordStepMirage = false;
-  int starVeilPoints = 0;
-  int gateOfLifePoints = 0;
-  int lingeringScarPoints = 0;
-  bool poleStarOrbit = false;
-  bool starfall = false;
-  int shatteredConstellationPoints = 0;
-  int scarRuinPoints = 0;
-  bool returningStep = false;
-};
-
-// 静态绑定表：节点 id -> SpecState 成员指针。以表驱动替代逐字段赋值，
-// 行为实现与单测共享同一张表；不含字符串比较或堆分配（设计 §4.4 项 2）。
-struct SevenStarSlashPointBinding {
-  uint32_t node;
-  int SevenStarSlashSpecState::*points;
-};
-
-struct SevenStarSlashFlagBinding {
-  uint32_t node;
-  bool SevenStarSlashSpecState::*flag;
-};
-
-inline constexpr std::array<SevenStarSlashPointBinding, 17>
-    kSevenStarSlashPointBindings{{
-        {SevenStarSlashNodes::TargetLock,
-         &SevenStarSlashSpecState::targetLockPoints},
-        {SevenStarSlashNodes::CritChance,
-         &SevenStarSlashSpecState::critChancePoints},
-        {SevenStarSlashNodes::FinalSlash,
-         &SevenStarSlashSpecState::finalSlashPoints},
-        {SevenStarSlashNodes::QuickStar,
-         &SevenStarSlashSpecState::quickStarPoints},
-        {SevenStarSlashNodes::ExposedWeakness,
-         &SevenStarSlashSpecState::exposedWeaknessPoints},
-        {SevenStarSlashNodes::PoJun, &SevenStarSlashSpecState::poJunPoints},
-        {SevenStarSlashNodes::ZhanJiang,
-         &SevenStarSlashSpecState::zhanJiangPoints},
-        {SevenStarSlashNodes::SolitaryStar,
-         &SevenStarSlashSpecState::solitaryStarPoints},
-        {SevenStarSlashNodes::FlowReturn,
-         &SevenStarSlashSpecState::flowReturnPoints},
-        {SevenStarSlashNodes::RevolvingEdge,
-         &SevenStarSlashSpecState::revolvingEdgePoints},
-        {SevenStarSlashNodes::ChaseStep,
-         &SevenStarSlashSpecState::chaseStepPoints},
-        {SevenStarSlashNodes::VoidTread,
-         &SevenStarSlashSpecState::voidTreadPoints},
-        {SevenStarSlashNodes::StarVeil,
-         &SevenStarSlashSpecState::starVeilPoints},
-        {SevenStarSlashNodes::GateOfLife,
-         &SevenStarSlashSpecState::gateOfLifePoints},
-        {SevenStarSlashNodes::LingeringScar,
-         &SevenStarSlashSpecState::lingeringScarPoints},
-        {SevenStarSlashNodes::ShatteredConstellation,
-         &SevenStarSlashSpecState::shatteredConstellationPoints},
-        {SevenStarSlashNodes::ScarRuin,
-         &SevenStarSlashSpecState::scarRuinPoints},
-    }};
-
-inline constexpr std::array<SevenStarSlashFlagBinding, 6>
-    kSevenStarSlashFlagBindings{{
-        {SevenStarSlashNodes::SevenFocus, &SevenStarSlashSpecState::sevenFocus},
-        {SevenStarSlashNodes::StarScarFollow,
-         &SevenStarSlashSpecState::starScarFollow},
-        {SevenStarSlashNodes::EndlessSeven,
-         &SevenStarSlashSpecState::endlessSeven},
-        {SevenStarSlashNodes::FallingStarSwitch,
-         &SevenStarSlashSpecState::fallingStarSwitch},
-        {SevenStarSlashNodes::SwordStepMirage,
-         &SevenStarSlashSpecState::swordStepMirage},
-        {SevenStarSlashNodes::ReturningStep,
-         &SevenStarSlashSpecState::returningStep},
-    }};
-
-// 解析技能 10 的 SpecState：首个匹配槽位一次性填表（HasNode 语义 = 已投入点数 > 0），
-// 再叠加运行时激活转质节点（1021/1022 非点读，保留在表循环外）。
+// 解析技能 10 的 SpecState：委托统一模板一次性填 17 个点读字段与 8 个 flag
+//（6 个数据驱动 + 1021/1022 转质占位）。转质节点 1021/1022 在表内的 HasNode 填充仅为占位，
+// 最终语义一律以 GetActiveTransmuterNode
+// 的互斥单选为准，故此处对两字段无条件覆盖（设计 §2.2；绕过本包装函数者不得读取这两字段）。
 [[nodiscard]] inline SevenStarSlashSpecState
 ResolveSpecState(const entt::registry &registry, entt::entity owner) {
-  SevenStarSlashSpecState state;
-  if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : active->specialized_slots) {
-      if (spec.skill_id != seven_star_shared::kSevenStarSlashSkillId) {
-        continue;
-      }
-      for (const auto &binding : kSevenStarSlashPointBindings) {
-        state.*(binding.points) = ReadPoints(spec, binding.node);
-      }
-      for (const auto &binding : kSevenStarSlashFlagBindings) {
-        state.*(binding.flag) = HasNode(spec, binding.node);
-      }
-      break;
-    }
-  }
-
+  auto state = ResolveSpecState(registry, owner,
+                                seven_star_shared::kSevenStarSlashSkillId,
+                                kSevenStarSlashTableGen);
   const uint32_t activeTransmuter = SkillSystem::GetActiveTransmuterNode(
       registry, owner, seven_star_shared::kSevenStarSlashSkillId);
   state.poleStarOrbit = activeTransmuter == SevenStarSlashNodes::PoleStarOrbit;

@@ -1,14 +1,14 @@
-// A-01 Phase 3 单测：--gen-specstate 生成物与手写 SpecState 绑定表的语义等价。
+// A-01 Phase 3 单测：--gen-specstate 生成物与测试侧独立期望映射表的语义等价。
 //
 // 生成器（scripts/gen_skill_contracts.py --gen-specstate）从「talent_tree 结构 +
 // 命名 descriptor」产出 generated/*.gen.hpp（POD + 绑定表），本文件把生成表与
-// 各技能手写的生产绑定表放在同一专精分配下解析，逐绑定比较节点 id 与解析值，
-// 确保 P3.3 对拍成立，且生成物与手写表不产生语义漂移。
+// 测试侧独立期望表放在同一专精分配下解析，逐绑定比较节点 id、成员指针与解析值，
+// 确保生成物不产生语义漂移。
 //
-// 覆盖：技能 10/11/12（point + flag，手写绑定表仍在）；技能 1/5/6/7/8/9（手写
-// 绑定表已删除或收口，故与本文件测试侧独立期望表对拍）。机制系数不在 SpecState 内
-//（计划 §6.2），故不参与对拍。行为侧施法测试见 BladeBoomerangCatchTests /
-// BloodSeaTests / SwordArrayTests / InfiniteBladesTests / FlowingThrustTests 等。
+// 覆盖：全部 12 技能（Track A-02 后手写绑定表全部退役，统一与独立期望表对拍）。
+// 机制系数不在 SpecState 内（计划 §6.2），故不参与对拍。行为侧施法测试见
+// BladeBoomerangCatchTests / BloodSeaTests / SwordArrayTests / InfiniteBladesTests /
+// FlowingThrustTests 等。
 
 #include "TestCommon.hpp"
 
@@ -51,63 +51,9 @@ void SetSpecialization(entt::registry &registry, entt::entity owner,
   }
 }
 
-// 把生成表与手写生产绑定表放在同一专精分配下解析，逐绑定比较。
-// 手写绑定结构（如 SevenStarSlashPointBinding）与模板绑定结构字段同名，搬运即可。
-template <typename GenState, typename HandState, typename HandPointArray,
-          typename HandFlagArray>
-void CheckGeneratedMatchesHandWritten(
-    uint32_t skillId, const skills::SpecStateTable<GenState> &generated,
-    const HandPointArray &handPointBindings,
-    const HandFlagArray &handFlagBindings) {
-  std::vector<skills::SpecPointBinding<HandState>> handPoints;
-  std::vector<skills::SpecFlagBinding<HandState>> handFlags;
-  handPoints.reserve(handPointBindings.size());
-  handFlags.reserve(handFlagBindings.size());
-  for (const auto &binding : handPointBindings) {
-    handPoints.push_back({binding.node, binding.points});
-  }
-  for (const auto &binding : handFlagBindings) {
-    handFlags.push_back({binding.node, binding.flag});
-  }
-  const skills::SpecStateTable<HandState> handTable{handPoints, handFlags};
-
-  entt::registry registry;
-  const entt::entity owner = registry.create();
-  // 生成表为准分配：点数节点取各不相同的正值，点亮节点取 1，另加未知节点。
-  std::vector<std::pair<uint32_t, int>> allocated;
-  allocated.reserve(generated.points.size() + generated.flags.size() + 1);
-  for (size_t i = 0; i < generated.points.size(); ++i) {
-    allocated.emplace_back(generated.points[i].node, static_cast<int>(i + 1));
-  }
-  for (const auto &binding : generated.flags) {
-    allocated.emplace_back(binding.node, 1);
-  }
-  allocated.emplace_back(999999, 7);
-  SetSpecialization(registry, owner, skillId, allocated);
-
-  const GenState generatedState =
-      skills::ResolveSpecState(registry, owner, skillId, generated);
-  const HandState handWrittenState =
-      skills::ResolveSpecState(registry, owner, skillId, handTable);
-
-  REQUIRE(generated.points.size() == handPointBindings.size());
-  REQUIRE(generated.flags.size() == handFlagBindings.size());
-  for (size_t i = 0; i < handPointBindings.size(); ++i) {
-    CAPTURE(handPointBindings[i].node);
-    CHECK(generated.points[i].node == handPointBindings[i].node);
-    CHECK((generatedState.*(generated.points[i].points)) ==
-          (handWrittenState.*(handPointBindings[i].points)));
-  }
-  for (size_t i = 0; i < handFlagBindings.size(); ++i) {
-    CAPTURE(handFlagBindings[i].node);
-    CHECK(generated.flags[i].node == handFlagBindings[i].node);
-    CHECK((generatedState.*(generated.flags[i].flag)) ==
-          (handWrittenState.*(handFlagBindings[i].flag)));
-  }
-}
-
-// 生成物对拍（技能 5/6 手写绑定表已随 Phase 4a 删除）：把生成绑定与测试侧
-// 独立期望表按节点 id 对齐，校验成员指针一致，并在同一专精分配下比较解析值。
+// 生成物对拍（技能 1~9 手写绑定表已收口或删除，技能 10~12 于 Track A-02 删除）：
+// 把生成绑定与测试侧独立期望表按节点 id 对齐，校验成员指针一致，并在同一专精
+// 分配下比较解析值。
 template <typename GenState, size_t NPoint, size_t NFlag>
 void CheckGeneratedMatchesExpected(
     uint32_t skillId, const skills::SpecStateTable<GenState> &generated,
@@ -187,34 +133,119 @@ TEST_CASE("[Unit] Skill SpecState generated - skill 8 matches expected mapping")
                                        expectedPoints, expectedFlags);
 }
 
-TEST_CASE("[Unit] Skill SpecState generated - skill 10 matches hand-written table") {
+// 技能 10~12 手写绑定表已随 Track A-02 删除，故与测试侧独立期望表对拍：期望表
+// 的节点 id 取字面量（防生成器漂移），成员指针须与生成物逐项一致，且同一专精
+// 分配下解析值相同。技能 10 的 1021/1022 现为 descriptor flag 绑定（生成序末两位），
+// 其「转质激活」语义仅由 2 参包装函数覆盖，本表只校验 HasNode 占位。
+TEST_CASE("[Unit] Skill SpecState generated - skill 10 matches expected mapping") {
+  using State = skills::SevenStarSlashSpecStateGen;
   CHECK(skills::kSevenStarSlashTableGen.points.size() == 17);
-  CHECK(skills::kSevenStarSlashTableGen.flags.size() == 6);
-  CheckGeneratedMatchesHandWritten<skills::SevenStarSlashSpecStateGen,
-                                   skills::SevenStarSlashSpecState>(
+  CHECK(skills::kSevenStarSlashTableGen.flags.size() == 8);
+
+  const std::array<skills::SpecPointBinding<State>, 17> expectedPoints{{
+      {1000, &State::targetLockPoints},
+      {1001, &State::critChancePoints},
+      {1002, &State::finalSlashPoints},
+      {1003, &State::quickStarPoints},
+      {1004, &State::exposedWeaknessPoints},
+      {1005, &State::poJunPoints},
+      {1006, &State::zhanJiangPoints},
+      {1008, &State::solitaryStarPoints},
+      {1009, &State::flowReturnPoints},
+      {1010, &State::revolvingEdgePoints},
+      {1012, &State::chaseStepPoints},
+      {1015, &State::voidTreadPoints},
+      {1018, &State::starVeilPoints},
+      {1019, &State::gateOfLifePoints},
+      {1020, &State::lingeringScarPoints},
+      {1023, &State::shatteredConstellationPoints},
+      {1024, &State::scarRuinPoints}}};
+  const std::array<skills::SpecFlagBinding<State>, 8> expectedFlags{{
+      {1007, &State::sevenFocus},
+      {1011, &State::starScarFollow},
+      {1013, &State::endlessSeven},
+      {1016, &State::fallingStarSwitch},
+      {1017, &State::swordStepMirage},
+      {1025, &State::returningStep},
+      {1021, &State::poleStarOrbit},
+      {1022, &State::starfall}}};
+  CheckGeneratedMatchesExpected<State>(
       skills::seven_star_shared::kSevenStarSlashSkillId,
-      skills::kSevenStarSlashTableGen,
-      skills::kSevenStarSlashPointBindings,
-      skills::kSevenStarSlashFlagBindings);
+      skills::kSevenStarSlashTableGen, expectedPoints, expectedFlags);
 }
 
-TEST_CASE("[Unit] Skill SpecState generated - skill 11 matches hand-written table") {
+TEST_CASE("[Unit] Skill SpecState generated - skill 11 matches expected mapping") {
+  using State = skills::HeavenlySwordCastSpecGen;
   CHECK(skills::kHeavenlySwordDescentTableGen.points.size() == 16);
   CHECK(skills::kHeavenlySwordDescentTableGen.flags.size() == 9);
-  CheckGeneratedMatchesHandWritten<skills::HeavenlySwordCastSpecGen,
-                                   skills::HeavenlySwordCastSpec>(
+
+  const std::array<skills::SpecPointBinding<State>, 16> expectedPoints{{
+      {1100, &State::swordCoreCalibrationPoints},
+      {1101, &State::celestialDomainPoints},
+      {1102, &State::skyEdgeInfusionPoints},
+      {1103, &State::residualPressurePoints},
+      {1104, &State::worldsplitCorePoints},
+      {1105, &State::kingslayerIntentPoints},
+      {1106, &State::meteorCorePoints},
+      {1108, &State::skyRendAftershockPoints},
+      {1109, &State::edgeOfferingPoints},
+      {1110, &State::overflowingTiersPoints},
+      {1112, &State::spinningHeavensPoints},
+      {1114, &State::returnToTheSheathPoints},
+      {1116, &State::fieldResonancePoints},
+      {1118, &State::tideSpreadPoints},
+      {1119, &State::enduringHeavenPoints},
+      {1124, &State::elementalRazingPoints}}};
+  const std::array<skills::SpecFlagBinding<State>, 9> expectedFlags{{
+      {1113, &State::cycleOfAllForms},
+      {1107, &State::skyPiercingFall},
+      {1111, &State::swordRainEcho},
+      {1115, &State::domainLock},
+      {1117, &State::arraySynchrony},
+      {1120, &State::attunementPolarization},
+      {1121, &State::lightningTribunal},
+      {1122, &State::frozenDominion},
+      {1123, &State::solarIncineration}}};
+  CheckGeneratedMatchesExpected<State>(
       skills::kHeavenlySwordSkillId, skills::kHeavenlySwordDescentTableGen,
-      skills::kHeavenlySwordPointBindings,
-      skills::kHeavenlySwordFlagBindings);
+      expectedPoints, expectedFlags);
 }
 
-TEST_CASE("[Unit] Skill SpecState generated - skill 12 matches hand-written table") {
+TEST_CASE("[Unit] Skill SpecState generated - skill 12 matches expected mapping") {
+  using State = skills::BloodSeaCastSpecGen;
   CHECK(skills::kBloodSeaTableGen.points.size() == 18);
   CHECK(skills::kBloodSeaTableGen.flags.size() == 7);
-  CheckGeneratedMatchesHandWritten<skills::BloodSeaCastSpecGen,
-                                   skills::BloodSeaCastSpec>(
-      skills::kBloodSeaSkillId, skills::kBloodSeaTableGen,
-      skills::kBloodSeaPointBindings, skills::kBloodSeaFlagBindings);
+
+  const std::array<skills::SpecPointBinding<State>, 18> expectedPoints{{
+      {1200, &State::bloodCurtainOpeningPoints},
+      {1201, &State::pressureTideRisePoints},
+      {1202, &State::bloodthirstEdgePoints},
+      {1203, &State::bloodMistPursuitPoints},
+      {1204, &State::oppressiveEndPoints},
+      {1205, &State::huntingBloodTrailPoints},
+      {1206, &State::dyingEdgePoints},
+      {1208, &State::severedVeinAftershockPoints},
+      {1209, &State::bloodDrinkingTidePoints},
+      {1210, &State::desperateReclaimPoints},
+      {1212, &State::bloodWaveRedrinkPoints},
+      {1214, &State::lifeHuntReturnPoints},
+      {1215, &State::huntingMiasmaPoints},
+      {1216, &State::bladeMistResonancePoints},
+      {1218, &State::huntingBloodPressurePoints},
+      {1219, &State::lingeringBloodMistPoints},
+      {1223, &State::boneGnawingEmberPoints},
+      {1224, &State::miasmaShredPoints}}};
+  const std::array<skills::SpecFlagBinding<State>, 7> expectedFlags{{
+      {1207, &State::bottomlessPurgatory},
+      {1211, &State::triggerBurst},
+      {1213, &State::recoveryKeystone},
+      {1217, &State::sharedDevouring},
+      {1220, &State::voidKeystone},
+      {1221, &State::torrentForm},
+      {1222, &State::ringForm}}};
+  CheckGeneratedMatchesExpected<State>(
+      skills::kBloodSeaSkillId, skills::kBloodSeaTableGen, expectedPoints,
+      expectedFlags);
 }
 
 // 技能 5/6 于 Phase 4a 迁移到生成式信封（手写绑定表已删除），故与测试侧独立

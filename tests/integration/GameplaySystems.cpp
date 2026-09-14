@@ -272,7 +272,7 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in specialization data tab
   legalIds.insert(masteryIds.begin(), masteryIds.end());
   REQUIRE(!legalIds.empty());
 
-  const std::array<std::filesystem::path, 10> behaviorFiles = {
+  const std::array<std::filesystem::path, 12> behaviorFiles = {
       // 技能 1/7/9 的节点常量随 A-01 Phase 4c 信封化迁移至生成头，改为校验生成头。
       "src/game/systems/skill/behaviors/generated/FlowingThrustSpecState.gen.hpp",
       "src/game/systems/skill/behaviors/generated/MindBladeSpecState.gen.hpp",
@@ -286,8 +286,10 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in specialization data tab
       "src/game/systems/skill/behaviors/generated/SwordArraySpecState.gen.hpp",
       // 技能 8 的节点常量随 A-01 信封化迁移至生成头，改为校验生成头。
       "src/game/systems/skill/behaviors/generated/BladeBoomerangSpecState.gen.hpp",
-      // 技能 10 的节点常量随 A2-1 迁移至共享头，改为校验头文件。
-      "src/game/systems/skill/behaviors/SevenStarSlashShared.hpp"};
+      // 技能 10/11/12 的节点常量随 A2 信封化迁移至生成头，改为校验生成头。
+      "src/game/systems/skill/behaviors/generated/SevenStarSlashSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/HeavenlySwordDescentSpecState.gen.hpp",
+      "src/game/systems/skill/behaviors/generated/BloodSeaSpecState.gen.hpp"};
 
   for (const auto &relativeFile : behaviorFiles) {
     const auto fullPath = root / relativeFile;

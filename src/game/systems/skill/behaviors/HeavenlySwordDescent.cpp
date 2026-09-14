@@ -28,6 +28,14 @@ constexpr float kCenterRadiusRatio = 0.3f;
 constexpr float kSkyPiercingCenterRadiusRatio = 0.45f;
 constexpr float kScarDelaySeconds = 0.25f;
 
+// 技能级参数回退（skills.json params 缺失时的兜底值）：字面量与迁移前
+// HeavenlySwordCastSpec 字段默认值逐项一致（设计 §2.3）。
+constexpr float kImpactRadiusFallback = 90.0f;
+constexpr float kFieldRadiusFallback = 140.0f;
+constexpr float kFieldDurationFallback = 5.0f;
+constexpr float kTierDamageBonusFallback = 0.18f;
+constexpr float kTierRadiusBonusFallback = 14.0f;
+
 SkillBehaviorRegistry::CastFunc s_originalBladeFormationCast = nullptr;
 SkillBehaviorRegistry::CastFunc s_originalInfiniteBladesCast = nullptr;
 
@@ -480,6 +488,69 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
                                   SkillExecution &exec) {
   const HeavenlySwordCastSpec spec =
       ResolveHeavenlySwordCastSpec(registry, owner);
+
+  // 机制系数在消费点按需读取（设计 §2.3）：default 与迁移前 MechBinding 表字面量一致。
+  const float sword_core_calibration_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SwordCoreCalibration,
+              "impact_stability_per_point", 0.10f);
+  const float worldsplit_core_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::WorldsplitCore,
+              "center_damage_per_point", 0.10f);
+  const float kingslayer_elite_impact_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::KingslayerIntent,
+              "elite_impact_damage_per_point", 0.08f);
+  const float kingslayer_elite_field_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::KingslayerIntent,
+              "elite_field_damage_per_point", 0.04f);
+  const float sky_edge_infusion_per_point_per_tier =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SkyEdgeInfusion,
+              "impact_damage_per_point_per_tier", 0.04f);
+  const float cycle_of_all_forms_damage_mult =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::CycleOfAllForms,
+              "impact_damage_mult", 0.8f);
+  const float celestial_domain_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::CelestialDomain,
+              "field_radius_range_per_point", 0.08f);
+  const float sky_piercing_range_mult =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SkyPiercingFall,
+              "field_radius_mult", 0.7f);
+  const float sky_piercing_damage_mult =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SkyPiercingFall,
+              "impact_damage_bonus", 0.35f);
+  const float edge_offering_per_point_per_tier =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::EdgeOffering,
+              "field_damage_per_point_per_tier", 0.04f);
+  const float enduring_heaven_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::EnduringHeaven,
+              "duration_per_point", 0.5f);
+  const float residual_pressure_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::ResidualPressure,
+              "tick_interval_reduction_per_point", 0.05f);
+  const float field_resonance_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::FieldResonance,
+              "tick_interval_reduction_per_point", 0.08f);
+  const float sky_rend_scar_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SkyRendAftershock,
+              "scar_damage_per_point", 0.18f);
+  const float spinning_heavens_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SpinningHeavens,
+              "cadence_bonus_per_point", 0.15f);
+  const float return_to_sheath_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::ReturnToTheSheath,
+              "empower_bonus_per_point", 0.08f);
+  const float tide_spread_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::TideSpread,
+              "afflicted_damage_per_point", 0.10f);
+  const float elemental_razing_per_point =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::ElementalRazing,
+              "resist_shred_per_point", 2.0f);
+  const float elemental_razing_cap =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::ElementalRazing,
+              "resist_shred_cap", 12.0f);
+  const float sword_rain_echo_per_tier =
+      GetMech(kHeavenlySwordSkillId, HeavenlySwordNodes::SwordRainEcho,
+              "echo_damage_per_tier", 0.10f);
+
   const int extra_spend_cap = std::min(2, spec.overflowingTiersPoints);
   const int spend_cap = 5 + extra_spend_cap;
   const int spent_tiers = systems::BladeResourceService::ConsumeUpTo(
@@ -489,63 +560,61 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
       systems::BladeResourceService::GetHeavenlyAttunement(registry, owner);
   const auto *skill = SkillRegistry::Get().GetSkill(kSkillId);
   const float base_impact_radius =
-      skill ? skill->GetParam("impact_radius", spec.impactRadiusFallback)
-            : spec.impactRadiusFallback;
+      skill ? skill->GetParam("impact_radius", kImpactRadiusFallback)
+            : kImpactRadiusFallback;
   const float base_field_radius =
-      skill ? skill->GetParam("field_radius", spec.fieldRadiusFallback)
-            : spec.fieldRadiusFallback;
+      skill ? skill->GetParam("field_radius", kFieldRadiusFallback)
+            : kFieldRadiusFallback;
   const float base_field_duration =
-      skill ? skill->GetParam("field_duration", spec.fieldDurationFallback)
-            : spec.fieldDurationFallback;
+      skill ? skill->GetParam("field_duration", kFieldDurationFallback)
+            : kFieldDurationFallback;
   const float tier_damage_bonus =
-      skill ? skill->GetParam("tier_damage_bonus", spec.tierDamageBonusFallback)
-            : spec.tierDamageBonusFallback;
+      skill ? skill->GetParam("tier_damage_bonus", kTierDamageBonusFallback)
+            : kTierDamageBonusFallback;
   const float tier_radius_bonus =
-      skill ? skill->GetParam("tier_radius_bonus", spec.tierRadiusBonusFallback)
-            : spec.tierRadiusBonusFallback;
+      skill ? skill->GetParam("tier_radius_bonus", kTierRadiusBonusFallback)
+            : kTierRadiusBonusFallback;
   const float base_damage_fallback =
       GetMech(kSkillId, 0u, "base_damage_fallback", 120.0f);
 
   float impact_damage_mult = 1.0f + static_cast<float>(spent_tiers) *
                                          tier_damage_bonus;
-  impact_damage_mult += spec.skyEdgeInfusionPerPointPerTier *
+  impact_damage_mult += sky_edge_infusion_per_point_per_tier *
                         static_cast<float>(spec.skyEdgeInfusionPoints) *
                         static_cast<float>(spent_tiers);
   if (spec.cycleOfAllForms) {
-    impact_damage_mult *= spec.cycleOfAllFormsDamageMult;
+    impact_damage_mult *= cycle_of_all_forms_damage_mult;
   }
 
   const float impact_stability_mult =
-      1.0f + spec.swordCoreCalibrationPerPoint *
+      1.0f + sword_core_calibration_per_point *
                  static_cast<float>(spec.swordCoreCalibrationPoints);
   const float center_bonus_mult =
-      spec.worldsplitCorePerPoint *
-      static_cast<float>(spec.worldsplitCorePoints);
+      worldsplit_core_per_point * static_cast<float>(spec.worldsplitCorePoints);
   const float elite_impact_bonus_mult =
-      spec.kingslayerEliteImpactPerPoint *
+      kingslayer_elite_impact_per_point *
       static_cast<float>(spec.kingslayerIntentPoints);
   const float elite_field_bonus_mult =
-      spec.kingslayerEliteFieldPerPoint *
+      kingslayer_elite_field_per_point *
       static_cast<float>(spec.kingslayerIntentPoints);
   const int meteor_core_points = spec.meteorCorePoints;
   const int scar_points = spec.skyRendAftershockPoints;
   const float spinning_heavens_bonus =
-      spec.spinningHeavensPerPoint *
-      static_cast<float>(spec.spinningHeavensPoints);
+      spinning_heavens_per_point * static_cast<float>(spec.spinningHeavensPoints);
   const float return_to_sheath_bonus_mult =
-      spec.returnToSheathPerPoint *
+      return_to_sheath_per_point *
       static_cast<float>(spec.returnToTheSheathPoints);
   const float afflicted_pressure_bonus_mult =
-      spec.tideSpreadPerPoint * static_cast<float>(spec.tideSpreadPoints);
+      tide_spread_per_point * static_cast<float>(spec.tideSpreadPoints);
 
   float field_radius =
       base_field_radius + static_cast<float>(spent_tiers) * tier_radius_bonus;
   field_radius *=
-      1.0f + spec.celestialDomainPerPoint *
-                 static_cast<float>(spec.celestialDomainPoints);
+      1.0f +
+      celestial_domain_per_point * static_cast<float>(spec.celestialDomainPoints);
   if (spec.skyPiercingFall) {
-    field_radius *= spec.skyPiercingRangeMult;
-    impact_damage_mult *= 1.0f + spec.skyPiercingDamageMult;
+    field_radius *= sky_piercing_range_mult;
+    impact_damage_mult *= 1.0f + sky_piercing_damage_mult;
   }
 
   const float impact_radius = (base_impact_radius + field_radius * 0.25f) *
@@ -587,8 +656,8 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   registry.emplace<PersistentFieldTag>(field_entity); // 持久场原型标记：交付系统据此跳过自管理脉冲
   field.header.owner = owner;
   field.header.duration =
-      base_field_duration + spec.enduringHeavenPerPoint *
-                                static_cast<float>(spec.enduringHeavenPoints);
+      base_field_duration +
+      enduring_heaven_per_point * static_cast<float>(spec.enduringHeavenPoints);
   field.header.radius = field_radius;
   field.spent_tiers = spent_tiers;
   field.attunement = attunement;
@@ -596,20 +665,20 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   field.field_damage_mult =
       1.0f + GetMech(kSkillId, 0u, "field_damage_per_tier", 0.08f) *
                  static_cast<float>(spent_tiers) +
-      spec.edgeOfferingPerPointPerTier *
+      edge_offering_per_point_per_tier *
           static_cast<float>(spec.edgeOfferingPoints) *
           static_cast<float>(spent_tiers);
   field.header.tick_interval *=
-      1.0f - spec.residualPressurePerPoint *
+      1.0f - residual_pressure_per_point *
                  static_cast<float>(spec.residualPressurePoints);
   field.header.tick_interval *=
       1.0f -
-      spec.fieldResonancePerPoint * static_cast<float>(spec.fieldResonancePoints);
+      field_resonance_per_point * static_cast<float>(spec.fieldResonancePoints);
   field.header.tick_interval = std::clamp(field.header.tick_interval, 0.18f, 0.75f);
   field.resist_reduction = GetMech(kSkillId, 0u, "base_resist_reduction", 6.0f);
   field.extra_resist_reduction =
-      std::min(spec.elementalRazingCap,
-               spec.elementalRazingPerPoint *
+      std::min(elemental_razing_cap,
+               elemental_razing_per_point *
                    static_cast<float>(spec.elementalRazingPoints));
   field.elite_first_second_timer = elite_field_bonus_mult > 0.0f ? 1.0f : 0.0f;
   field.elite_impact_bonus_mult = elite_impact_bonus_mult;
@@ -626,7 +695,7 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
                     "scar_interval", 0.15f)
           : 0.0f;
   field.scar_damage_mult =
-      spec.skyRendScarPerPoint * static_cast<float>(scar_points);
+      sky_rend_scar_per_point * static_cast<float>(scar_points);
   field.spinning_heavens_bonus = spinning_heavens_bonus;
   const float current_formation_attack_interval =
       registry.all_of<BladeFormationComponent>(owner)
@@ -689,7 +758,7 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
       for (const entt::entity target : targets) {
         ApplySingleHit(registry, owner, target, field_entity, attunement,
                        (skill ? skill->base_damage : base_damage_fallback) *
-                           spec.swordRainEchoPerTier *
+                           sword_rain_echo_per_tier *
                            static_cast<float>(spent_tiers));
       }
     }

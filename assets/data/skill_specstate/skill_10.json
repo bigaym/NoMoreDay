@@ -225,6 +225,16 @@
       "node_id": 1025,
       "member": "returningStep",
       "kind": "flag"
+    },
+    {
+      "node_id": 1021,
+      "member": "poleStarOrbit",
+      "kind": "flag"
+    },
+    {
+      "node_id": 1022,
+      "member": "starfall",
+      "kind": "flag"
     }
   ]
 }

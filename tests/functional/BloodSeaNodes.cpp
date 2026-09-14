@@ -1,9 +1,11 @@
 // 技能 12（血海）统一施法信封与节点功能测试（计划 A2-3 的 T10.1/T10.3）。
 //
 // 覆盖三部分：
-// 1) 生产 ResolveBloodSeaCastSpec 的点读 / 点亮标志 / 机制系数映射（表驱动绑定表）；
+// 1) 生产 ResolveBloodSeaCastSpec 的点读 / 点亮标志映射（统一模板表驱动）；
+//    机制系数已从 SpecState POD 剥离，其回归由行为等价测试与
+//    skill_mechanics.json 数据断言覆盖（计划 T5.4）。
 // 2) 外置到 skill_mechanics.json 技能 12 的调平数值经施法写入
-//    BloodSeaFieldComponent 的行为等价（default_value 与迁移前字面量逐一致）。
+//    BloodSeaFieldComponent 的行为等价。
 // 3) 绝影共噬（B2-22/A-03，节点 1217）：逆脉/免死窗口门控的前 2 秒增伤/增疗窗口；
 //    联动脉冲改由节点 1207 无间血狱门控（设计 §5.3:1236），与 1217 解耦。
 
@@ -113,11 +115,6 @@ TEST_CASE("[Functional] Skill 12 - Cast spec resolves point and flag bindings") 
   CHECK(spec.torrentForm == true);
   CHECK(spec.ringForm == false);
   CHECK(spec.recoveryKeystone == false);
-  // 机制系数 default_value 与迁移前字面量一致（即使未加载数据也等价）。
-  CHECK(spec.lowLifeThreshold == doctest::Approx(0.35f));
-  CHECK(spec.radiusPerPoint == doctest::Approx(8.0f));
-  CHECK(spec.resistShredPerPoint == doctest::Approx(2.0f));
-  CHECK(spec.tickIntervalFloor == doctest::Approx(0.7f));
 }
 
 TEST_CASE("[Functional] Skill 12 - externalized mechanics match legacy literals") {

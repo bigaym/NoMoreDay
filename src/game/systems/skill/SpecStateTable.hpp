@@ -7,12 +7,15 @@
 //   - State 必须为 POD（缺省构造即全 0/false）；
 //   - 本基元只读专精点数（ReadPoints/HasNode），不读 skill_mechanics
 //     （机制数值由效果逻辑经 GetMech 单独取，见设计 §8.1）；
-//   - 转质/非点读节点不得作为 **point** 绑定入表：技能 10 的 1021/1022 由
-//     `GetActiveTransmuterNode` 在绑定循环外叠加（技能 10 自身不在表中绑定）；
+//   - 转质/非点读节点不得作为 **point** 绑定入表：技能 10 的 1021/1022
+//     （PoleStarOrbit/Starfall）现为 descriptor flag 绑定，表内 HasNode 填充仅为占位；
+//     技能 10 的 2 参包装函数会以 `SkillSystem::GetActiveTransmuterNode` 判等覆盖这两个字段，
+//     任何绕过包装函数直接使用该表的消费者不得读取 poleStarOrbit/starfall；
 //     技能 12 的转质节点按 **flag** 绑定入表（0/1 选择态，生成器授权）；
 //     节点 973 属技能 9 `OverloadShield`（设计不变量 §5.4-2）。
 #include "game/foundation/components/SkillPointAccess.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
 #include <type_traits>
@@ -60,7 +63,7 @@ template <typename State>
       continue;
     }
     for (const auto &binding : table.points) {
-      state.*(binding.points) = ReadPoints(spec, binding.node);
+      state.*(binding.points) = std::max(0, ReadPoints(spec, binding.node));
     }
     for (const auto &binding : table.flags) {
       state.*(binding.flag) = HasNode(spec, binding.node);

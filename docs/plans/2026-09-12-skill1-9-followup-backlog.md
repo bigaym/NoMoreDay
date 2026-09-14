@@ -160,8 +160,8 @@
 > 开工前先走设计流程，产出 `*-design.md` 与 `*-plan.md`；B2 全部条目作为第一批改动并入。
 
 - [ ] **A-01** 技能1~9 专精实现抽象化/模块化：技能1~9 行为文件合计约 4542 行（FlowingThrust 955 / RendingWave 700 / PhantomTrance 747 / BladeFormation 517 / InfiniteBlades 522 / SwordArray 495 / BladeBoomerang 383 / BladeWard 137 / MindBlade 86）；全 12 技能行为文件合计约 6615 行（另加 HeavenlySwordDescent 832 / SevenStarSlash 681 / BloodSea 560）、Baker 1117 行 18 case。需先重定 DoD（恢复薄装配 ≤100 行/文件，或承认节点逻辑内聚、只抽取「触发/效果/交付」三层参数化模式）
-- [ ] **A-02** 技能10~12 迁移：SevenStarSlash / HeavenlySwordDescent / BloodSea（专精树数据 + 行为 + 契约 + 审查）；含 HeavenlySwordField / BloodSeaField 组件迁移（另立计划），依赖 HeavenlySwordDescent.cpp:184-400、BladeMasteryService.cpp:51-88、SkillSystem.cpp:1080-1092
-- [ ] **A-03** 技能12 绝影共噬节点行为（与 A-02 合并）
+- [x] **A-02** 技能10~12 迁移：SevenStarSlash / HeavenlySwordDescent / BloodSea（专精树数据 + 行为 + 契约 + 审查）；含 HeavenlySwordField / BloodSeaField 组件迁移（另立计划），依赖 HeavenlySwordDescent.cpp:184-400、BladeMasteryService.cpp:51-88、SkillSystem.cpp:1080-1092 — 销项 2026-09-14（Track A-02）：SpecState 抽象化 DoD 全达标（D-A5/D-A1 闭环、L-2 关闭、生成器门禁 3/3、ci/skill/integration/unit 标签全绿），证据见 `docs/reviews/2026-09-14-skill-abstraction-a02-review.md` 与 §9.5；HeavenlySwordField / BloodSeaField 组件迁移仍按「另立计划」独立跟踪
+- [x] **A-03** 技能12 绝影共噬节点行为（与 A-02 合并）— 销项 2026-09-14：节点 1217 早于本 Track 经 B2-22（A2-2 T9.3，`0ef68d2d`）落地，本 Track 复核节点行为与技能9 联动回归全绿，随 A-02 一并销项，证据见 §9.5
 - [x] **A-04** 技能10 非法标签清算尾项（B1-10 的剩余部分）——复核结论：数据侧已无非法标签，技能10 tags 全为已注册项，无需改动；技能10 契约已在 `assets/data/skill_contracts_compact.json` 注册。证据见 §8。
 - [ ] **A-05** B2 结构清理全集（见第 3 节）
 
@@ -281,4 +281,14 @@ B1-21/22/23（运行时采证阻塞）、B1-24/26（性能），以及 A 工作�
 | B1-28 | 用户裁定 D1-D5 + 子代理落地 | GDD `设计文档/职业设计草案_剑修.md` §5.3.2 全 25 节点对齐数据 `name_key`/`prerequisites`；提案 `docs/designs/2026-09-13-skill12-branchD-gdd-data-alignment-design.md`；自检旧名 `rg` 0 命中、25/25 对拍一致 |
 | B2-15 | 351 机制键消费统一 | `BladeFormation.cpp:266,371,372`、`SummonAISystem.cpp:55-64` 改读 `GetFloat(3,351,...)`；测试 `tests/functional/BladeFormationNodes.cpp:185-233`；`skill_mechanics_schema.json` 重生成；`build.bat` EXIT=0 零警告、`-l ci` 1/1、1525/1525 |
 | B1-29 | 技能12 三节点 desc 文案对齐机制 | `assets/data/mastery_skill_trees.json:2238,2312,2342`（仅 `desc_key`）；GDD `设计文档/职业设计草案_剑修.md:1260-1262`；验证四脚本 EXIT 0、`build.bat` 零警告、1525/1525 |
-| B2-18 | 方案 B 落地（补注册 Slow + 单源构建口） | `assets/data/ailment_contracts.json:75-86`；`AilmentEngine.cpp:449-455,524-547,822-826`；`TagRegistry.hpp:161-164`；`FlowingThrust.cpp:65-78`；`HazardSystem.cpp:379-383`；测试 `tests/unit/AilmentEngineTests.cpp:283-381`；`build.bat` 零警告、6 标签全绿 |
+| B2-18 | 方案 B 落地（补注册 Slow + 单源构建口） | `assets/data/ailment_contracts.json:75-86`；`AilmentEngine.cpp:449-455,524-547,822-826`；`TagRegistry.hpp:161-164`；`FlowingThrust.cpp:65-78`；`HazardSystem.cpp:379-383`；测试 `tests/unit/AilmentEngineTests.cpp:283-381`；`build.bat` 零警告、6 标签全绿
+
+### 9.5 Track A-02 销项补充（2026-09-14）
+
+来源：`docs/plans/2026-09-14-skill-abstraction-track-a02-plan.md`、`docs/designs/2026-09-14-skill-abstraction-track-a02-design.md`；复审 `docs/reviews/2026-09-14-skill-abstraction-a02-review.md` 结论 **提交**。
+
+- **A-02 技能10~12 SpecState 抽象化**：技能10/11/12 的手写 `*PointBinding` / `*FlagBinding` / `*MechBinding` 表全部退役，统一由生成头 + `SpecStateTable` 驱动。D-A5 闭环（`rg "struct (SevenStarSlash|HeavenlySword|BloodSea)(Point|Flag|Mech)?Binding" src/` = 0），D-A1（12 技能 `*SpecState` 均为 int 点数 + bool 标志 POD），L-2 关闭（`SpecStateTableTests.cpp` 新增 `CheckTableMatchesRuntime` 逐绑定对拍运行期 `ReadPoints` / `HasNode`）。技能10 转质 1021/1022 经 `assets/data/skill_specstate/skill_10.json` flag 绑定 + 包装层 `SkillSystem::GetActiveTransmuterNode` 覆盖保留语义（生成头 `generated/SevenStarSlashSpecState.gen.hpp` 重生成，17 点 + 8 flag）。60 个 `GetMech` 机制系数与 10 个兜底字面量经独立复审与 HEAD 逐字节一致。
+  证据：`build.bat RelWithDebInfo` EXIT 0、零新增告警；`ctest -L ci` 1/1、`-L skill` 2/2、`-L integration` 6/6、`-L unit` 8/8（全量 17/19，2 例 GPU/性能抖动见 O-01/O-07，与本 Track 代码路径无关）；生成器 `gen_skill_contracts.py --gen-specstate --check --check-idempotency --check-determinism`、`gen_skill_mechanics_schema.py --check`、`sync_skill_node_icon_ids.py --check` 三连 EXIT 0。详见复审报告「验证证据」。
+- **A-03 技能12 绝影共噬**：节点 1217 行为早于本 Track 经 B2-22（A2-2 T9.3，`0ef68d2d`）落地；本 Track 复核节点行为与技能9 联动回归全绿，随 A-02 一并销项。
+- 范围声明：A-02 原条目括注的 HeavenlySwordField / BloodSeaField 组件迁移仍按「另立计划」独立跟踪，不在本次销项范围。
+- 遗留跟进（不阻塞）：`tests/functional/HeavenlySwordDescentNodes.cpp`、`BloodSeaNodes.cpp` 的 10 个 `DoCast` 兜底 `constexpr` 字面量暂无直接断言（复审 Low-2）；本地 `clang-format` 因仓库 `.clang-format:78` `Standard: Cpp20` 与工具版本不兼容而不可用（复审 R3）。 |

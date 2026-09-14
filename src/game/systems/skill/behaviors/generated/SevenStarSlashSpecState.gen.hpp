@@ -68,6 +68,8 @@ struct SevenStarSlashSpecStateGen {
   bool fallingStarSwitch = false;
   bool swordStepMirage = false;
   bool returningStep = false;
+  bool poleStarOrbit = false;
+  bool starfall = false;
 };
 
 inline constexpr std::array<SevenStarSlashSpecStateGen::PointBinding, 17> kSevenStarSlashPointBindingsGen{{
@@ -90,13 +92,15 @@ inline constexpr std::array<SevenStarSlashSpecStateGen::PointBinding, 17> kSeven
     {SevenStarSlashNodesGen::ScarRuin, &SevenStarSlashSpecStateGen::scarRuinPoints},
 }};
 
-inline constexpr std::array<SevenStarSlashSpecStateGen::FlagBinding, 6> kSevenStarSlashFlagBindingsGen{{
+inline constexpr std::array<SevenStarSlashSpecStateGen::FlagBinding, 8> kSevenStarSlashFlagBindingsGen{{
     {SevenStarSlashNodesGen::SevenFocus, &SevenStarSlashSpecStateGen::sevenFocus},
     {SevenStarSlashNodesGen::StarScarFollow, &SevenStarSlashSpecStateGen::starScarFollow},
     {SevenStarSlashNodesGen::EndlessSeven, &SevenStarSlashSpecStateGen::endlessSeven},
     {SevenStarSlashNodesGen::FallingStarSwitch, &SevenStarSlashSpecStateGen::fallingStarSwitch},
     {SevenStarSlashNodesGen::SwordStepMirage, &SevenStarSlashSpecStateGen::swordStepMirage},
     {SevenStarSlashNodesGen::ReturningStep, &SevenStarSlashSpecStateGen::returningStep},
+    {SevenStarSlashNodesGen::PoleStarOrbit, &SevenStarSlashSpecStateGen::poleStarOrbit},
+    {SevenStarSlashNodesGen::Starfall, &SevenStarSlashSpecStateGen::starfall},
 }};
 
 inline constexpr SpecStateTable<SevenStarSlashSpecStateGen> kSevenStarSlashTableGen{

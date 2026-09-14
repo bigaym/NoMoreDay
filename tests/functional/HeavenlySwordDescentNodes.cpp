@@ -1,11 +1,13 @@
 // 技能 11（天剑降临）统一施法信封与节点功能测试（计划 A2-2 的 T9.1/T9.4）。
 //
-// 覆盖两部分：
-// 1) 生产 ResolveHeavenlySwordCastSpec 的点读 / 点亮标志 / 机制系数映射（表驱动绑定表）；
-// 2) 外置到 skill_mechanics.json 技能 11 的调平数值经施法写入
-//    HeavenlySwordFieldComponent 的行为等价（fallback 与迁移前字面量逐一致）。
+// 覆盖三部分：
+// 1) 生产 ResolveHeavenlySwordCastSpec 的点读 / 点亮标志映射（生成表驱动）；
+//    机制系数已从 SpecState POD 剥离（Track A-02 §2.3），改由 DoCast 经 GetMech 本地读取，
+//    故本文件不再断言 spec 上的机制/回退字段。
+// 2) 外置到 skill_mechanics.json 技能 11 的调平数值回归（GetMech）。
+// 3) 外置数值经施法写入 HeavenlySwordFieldComponent 的行为等价。
 // 元素节点（1121/1122/1123）的完整战斗行为由 tests/unit/HeavenlySwordClosureTests.cpp 覆盖，
-// 本文件聚焦 A2-2 抽象信封与数值外置接线。
+// 本文件聚焦统一施法信封与数值外置接线。
 
 #include "TestCommon.hpp"
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
@@ -113,11 +115,6 @@ TEST_CASE("[Functional] Skill 11 - Cast spec resolves point and flag bindings") 
   CHECK(spec.lightningTribunal == true);
   CHECK(spec.frozenDominion == false);
   CHECK(spec.solarIncineration == false);
-  // 机制系数 fallback 与迁移前字面量一致（即使未加载数据也等价）。
-  CHECK(spec.skyEdgeInfusionPerPointPerTier == doctest::Approx(0.04f));
-  CHECK(spec.swordCoreCalibrationPerPoint == doctest::Approx(0.10f));
-  CHECK(spec.elementalRazingCap == doctest::Approx(12.0f));
-  CHECK(spec.tierDamageBonusFallback == doctest::Approx(0.18f));
 }
 
 TEST_CASE("[Functional] Skill 11 - externalized mechanics match legacy literals") {

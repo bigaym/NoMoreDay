@@ -26,8 +26,8 @@ constexpr uint32_t kSkillId = skills::seven_star_shared::kSevenStarSlashSkillId;
 using skills::SevenStarSlashSpecState;
 namespace Nodes = skills::SevenStarSlashNodes;
 
-// 测试侧独立期望表：node id -> SpecState 成员。与生产
-// kSevenStarSlashPointBindings / kSevenStarSlashFlagBindings 相互校验。
+// 测试侧独立期望表：node id -> SpecState 成员。与生产生成表
+// kSevenStarSlashPointBindingsGen / kSevenStarSlashFlagBindingsGen 相互校验。
 struct ExpectedPointMapping {
   uint32_t node;
   const char *label;
@@ -77,6 +77,15 @@ const std::array<ExpectedFlagMapping, 6> kExpectedFlags = {{
      &SevenStarSlashSpecState::swordStepMirage},
     {Nodes::ReturningStep, "ReturningStep",
      &SevenStarSlashSpecState::returningStep},
+}};
+
+// 转质节点 1021/1022 在生成表中同样登记为 flag 绑定，但取值由运行时
+// active_transmuter_node 覆盖（见 ResolveSpecState 尾部），并非由 allocated_points
+// 点亮，因此单列期望表，避免与「投入点即点亮」语义混淆。
+const std::array<ExpectedFlagMapping, 2> kExpectedTransmuterFlags = {{
+    {Nodes::PoleStarOrbit, "PoleStarOrbit",
+     &SevenStarSlashSpecState::poleStarOrbit},
+    {Nodes::Starfall, "Starfall", &SevenStarSlashSpecState::starfall},
 }};
 
 // 全部成员（用于「仅目标字段被写入」的穷举检查）。
@@ -132,13 +141,15 @@ void SetTransmuter(entt::registry &registry, entt::entity owner, uint32_t node) 
 } // namespace
 
 TEST_CASE("[Unit] Skill SpecStateMapping - production tables match expected mapping") {
-  REQUIRE(skills::kSevenStarSlashPointBindings.size() == kExpectedPoints.size());
-  REQUIRE(skills::kSevenStarSlashFlagBindings.size() == kExpectedFlags.size());
+  REQUIRE(skills::kSevenStarSlashPointBindingsGen.size() ==
+          kExpectedPoints.size());
+  REQUIRE(skills::kSevenStarSlashFlagBindingsGen.size() ==
+          kExpectedFlags.size() + kExpectedTransmuterFlags.size());
 
   // 期望表中的每个 node/成员都必须存在于生产绑定表。
   size_t matched_points = 0;
   for (const auto &expected : kExpectedPoints) {
-    for (const auto &binding : skills::kSevenStarSlashPointBindings) {
+    for (const auto &binding : skills::kSevenStarSlashPointBindingsGen) {
       if (binding.node == expected.node &&
           binding.points == expected.member) {
         ++matched_points;
@@ -149,21 +160,29 @@ TEST_CASE("[Unit] Skill SpecStateMapping - production tables match expected mapp
 
   size_t matched_flags = 0;
   for (const auto &expected : kExpectedFlags) {
-    for (const auto &binding : skills::kSevenStarSlashFlagBindings) {
+    for (const auto &binding : skills::kSevenStarSlashFlagBindingsGen) {
       if (binding.node == expected.node && binding.flag == expected.member) {
         ++matched_flags;
       }
     }
   }
-  CHECK(matched_flags == kExpectedFlags.size());
+  for (const auto &expected : kExpectedTransmuterFlags) {
+    for (const auto &binding : skills::kSevenStarSlashFlagBindingsGen) {
+      if (binding.node == expected.node && binding.flag == expected.member) {
+        ++matched_flags;
+      }
+    }
+  }
+  CHECK(matched_flags ==
+        kExpectedFlags.size() + kExpectedTransmuterFlags.size());
 
   // 每个被消费的 node id 在表内不重复。
   std::vector<uint32_t> node_ids;
   node_ids.reserve(kExpectedPoints.size() + kExpectedFlags.size());
-  for (const auto &binding : skills::kSevenStarSlashPointBindings) {
+  for (const auto &binding : skills::kSevenStarSlashPointBindingsGen) {
     node_ids.push_back(binding.node);
   }
-  for (const auto &binding : skills::kSevenStarSlashFlagBindings) {
+  for (const auto &binding : skills::kSevenStarSlashFlagBindingsGen) {
     node_ids.push_back(binding.node);
   }
   for (size_t i = 0; i < node_ids.size(); ++i) {
