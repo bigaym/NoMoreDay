@@ -20,11 +20,14 @@ namespace NoMoreDay {
 inline constexpr uint32_t ITEM_STORE_MAGIC = 0x4E4D4453;
 
 /**
- * @brief 当前二进制持久化格式版本号 (v1)。
+ * @brief 当前二进制持久化格式版本号 (v2)。
  * 契约说明：ItemInstance 结构体基于 static_assert(std::is_trivially_copyable_v) 进行整块 POD 序列化，
  * 若未来向 ItemInstance 增删字段、调整对齐或改变词缀/插槽容量，必须递增 ITEM_STORE_BINARY_VERSION。
+ * v2 变更：Section 3 (ItemSideTables) 每个条目在 damage_modifiers 之后新增 modifier_record_ids
+ * 字段（长度前缀 + uint32 元素序列），改变了该段布局。由于解码器在 FileHeader 阶段即校验版本号，
+ * v1 存档会被显式拒绝（不会进入 Section 3 而产生静默错位）；本阶段不提供 v1 -> v2 的迁移。
  */
-inline constexpr uint32_t ITEM_STORE_BINARY_VERSION = 1;
+inline constexpr uint32_t ITEM_STORE_BINARY_VERSION = 2;
 
 /**
  * @brief 高效标准 IEEE 802.3 CRC32 查找表与计算函数

@@ -163,17 +163,28 @@ struct ItemSideTableData {
   std::vector<StatConversion> conversions;
   std::vector<DamageModifier> damage_modifiers;
   std::vector<ItemSkillModifier> skill_modifiers;
+  // UMR 修饰器记录 ID 列表，随存档编解码往返（前向兼容预留）。
+  // 注意：当前 ECS 轨（Affix.modifier_record_ids）到存储轨尚无生产端桥接，
+  // 该转换属双轨统一工作（T-P3-3）。现有写入方仅 ItemPersistenceCodec 解码
+  // 与 ItemStorageService/SaveManager 的 store 间复制，存储轨内可保真。
+  std::vector<uint32_t> modifier_record_ids;
 
   [[nodiscard]] bool empty() const noexcept {
     return conversions.empty() && damage_modifiers.empty() &&
-           skill_modifiers.empty();
+           skill_modifiers.empty() && modifier_record_ids.empty();
   }
 
   void clear() noexcept {
     conversions.clear();
     damage_modifiers.clear();
     skill_modifiers.clear();
+    modifier_record_ids.clear();
   }
+
+  // 相等性用于堆叠合并判定：只有四个成员全部相同才允许合并，
+  // 否则实例差异会被静默丢弃。新增字段必须同步纳入比较。
+  bool operator==(const ItemSideTableData &other) const = default;
+  bool operator!=(const ItemSideTableData &other) const = default;
 };
 
 /**

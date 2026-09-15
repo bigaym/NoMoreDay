@@ -1,204 +1,82 @@
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 
-#include "game/foundation/components/Stats.hpp"
+#include "core/logging/Logger.hpp"
 #include "game/systems/modifier/ModifierContext.hpp"
+#include "game/systems/modifier/ModifierRuntimeSupport.hpp"
 
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <span>
-#include <utility>
 #include <vector>
 
 namespace NoMoreDay {
 namespace {
 
 constexpr uint32_t kMonsterNodeIdBase = 800000u;
+// 词缀 record id = 基数 + MonsterAffixType 枚举值，与生成器 MONSTER_ID_BASE 对齐。
+constexpr uint32_t kMonsterRecordIdBase = 5001000u;
+
+// 一次性致命告警：注册表不可用属致命级，每帧都会失败，只报告一次避免刷屏。
+std::atomic<bool> gWarnedRegistryUnavailable{false};
+// 缺失记录告警器：按 recordId 去重且总数有上限，多个不同 id 都会被报告。
+ModifierRuntimeMissingRecordWarnLimiter gMissingAffixRecordWarner;
 
 uint32_t EncodeMonsterAffixNodeId(const MonsterAffixType affixType) {
   return kMonsterNodeIdBase + static_cast<uint32_t>(affixType);
 }
 
-ModifierOpCode ToModifierOpCode(const ModifierMode mode) {
-  switch (mode) {
-  case ModifierMode::Flat:
-    return ModifierOpCode::ADD_STAT_FLAT;
-  case ModifierMode::PercentAdd:
-    return ModifierOpCode::ADD_STAT_PERCENT_ADD;
-  case ModifierMode::PercentMult:
-    return ModifierOpCode::ADD_STAT_PERCENT_MULT;
-  }
-  return ModifierOpCode::ADD_STAT_FLAT;
-}
-
-float NormalizeValue(const ModifierMode mode, const float value) {
-  switch (mode) {
-  case ModifierMode::Flat:
-    return value;
-  case ModifierMode::PercentAdd:
-  case ModifierMode::PercentMult:
-    return value / 100.0f;
-  }
-  return value;
-}
-
-void AppendEventOpsForAffix(ModifierRecord &record, const MonsterAffixType affixType,
-                            const AffixFlags &flags) {
-  const uint32_t affixId = static_cast<uint32_t>(affixType);
-
-  if (flags.hasUpdate) {
-    ModifierOp updateOp;
-    updateOp.opcode = ModifierOpCode::MONSTER_EVENT_ON_UPDATE;
-    updateOp.param_u32 = affixId;
-    record.ops.push_back(updateOp);
+// 从运行时 registry 读取词缀记录并按类别掩码求值。
+// 记录形状（属性 op / 事件 op / 行为 op）全部由 registry 提供；
+// 三档入口显式传入所需类别，窄入口不会为其不消费的算子组做容器插入。
+ModifierDelta
+EvaluateMonsterAffixDelta(const MonsterAffixComponent &affixComponent,
+                          const ModifierOpCategory categories) {
+  auto &registry = ModifierRuntimeRegistry::Get();
+  if (!registry.EnsureLoaded()) {
+    if (!gWarnedRegistryUnavailable.exchange(true)) {
+      LOG_ERROR("MonsterModifierAdapter: modifier runtime registry unavailable; "
+                "all monster affixes are inactive (check "
+                "assets/generated/modifier_runtime_v2.bin)");
+    }
+    return ModifierDelta{};
   }
 
-  if (flags.hasOnHit) {
-    ModifierOp onHitOp;
-    onHitOp.opcode = ModifierOpCode::MONSTER_EVENT_ON_HIT;
-    onHitOp.param_u32 = affixId;
-    record.ops.push_back(onHitOp);
-  }
-
-  if (flags.hasOnDeath) {
-    ModifierOp onDeathOp;
-    onDeathOp.opcode = ModifierOpCode::MONSTER_EVENT_ON_DEATH;
-    onDeathOp.param_u32 = affixId;
-    record.ops.push_back(onDeathOp);
-  }
-}
-
-void AppendBehaviorOpsForAffix(ModifierRecord &record,
-                               const MonsterAffixType affixType) {
-  ModifierOp behaviorOp;
-  switch (affixType) {
-  case MonsterAffixType::Molten:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE;
-    break;
-  case MonsterAffixType::Teleporter:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE;
-    break;
-  case MonsterAffixType::Frozen:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE;
-    break;
-  case MonsterAffixType::ManaSiphon:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE;
-    break;
-  case MonsterAffixType::Shielding:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE;
-    break;
-  case MonsterAffixType::Vortex:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE;
-    break;
-  case MonsterAffixType::Waller:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE;
-    break;
-  case MonsterAffixType::Berserker:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE;
-    break;
-  case MonsterAffixType::VoidZone:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE;
-    break;
-  case MonsterAffixType::Storm:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE;
-    break;
-  case MonsterAffixType::Suppressor:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE;
-    break;
-  case MonsterAffixType::SoulLink:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE;
-    break;
-  case MonsterAffixType::Vampiric:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT;
-    break;
-  case MonsterAffixType::Nullifier:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT;
-    break;
-  case MonsterAffixType::Entangler:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT;
-    break;
-  case MonsterAffixType::MirrorImage:
-    behaviorOp.opcode =
-        ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE;
-    break;
-  case MonsterAffixType::StormStrider:
-    behaviorOp.opcode =
-        ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE;
-    break;
-  case MonsterAffixType::Void:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT;
-    break;
-  case MonsterAffixType::Toxic:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH;
-    break;
-  case MonsterAffixType::SoulEater:
-    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH;
-    break;
-  case MonsterAffixType::Avenger:
-    behaviorOp.opcode =
-        ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH;
-    break;
-  default:
-    return;
-  }
-
-  behaviorOp.param_u32 = static_cast<uint32_t>(affixType);
-  record.ops.push_back(behaviorOp);
-}
-
-bool IsVampiricLifeStealStat(const MonsterAffixType affixType,
-                             const MonsterAffixDef::StatMod &statMod) {
-  return affixType == MonsterAffixType::Vampiric &&
-         statMod.type == StatType::LifeSteal;
-}
-
-ModifierDelta EvaluateAffixDeltaInternal(const MonsterAffixComponent &affixComponent,
-                                         const bool includeStats,
-                                         const bool includeEvents,
-                                         const bool includeBehaviorOps) {
   ModifierEvalContext ctx;
-  std::vector<ModifierRecord> records;
+  std::vector<ModifierRecordRequest> requests;
+  requests.reserve(affixComponent.affixes.size());
 
   for (const auto affixType : affixComponent.affixes) {
-    const auto &def = MonsterAffixRegistry::GetAffixDef(affixType);
-    const uint32_t nodeId = EncodeMonsterAffixNodeId(affixType);
-    ctx.active_node_ids.push_back(nodeId);
-
-    ModifierRecord record;
-    record.filter.node_id_whitelist = {nodeId};
-
-    if (includeStats) {
-      for (int statModIndex = 0; statModIndex < def.statModCount; ++statModIndex) {
-        const auto &statMod = def.statMods[statModIndex];
-
-        if (includeBehaviorOps && IsVampiricLifeStealStat(affixType, statMod)) {
-          continue;
-        }
-
-        ModifierOp op;
-        op.opcode = ToModifierOpCode(statMod.mode);
-        op.param_u32 = static_cast<uint32_t>(statMod.type);
-        op.param_f32 = NormalizeValue(statMod.mode, statMod.value);
-        record.ops.push_back(op);
-      }
-    }
-
-    if (includeEvents) {
-      AppendEventOpsForAffix(record, affixType, def.flags);
-    }
-
-    if (includeBehaviorOps) {
-      AppendBehaviorOpsForAffix(record, affixType);
-    }
-
-    if (record.ops.empty()) {
+    // None 与越界枚举没有对应记录，直接跳过（比旧的越界索引更安全）。
+    if (affixType == MonsterAffixType::None ||
+        static_cast<uint8_t>(affixType) >=
+            static_cast<uint8_t>(MonsterAffixType::Count)) {
       continue;
     }
 
-    records.push_back(std::move(record));
+    const uint32_t recordId =
+        kMonsterRecordIdBase + static_cast<uint32_t>(affixType);
+    if (registry.FindRecordById(recordId) == nullptr) {
+      if (gMissingAffixRecordWarner.ShouldReport(recordId)) {
+        LOG_WARN("MonsterModifierAdapter: record {} for affix type {} missing "
+                 "from registry; affix is inactive",
+                 recordId, static_cast<uint32_t>(affixType));
+      }
+      continue;
+    }
+
+    ctx.active_node_ids.push_back(EncodeMonsterAffixNodeId(affixType));
+    requests.push_back({recordId, false, 0.0f, kAllStatTargets});
+  }
+
+  if (requests.empty()) {
+    return ModifierDelta{};
   }
 
   return ModifierEvaluator::Evaluate(
-      std::span<const ModifierRecord>(records.data(), records.size()), ctx);
+      registry,
+      std::span<const ModifierRecordRequest>(requests.data(), requests.size()),
+      ctx, categories);
 }
 
 } // namespace
@@ -206,14 +84,17 @@ ModifierDelta EvaluateAffixDeltaInternal(const MonsterAffixComponent &affixCompo
 ModifierDelta
 MonsterModifierAdapter::EvaluateAffixDelta(
     const MonsterAffixComponent &affixComponent) {
-  return EvaluateAffixDeltaInternal(affixComponent, true, false, true);
+  // 三档语义：本入口 = 属性 + 行为，不暴露事件集合。
+  // 类别掩码已保证事件集合为空，无需再全量求值后清空字段。
+  return EvaluateMonsterAffixDelta(
+      affixComponent, ModifierOpCategory::Stats | ModifierOpCategory::Behavior);
 }
 
 MonsterModifierAdapter::MonsterAffixEventSet
 MonsterModifierAdapter::EvaluateAffixEvents(
     const MonsterAffixComponent &affixComponent) {
   const ModifierDelta delta =
-      EvaluateAffixDeltaInternal(affixComponent, false, true, false);
+      EvaluateMonsterAffixDelta(affixComponent, ModifierOpCategory::Events);
 
   MonsterAffixEventSet events;
   events.onUpdateAffixIds = delta.monster_event_on_update_affix_ids;
@@ -226,7 +107,7 @@ MonsterModifierAdapter::MonsterAffixBehaviorOpSet
 MonsterModifierAdapter::EvaluateBehaviorOps(
     const MonsterAffixComponent &affixComponent) {
   const ModifierDelta delta =
-      EvaluateAffixDeltaInternal(affixComponent, false, false, true);
+      EvaluateMonsterAffixDelta(affixComponent, ModifierOpCategory::Behavior);
 
   MonsterAffixBehaviorOpSet behaviorOps;
   behaviorOps.onUpdateOpcodes = delta.monster_behavior_on_update_opcodes;

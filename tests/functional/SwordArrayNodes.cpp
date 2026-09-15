@@ -1051,6 +1051,7 @@ TEST_CASE("[Functional] Skill 6 - Cross-Skill Linkage 515, 355 & VisualFX") {
 
 TEST_CASE("[Functional] Skill 6 - 633 Execute routes through shared kill path") {
   EnsureSkillMechanics();
+  REQUIRE(ReloadModifierRuntimeFromAsset());
 
   // 假定：633 处决 (AreaFieldDeliverySystem tryExecute) 走统一击杀链
   // CombatSystem::KillEnemy，从而触发 MonsterAffixSystem::OnEnemyDeath 的

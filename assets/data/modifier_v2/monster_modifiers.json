@@ -623,12 +623,6 @@
       },
       "ops": [
         {
-          "opcode": "ADD_STAT_FLAT",
-          "target": "enemy",
-          "param_u32": 37,
-          "param_f32": 50.0
-        },
-        {
           "opcode": "MONSTER_EVENT_ON_HIT",
           "target": "enemy",
           "param_u32": 16,

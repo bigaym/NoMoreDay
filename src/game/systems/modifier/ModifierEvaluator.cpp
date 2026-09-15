@@ -134,6 +134,141 @@ float ReadOr(const std::unordered_map<uint32_t, float> &map,
   return it->second;
 }
 
+// 算子类别归属：用于窄入口按类别掩码跳过无关算子组。
+ModifierOpCategory CategoryOfOp(const ModifierOpCode opcode) {
+  switch (opcode) {
+  case ModifierOpCode::ADD_STAT_FLAT:
+  case ModifierOpCode::ADD_STAT_PERCENT_ADD:
+  case ModifierOpCode::ADD_STAT_PERCENT_MULT:
+  case ModifierOpCode::ADD_SKILL_LEVEL:
+  case ModifierOpCode::MANA_COST_MULT:
+    return ModifierOpCategory::Stats;
+  case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
+  case ModifierOpCode::MONSTER_EVENT_ON_HIT:
+  case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
+    return ModifierOpCategory::Events;
+  case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
+  case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
+  case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
+  case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
+  case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
+  case ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT:
+    return ModifierOpCategory::Behavior;
+  }
+  return ModifierOpCategory::None;
+}
+
+// 施加单条 runtime 算子；effectivePercentMult 为乘算算子的有效数值
+// （命中运行时覆盖时为滚值，否则为离线模板值）。
+void ApplyRuntimeOp(const ModifierRuntimeOp &op,
+                    const float effectivePercentMult, ModifierDelta &out) {
+  switch (static_cast<ModifierOpCode>(op.opcode)) {
+  case ModifierOpCode::ADD_STAT_FLAT:
+    out.AddFlat(op.param_u32, op.param_f32);
+    break;
+  case ModifierOpCode::ADD_STAT_PERCENT_ADD:
+    out.AddPercentAdd(op.param_u32, op.param_f32);
+    break;
+  case ModifierOpCode::ADD_STAT_PERCENT_MULT:
+    out.AddPercentMult(op.param_u32, effectivePercentMult);
+    break;
+  case ModifierOpCode::ADD_SKILL_LEVEL:
+    out.AddSkillLevel(op.param_u32, op.param_f32);
+    break;
+  case ModifierOpCode::MANA_COST_MULT:
+    out.AddManaCostMultiplier(op.param_u32, op.param_f32);
+    break;
+  case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
+    out.AddMonsterEventOnUpdate(op.param_u32);
+    break;
+  case ModifierOpCode::MONSTER_EVENT_ON_HIT:
+    out.AddMonsterEventOnHit(op.param_u32);
+    break;
+  case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
+    out.AddMonsterEventOnDeath(op.param_u32);
+    break;
+  case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE:
+    out.AddMonsterBehaviorOnUpdate(op.opcode);
+    break;
+  case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
+  case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
+  case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
+  case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
+  case ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT:
+    out.AddMonsterBehaviorOnHit(op.opcode);
+    break;
+  case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
+  case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
+  case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
+    out.AddMonsterBehaviorOnDeath(op.opcode);
+    break;
+  }
+}
+
+// 对单条 registry 记录做 filter 匹配并按类别掩码累积算子。
+// request 非空时，其 overrides 仅作用于 op.param_u32 == target_stat 的乘算算子。
+void EvaluateRuntimeRecord(const ModifierRuntimeRegistry &registry,
+                           const ModifierRuntimeRecord &record,
+                           const ModifierEvalContext &ctx,
+                           const ModifierRecordRequest *request,
+                           const ModifierOpCategory categories,
+                           ModifierDelta &out) {
+  const ModifierRuntimeFilter *filter = registry.GetFilter(record);
+  if (filter == nullptr) {
+    return;
+  }
+
+  const auto skillWhitelist = registry.GetSkillWhitelist(*filter);
+  const auto nodeWhitelist = registry.GetNodeWhitelist(*filter);
+  if (!MatchesFilters(*filter, skillWhitelist, nodeWhitelist, ctx)) {
+    return;
+  }
+
+  for (const auto &op : registry.GetOps(record)) {
+    const ModifierOpCode opcode = static_cast<ModifierOpCode>(op.opcode);
+    if (!HasOpCategory(categories, CategoryOfOp(opcode))) {
+      continue;
+    }
+
+    float effectivePercentMult = op.param_f32;
+    if (request != nullptr && request->override_percent_mult &&
+        opcode == ModifierOpCode::ADD_STAT_PERCENT_MULT &&
+        (request->target_stat == kAllStatTargets ||
+         request->target_stat == op.param_u32)) {
+      effectivePercentMult = request->param_f32;
+    }
+
+    ApplyRuntimeOp(op, effectivePercentMult, out);
+  }
+}
+
 } // namespace
 
 void ModifierDelta::AddFlat(const uint32_t statType, const float value) {
@@ -155,6 +290,16 @@ void ModifierDelta::AddPercentMult(const uint32_t statType, const float value) {
 
 void ModifierDelta::AddSkillLevel(const uint32_t skillId, const float value) {
   skill_levels[skillId] += value;
+}
+
+void ModifierDelta::AddManaCostMultiplier(const uint32_t skillId,
+                                          const float mult) {
+  const auto it = mana_cost_mult.find(skillId);
+  if (it == mana_cost_mult.end()) {
+    mana_cost_mult.emplace(skillId, mult);
+    return;
+  }
+  it->second *= mult;
 }
 
 void ModifierDelta::AddMonsterEventOnUpdate(const uint32_t affixId) {
@@ -186,6 +331,14 @@ float ModifierDelta::GetSkillLevelBonus(const uint32_t skillId) const {
   return wildcard + ReadOr(skill_levels, skillId, 0.0f);
 }
 
+float ModifierDelta::GetManaCostMultiplier(const uint32_t skillId) const {
+  // key 0 为全局通配，对任意技能生效；skillId == 0 时只返回全局系数
+  const float globalMult = ReadOr(mana_cost_mult, 0u, 1.0f);
+  const float skillMult =
+      (skillId != 0u) ? ReadOr(mana_cost_mult, skillId, 1.0f) : 1.0f;
+  return globalMult * skillMult;
+}
+
 ModifierDelta ModifierEvaluator::Evaluate(
     const std::span<const ModifierRecord> records, const ModifierEvalContext &ctx) {
   ModifierDelta out;
@@ -206,6 +359,9 @@ ModifierDelta ModifierEvaluator::Evaluate(
         break;
       case ModifierOpCode::ADD_SKILL_LEVEL:
         out.AddSkillLevel(op.param_u32, op.param_f32);
+        break;
+      case ModifierOpCode::MANA_COST_MULT:
+        out.AddManaCostMultiplier(op.param_u32, op.param_f32);
         break;
       case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
         out.AddMonsterEventOnUpdate(op.param_u32);
@@ -251,81 +407,33 @@ ModifierDelta ModifierEvaluator::Evaluate(
   return out;
 }
 
-ModifierDelta ModifierEvaluator::Evaluate(const ModifierRuntimeRegistry &registry,
-                                          const std::span<const uint32_t> recordIds,
-                                          const ModifierEvalContext &ctx) {
+ModifierDelta ModifierEvaluator::Evaluate(
+    const ModifierRuntimeRegistry &registry,
+    const std::span<const ModifierRecordRequest> requests,
+    const ModifierEvalContext &ctx, const ModifierOpCategory categories) {
+  ModifierDelta out;
+  for (const auto &request : requests) {
+    const ModifierRuntimeRecord *record =
+        registry.FindRecordById(request.record_id);
+    if (record == nullptr) {
+      continue;
+    }
+    EvaluateRuntimeRecord(registry, *record, ctx, &request, categories, out);
+  }
+  return out;
+}
+
+ModifierDelta ModifierEvaluator::Evaluate(
+    const ModifierRuntimeRegistry &registry,
+    const std::span<const uint32_t> recordIds, const ModifierEvalContext &ctx) {
   ModifierDelta out;
   for (const uint32_t recordId : recordIds) {
     const ModifierRuntimeRecord *record = registry.FindRecordById(recordId);
     if (record == nullptr) {
       continue;
     }
-
-    const ModifierRuntimeFilter *filter = registry.GetFilter(*record);
-    if (filter == nullptr) {
-      continue;
-    }
-
-    const auto skillWhitelist = registry.GetSkillWhitelist(*filter);
-    const auto nodeWhitelist = registry.GetNodeWhitelist(*filter);
-    if (!MatchesFilters(*filter, skillWhitelist, nodeWhitelist, ctx)) {
-      continue;
-    }
-
-    for (const auto &op : registry.GetOps(*record)) {
-      switch (static_cast<ModifierOpCode>(op.opcode)) {
-      case ModifierOpCode::ADD_STAT_FLAT:
-        out.AddFlat(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::ADD_STAT_PERCENT_ADD:
-        out.AddPercentAdd(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::ADD_STAT_PERCENT_MULT:
-        out.AddPercentMult(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::ADD_SKILL_LEVEL:
-        out.AddSkillLevel(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
-        out.AddMonsterEventOnUpdate(op.param_u32);
-        break;
-      case ModifierOpCode::MONSTER_EVENT_ON_HIT:
-        out.AddMonsterEventOnHit(op.param_u32);
-        break;
-      case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
-        out.AddMonsterEventOnDeath(op.param_u32);
-        break;
-      case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE:
-        out.AddMonsterBehaviorOnUpdate(op.opcode);
-        break;
-      case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
-      case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
-      case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
-      case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT:
-        out.AddMonsterBehaviorOnHit(op.opcode);
-        break;
-      case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
-      case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
-        out.AddMonsterBehaviorOnDeath(op.opcode);
-        break;
-      default:
-        break;
-      }
-    }
+    EvaluateRuntimeRecord(registry, *record, ctx, nullptr,
+                          ModifierOpCategory::All, out);
   }
   return out;
 }

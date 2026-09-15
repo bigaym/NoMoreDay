@@ -26,7 +26,7 @@ std::vector<uint8_t> CompileModifierFixtureToBytes(const std::string &fixturePat
       "python scripts/gen_modifier_runtime_v2.py --input-dir \"" +
       fs::path(fixturePath).generic_string() + "\" --output-bin \"" +
       outBin.generic_string() + "\" --output-debug \"" +
-      outDebug.generic_string() + "\" --check > NUL 2>&1";
+      outDebug.generic_string() + "\" --build > NUL 2>&1";
 
   REQUIRE(std::system(command.c_str()) == 0);
 

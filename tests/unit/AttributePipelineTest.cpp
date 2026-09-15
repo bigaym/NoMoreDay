@@ -135,6 +135,8 @@ TEST_CASE("[Unit] AttributePipeline - activated_nodes-only path remains inactive
 }
 
 TEST_CASE("[Unit] AttributePipeline - enemy map and monster stat mods follow adapter evaluator path") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   auto buildEnemy = [](entt::registry &registry, const bool withModifiers) {
     const auto enemy = registry.create();
     registry.emplace<EnemyTag>(enemy);

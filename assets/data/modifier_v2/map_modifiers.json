@@ -97,6 +97,38 @@
         "name": "Map_Enemy_Fast",
         "source": "map_affix"
       }
+    },
+    {
+      "id": 4099999,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          799999
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 4,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Map_Resonance_EnemyDensity",
+        "source": "map_resonance"
+      }
     }
   ]
 }

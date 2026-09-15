@@ -244,6 +244,25 @@ def write_outputs(
     )
 
 
+def check_binary_matches(input_dir: Path, output_bin: Path) -> bool:
+    # 纯内存编译并与磁盘产物做 CRC32 与逐字节比对，绝不写盘。
+    new_blob, _ = compile_from_input(input_dir)
+    if not output_bin.exists():
+        print(f"[modifier-runtime] Check failed: '{output_bin}' does not exist.")
+        return False
+    current_blob = output_bin.read_bytes()
+    crc_mismatch = (zlib.crc32(new_blob) & 0xFFFFFFFF) != (
+        zlib.crc32(current_blob) & 0xFFFFFFFF
+    )
+    if crc_mismatch or new_blob != current_blob:
+        print(
+            "[modifier-runtime] Check failed: binary out of sync with modifier_v2 json"
+        )
+        return False
+    print("[modifier-runtime] Check passed: binary is in sync with modifier_v2 json.")
+    return True
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compile Modifier Runtime V2 binary.")
     parser.add_argument("--input-dir", default="assets/data/modifier_v2")
@@ -253,7 +272,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-debug", default="assets/generated/modifier_runtime_v2.debug.json"
     )
-    parser.add_argument("--check", action="store_true")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="只读校验：内存编译并与磁盘 .bin 比对，不写盘",
+    )
+    parser.add_argument(
+        "--build", action="store_true", help="显式写盘生成（与默认模式等价）"
+    )
     parser.add_argument("--check-determinism", action="store_true")
     return parser.parse_args()
 
@@ -264,13 +290,9 @@ def main() -> int:
     output_bin = Path(args.output_bin)
     output_debug = Path(args.output_debug)
 
-    if not args.check and not args.check_determinism:
-        args.check = True
-
+    # --check 为只读漂移比对，任何情况下都不写盘。
     if args.check:
-        blob, sorted_records = compile_from_input(input_dir)
-        write_outputs(blob, sorted_records, output_bin, output_debug)
-        print(f"compiled records: {len(sorted_records)}")
+        return 0 if check_binary_matches(input_dir, output_bin) else 1
 
     if args.check_determinism:
         blob_a, _ = compile_from_input(input_dir)
@@ -279,7 +301,13 @@ def main() -> int:
             print("determinism: failed")
             return 1
         print("determinism: ok")
+        return 0
 
+    # 默认（无参数）与 --build 均为生成入口，写盘产出 .bin / .debug.json。
+    blob, sorted_records = compile_from_input(input_dir)
+    write_outputs(blob, sorted_records, output_bin, output_debug)
+    print(f"compiled records: {len(sorted_records)}")
+    print(f"[modifier-runtime] wrote '{output_bin}' and '{output_debug}'")
     return 0
 
 

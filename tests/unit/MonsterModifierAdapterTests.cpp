@@ -1,4 +1,4 @@
-#include "doctest.h"
+#include "TestCommon.hpp"
 
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/data/MonsterAffixRegistry.hpp"
@@ -6,8 +6,14 @@
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 
 #include <array>
+#include <cstdint>
+
+// 同进程内其它单测会向全局 ModifierRuntimeRegistry 注入合成数据，
+// 这里用共享助手从构建产物强制重新加载，保证本文件用例消费真实生成数据。
 
 TEST_CASE("[Unit] MonsterModifierAdapter - affix list resolves stat deltas") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Fast);
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Tanky);
@@ -30,6 +36,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - affix list resolves stat deltas") {
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - berserk weapon multiplier remains affix-count based") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Fast);
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Berserker);
@@ -44,6 +52,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - berserk weapon multiplier remains aff
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - evaluates affix event sets from registry flags") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Molten);
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Nullifier);
@@ -61,6 +71,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates affix event sets from regis
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster behavior affixes") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   NoMoreDay::MonsterAffixComponent updateAndVampiric;
   updateAndVampiric.AddAffix(NoMoreDay::MonsterAffixType::Molten);
   updateAndVampiric.AddAffix(NoMoreDay::MonsterAffixType::Teleporter);
@@ -171,6 +183,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - suppresses vampiric stat life-steal when behavior op exists") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Vampiric);
 
@@ -180,9 +194,68 @@ TEST_CASE("[Unit] MonsterModifierAdapter - suppresses vampiric stat life-steal w
   const auto lifeStealStat =
       static_cast<uint32_t>(NoMoreDay::StatType::LifeSteal);
   CHECK(delta.flat.find(lifeStealStat) == delta.flat.end());
+
+  // 属性被抑制的同时，行为与事件 op 仍必须保留，吸血只由行为系统计一次。
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT)));
+
+  const auto events =
+      NoMoreDay::MonsterModifierAdapter::EvaluateAffixEvents(affixComponent);
+  CHECK(events.onHitAffixIds.contains(
+      static_cast<uint32_t>(NoMoreDay::MonsterAffixType::Vampiric)));
+
+  const auto behaviorOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(affixComponent);
+  CHECK(behaviorOps.HasOnHitOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT));
+}
+
+TEST_CASE("[Unit] MonsterModifierAdapter - three entry points expose disjoint field groups") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
+  NoMoreDay::MonsterAffixComponent affixComponent;
+  affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Molten);
+  affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Vampiric);
+
+  const auto delta = NoMoreDay::MonsterModifierAdapter::EvaluateAffixDelta(
+      affixComponent);
+  // EvaluateAffixDelta = 属性 + 行为，不暴露任何事件集合。
+  CHECK(delta.monster_event_on_update_affix_ids.empty());
+  CHECK(delta.monster_event_on_hit_affix_ids.empty());
+  CHECK(delta.monster_event_on_death_affix_ids.empty());
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT)));
+  // 掩码实现下窄入口只插入本组：Molten 无 onDeath 行为，该组必须为空。
+  CHECK(delta.monster_behavior_on_death_opcodes.empty());
+
+  const auto events =
+      NoMoreDay::MonsterModifierAdapter::EvaluateAffixEvents(affixComponent);
+  CHECK(events.onUpdateAffixIds.contains(
+      static_cast<uint32_t>(NoMoreDay::MonsterAffixType::Molten)));
+  CHECK(events.onHitAffixIds.contains(
+      static_cast<uint32_t>(NoMoreDay::MonsterAffixType::Vampiric)));
+  // 事件入口恰好产出这两个词缀，不含其它组。
+  CHECK(events.onUpdateAffixIds.size() == 1);
+  CHECK(events.onHitAffixIds.size() == 1);
+  CHECK(events.onDeathAffixIds.empty());
+
+  const auto behaviorOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(affixComponent);
+  CHECK(behaviorOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE));
+  CHECK(behaviorOps.HasOnHitOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT));
+  CHECK_FALSE(behaviorOps.HasOnDeath());
+  CHECK(behaviorOps.onUpdateOpcodes.size() == 1);
+  CHECK(behaviorOps.onHitOpcodes.size() == 1);
+  CHECK(behaviorOps.onDeathOpcodes.empty());
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - emits behavior ops for Storm/Void") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Storm);
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Void);
@@ -198,6 +271,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - emits behavior ops for Storm/Void") {
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - behavior opcode contract covers implemented and behavior-less affixes") {
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
   struct BehaviorContractRow {
     NoMoreDay::MonsterAffixType affixType;
     bool expectsBehaviorOps;

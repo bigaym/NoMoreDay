@@ -12,6 +12,7 @@ using namespace NoMoreDay;
 
 TEST_CASE("[Integration] NemesisScaling - Nemesis Scaling and Phase Shield") {
   entt::registry registry;
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   MonsterAffixSystem::Init();
 
   // Setup: Tier 10 Nemesis with Molten and Shielding

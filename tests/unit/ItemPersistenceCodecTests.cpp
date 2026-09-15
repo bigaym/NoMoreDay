@@ -335,6 +335,18 @@ TEST_CASE("[Unit] ItemPersistenceCodec - Corruption & Fault Injection") {
     CHECK(ItemPersistenceCodec::decode(in, dst) == false);
   }
 
+  SUBCASE("Legacy v1 Version Rejected") {
+    // 显式构造 version 字段为 1 的旧档头部（小端），应被版本校验直接拒绝。
+    std::string legacy = validBytes;
+    legacy[4] = 0x01;
+    legacy[5] = 0x00;
+    legacy[6] = 0x00;
+    legacy[7] = 0x00;
+    std::stringstream in(legacy, std::ios::in | std::ios::binary);
+    ItemStorageService dst;
+    CHECK(ItemPersistenceCodec::decode(in, dst) == false);
+  }
+
   SUBCASE("Flipped Payload Byte Triggers CRC32 Failure") {
     std::string corrupted = validBytes;
     // 翻转文件末尾某个字节
@@ -455,6 +467,53 @@ TEST_CASE("[Unit] ItemPersistenceCodec - Pure ItemStore Fast Codec") {
   REQUIRE(rSide->conversions.size() == 1);
   CHECK(rSide->conversions[0].source == StatType::Strength);
   CHECK(rSide->conversions[0].target == StatType::Vitality);
+}
+
+// 说明：本用例只覆盖 codec 层的编解码闭环（手工构造 side table 并往返），
+// 不代表 ECS（Affix.modifier_record_ids）到存储轨的桥接已实现——该桥接属
+// 双轨统一工作（T-P3-3），当前字段为前向兼容预留。
+TEST_CASE("[Unit] ItemPersistenceCodec - Round-Trip Modifier Record Ids") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  ItemStore store;
+
+  ItemInstance item{};
+  item.instanceId = 7001;
+  item.baseId = 1001;
+  const ItemHandle handle = store.create(item);
+
+  ItemSideTableData side;
+  CHECK(side.empty());
+  side.modifier_record_ids = {1000001u, 3000001u, 6000001u};
+  CHECK_FALSE(side.empty());
+  store.setSideTable(handle, side);
+
+  std::stringstream ss(std::ios::in | std::ios::out | std::ios::binary);
+  REQUIRE(ItemPersistenceCodec::encodeStore(store, ss));
+
+  ItemStore restored;
+  ss.seekg(0, std::ios::beg);
+  REQUIRE(ItemPersistenceCodec::decodeStore(ss, restored));
+
+  auto *restoredSide = restored.getSideTableMutable(handle);
+  REQUIRE(restoredSide != nullptr);
+  REQUIRE(restoredSide->modifier_record_ids.size() == 3);
+  CHECK(restoredSide->modifier_record_ids[0] == 1000001u);
+  CHECK(restoredSide->modifier_record_ids[1] == 3000001u);
+  CHECK(restoredSide->modifier_record_ids[2] == 6000001u);
+
+  // operator== 必须把 modifier_record_ids 纳入比较
+  ItemSideTableData equalSide;
+  equalSide.modifier_record_ids = {1000001u, 3000001u, 6000001u};
+  CHECK(equalSide == *restoredSide);
+  ItemSideTableData differingSide;
+  differingSide.modifier_record_ids = {1000001u, 3000001u, 6000002u};
+  CHECK(differingSide != *restoredSide);
+
+  // clear() 需同步清空 UMR 记录 ID
+  restoredSide->clear();
+  CHECK(restoredSide->modifier_record_ids.empty());
 }
 
 TEST_CASE("[Unit] ItemPersistenceCodec - SaveFileAtomic") {

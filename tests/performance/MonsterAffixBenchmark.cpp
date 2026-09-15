@@ -100,6 +100,7 @@ void CreateAffixedEnemies(entt::registry &registry, int count,
 
 TEST_CASE("[Performance] MonsterAffixSystem - 500 Affixed Enemies") {
   TestSetupScope scope;
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   entt::registry registry;
   systems::SpatialHashGrid grid(monster_affix_benchmark_detail::kGridCols,
                                 monster_affix_benchmark_detail::kGridRows,
@@ -140,6 +141,7 @@ TEST_CASE("[Performance] MonsterAffixSystem - 500 Affixed Enemies") {
 
 TEST_CASE("[Performance] MonsterAffixSystem - Mixed Affixes Stress") {
   TestSetupScope scope;
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   entt::registry registry;
   systems::SpatialHashGrid grid(monster_affix_benchmark_detail::kGridCols,
                                 monster_affix_benchmark_detail::kGridRows,

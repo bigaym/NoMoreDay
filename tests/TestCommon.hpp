@@ -3,8 +3,46 @@
 #include "core/logging/Logger.hpp"
 #include "doctest.h"
 #include "game/systems/item/ItemFactory.hpp" // If TestSetupScope uses it
+#include "game/systems/modifier/ModifierRuntimeRegistry.hpp"
+
+#include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <span>
+#include <system_error>
+#include <vector>
 
 using namespace NoMoreDay;
+
+// 从构建产物强制重载 Modifier Runtime V2 registry。
+// 该 registry 是进程级单例，可能被其它用例注入的合成数据覆盖；
+// 依赖真实生成数据的用例（地图/怪物适配器、AttributePipeline、怪物词缀行为）
+// 应在用例开始时显式重载，避免受执行顺序影响。
+//
+// 失败原因区分“资产缺失”与“解析失败”并各自 WARN 输出，便于在未生成 .bin
+// 的机器上定位；资产缺失时提示先运行生成脚本。
+inline bool ReloadModifierRuntimeFromAsset() {
+  constexpr const char *kAssetPath = "assets/generated/modifier_runtime_v2.bin";
+  NoMoreDay::ModifierRuntimeRegistry &registry =
+      NoMoreDay::ModifierRuntimeRegistry::Get();
+
+  std::error_code ec;
+  if (!std::filesystem::exists(kAssetPath, ec)) {
+    DOCTEST_WARN_MESSAGE(
+        false, "modifier runtime asset missing: " << kAssetPath
+               << " (run: python scripts/gen_modifier_runtime_v2.py --build)");
+    return false;
+  }
+
+  if (!registry.Reload(kAssetPath)) {
+    DOCTEST_WARN_MESSAGE(
+        false, "modifier runtime asset failed to parse: " << kAssetPath);
+    return false;
+  }
+
+  return true;
+}
 
 // RAII Helper for Logger
 struct LoggerScope {

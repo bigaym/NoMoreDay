@@ -1,5 +1,7 @@
 #include "game/systems/modifier/ModifierRuntimeRegistry.hpp"
 
+#include "core/logging/Logger.hpp"
+
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -30,6 +32,9 @@ bool ValidateCrc32(std::span<const uint8_t> bytes,
     return false;
   }
 
+  // 测试后门：单测用 LoadFromBytes 注入的合成 blob 不计算 CRC，约定以
+  // crc32 == 0 表示“跳过校验”。后果：真实文件若 CRC 字段被清零也会被判为完整，
+  // 无法检出该种损坏；生产产物由生成器写入非零 CRC，不受影响。
   if (header.crc32 == 0u) {
     return true;
   }
@@ -127,16 +132,27 @@ void ModifierRuntimeRegistry::Clear() {
   m_ops.clear();
   m_index.clear();
   m_recordIndexById.clear();
-  m_loaded = false;
+  m_loaded.store(false, std::memory_order_release);
+  m_loadedPath.clear();
 }
 
 bool ModifierRuntimeRegistry::EnsureLoaded(const std::string_view path) {
-  if (m_loaded) {
+  // 已加载且请求路径与当前数据来源一致时直接返回；路径不同则重新加载，
+  // 避免调用方拿到与请求路径不符的旧数据。
+  // 经 LoadFromBytes 注入的合成数据没有关联文件路径（m_loadedPath 为空），
+  // 视为通配来源，保持既有测试注入语义。
+  if (m_loaded.load(std::memory_order_acquire) &&
+      (m_loadedPath.empty() || m_loadedPath == path)) {
     return true;
   }
+  return Reload(path);
+}
 
+bool ModifierRuntimeRegistry::Reload(const std::string_view path) {
   std::ifstream file(std::string(path), std::ios::binary);
   if (!file.is_open()) {
+    LOG_ERROR("ModifierRuntimeRegistry: failed to open '{}' (missing asset?)",
+              std::string(path));
     return false;
   }
 
@@ -146,10 +162,13 @@ bool ModifierRuntimeRegistry::EnsureLoaded(const std::string_view path) {
   bytes.assign(begin, end);
 
   if (!LoadFromBytes(bytes)) {
+    LOG_ERROR("ModifierRuntimeRegistry: failed to parse '{}' ({} bytes read)",
+              std::string(path), bytes.size());
     return false;
   }
 
-  m_loaded = true;
+  // 记录来源路径，供 EnsureLoaded 做路径一致性判断。
+  m_loadedPath.assign(path);
   return true;
 }
 
@@ -220,7 +239,7 @@ bool ModifierRuntimeRegistry::LoadFromBytes(const std::span<const uint8_t> bytes
   }
 
   m_header = header;
-  m_loaded = true;
+  m_loaded.store(true, std::memory_order_release);
   return true;
 }
 

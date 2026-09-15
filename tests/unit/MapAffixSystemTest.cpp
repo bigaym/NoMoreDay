@@ -58,6 +58,55 @@ TEST_CASE("[Unit] MapAffixCalculator - Reward Scaling") {
     CHECK(r120.quantityBonus == doctest::Approx(1.0f));
 }
 
+TEST_CASE("[Unit] MapAffixRegistry - CalculateValue clamps out-of-range tiers") {
+    const auto& def = MapAffixRegistry::GetDef(MapAffixType::Enemy_ExtraHealth);
+    // 表值方向必须有序，否则插值语义无定义
+    REQUIRE(def.valT10 >= def.valT1);
+
+    // tier 1 及以下（含 0 与负数）全部钳制到 valT1
+    CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Enemy_ExtraHealth, 1) == doctest::Approx(def.valT1));
+    CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Enemy_ExtraHealth, 0) == doctest::Approx(def.valT1));
+    CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Enemy_ExtraHealth, -7) == doctest::Approx(def.valT1));
+
+    // tier 10 及以上全部钳制到 valT10
+    CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Enemy_ExtraHealth, 10) == doctest::Approx(def.valT10));
+    CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Enemy_ExtraHealth, 99) == doctest::Approx(def.valT10));
+}
+
+TEST_CASE("[Unit] MapAffixRegistry - CalculateValue interpolates linearly between valT1 and valT10") {
+    const auto& def = MapAffixRegistry::GetDef(MapAffixType::Enemy_Fast);
+    const float range = def.valT10 - def.valT1;
+
+    // tier 2..9 为线性插值：t = (tier - 1) / 9
+    for (int tier = 2; tier <= 9; ++tier) {
+        const float t = static_cast<float>(tier - 1) / 9.0f;
+        const float expected = def.valT1 + t * range;
+        CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Enemy_Fast, tier) == doctest::Approx(expected));
+    }
+}
+
+TEST_CASE("[Unit] MapAffixRegistry - CalculateValue is monotonically non-decreasing across tiers") {
+    const MapAffixType types[] = {MapAffixType::Enemy_ExtraHealth, MapAffixType::Enemy_ExtraDamage,
+                                  MapAffixType::Enemy_Fast};
+    for (MapAffixType type : types) {
+        float previous = MapAffixRegistry::CalculateValue(type, 1);
+        for (int tier = 2; tier <= 10; ++tier) {
+            const float current = MapAffixRegistry::CalculateValue(type, tier);
+            CHECK(current >= previous);
+            previous = current;
+        }
+    }
+}
+
+TEST_CASE("[Unit] MapAffixRegistry - CalculateValue is constant when valT1 equals valT10") {
+    const auto& def = MapAffixRegistry::GetDef(MapAffixType::Env_Firestorm);
+    // 环境词缀 valT1 == valT10，插值应恒定
+    REQUIRE(def.valT1 == doctest::Approx(def.valT10));
+    for (int tier = 0; tier <= 12; ++tier) {
+        CHECK(MapAffixRegistry::CalculateValue(MapAffixType::Env_Firestorm, tier) == doctest::Approx(def.valT1));
+    }
+}
+
 TEST_CASE("[Unit] MapAffixCalculator - LP Probability Multiplier") {
     // Current formula: 1.0f + rarityBonus
     // Rarity Bonus 1.0 (100%) -> lpMult = 2.0

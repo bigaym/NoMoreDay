@@ -372,9 +372,9 @@ StorageError ItemStorageService::mergeStack(const SlotRef &from,
   const bool sideToEmpty = !sideTo || sideTo->empty();
   if (!sideFromEmpty || !sideToEmpty) {
     if (sideFromEmpty != sideToEmpty) return StorageError::TypeMismatch;
-    if (sideFrom->conversions != sideTo->conversions ||
-        sideFrom->damage_modifiers != sideTo->damage_modifiers ||
-        sideFrom->skill_modifiers != sideTo->skill_modifiers) {
+    // 统一走 ItemSideTableData::operator!=，确保全部旁表字段
+    // (含 modifier_record_ids) 参与比较，未来新增字段不会被遗漏。
+    if (*sideFrom != *sideTo) {
       return StorageError::TypeMismatch;
     }
   }

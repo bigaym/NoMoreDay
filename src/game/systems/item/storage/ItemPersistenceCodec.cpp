@@ -16,6 +16,12 @@ namespace NoMoreDay {
 
 namespace {
 
+// 单个物品旁表允许持久化的 UMR 记录 ID 上限。
+// 单件装备的 UMR 记录数量级很小（通常 1~数个），64 已为极端情况留足余量；
+// 与相邻 convCount/dmgCount 的固定上限语义一致，避免 CRC 可重算的构造载荷
+// 用整段字节数作上限把 reserve() 推到接近段大小。
+constexpr uint32_t kMaxModifierRecordIdsPerItem = 64;
+
 // 辅助向 vector<uint8_t> 中追加任意 POD 字节
 template <typename T>
 void appendBytes(std::vector<uint8_t> &dest, const T &val) {
@@ -191,6 +197,14 @@ std::vector<uint8_t> buildItemSideTablesSection(const ItemStorageService &servic
       appendBytes(payload, static_cast<uint64_t>(dm.target_tag));
       appendBytes(payload, dm.value);
       appendBytes(payload, static_cast<uint32_t>(dm.type));
+    }
+
+    // modifier_record_ids
+    const uint32_t recordIdCount =
+        static_cast<uint32_t>(data.modifier_record_ids.size());
+    appendBytes(payload, recordIdCount);
+    for (const uint32_t recordId : data.modifier_record_ids) {
+      appendBytes(payload, recordId);
     }
   }
 
@@ -761,9 +775,21 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
                                            static_cast<Tag>(tgtTag), val,
                                            static_cast<ModifierType>(modType)});
         }
+        uint32_t recordIdCount = 0;
+        if (!readBytes(ptr, end, recordIdCount)) return false;
+        if (recordIdCount > kMaxModifierRecordIdsPerItem) return false;
+        std::vector<uint32_t> recordIds;
+        recordIds.reserve(recordIdCount);
+        for (uint32_t r = 0; r < recordIdCount; ++r) {
+          uint32_t recordId = 0;
+          if (!readBytes(ptr, end, recordId)) return false;
+          recordIds.push_back(recordId);
+        }
+
         auto &targetData = sideTables[idx];
         targetData.conversions = std::move(data.conversions);
         targetData.damage_modifiers = std::move(data.damage_modifiers);
+        targetData.modifier_record_ids = std::move(recordIds);
       }
       break;
     }

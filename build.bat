@@ -282,6 +282,17 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
 
     call :run_quiet_step "Validating assets" "Asset validation failed! Aborting." "python scripts\validate_json.py"
     if errorlevel 1 exit /b 1
+
+    REM UMR safety net: the first two steps are hard gates (version-controlled JSON / C++ contract); the third generates the runtime binary.
+    REM The .bin is a local artifact ignored by .gitignore, so it must not be a hard check; otherwise a clean checkout would always fail.
+    call :run_quiet_step "Validating Map/Monster modifier generation" "Map/Monster modifier drift detected! Aborting." "python scripts\gen_map_monster_modifier_v2.py --check"
+    if errorlevel 1 exit /b 1
+
+    call :run_quiet_step "Checking monster behavior dispatch contract" "Monster behavior dispatch contract broken! Aborting." "python scripts\check_monster_behavior_dispatch.py"
+    if errorlevel 1 exit /b 1
+
+    call :run_quiet_step "Generating modifier runtime binary" "Modifier runtime binary generation failed! Aborting." "python scripts\gen_modifier_runtime_v2.py"
+    if errorlevel 1 exit /b 1
 ) else (
     echo [Build] Pre-check scripts skipped ^(novalidate^).
 )

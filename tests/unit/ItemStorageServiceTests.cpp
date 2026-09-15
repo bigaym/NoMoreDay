@@ -105,6 +105,43 @@ TEST_CASE("[Unit] ItemStorageService - Split and Merge Stack") {
   CHECK_FALSE(service.getStore().isValid(hNew));
 }
 
+TEST_CASE("[Unit] ItemStorageService - Merge Stack Rejects Differing Side Tables") {
+  ItemTemplateRegistry::Instance().initializeDefaults();
+  ItemStorageService service;
+
+  // 两个除 modifier_record_ids 外完全相同的可堆叠物品
+  const ItemHandle hFrom =
+      service.getStoreMutable().create(MakeTestItem(401, 101, 10));
+  const ItemHandle hTo =
+      service.getStoreMutable().create(MakeTestItem(402, 101, 20));
+
+  ItemSideTableData sideFrom;
+  sideFrom.modifier_record_ids = {1000001u};
+  service.getStoreMutable().setSideTable(hFrom, sideFrom);
+
+  ItemSideTableData sideTo;
+  sideTo.modifier_record_ids = {2000002u};
+  service.getStoreMutable().setSideTable(hTo, sideTo);
+
+  const SlotRef slotFrom{ContainerKind::Inventory, 0, 0, 0};
+  const SlotRef slotTo{ContainerKind::Inventory, 0, 0, 1};
+  service.setSlotHandle(slotFrom, hFrom);
+  service.setSlotHandle(slotTo, hTo);
+
+  const StorageError err = service.mergeStack(slotFrom, slotTo);
+  CHECK(err == StorageError::TypeMismatch);
+  // 两份 record ids 都必须保留，不得被静默丢弃
+  CHECK(service.getStore().get(hFrom)->quantity == 10);
+  CHECK(service.getStore().get(hTo)->quantity == 20);
+  REQUIRE(service.getStore().getSideTable(hFrom) != nullptr);
+  REQUIRE(service.getStore().getSideTable(hTo) != nullptr);
+  CHECK(service.getStore().getSideTable(hFrom)->modifier_record_ids.size() == 1);
+  CHECK(service.getStore().getSideTable(hTo)->modifier_record_ids.size() == 1);
+  CHECK(service.getStore().getSideTable(hFrom)->modifier_record_ids[0] ==
+        1000001u);
+  CHECK(service.getStore().getSideTable(hTo)->modifier_record_ids[0] == 2000002u);
+}
+
 TEST_CASE("[Unit] ItemStorageService - Transfer and AutoDeposit") {
   ItemTemplateRegistry::Instance().initializeDefaults();
   ItemStorageService service;

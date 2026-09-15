@@ -14,7 +14,7 @@
         "weapon_class_mask": 65535,
         "equip_slot_mask": 0,
         "node_id_whitelist": [
-          1100
+          1001
         ]
       },
       "constraints": {

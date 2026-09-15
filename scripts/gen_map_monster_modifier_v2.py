@@ -7,18 +7,21 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
-MAP_AFFIX_HEADER = REPO_ROOT / "src/game/data/MapAffix.hpp"
+MAP_AFFIX_HEADER = REPO_ROOT / "src/game/foundation/data/MapAffix.hpp"
 MAP_AFFIX_REGISTRY = REPO_ROOT / "src/game/systems/world/MapAffixRegistry.hpp"
-MAP_MODIFIER_ADAPTER = REPO_ROOT / "src/game/systems/modifier/MapModifierAdapter.cpp"
-MONSTER_AFFIX_REGISTRY = REPO_ROOT / "src/game/data/MonsterAffixRegistry.hpp"
-STATS_HEADER = REPO_ROOT / "src/game/components/Stats.hpp"
+MONSTER_AFFIX_REGISTRY = REPO_ROOT / "src/game/foundation/data/MonsterAffixRegistry.hpp"
+STATS_HEADER = REPO_ROOT / "src/game/foundation/components/Stats.hpp"
 
 MAP_OUTPUT = REPO_ROOT / "assets/data/modifier_v2/map_modifiers.json"
 MONSTER_OUTPUT = REPO_ROOT / "assets/data/modifier_v2/monster_modifiers.json"
 
 MAP_ID_BASE = 4_001_000
+# 共鸣词缀没有对应的 MapAffixType 枚举项，使用稳定的独立 record id / node id，
+# 运行时 MapModifierAdapter 以相同常量消费该记录。
+MAP_RESONANCE_ID = 4_099_999
 MONSTER_ID_BASE = 5_001_000
 MAP_NODE_BASE = 700_000
+MAP_RESONANCE_NODE = 799_999
 MONSTER_NODE_BASE = 800_000
 MAP_PRIORITY = 400
 MONSTER_PRIORITY = 500
@@ -263,7 +266,9 @@ def _parse_enum_values(text: str, enum_name: str) -> dict[str, int]:
 
 def _parse_map_registry_values(
     map_registry_text: str, map_affix_enum: dict[str, int]
-) -> dict[str, float]:
+) -> tuple[dict[str, float], dict[str, str]]:
+    # 解析 MapAffixRegistry.hpp 的 G_AFFIX_DEFINITIONS，作为地图词缀唯一事实来源。
+    # 战斗映射不再从 MapModifierAdapter.cpp 提取，避免生成器与适配器源码耦合。
     array_marker = map_registry_text.find("G_AFFIX_DEFINITIONS")
     if array_marker < 0:
         raise RuntimeError(
@@ -306,40 +311,35 @@ def _parse_map_registry_values(
         key=lambda item: item[1],
     )
 
+    # 字段布局：0 name, 1 nameZh, 2 descriptionTemplate, 3 category,
+    # 4 difficultyWeight, 5 valT1, 6 valT10, 7 isSuffix, 8 combatStat。
+    # combatStat 追加在末尾，valT1 仍固定为 fields[5]，避免索引漂移。
     val_t1_by_affix: dict[str, float] = {}
+    combat_stat_by_affix: dict[str, str] = {}
     for index, (affix_name, _) in enumerate(ordered_names):
         fields = _split_top_level_csv(entries[index])
-        if len(fields) < 7:
-            raise RuntimeError(f"malformed MapAffixDefinition entry for '{affix_name}'")
+        if len(fields) < 9:
+            raise RuntimeError(
+                f"malformed MapAffixDefinition entry for '{affix_name}': "
+                "expected at least 9 fields including combatStat"
+            )
         val_t1_by_affix[affix_name] = _parse_cpp_number(fields[5])
 
-    return val_t1_by_affix
+        # combatStat 使用 StatType::Count 作为“无战斗映射”的哨兵值。
+        # 必须整字段匹配 StatType::<名字>：若在字段 5..8 之间插入新字段，旧的
+        # 位置索引会静默取到错误字段；这里改为显式报错，便于立刻定位漂移。
+        stat_field = fields[8].strip()
+        combat_match = re.fullmatch(r"StatType::(\w+)", stat_field)
+        if not combat_match:
+            raise RuntimeError(
+                f"MapAffixDefinition for '{affix_name}': expected fields[8] to be "
+                f"'StatType::<name>' (combatStat), got '{stat_field}'. "
+                "Field order in MapAffixRegistry.hpp likely drifted; "
+                "update _parse_map_registry_values accordingly."
+            )
+        combat_stat_by_affix[affix_name] = combat_match.group(1)
 
-
-def _parse_map_adapter_enemy_templates(adapter_text: str) -> dict[str, str]:
-    cases = re.findall(
-        r"case\s+MapAffixType::(\w+)\s*:(.*?)break\s*;", adapter_text, flags=re.DOTALL
-    )
-    if not cases:
-        raise RuntimeError(
-            "no MapAffixType case blocks found in MapModifierAdapter.cpp"
-        )
-
-    mappings: dict[str, str] = {}
-    for affix_name, body in cases:
-        op_match = re.search(
-            r"AddPercentMultRecord\s*\(\s*records\s*,\s*nodeId\s*,\s*StatType::(\w+)\s*,\s*affix\.value\s*\)",
-            body,
-            flags=re.DOTALL,
-        )
-        if op_match:
-            mappings[affix_name] = op_match.group(1)
-
-    if not mappings:
-        raise RuntimeError(
-            "no combat-relevant AddPercentMultRecord mappings found in MapModifierAdapter.cpp"
-        )
-    return mappings
+    return val_t1_by_affix, combat_stat_by_affix
 
 
 def _parse_stat_mode_value_triplets(
@@ -573,19 +573,20 @@ def _build_map_records(
     map_affix_enum: dict[str, int],
     stat_type_enum: dict[str, int],
     map_val_t1: dict[str, float],
-    map_templates: dict[str, str],
+    map_combat_stats: dict[str, str],
 ) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for affix_name, affix_value in sorted(
         ((name, value) for name, value in map_affix_enum.items() if name != "Count"),
         key=lambda item: item[1],
     ):
-        stat_name = map_templates.get(affix_name)
-        if not stat_name:
+        stat_name = map_combat_stats.get(affix_name)
+        # StatType::Count 是哨兵值：该词缀没有直接战斗属性映射
+        if not stat_name or stat_name == "Count":
             continue
         if stat_name not in stat_type_enum:
             raise RuntimeError(
-                f"unknown StatType '{stat_name}' referenced by MapModifierAdapter"
+                f"unknown StatType '{stat_name}' referenced by MapAffixRegistry"
             )
         if affix_name not in map_val_t1:
             raise RuntimeError(
@@ -616,6 +617,34 @@ def _build_map_records(
 
     if not records:
         raise RuntimeError("map generation produced zero records")
+
+    # 共鸣词缀：按敌方密度对敌方最大生命施加百分比乘算。
+    # node id 固定为 MAP_RESONANCE_NODE；强度由运行时通过 ModifierRecordRequest
+    # 的 override（param_f32 = totalEnemyDensity * 0.05）注入，模板 param_f32 仅作占位。
+    if "MaxHealth" not in stat_type_enum:
+        raise RuntimeError("StatType 'MaxHealth' is required for map resonance record")
+    records.append(
+        {
+            "id": MAP_RESONANCE_ID,
+            "domain": "map",
+            "priority": MAP_PRIORITY,
+            "filters": _make_filters(MAP_RESONANCE_NODE),
+            "constraints": _make_constraints(),
+            "ops": [
+                {
+                    "opcode": "ADD_STAT_PERCENT_MULT",
+                    "target": "enemy",
+                    "param_u32": stat_type_enum["MaxHealth"],
+                    "param_f32": 0.0,
+                }
+            ],
+            "debug": {
+                "name": "Map_Resonance_EnemyDensity",
+                "source": "map_resonance",
+            },
+        }
+    )
+
     return records
 
 
@@ -665,6 +694,10 @@ def _build_monster_records(
 
         ops: list[dict[str, Any]] = []
         for stat_name, mode_name, raw_value in affix_def["stat_mods"]:
+            # 与运行时语义对齐：Vampiric 的吸血由行为系统（VAMPIRIC_ON_HIT）处理，
+            # 若同时产出 LifeSteal 属性 op 会导致吸血双重计入，故在此排除。
+            if affix_name == "Vampiric" and stat_name == "LifeSteal":
+                continue
             if stat_name not in stat_type_enum:
                 raise RuntimeError(
                     f"unknown StatType '{stat_name}' in affix '{affix_name}'"
@@ -774,10 +807,9 @@ def _generate() -> tuple[str, str, int, int]:
         _load_text(MONSTER_AFFIX_REGISTRY), "MonsterAffixType"
     )
 
-    map_val_t1 = _parse_map_registry_values(
+    map_val_t1, map_combat_stats = _parse_map_registry_values(
         _load_text(MAP_AFFIX_REGISTRY), map_affix_enum
     )
-    map_templates = _parse_map_adapter_enemy_templates(_load_text(MAP_MODIFIER_ADAPTER))
     monster_defs = _parse_monster_affix_defs(
         _load_text(MONSTER_AFFIX_REGISTRY), monster_affix_enum
     )
@@ -791,7 +823,7 @@ def _generate() -> tuple[str, str, int, int]:
         "schema_version": 2,
         "domain": "map",
         "records": _build_map_records(
-            map_affix_enum, stat_type_enum, map_val_t1, map_templates
+            map_affix_enum, stat_type_enum, map_val_t1, map_combat_stats
         ),
     }
     monster_payload = {
