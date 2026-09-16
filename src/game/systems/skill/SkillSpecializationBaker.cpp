@@ -8,6 +8,8 @@
 #include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
 #include "game/systems/modifier/EquipmentModifierAdapter.hpp"
+#include "game/systems/modifier/ModifierEvaluator.hpp"
+#include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include <algorithm>
 
 namespace NoMoreDay {
@@ -171,9 +173,37 @@ void SkillSpecializationBaker::Bake(
         out_profile.delivery.sub_interval = 0.5f;
       }
     }
+
+    // 3. UMR 技能交付参数：按节点加点线性缩放后合成到烘焙档（opcode 30..36）
+    const ModifierDelta specDelta =
+        SkillSpecModifierAdapter::EvaluateSkillDeliveryDeltas(
+            skill_id, out_profile.effective_tags, *spec);
+    out_profile.effective_mana_cost *=
+        specDelta.GetManaCostMultiplier(skill_id);
+    out_profile.effective_cooldown = std::max(
+        0.0f, (out_profile.effective_cooldown +
+               specDelta.GetSkillCooldownFlat(skill_id)) *
+                  specDelta.GetSkillCooldownMult(skill_id));
+    out_profile.effective_charges += specDelta.GetSkillCharges(skill_id);
+    out_profile.more_damage_mult *= specDelta.GetSkillMoreDamageMult(skill_id);
+    out_profile.delivery.bonus_crit += specDelta.GetSkillBonusCrit(skill_id);
+    out_profile.area_radius *= specDelta.GetSkillAreaMult(skill_id);
+
+    // 4. 154 孤注一掷终局覆盖：置于普通节点 delta 之后，使赋值式语义不受
+    //    allocated_points 遍历顺序影响。
+    if (skill_id == 1) {
+      const auto node154 = spec->allocated_points.find(154);
+      if (node154 != spec->allocated_points.end() && node154->second > 0) {
+        out_profile.effective_charges = 1;
+        out_profile.effective_cooldown = 8.0f;
+        out_profile.effective_mana_cost *= 2.0f;
+        out_profile.more_damage_mult *= 2.0f;
+        out_profile.delivery.bonus_crit += 1.0f; // 必暴（归一化 1.0 = 100%）
+      }
+    }
   }
 
-  // 3. 装备修饰器烘焙 (Equipment Skill Modifiers)
+  // 5. 装备修饰器烘焙 (Equipment Skill Modifiers)
   if (const auto *equipment = registry.try_get<EquipmentComponent>(caster)) {
     for (const auto itemEnt : equipment->slots) {
       if (!registry.valid(itemEnt) || !registry.all_of<ItemComponent>(itemEnt)) {
@@ -232,26 +262,11 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
 
   switch (skill_id) {
   case 1: // 流云刺
+    // 节点 101/102/103/110/111/134 的数值交付已迁移至 skill_spec UMR 交付算子
+    // （见 Bake 步骤 3）；节点 154 的赋值式 Keystone 终局覆盖移交 Bake 步骤 4。
+    // 以上节点在此不再产生烘焙期副作用。
     if (node_id == 100) {
       // 迅捷之刃：攻速加成通过 stat_modifiers (t17 AttackSpeed) 由 StatsSystem 交付
-    } else if (node_id == 101) {
-      // 气聚：降低法力消耗 15%...45% (max 3)
-      out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - 0.15f * static_cast<float>(points));
-    } else if (node_id == 102) {
-      // 剑心洞明：基础暴击率增加 2%...10% (max 5)
-      // bonus_crit 统一为归一化 0..1（与 payload/CombatStats 口径一致）
-      del.bonus_crit += 0.02f * static_cast<float>(points);
-    } else if (node_id == 103) {
-      // 流云劲：伤害提升 10%...40% (max 4)
-      out_profile.more_damage_mult *= (1.0f + 0.10f * static_cast<float>(points));
-    } else if (node_id == 110) {
-      // 贯日：冷却时间减少 1s，伤害降低 15% (max 1)
-      out_profile.effective_cooldown = std::max(0.0f, out_profile.effective_cooldown - 1.0f * static_cast<float>(points));
-      out_profile.more_damage_mult *= std::max(0.0f, 1.0f - 0.15f * static_cast<float>(points));
-    } else if (node_id == 111) {
-      // 连环：最大充能 +1/+2，充能时间 +15% (max 2)
-      out_profile.effective_charges += points;
-      out_profile.effective_cooldown *= (1.0f + 0.15f * static_cast<float>(points));
     } else if (node_id == 112) {
       // 势如破竹：位移距离增加 10%...40%，每多移动 10 码 More +2% (max 4)
       // 仅标记分配（feature_flags 位 256），实际效果在运行时按真实位移结算：
@@ -282,20 +297,9 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       // 移形换位：流云刺变传送，起终点范围爆炸 (max 1)
       del.feature_flags |= 8;
       out_profile.effective_tags = (out_profile.effective_tags & ~Tag::Movement) | Tag::Teleport;
-    } else if (node_id == 134) {
-      // 瞬狱影爆：传送爆炸伤害 +25%...75%，半径 +20%...60% (max 3)
-      out_profile.more_damage_mult *= (1.0f + 0.25f * static_cast<float>(points));
-      out_profile.area_radius *= (1.0f + 0.20f * static_cast<float>(points));
     } else if (node_id == 150) {
       // 要害感知：对高生命值或受控敌人暴击倍率提升 (max 4)
       del.feature_flags |= 64;
-    } else if (node_id == 154) {
-      // 孤注一掷：移除充能，CD 增至 8s，法力消耗翻倍，必暴，More +100% (max 1)
-      out_profile.effective_charges = 1;
-      out_profile.effective_cooldown = 8.0f;
-      out_profile.effective_mana_cost *= 2.0f;
-      out_profile.more_damage_mult *= 2.0f;
-      del.bonus_crit += 1.0f; // 必暴（归一化 1.0 = 100%）
     } else if (node_id == 155) {
       // 斩断因果：强化版击杀几率重置 CD 并回剑意 (max 3)
       del.feature_flags |= 128;

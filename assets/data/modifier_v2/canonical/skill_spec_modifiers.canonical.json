@@ -43,6 +43,393 @@
         "debug_name": "HeavyMomentum_Node213",
         "debug_source": "skill_spec_node"
       }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001010,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.mana_cost",
+        "value": 0.15,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          101
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MANA_COST_MULT",
+        "target": "skill.mana_cost",
+        "param_u32": 1,
+        "param_f32": 0.15,
+        "debug_name": "FlowingThrust_Node101_ManaCost",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001020,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.bonus_crit",
+        "value": 0.02,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          102
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_BONUS_CRIT",
+        "target": "skill.bonus_crit",
+        "param_u32": 1,
+        "param_f32": 0.02,
+        "debug_name": "FlowingThrust_Node102_BonusCrit",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001030,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.more_damage",
+        "value": 0.1,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          103
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MORE_DAMAGE_MULT",
+        "target": "skill.more_damage",
+        "param_u32": 1,
+        "param_f32": 0.1,
+        "debug_name": "FlowingThrust_Node103_MoreDamage",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001100,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.cooldown_flat",
+        "value": -1.0,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          110
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_COOLDOWN_FLAT",
+        "target": "skill.cooldown_flat",
+        "param_u32": 1,
+        "param_f32": -1.0,
+        "debug_name": "FlowingThrust_Node110_CooldownFlat",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001101,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.more_damage",
+        "value": -0.15,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          110
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MORE_DAMAGE_MULT",
+        "target": "skill.more_damage",
+        "param_u32": 1,
+        "param_f32": -0.15,
+        "debug_name": "FlowingThrust_Node110_MoreDamage",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001110,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.charges_add",
+        "value": 1.0,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          111
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_CHARGES_ADD",
+        "target": "skill.charges_add",
+        "param_u32": 1,
+        "param_f32": 1.0,
+        "debug_name": "FlowingThrust_Node111_Charges",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001111,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.cooldown_mult",
+        "value": 0.15,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          111
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_COOLDOWN_MULT",
+        "target": "skill.cooldown_mult",
+        "param_u32": 1,
+        "param_f32": 0.15,
+        "debug_name": "FlowingThrust_Node111_CooldownMult",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001340,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.more_damage",
+        "value": 0.25,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          134
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MORE_DAMAGE_MULT",
+        "target": "skill.more_damage",
+        "param_u32": 1,
+        "param_f32": 0.25,
+        "debug_name": "FlowingThrust_Node134_MoreDamage",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2001341,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.area_mult",
+        "value": 0.2,
+        "stacks": 1,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            1
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          1
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          134
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_AREA_MULT",
+        "target": "skill.area_mult",
+        "param_u32": 1,
+        "param_f32": 0.2,
+        "debug_name": "FlowingThrust_Node134_AreaMult",
+        "debug_source": "skill_spec_node"
+      }
     }
   ]
 }

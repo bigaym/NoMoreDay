@@ -22,6 +22,18 @@
 
 namespace NoMoreDay {
 
+namespace {
+
+// 技能交付算子由生成的 UMR 运行时二进制提供。同进程内其他用例可能经
+// LoadFromBytes 注入合成数据（此后 EnsureLoaded 视为通配来源不再重载），
+// 故烘焙断言前显式重载真实产物，避免跨用例状态泄漏。
+void EnsureModifierRuntimeForSkillSpec() {
+  // 复用 TestCommon 的单一资产路径来源，同时保留资产缺失/解析失败即硬失败。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+}
+
+} // namespace
+
 TEST_CASE("[Unit] SkillSpecializationBaker - Base Profile Baking") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
@@ -289,6 +301,7 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
 TEST_CASE("[Unit] SkillSpecializationBaker - Skill 1 Flowing Thrust Detailed Baking") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
 
   entt::registry registry;
   const auto player = registry.create();
@@ -330,6 +343,17 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Skill 1 Flowing Thrust Detailed Bak
 
     // 推导：node 102 每点 +2%，3 点 = 6% = 0.06（分数制）
     CHECK(profile.delivery.bonus_crit == doctest::Approx(0.06f));
+  }
+
+  SUBCASE("Node 103 Flowing Force increases more damage") {
+    SpecializedSkill spec;
+    spec.skill_id = 1;
+    spec.allocated_points[103] = 2; // 2 * 10% = +20%
+
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
+
+    CHECK(profile.more_damage_mult == doctest::Approx(1.20f));
   }
 
   SUBCASE("Node 110 Thrust Rhythm reduces CD by 1s and damage by 15%") {
@@ -519,11 +543,84 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Skill 1 Flowing Thrust Detailed Bak
     auto c572 = ResolveElementalConversion(572, 1);
     CHECK(c572.target_element == Tag::Cold);
   }
+
+  SUBCASE("Combo 110+111 composes cooldown as (base + flat) * mult") {
+    SpecializedSkill spec;
+    spec.skill_id = 1;
+    spec.allocated_points[110] = 1; // CD 平 -1s，More ×0.85
+    spec.allocated_points[111] = 1; // 充能 +1，CD 乘 ×1.15
+
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
+
+    // 确定式合成：(4.0 - 1.0) × 1.15 = 3.45；旧实现依赖 unordered_map 遍历顺序
+    CHECK(profile.effective_cooldown == doctest::Approx(3.45f));
+    // 基础 2 充能 + 111 的 +1
+    CHECK(profile.effective_charges == 3);
+    CHECK(profile.more_damage_mult == doctest::Approx(0.85f));
+  }
+
+  SUBCASE("Combo 110+154 keeps All In final override") {
+    SpecializedSkill spec;
+    spec.skill_id = 1;
+    spec.allocated_points[110] = 1; // CD 平 -1s
+    spec.allocated_points[154] = 1; // 孤注一掷赋值式覆盖
+
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
+
+    CHECK(profile.effective_charges == 1);
+    CHECK(profile.effective_cooldown == doctest::Approx(8.0f));
+  }
+
+  SUBCASE("Combo 111+154 keeps All In final override") {
+    SpecializedSkill spec;
+    spec.skill_id = 1;
+    spec.allocated_points[111] = 1; // 充能 +1，CD 乘 ×1.15
+    spec.allocated_points[154] = 1;
+
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
+
+    CHECK(profile.effective_charges == 1);
+    CHECK(profile.effective_cooldown == doctest::Approx(8.0f));
+  }
+
+  SUBCASE("Combo 101+103 scales mana and more damage independently") {
+    SpecializedSkill spec;
+    spec.skill_id = 1;
+    spec.allocated_points[101] = 1; // 法耗 ×0.85
+    spec.allocated_points[103] = 1; // More ×1.10
+
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
+
+    const auto *data = SkillRegistry::Get().GetSkill(1);
+    REQUIRE(data != nullptr);
+    CHECK(profile.effective_mana_cost ==
+          doctest::Approx(data->mana_cost * 0.85f));
+    CHECK(profile.more_damage_mult == doctest::Approx(1.10f));
+  }
+
+  SUBCASE("Combo 102+134 scales crit, more damage and radius independently") {
+    SpecializedSkill spec;
+    spec.skill_id = 1;
+    spec.allocated_points[102] = 1; // 暴击 +0.02
+    spec.allocated_points[134] = 1; // More ×1.25，范围 ×1.20
+
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 1, &spec, profile, nullptr);
+
+    CHECK(profile.delivery.bonus_crit == doctest::Approx(0.02f));
+    CHECK(profile.more_damage_mult == doctest::Approx(1.25f));
+    CHECK(profile.area_radius == doctest::Approx(1.20f));
+  }
 }
 
 TEST_CASE("[Unit] SkillSystem - Skill 1 Charges and Cooldown Execution") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
   systems::SpatialHashGrid grid(1000, 1000, 50);
 
   entt::registry registry;
@@ -777,6 +874,7 @@ TEST_CASE("[Unit] FlowingThrust - Runtime Node Behaviors (150, 174, 115, 155)") 
 TEST_CASE("[Unit] FlowingThrust - 133 Swap Explosion Damage Payload") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
   // 注册技能行为与 OnSkillHit 事件处理器（DoHit 依赖事件链路）
   SkillSystem::InitHooks();
 

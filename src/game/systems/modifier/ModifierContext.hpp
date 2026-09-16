@@ -2,6 +2,7 @@
 
 #include "game/foundation/data/TagRegistry.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -37,6 +38,16 @@ enum class ModifierOpCode : uint16_t {
   MONSTER_BEHAVIOR_SOUL_LINK_UPDATE = 26,
   MONSTER_BEHAVIOR_STORM_UPDATE = 27,
   MONSTER_BEHAVIOR_VOID_ON_HIT = 28,
+
+  // 技能交付参数算子 (30..36)：param_u32 恒为技能 ID（delta 容器键），
+  // param_f32 为每点幅度；应用时按节点分配点数 N 线性缩放（见设计 §3.2.1）。
+  SKILL_MORE_DAMAGE_MULT = 30, // 每点 More 加成（0.10 = 每点 +10%，负值合法）
+  SKILL_COOLDOWN_FLAT = 31,    // 每点绝对秒数（负值 = 减冷却）
+  SKILL_COOLDOWN_MULT = 32,    // 每点乘算偏移（0.15 = 每点 +15% CD）
+  SKILL_CHARGES_ADD = 33,      // 每点平加充能数（1.0 = 每点 +1 充能）
+  SKILL_BONUS_CRIT = 34,       // 每点平加暴击率（0.02 = 每点 +2%）
+  SKILL_AREA_MULT = 35,        // 每点范围乘算偏移（0.20 = 每点 +20%）
+  SKILL_MANA_COST_MULT = 36,   // 每点法耗折扣（0.15 = 每点 −15%，下限 0）
 };
 
 /**
@@ -50,7 +61,8 @@ enum class ModifierOpCategory : uint32_t {
   Stats = 1u << 0,
   Events = 1u << 1,
   Behavior = 1u << 2,
-  All = (1u << 0) | (1u << 1) | (1u << 2),
+  SkillDelivery = 1u << 3,
+  All = (1u << 0) | (1u << 1) | (1u << 2) | (1u << 3),
 };
 
 [[nodiscard]] constexpr ModifierOpCategory
@@ -94,6 +106,12 @@ struct ModifierRecord {
   std::vector<ModifierOp> ops;
 };
 
+// 单个专精节点的已分配点数，供求值层按点数线性缩放算子数值。
+struct NodePointEntry {
+  uint32_t node_id = 0;
+  uint16_t points = 0;
+};
+
 struct ModifierEvalContext {
   uint32_t profession_id = 0;
   uint32_t skill_id = 0;
@@ -101,6 +119,29 @@ struct ModifierEvalContext {
   uint32_t weapon_class_mask = 0xFFFFFFFFu;
   uint32_t equip_slot_mask = 0xFFFFFFFFu;
   std::vector<uint32_t> active_node_ids;
+  // 按 node_id 升序排列（调用方保证排序），与 active_node_ids 由同一份加点数据填充。
+  std::vector<NodePointEntry> node_points;
+
+  // 查找节点已分配点数；未分配返回 0。
+  // 约定 node_points 按 node_id 升序（调用方排序），故先用 lower_bound 命中；
+  // 未命中时再线性精确扫描兜底，保证表未排序时结果依然正确，
+  // 且避免每次调用都做 O(n) 的 std::is_sorted 校验而抵消二分收益。
+  [[nodiscard]] uint16_t GetPointsForNode(const uint32_t nodeId) const {
+    const auto it = std::lower_bound(
+        node_points.begin(), node_points.end(), nodeId,
+        [](const NodePointEntry &entry, const uint32_t id) {
+          return entry.node_id < id;
+        });
+    if (it != node_points.end() && it->node_id == nodeId) {
+      return it->points;
+    }
+    for (const NodePointEntry &entry : node_points) {
+      if (entry.node_id == nodeId) {
+        return entry.points;
+      }
+    }
+    return 0;
+  }
 };
 
 /**

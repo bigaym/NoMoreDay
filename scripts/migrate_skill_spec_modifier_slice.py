@@ -54,6 +54,13 @@ DEFAULT_DROP_LIST_OUTPUT = (
 SUPPORTED_OPCODE_TO_OPERATION = {
     "ADD_STAT_FLAT": "add",
     "ADD_STAT_PERCENT_MULT": "mul",
+    "SKILL_COOLDOWN_FLAT": "add",
+    "SKILL_CHARGES_ADD": "add",
+    "SKILL_BONUS_CRIT": "add",
+    "SKILL_MORE_DAMAGE_MULT": "mul",
+    "SKILL_COOLDOWN_MULT": "mul",
+    "SKILL_AREA_MULT": "mul",
+    "SKILL_MANA_COST_MULT": "mul",
 }
 
 TARGET_PATTERN = re.compile(r"^[a-z][a-z0-9_.]*$")

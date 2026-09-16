@@ -91,7 +91,7 @@ std::vector<uint8_t> BuildManaCostRuntimeBlob() {
   NoMoreDay::ModifierRuntimeFilter filter;
   filter.required_skill_tags_all =
       static_cast<uint64_t>(NoMoreDay::Tag::Hit);
-  filter.equip_slot_mask = 2u; // 主手槽位；注意 ctx.equip_slot_mask 目前不被填充（保持通配），本用例不覆盖槽位过滤
+  filter.equip_slot_mask = 2u; // 主手槽位；ctx.equip_slot_mask 现按槽分组填充，记录与主手物品槽位匹配而生效
   filter.skill_whitelist_offset = 0;
   filter.skill_whitelist_count = 1;
 

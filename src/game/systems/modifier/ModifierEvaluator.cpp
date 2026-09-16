@@ -48,6 +48,14 @@ bool ContainsAnyNode(const std::span<const uint32_t> requiredNodes,
   return false;
 }
 
+// 武器类别掩码通配判定：0 / 0xFFFFFFFF / 0xFFFF 均视为"不过滤"。
+// 既有数据用 65535 与 4294967295 表示全部武器类别；徒手上下文置
+// WeaponSubtype::None（bit 0），仍能匹配这些通配掩码。
+bool IsWeaponMaskWildcard(const uint32_t weaponMask) {
+  return weaponMask == 0u || weaponMask == 0xFFFFFFFFu ||
+         weaponMask == 0xFFFFu;
+}
+
 bool MatchesFilters(const ModifierFilter &filter, const ModifierEvalContext &ctx) {
   if (filter.profession_mask != 0ull) {
     if (ctx.profession_id >= 64u) {
@@ -72,8 +80,9 @@ bool MatchesFilters(const ModifierFilter &filter, const ModifierEvalContext &ctx
     return false;
   }
 
-  if (filter.weapon_class_mask != 0u &&
-      (filter.weapon_class_mask & ctx.weapon_class_mask) == 0u) {
+  const uint32_t weaponMask = filter.weapon_class_mask;
+  if (!IsWeaponMaskWildcard(weaponMask) &&
+      (weaponMask & ctx.weapon_class_mask) == 0u) {
     return false;
   }
 
@@ -112,8 +121,9 @@ bool MatchesFilters(const ModifierRuntimeFilter &filter,
     return false;
   }
 
-  if (filter.weapon_class_mask != 0u &&
-      (filter.weapon_class_mask & ctx.weapon_class_mask) == 0u) {
+  const uint32_t weaponMask = filter.weapon_class_mask;
+  if (!IsWeaponMaskWildcard(weaponMask) &&
+      (weaponMask & ctx.weapon_class_mask) == 0u) {
     return false;
   }
 
@@ -132,6 +142,28 @@ float ReadOr(const std::unordered_map<uint32_t, float> &map,
     return defaultValue;
   }
   return it->second;
+}
+
+// 解析记录级有效点数：
+// 1. 白名单为空 -> 1（非专精域记录单次生效）；
+// 2. 未填 node_points -> 1（兼容回退：只填 active_node_ids 的既有调用点行为不变）；
+// 3. 否则取白名单中第一个已加点（points > 0）的节点，全部为 0 点返回 0（跳过记录）。
+// 不做上限截断：节点最大点数的校验归加点/存档校验层。
+uint16_t ResolveEffectivePoints(const std::span<const uint32_t> nodeWhitelist,
+                                const ModifierEvalContext &ctx) {
+  if (nodeWhitelist.empty()) {
+    return 1;
+  }
+  if (ctx.node_points.empty()) {
+    return 1;
+  }
+  for (const uint32_t nodeId : nodeWhitelist) {
+    const uint16_t points = ctx.GetPointsForNode(nodeId);
+    if (points > 0) {
+      return points;
+    }
+  }
+  return 0;
 }
 
 // 算子类别归属：用于窄入口按类别掩码跳过无关算子组。
@@ -169,38 +201,50 @@ ModifierOpCategory CategoryOfOp(const ModifierOpCode opcode) {
   case ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE:
   case ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT:
     return ModifierOpCategory::Behavior;
+  case ModifierOpCode::SKILL_MORE_DAMAGE_MULT:
+  case ModifierOpCode::SKILL_COOLDOWN_FLAT:
+  case ModifierOpCode::SKILL_COOLDOWN_MULT:
+  case ModifierOpCode::SKILL_CHARGES_ADD:
+  case ModifierOpCode::SKILL_BONUS_CRIT:
+  case ModifierOpCode::SKILL_AREA_MULT:
+  case ModifierOpCode::SKILL_MANA_COST_MULT:
+    return ModifierOpCategory::SkillDelivery;
   }
   return ModifierOpCategory::None;
 }
 
-// 施加单条 runtime 算子；effectivePercentMult 为乘算算子的有效数值
-// （命中运行时覆盖时为滚值，否则为离线模板值）。
-void ApplyRuntimeOp(const ModifierRuntimeOp &op,
-                    const float effectivePercentMult, ModifierDelta &out) {
-  switch (static_cast<ModifierOpCode>(op.opcode)) {
+// 施加单条算子：effectivePercentMult 仅替代 ADD_STAT_PERCENT_MULT 的数值
+// （命中运行时覆盖时为滚值，否则为离线模板值）；points 仅作用于技能交付算子，
+// 既有属性/事件/行为算子忽略 points。运行时记录路径与静态记录路径共用本函数，
+// 避免两处 switch 漂移。
+void ApplyOp(const ModifierOpCode opcode, const uint32_t paramU32,
+             const float paramF32, const uint16_t points,
+             const float effectivePercentMult, ModifierDelta &out) {
+  const float pts = static_cast<float>(points);
+  switch (opcode) {
   case ModifierOpCode::ADD_STAT_FLAT:
-    out.AddFlat(op.param_u32, op.param_f32);
+    out.AddFlat(paramU32, paramF32);
     break;
   case ModifierOpCode::ADD_STAT_PERCENT_ADD:
-    out.AddPercentAdd(op.param_u32, op.param_f32);
+    out.AddPercentAdd(paramU32, paramF32);
     break;
   case ModifierOpCode::ADD_STAT_PERCENT_MULT:
-    out.AddPercentMult(op.param_u32, effectivePercentMult);
+    out.AddPercentMult(paramU32, effectivePercentMult);
     break;
   case ModifierOpCode::ADD_SKILL_LEVEL:
-    out.AddSkillLevel(op.param_u32, op.param_f32);
+    out.AddSkillLevel(paramU32, paramF32);
     break;
   case ModifierOpCode::MANA_COST_MULT:
-    out.AddManaCostMultiplier(op.param_u32, op.param_f32);
+    out.AddManaCostMultiplier(paramU32, paramF32);
     break;
   case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
-    out.AddMonsterEventOnUpdate(op.param_u32);
+    out.AddMonsterEventOnUpdate(paramU32);
     break;
   case ModifierOpCode::MONSTER_EVENT_ON_HIT:
-    out.AddMonsterEventOnHit(op.param_u32);
+    out.AddMonsterEventOnHit(paramU32);
     break;
   case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
-    out.AddMonsterEventOnDeath(op.param_u32);
+    out.AddMonsterEventOnDeath(paramU32);
     break;
   case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
   case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
@@ -214,7 +258,7 @@ void ApplyRuntimeOp(const ModifierRuntimeOp &op,
   case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
   case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
   case ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE:
-    out.AddMonsterBehaviorOnUpdate(op.opcode);
+    out.AddMonsterBehaviorOnUpdate(static_cast<uint16_t>(opcode));
     break;
   case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
   case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
@@ -222,12 +266,37 @@ void ApplyRuntimeOp(const ModifierRuntimeOp &op,
   case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
   case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
   case ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT:
-    out.AddMonsterBehaviorOnHit(op.opcode);
+    out.AddMonsterBehaviorOnHit(static_cast<uint16_t>(opcode));
     break;
   case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
   case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
   case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
-    out.AddMonsterBehaviorOnDeath(op.opcode);
+    out.AddMonsterBehaviorOnDeath(static_cast<uint16_t>(opcode));
+    break;
+  // 交付乘法算子（More / 冷却 / 范围）刻意不做上限截断：设计 §3.1 明确求值层
+  // 不截断，每点幅度按线性外推，节点点数上限由加点/存档校验层保证；此处截断
+  // 反而会掩盖加点越界错误。三个算子共用此语义。
+  case ModifierOpCode::SKILL_MORE_DAMAGE_MULT:
+    out.AddSkillMoreDamageMult(paramU32, 1.0f + paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_COOLDOWN_FLAT:
+    out.AddSkillCooldownFlat(paramU32, paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_COOLDOWN_MULT:
+    out.AddSkillCooldownMult(paramU32, 1.0f + paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_CHARGES_ADD:
+    out.AddSkillCharges(paramU32, static_cast<int>(paramF32 * pts));
+    break;
+  case ModifierOpCode::SKILL_BONUS_CRIT:
+    out.AddSkillBonusCrit(paramU32, paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_AREA_MULT:
+    out.AddSkillAreaMult(paramU32, 1.0f + paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_MANA_COST_MULT:
+    // 仅法耗下限 0：负数法力消耗物理上无意义；该下限不构成对其余交付算子的截断。
+    out.AddManaCostMultiplier(paramU32, std::max(0.0f, 1.0f - paramF32 * pts));
     break;
   }
 }
@@ -251,6 +320,11 @@ void EvaluateRuntimeRecord(const ModifierRuntimeRegistry &registry,
     return;
   }
 
+  const uint16_t effectivePoints = ResolveEffectivePoints(nodeWhitelist, ctx);
+  if (effectivePoints == 0) {
+    return;
+  }
+
   for (const auto &op : registry.GetOps(record)) {
     const ModifierOpCode opcode = static_cast<ModifierOpCode>(op.opcode);
     if (!HasOpCategory(categories, CategoryOfOp(opcode))) {
@@ -265,11 +339,16 @@ void EvaluateRuntimeRecord(const ModifierRuntimeRegistry &registry,
       effectivePercentMult = request->param_f32;
     }
 
-    ApplyRuntimeOp(op, effectivePercentMult, out);
+    ApplyOp(opcode, op.param_u32, op.param_f32, effectivePoints,
+            effectivePercentMult, out);
   }
 }
 
 } // namespace
+
+bool IsSkillDeliveryOpCode(const ModifierOpCode opcode) {
+  return CategoryOfOp(opcode) == ModifierOpCategory::SkillDelivery;
+}
 
 void ModifierDelta::AddFlat(const uint32_t statType, const float value) {
   flat[statType] += value;
@@ -297,6 +376,50 @@ void ModifierDelta::AddManaCostMultiplier(const uint32_t skillId,
   const auto it = mana_cost_mult.find(skillId);
   if (it == mana_cost_mult.end()) {
     mana_cost_mult.emplace(skillId, mult);
+    return;
+  }
+  it->second *= mult;
+}
+
+void ModifierDelta::AddSkillMoreDamageMult(const uint32_t skillId,
+                                           const float mult) {
+  const auto it = skill_more_damage_mult.find(skillId);
+  if (it == skill_more_damage_mult.end()) {
+    skill_more_damage_mult.emplace(skillId, mult);
+    return;
+  }
+  it->second *= mult;
+}
+
+void ModifierDelta::AddSkillCooldownFlat(const uint32_t skillId,
+                                         const float value) {
+  skill_cooldown_flat[skillId] += value;
+}
+
+void ModifierDelta::AddSkillCooldownMult(const uint32_t skillId,
+                                         const float mult) {
+  const auto it = skill_cooldown_mult.find(skillId);
+  if (it == skill_cooldown_mult.end()) {
+    skill_cooldown_mult.emplace(skillId, mult);
+    return;
+  }
+  it->second *= mult;
+}
+
+void ModifierDelta::AddSkillCharges(const uint32_t skillId, const int value) {
+  skill_charges_add[skillId] += value;
+}
+
+void ModifierDelta::AddSkillBonusCrit(const uint32_t skillId,
+                                      const float value) {
+  skill_bonus_crit[skillId] += value;
+}
+
+void ModifierDelta::AddSkillAreaMult(const uint32_t skillId,
+                                     const float mult) {
+  const auto it = skill_area_mult.find(skillId);
+  if (it == skill_area_mult.end()) {
+    skill_area_mult.emplace(skillId, mult);
     return;
   }
   it->second *= mult;
@@ -339,6 +462,79 @@ float ModifierDelta::GetManaCostMultiplier(const uint32_t skillId) const {
   return globalMult * skillMult;
 }
 
+float ModifierDelta::GetSkillMoreDamageMult(const uint32_t skillId) const {
+  return ReadOr(skill_more_damage_mult, skillId, 1.0f);
+}
+
+float ModifierDelta::GetSkillCooldownFlat(const uint32_t skillId) const {
+  return ReadOr(skill_cooldown_flat, skillId, 0.0f);
+}
+
+float ModifierDelta::GetSkillCooldownMult(const uint32_t skillId) const {
+  return ReadOr(skill_cooldown_mult, skillId, 1.0f);
+}
+
+int ModifierDelta::GetSkillCharges(const uint32_t skillId) const {
+  const auto it = skill_charges_add.find(skillId);
+  return it != skill_charges_add.end() ? it->second : 0;
+}
+
+float ModifierDelta::GetSkillBonusCrit(const uint32_t skillId) const {
+  return ReadOr(skill_bonus_crit, skillId, 0.0f);
+}
+
+float ModifierDelta::GetSkillAreaMult(const uint32_t skillId) const {
+  return ReadOr(skill_area_mult, skillId, 1.0f);
+}
+
+void ModifierDelta::MergeFrom(const ModifierDelta &other) {
+  if (this == &other) {
+    return;
+  }
+
+  // 加性容器累加；乘性容器以缺省单位元为基准累乘（首次出现直接落值）。
+  const auto mergeAdditive = [](auto &dst, const auto &src) {
+    for (const auto &[key, value] : src) {
+      dst[key] += value;
+    }
+  };
+  const auto mergeMultiplicative = [](auto &dst, const auto &src) {
+    for (const auto &[key, value] : src) {
+      const auto it = dst.find(key);
+      if (it == dst.end()) {
+        dst.emplace(key, value);
+      } else {
+        it->second *= value;
+      }
+    }
+  };
+  const auto mergeSet = [](auto &dst, const auto &src) {
+    dst.insert(src.begin(), src.end());
+  };
+
+  mergeAdditive(flat, other.flat);
+  mergeAdditive(percent_add, other.percent_add);
+  mergeMultiplicative(percent_mult, other.percent_mult);
+  mergeAdditive(skill_levels, other.skill_levels);
+  mergeMultiplicative(mana_cost_mult, other.mana_cost_mult);
+  mergeAdditive(skill_cooldown_flat, other.skill_cooldown_flat);
+  mergeAdditive(skill_charges_add, other.skill_charges_add);
+  mergeAdditive(skill_bonus_crit, other.skill_bonus_crit);
+  mergeMultiplicative(skill_more_damage_mult, other.skill_more_damage_mult);
+  mergeMultiplicative(skill_cooldown_mult, other.skill_cooldown_mult);
+  mergeMultiplicative(skill_area_mult, other.skill_area_mult);
+  mergeSet(monster_event_on_update_affix_ids,
+           other.monster_event_on_update_affix_ids);
+  mergeSet(monster_event_on_hit_affix_ids, other.monster_event_on_hit_affix_ids);
+  mergeSet(monster_event_on_death_affix_ids,
+           other.monster_event_on_death_affix_ids);
+  mergeSet(monster_behavior_on_update_opcodes,
+           other.monster_behavior_on_update_opcodes);
+  mergeSet(monster_behavior_on_hit_opcodes, other.monster_behavior_on_hit_opcodes);
+  mergeSet(monster_behavior_on_death_opcodes,
+           other.monster_behavior_on_death_opcodes);
+}
+
 ModifierDelta ModifierEvaluator::Evaluate(
     const std::span<const ModifierRecord> records, const ModifierEvalContext &ctx) {
   ModifierDelta out;
@@ -346,62 +542,14 @@ ModifierDelta ModifierEvaluator::Evaluate(
     if (!MatchesFilters(record.filter, ctx)) {
       continue;
     }
+    const uint16_t effectivePoints =
+        ResolveEffectivePoints(record.filter.node_id_whitelist, ctx);
+    if (effectivePoints == 0) {
+      continue;
+    }
     for (const auto &op : record.ops) {
-      switch (op.opcode) {
-      case ModifierOpCode::ADD_STAT_FLAT:
-        out.AddFlat(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::ADD_STAT_PERCENT_ADD:
-        out.AddPercentAdd(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::ADD_STAT_PERCENT_MULT:
-        out.AddPercentMult(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::ADD_SKILL_LEVEL:
-        out.AddSkillLevel(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::MANA_COST_MULT:
-        out.AddManaCostMultiplier(op.param_u32, op.param_f32);
-        break;
-      case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
-        out.AddMonsterEventOnUpdate(op.param_u32);
-        break;
-      case ModifierOpCode::MONSTER_EVENT_ON_HIT:
-        out.AddMonsterEventOnHit(op.param_u32);
-        break;
-      case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
-        out.AddMonsterEventOnDeath(op.param_u32);
-        break;
-      case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE:
-        out.AddMonsterBehaviorOnUpdate(static_cast<uint16_t>(op.opcode));
-        break;
-      case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
-      case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
-      case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
-      case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
-      case ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT:
-        out.AddMonsterBehaviorOnHit(static_cast<uint16_t>(op.opcode));
-        break;
-      case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
-      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
-      case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
-        out.AddMonsterBehaviorOnDeath(static_cast<uint16_t>(op.opcode));
-        break;
-      default:
-        break;
-      }
+      ApplyOp(op.opcode, op.param_u32, op.param_f32, effectivePoints,
+              op.param_f32, out);
     }
   }
   return out;
@@ -425,15 +573,15 @@ ModifierDelta ModifierEvaluator::Evaluate(
 
 ModifierDelta ModifierEvaluator::Evaluate(
     const ModifierRuntimeRegistry &registry,
-    const std::span<const uint32_t> recordIds, const ModifierEvalContext &ctx) {
+    const std::span<const uint32_t> recordIds, const ModifierEvalContext &ctx,
+    const ModifierOpCategory categories) {
   ModifierDelta out;
   for (const uint32_t recordId : recordIds) {
     const ModifierRuntimeRecord *record = registry.FindRecordById(recordId);
     if (record == nullptr) {
       continue;
     }
-    EvaluateRuntimeRecord(registry, *record, ctx, nullptr,
-                          ModifierOpCategory::All, out);
+    EvaluateRuntimeRecord(registry, *record, ctx, nullptr, categories, out);
   }
   return out;
 }
