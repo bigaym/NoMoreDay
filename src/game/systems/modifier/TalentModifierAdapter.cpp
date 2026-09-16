@@ -98,9 +98,13 @@ float TalentModifierAdapter::EvaluateFlatHealthBonus(
   ModifierEvalContext ctx;
   ctx.active_node_ids.assign(nodeIds.begin(), nodeIds.end());
 
+  // 天赋路径仅消费属性/事件/行为算子，显式排除 SkillDelivery：30..40 只允许出自
+  // 技能专精记录，避免非技能天赋记录误带交付算子污染增量。
   const auto delta = ModifierEvaluator::Evaluate(
       runtimeRegistry,
-      std::span<const uint32_t>(recordIds.data(), recordIds.size()), ctx);
+      std::span<const uint32_t>(recordIds.data(), recordIds.size()), ctx,
+      ModifierOpCategory::Stats | ModifierOpCategory::Events |
+          ModifierOpCategory::Behavior);
 
   const auto it = delta.flat.find(kMaxHealthStat);
   if (it == delta.flat.end()) {

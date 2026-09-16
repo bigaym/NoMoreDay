@@ -2365,35 +2365,10 @@
     ]
   ],
   "dynamic_keys": [
-    "cost_reduction_pct_per_point",
-    "crit_chance_per_point",
-    "crit_damage_per_point",
     "haste_pct_per_point",
-    "phys_damage_pct_per_point",
-    "range_pct_per_point",
     "speed_bonus_pct"
   ],
   "unreferenced": [
-    [
-      2,
-      200,
-      "area_radius_pct_per_point"
-    ],
-    [
-      2,
-      200,
-      "range_pct_per_point"
-    ],
-    [
-      2,
-      201,
-      "mana_reduction_per_point"
-    ],
-    [
-      2,
-      202,
-      "phys_damage_pct_per_point"
-    ],
     [
       2,
       203,
@@ -2486,33 +2461,13 @@
     ],
     [
       3,
-      300,
-      "swords_per_point"
-    ],
-    [
-      3,
       301,
       "haste_pct_per_point"
     ],
     [
       3,
-      302,
-      "phys_damage_pct_per_point"
-    ],
-    [
-      3,
-      310,
-      "range_pct_per_point"
-    ],
-    [
-      3,
       311,
       "damage_penalty"
-    ],
-    [
-      3,
-      312,
-      "cost_reduction_pct_per_point"
     ],
     [
       3,
@@ -2533,16 +2488,6 @@
       3,
       330,
       "giant_size_mult"
-    ],
-    [
-      3,
-      331,
-      "crit_chance_per_point"
-    ],
-    [
-      3,
-      332,
-      "crit_damage_per_point"
     ],
     [
       3,

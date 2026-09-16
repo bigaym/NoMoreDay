@@ -208,6 +208,10 @@ ModifierOpCategory CategoryOfOp(const ModifierOpCode opcode) {
   case ModifierOpCode::SKILL_BONUS_CRIT:
   case ModifierOpCode::SKILL_AREA_MULT:
   case ModifierOpCode::SKILL_MANA_COST_MULT:
+  case ModifierOpCode::SKILL_PROJECTILES_ADD:
+  case ModifierOpCode::SKILL_MANA_COST_FLAT:
+  case ModifierOpCode::SKILL_BONUS_CRIT_DAMAGE:
+  case ModifierOpCode::SKILL_RANGE_MULT:
     return ModifierOpCategory::SkillDelivery;
   }
   return ModifierOpCategory::None;
@@ -297,6 +301,18 @@ void ApplyOp(const ModifierOpCode opcode, const uint32_t paramU32,
   case ModifierOpCode::SKILL_MANA_COST_MULT:
     // 仅法耗下限 0：负数法力消耗物理上无意义；该下限不构成对其余交付算子的截断。
     out.AddManaCostMultiplier(paramU32, std::max(0.0f, 1.0f - paramF32 * pts));
+    break;
+  case ModifierOpCode::SKILL_PROJECTILES_ADD:
+    out.AddSkillProjectiles(paramU32, static_cast<int>(paramF32 * pts));
+    break;
+  case ModifierOpCode::SKILL_MANA_COST_FLAT:
+    out.AddSkillManaCostFlat(paramU32, paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_BONUS_CRIT_DAMAGE:
+    out.AddSkillBonusCritDamage(paramU32, paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_RANGE_MULT:
+    out.AddSkillRangeMult(paramU32, 1.0f + paramF32 * pts);
     break;
   }
 }
@@ -425,6 +441,31 @@ void ModifierDelta::AddSkillAreaMult(const uint32_t skillId,
   it->second *= mult;
 }
 
+void ModifierDelta::AddSkillProjectiles(const uint32_t skillId,
+                                        const int value) {
+  skill_projectiles_add[skillId] += value;
+}
+
+void ModifierDelta::AddSkillManaCostFlat(const uint32_t skillId,
+                                         const float value) {
+  skill_mana_cost_flat[skillId] += value;
+}
+
+void ModifierDelta::AddSkillBonusCritDamage(const uint32_t skillId,
+                                            const float value) {
+  skill_bonus_crit_damage[skillId] += value;
+}
+
+void ModifierDelta::AddSkillRangeMult(const uint32_t skillId,
+                                      const float mult) {
+  const auto it = skill_range_mult.find(skillId);
+  if (it == skill_range_mult.end()) {
+    skill_range_mult.emplace(skillId, mult);
+    return;
+  }
+  it->second *= mult;
+}
+
 void ModifierDelta::AddMonsterEventOnUpdate(const uint32_t affixId) {
   monster_event_on_update_affix_ids.insert(affixId);
 }
@@ -487,6 +528,23 @@ float ModifierDelta::GetSkillAreaMult(const uint32_t skillId) const {
   return ReadOr(skill_area_mult, skillId, 1.0f);
 }
 
+int ModifierDelta::GetSkillProjectiles(const uint32_t skillId) const {
+  const auto it = skill_projectiles_add.find(skillId);
+  return it != skill_projectiles_add.end() ? it->second : 0;
+}
+
+float ModifierDelta::GetSkillManaCostFlat(const uint32_t skillId) const {
+  return ReadOr(skill_mana_cost_flat, skillId, 0.0f);
+}
+
+float ModifierDelta::GetSkillBonusCritDamage(const uint32_t skillId) const {
+  return ReadOr(skill_bonus_crit_damage, skillId, 0.0f);
+}
+
+float ModifierDelta::GetSkillRangeMult(const uint32_t skillId) const {
+  return ReadOr(skill_range_mult, skillId, 1.0f);
+}
+
 void ModifierDelta::MergeFrom(const ModifierDelta &other) {
   if (this == &other) {
     return;
@@ -523,6 +581,10 @@ void ModifierDelta::MergeFrom(const ModifierDelta &other) {
   mergeMultiplicative(skill_more_damage_mult, other.skill_more_damage_mult);
   mergeMultiplicative(skill_cooldown_mult, other.skill_cooldown_mult);
   mergeMultiplicative(skill_area_mult, other.skill_area_mult);
+  mergeAdditive(skill_projectiles_add, other.skill_projectiles_add);
+  mergeAdditive(skill_mana_cost_flat, other.skill_mana_cost_flat);
+  mergeAdditive(skill_bonus_crit_damage, other.skill_bonus_crit_damage);
+  mergeMultiplicative(skill_range_mult, other.skill_range_mult);
   mergeSet(monster_event_on_update_affix_ids,
            other.monster_event_on_update_affix_ids);
   mergeSet(monster_event_on_hit_affix_ids, other.monster_event_on_hit_affix_ids);

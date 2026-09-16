@@ -52,16 +52,6 @@
     }
   },
   "2": {
-    "200": {
-      "area_radius_pct_per_point": 10.0,
-      "range_pct_per_point": 10.0
-    },
-    "201": {
-      "mana_reduction_per_point": 1.0
-    },
-    "202": {
-      "phys_damage_pct_per_point": 10.0
-    },
     "203": {
       "ailment_potency_pct_per_point": 15.0
     },
@@ -169,27 +159,19 @@
   },
   "3": {
     "300": {
-      "swords_per_point": 1.0,
       "duration": 8.0
     },
     "301": {
       "haste_pct_per_point": 8.0
     },
-    "302": {
-      "phys_damage_pct_per_point": 10.0
-    },
     "303": {
       "conv_efficiency_pct_per_point": 10.0
-    },
-    "310": {
-      "range_pct_per_point": 20.0
     },
     "311": {
       "damage_penalty": 0.40
     },
     "312": {
-      "mana_regen_per_sword_per_point": 3.0,
-      "cost_reduction_pct_per_point": 5.0
+      "mana_regen_per_sword_per_point": 3.0
     },
     "313": {
       "attack_speed_scale": 0.75
@@ -204,11 +186,7 @@
       "giant_attack_interval_mult": 2.0
     },
     "331": {
-      "crit_chance_per_point": 5.0,
       "splash_radius": 60.0
-    },
-    "332": {
-      "crit_damage_per_point": 25.0
     },
     "333": {
       "taken_phys_pct_per_point": 5.0

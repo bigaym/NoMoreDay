@@ -11,6 +11,7 @@
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include <algorithm>
+#include <string_view>
 
 namespace NoMoreDay {
 
@@ -75,6 +76,9 @@ void SkillSpecializationBaker::Bake(
     out_profile.area_radius = 35.0f;
     break;
   case 3: // 御剑术
+    // 索敌半径基准必须显式写入：节点 310 的 SKILL_RANGE_MULT 在该基准上乘算，
+    // 不得依赖 BakedDeliveryParams 默认值（对齐 case 2 的 500 与 case 7 的 base_range）
+    del.range = 200.0f;
     out_profile.projectile_count = 3;
     break;
   case 4: // 剑气护体
@@ -157,15 +161,7 @@ void SkillSpecializationBaker::Bake(
       ApplyNodeModifiersToProfile(registry, caster, skill_id, node_id, points, out_profile);
     }
 
-    if (skill_id == 3) {
-      if ((out_profile.delivery.feature_flags & 2) != 0) {
-        // 330 巨剑降临：固定为 1 柄
-        out_profile.projectile_count = 1;
-      } else if ((out_profile.delivery.feature_flags & 1) != 0) {
-        // 311 无尽剑匣：上限翻倍
-        out_profile.projectile_count *= 2;
-      }
-    } else if (skill_id == 6) {
+    if (skill_id == 6) {
       // 互斥安全守卫: 焚天烈焰阵 (670) 与 九幽雷池 (672) 互斥
       if ((out_profile.delivery.feature_flags & 262144) && (out_profile.delivery.feature_flags & 1048576)) {
         out_profile.delivery.feature_flags &= ~1048576; // 保留优先转质 670，剔除 672
@@ -174,23 +170,32 @@ void SkillSpecializationBaker::Bake(
       }
     }
 
-    // 3. UMR 技能交付参数：按节点加点线性缩放后合成到烘焙档（opcode 30..36）
+    // 3. UMR 技能交付参数：按节点加点线性缩放后合成到烘焙档（opcode 30..40）
     const ModifierDelta specDelta =
         SkillSpecModifierAdapter::EvaluateSkillDeliveryDeltas(
             skill_id, out_profile.effective_tags, *spec);
-    out_profile.effective_mana_cost *=
-        specDelta.GetManaCostMultiplier(skill_id);
+    // 法耗结算固定为「先加性平减、再乘性折扣、下限 0」：加性与乘性不可交换，
+    // 顺序必须锁定，避免依赖算子遍历次序。
+    out_profile.effective_mana_cost = std::max(
+        0.0f,
+        (out_profile.effective_mana_cost +
+         specDelta.GetSkillManaCostFlat(skill_id)) *
+            specDelta.GetManaCostMultiplier(skill_id));
     out_profile.effective_cooldown = std::max(
         0.0f, (out_profile.effective_cooldown +
                specDelta.GetSkillCooldownFlat(skill_id)) *
                   specDelta.GetSkillCooldownMult(skill_id));
     out_profile.effective_charges += specDelta.GetSkillCharges(skill_id);
+    out_profile.projectile_count += specDelta.GetSkillProjectiles(skill_id);
     out_profile.more_damage_mult *= specDelta.GetSkillMoreDamageMult(skill_id);
     out_profile.delivery.bonus_crit += specDelta.GetSkillBonusCrit(skill_id);
+    out_profile.delivery.bonus_crit_damage +=
+        specDelta.GetSkillBonusCritDamage(skill_id);
     out_profile.area_radius *= specDelta.GetSkillAreaMult(skill_id);
+    out_profile.delivery.range *= specDelta.GetSkillRangeMult(skill_id);
 
-    // 4. 154 孤注一掷终局覆盖：置于普通节点 delta 之后，使赋值式语义不受
-    //    allocated_points 遍历顺序影响。
+    // 4. 确定性终局覆盖：置于普通节点 delta 与 UMR 增量之后，使赋值式语义
+    //    不受 allocated_points 遍历顺序影响。
     if (skill_id == 1) {
       const auto node154 = spec->allocated_points.find(154);
       if (node154 != spec->allocated_points.end() && node154->second > 0) {
@@ -199,6 +204,29 @@ void SkillSpecializationBaker::Bake(
         out_profile.effective_mana_cost *= 2.0f;
         out_profile.more_damage_mult *= 2.0f;
         out_profile.delivery.bonus_crit += 1.0f; // 必暴（归一化 1.0 = 100%）
+      }
+    } else if (skill_id == 2) {
+      // 210 多重剑气：投射物数量已由 UMR 增量加入，此处只补非线性伤害惩罚。
+      // 惩罚按点数分档从机制表读取，代码中不保留 0.25/0.20/0.15 字面量。
+      const auto node210 = spec->allocated_points.find(210);
+      if (node210 != spec->allocated_points.end() && node210->second > 0) {
+        // 用字面量分档键走 string_view 重载，避免核心玩法路径上的临时堆分配。
+        static constexpr std::string_view kPenaltyKeys[3] = {
+            "damage_penalty_pt1", "damage_penalty_pt2", "damage_penalty_pt3"};
+        const std::string_view key =
+            kPenaltyKeys[std::clamp(node210->second, 1, 3) - 1];
+        const float penalty_pct =
+            data::SkillMechanicsRegistry::Get().GetFloat(2, 210, key, 0.0f);
+        out_profile.more_damage_mult *= (1.0f - penalty_pct);
+      }
+    } else if (skill_id == 3) {
+      // 311 无尽剑匣 / 330 巨剑降临：形态覆盖必须晚于 UMR 增量，保证
+      // 「先加灵剑数量、再翻倍或锁 1」的确定性结果。
+      if ((out_profile.delivery.feature_flags & 2) != 0) {
+        out_profile.projectile_count = 1;
+        out_profile.area_radius = 80.0f;
+      } else if ((out_profile.delivery.feature_flags & 1) != 0) {
+        out_profile.projectile_count *= 2;
       }
     }
   }
@@ -313,24 +341,15 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     break;
 
   case 2: // 裂空斩
-    if (node_id == 200) {
-      // 剑气纵横：宽度和飞行距离增加 10%...40% (max 4)
-      out_profile.area_radius *= (1.0f + 0.1f * static_cast<float>(points));
-      del.range *= (1.0f + 0.1f * static_cast<float>(points));
-    } else if (node_id == 201) {
-      // 凝神：法力消耗降低 1...4 点 (max 4)
-      out_profile.effective_mana_cost = std::max(0.0f, out_profile.effective_mana_cost - 1.0f * static_cast<float>(points));
-    } else if (node_id == 202) {
-      // 锋芒：基础物理伤害增加 10%...50% (max 5)
-      out_profile.more_damage_mult *= (1.0f + 0.10f * static_cast<float>(points));
+    if (node_id == 200 || node_id == 201 || node_id == 202) {
+      // 200/201/202 的纯数值已迁入 UMR 记录：范围与射程 = AREA_MULT/RANGE_MULT，
+      // 平减法耗 = MANA_COST_FLAT，More 增伤 = MORE_DAMAGE_MULT；节点循环不再写数值
     } else if (node_id == 203) {
       // 气劲爆发：异常状态效果提升 15%...60% (max 4)
       // 由 RendingWave 运行时按 getPts(203) 读 skill_mechanics 结算异常强度缩放，Baker 无需置位
     } else if (node_id == 210) {
-      // 多重剑气：数量 +1/+2/+3，扇形发射，每发伤害降低 25%/20%/15% (max 3)
-      out_profile.projectile_count += points;
-      const float penalty = (points == 1) ? 0.75f : ((points == 2) ? 0.80f : 0.85f);
-      out_profile.more_damage_mult *= penalty;
+      // 多重剑气：投射物数量迁入 UMR 记录 210（PROJECTILES_ADD）；
+      // 非线性伤害惩罚在步骤 4 读取机制表后统一施加
     } else if (node_id == 211) {
       // 碎裂之刃：命中首个敌人或最大距离分裂成 3 道较小追踪剑气 (max 1)
       del.sub_count = 3;
@@ -425,31 +444,25 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     {
       const auto &mech = data::SkillMechanicsRegistry::Get();
       if (node_id == 300) {
-        // 剑池充盈：在场最大灵剑数量 +1/2/3/4 (max 4)
-        out_profile.projectile_count += points;
+        // 剑池充盈：灵剑数量迁入 UMR 记录 300（PROJECTILES_ADD）
       } else if (node_id == 301) {
         // 疾风意：自动攻击频率增加 8%...40% (max 5)
         const float haste_pct = mech.GetFloat(skill_id, node_id, "haste_pct_per_point", 8.0f);
         del.sub_interval = (haste_pct / 100.0f) * static_cast<float>(points);
       } else if (node_id == 302) {
-        // 锋灵：物理伤害增加 10%...50% (max 5)
-        const float phys_pct = mech.GetFloat(skill_id, node_id, "phys_damage_pct_per_point", 10.0f);
-        out_profile.more_damage_mult *= (1.0f + (phys_pct / 100.0f) * static_cast<float>(points));
+        // 锋灵：物理伤害增伤迁入 UMR 记录 302（MORE_DAMAGE_MULT）
       } else if (node_id == 303) {
         // 五行归元：属性伤害转换效率提升 10%...40% (max 4)
         del.feature_flags |= 256;
       } else if (node_id == 310) {
-        // 索敌范围：追踪半径增加 20%...60% (max 3)；基准 200 与 BladeFormation fallback 一致
-        const float range_pct = mech.GetFloat(skill_id, node_id, "range_pct_per_point", 20.0f);
-        del.range = 200.0f * (1.0f + (range_pct / 100.0f) * static_cast<float>(points));
+        // 索敌范围：迁入 UMR 记录 310（RANGE_MULT），基准 200 已在步骤 1 显式写入
       } else if (node_id == 311) {
         // 无尽剑匣：灵剑上限翻倍，单发伤害降低 40% (max 1)
         // 确定性处理：翻倍在 Bake 循环结束后统一根据 feature_flags |= 1 执行
         del.feature_flags |= 1;
       } else if (node_id == 312) {
-        // 灵力网络：每柄灵剑回蓝 3...9 点/秒，维持消耗降低 5%...15% (max 3)
-        const float cost_red_pct = mech.GetFloat(skill_id, node_id, "cost_reduction_pct_per_point", 5.0f);
-        out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - (cost_red_pct / 100.0f) * static_cast<float>(points));
+        // 灵力网络：维持消耗折扣迁入 UMR 记录 312（MANA_COST_MULT），
+        // 每柄灵剑回蓝由运行时按机制表读取；此处仅保留机制位
         del.feature_flags |= 512;
       } else if (node_id == 313) {
         // 神速 (Keystone)：灵剑攻击频率受角色攻速 75% 加成 (max 1)
@@ -461,19 +474,14 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
         // 御剑共振：御剑步期间频率 +20%...60%，命中几率回剑意 (max 3)
         del.feature_flags |= 64;
       } else if (node_id == 330) {
-        // 巨剑降临 (Keystone)：最多 1 柄，基础伤害提升 150%，范围提升，频率降低 50%
-        // projectile_count 在 post-process 置 1；伤害由 BladeFormation 设置 damage_scale=1.25f (2.5x base 0.5f)
-        out_profile.area_radius = 80.0f;
+        // 巨剑降临 (Keystone)：投射物置 1 与范围 80 由步骤 4 后置覆盖，
+        // 伤害倍率由 BladeFormation 设置 damage_scale；此处只保留形态机制位
         del.feature_flags |= 2;
       } else if (node_id == 331) {
-        // 弱点锁定：巨剑暴击率 +5%...25% (max 5)；crit_chance 为归一化 0..1，需 /100
-        const float crit_pct = mech.GetFloat(skill_id, node_id, "crit_chance_per_point", 5.0f);
-        del.bonus_crit += (crit_pct / 100.0f) * static_cast<float>(points);
+        // 弱点锁定：巨剑暴击率迁入 UMR 记录 331（BONUS_CRIT）；此处仅保留机制位
         del.feature_flags |= 1024;
       } else if (node_id == 332) {
-        // 致命锋芒：暴伤倍率 +25%...100% (max 4)
-        const float cd_pct = mech.GetFloat(skill_id, node_id, "crit_damage_per_point", 25.0f);
-        del.bonus_crit_damage += (cd_pct / 100.0f) * static_cast<float>(points);
+        // 致命锋芒：暴伤倍率迁入 UMR 记录 332（BONUS_CRIT_DAMAGE）
       } else if (node_id == 333) {
         // 剑压：巨剑命中使敌人受物理伤害增加 5%...15% (max 3)
         del.feature_flags |= 2048;

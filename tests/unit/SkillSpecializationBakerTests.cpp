@@ -18,6 +18,9 @@
 #include "game/systems/skill/behaviors/FlowingThrust.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/modifier/ModifierContext.hpp"
+#include "game/systems/modifier/ModifierEvaluator.hpp"
+#include "game/systems/modifier/ModifierRuntimeTypes.hpp"
 #include "raylib.h"
 
 namespace NoMoreDay {
@@ -32,11 +35,67 @@ void EnsureModifierRuntimeForSkillSpec() {
   REQUIRE(ReloadModifierRuntimeFromAsset());
 }
 
+template <typename T>
+void AppendRuntimeStruct(std::vector<uint8_t> &out, const T &value) {
+  const auto *bytes = reinterpret_cast<const uint8_t *>(&value);
+  out.insert(out.end(), bytes, bytes + sizeof(T));
+}
+
+// 合成单记录运行时二进制：同一技能同时携带加法平减与乘法折扣两个法耗算子，
+// 用于锁定「先加性、后乘性」的确定性结算顺序（真实资产暂无同时携带两者的技能）。
+// flat_delta 为每点绝对平减（负值即减免）；mult_discount_per_point 为每点折扣率，
+// 乘性系数由算子计算为 max(0, 1 - 折扣率 * 点数)。
+std::vector<uint8_t> BuildManaRuntimeBlob(float flat_delta,
+                                          float mult_discount_per_point) {
+  ModifierRuntimeHeader header;
+  header.record_count = 1;
+  header.filter_count = 1;
+  header.op_count = 2;
+  header.index_count = 0;
+  header.records_offset = sizeof(ModifierRuntimeHeader);
+  header.filters_offset =
+      header.records_offset + sizeof(ModifierRuntimeRecord);
+  header.ops_offset = header.filters_offset + sizeof(ModifierRuntimeFilter);
+  header.index_offset = header.ops_offset + 2u * sizeof(ModifierRuntimeOp);
+  header.crc32 = 0;
+
+  ModifierRuntimeRecord record;
+  record.id = 7101u;
+  record.filter_index = 0;
+  record.op_offset = 0;
+  record.op_count = 2;
+
+  ModifierRuntimeFilter filter; // 空白名单：技能与节点均按通配处理
+
+  ModifierRuntimeOp flatOp;
+  flatOp.opcode =
+      static_cast<uint16_t>(ModifierOpCode::SKILL_MANA_COST_FLAT);
+  flatOp.param_u32 = 2u;
+  flatOp.param_f32 = flat_delta;
+
+  ModifierRuntimeOp multOp;
+  multOp.opcode =
+      static_cast<uint16_t>(ModifierOpCode::SKILL_MANA_COST_MULT);
+  multOp.param_u32 = 2u;
+  multOp.param_f32 = mult_discount_per_point;
+
+  std::vector<uint8_t> blob;
+  blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
+               2u * sizeof(ModifierRuntimeOp));
+  AppendRuntimeStruct(blob, header);
+  AppendRuntimeStruct(blob, record);
+  AppendRuntimeStruct(blob, filter);
+  AppendRuntimeStruct(blob, flatOp);
+  AppendRuntimeStruct(blob, multOp);
+  return blob;
+}
+
 } // namespace
 
 TEST_CASE("[Unit] SkillSpecializationBaker - Base Profile Baking") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
 
   entt::registry registry;
   const auto player = registry.create();
@@ -54,6 +113,8 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Base Profile Baking") {
 TEST_CASE("[Unit] SkillSpecializationBaker - Talent Modifiers and Archetype Morph") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // 210 的投射物增量已迁至 UMR，须显式重载真实产物，避免依赖用例执行顺序。
+  EnsureModifierRuntimeForSkillSpec();
 
   entt::registry registry;
   const auto player = registry.create();
@@ -75,6 +136,246 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Talent Modifiers and Archetype Morp
   CHECK((profile.delivery.feature_flags & 1) != 0); // Boomerang morph
   CHECK(profile.delivery.sub_count == 3);
   CHECK((profile.delivery.feature_flags & 4) != 0); // HasSplit
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 2 UMR Delivery Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+  // 210 的非线性惩罚改为从机制表读取，需加载真实数值。
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      "assets/data/skill_mechanics.json"));
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 200 剑气纵横：范围与射程按 UMR AREA_MULT / RANGE_MULT 各自 +10%/点
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 2;
+    spec.allocated_points[200] = 2;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(42.0f)); // 基础 35 × 1.2（2 点 × +10%）= 42
+    CHECK(profile.delivery.range == doctest::Approx(600.0f)); // 基础 500 × 1.2（2 点 × +10%）= 600
+  }
+
+  // 201 凝神：法耗平减 -1/点（flat 语义）
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 2;
+    spec.allocated_points[201] = 2;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(8.0f)); // 基础 10 - 2 点 × 1 = 8
+  }
+
+  // 202 锋芒：More 增伤 +10%/点（乘算）
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 2;
+    spec.allocated_points[202] = 3;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.30f));
+  }
+
+  // 210 多重剑气：投射物由 UMR 追加，惩罚按机制表分档（3 点 = pt3 = 0.15）
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 2;
+    spec.allocated_points[210] = 3;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+    CHECK(profile.projectile_count == 4);                      // 基础 1 柄 + 3 点 × 1 = 4
+    CHECK(profile.more_damage_mult == doctest::Approx(0.85f)); // pt3 惩罚：1 × (1 - 0.15) = 0.85
+  }
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 3 UMR Delivery Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 步骤 1 基准：未加点时索敌半径为 200、灵剑基数为 3
+  {
+    BakedSkillProfile base{};
+    SkillSpecializationBaker::Bake(registry, player, 3, nullptr, base, nullptr);
+    CHECK(base.delivery.range == doctest::Approx(200.0f));
+    CHECK(base.projectile_count == 3);
+  }
+
+  // 300 剑池充盈：+1 灵剑/点
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[300] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.projectile_count == 7); // 3 + 4
+  }
+
+  // 310 索敌范围：在基准 200 上 +20%/点
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[310] = 2;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.delivery.range == doctest::Approx(280.0f)); // 200 * 1.4
+  }
+
+  // 312 灵力网络：法耗 -5%/点（乘算折扣）
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[312] = 2;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(22.5f)); // 25 * 0.9
+  }
+
+  // 331 弱点锁定：暴击率 +5%/点
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[331] = 2;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.delivery.bonus_crit == doctest::Approx(0.10f));
+  }
+
+  // 332 致命锋芒：暴伤 +25%/点
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[332] = 2;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.delivery.bonus_crit_damage == doctest::Approx(0.50f));
+  }
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 3 Keystone Overrides UMR") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 300(4) + 311：先加 4 柄灵剑，再按无尽剑匣翻倍
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[300] = 4;
+    spec.allocated_points[311] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.projectile_count == 14); // (基础 3 柄 + 4 点) × 无尽剑匣 2 倍 = 14
+  }
+
+  // 300(4) + 330：巨剑降临形态晚于 UMR 覆盖为单柄、范围 80
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 3;
+    spec.allocated_points[300] = 4;
+    spec.allocated_points[330] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 3, &spec, profile, nullptr);
+    CHECK(profile.projectile_count == 1);
+    CHECK(profile.area_radius == doctest::Approx(80.0f));
+  }
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Node 210 Penalty Reads Mechanics") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+
+  // 改写机制表证明惩罚值确由数据驱动：pt3 = 0.30 时 More 应变为 0.70。
+  // 若代码仍残留 0.15 字面量，本用例会失败。
+  const auto dir = std::filesystem::temp_directory_path() /
+                   "nmd_skill_spec_baker_mechanics_guard";
+  std::filesystem::create_directories(dir);
+  const auto mechanicsPath = dir / "mechanics_pt3_030.json";
+  {
+    std::ofstream out(mechanicsPath, std::ios::binary);
+    REQUIRE(out.good());
+    // 机制表加载要求 1..12 技能 id 全部在场（缺一即拒载），故补空节点占位。
+    out << R"({"version":1,"1":{},"2":{"210":{"damage_penalty_pt3":0.30}},)"
+           R"("3":{},"4":{},"5":{},"6":{},"7":{},"8":{},"9":{},"10":{},)"
+           R"("11":{},"12":{}})";
+  }
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      mechanicsPath.string()));
+
+  entt::registry registry;
+  const auto player = registry.create();
+  SpecializedSkill spec;
+  spec.skill_id = 2;
+  spec.allocated_points[210] = 3;
+  BakedSkillProfile profile{};
+  SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+
+  CHECK(profile.projectile_count == 4);
+  CHECK(profile.more_damage_mult == doctest::Approx(0.70f));
+
+  std::filesystem::remove(mechanicsPath);
+
+  // 恢复真实机制表，避免合成表泄漏到依赖技能数据的后续用例。
+  data::SkillMechanicsRegistry::Get().ResetForTests();
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      "assets/data/skill_mechanics.json"));
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Mana Flat Then Mult Order") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+
+  // 注入合成 UMR：技能 2 同时含 flat(-1/点) 与 mult(0.10/点)，有效点数为 1。
+  REQUIRE(ModifierRuntimeRegistry::Get().LoadFromBytes(
+      BuildManaRuntimeBlob(-1.0f, 0.10f)));
+
+  entt::registry registry;
+  const auto player = registry.create();
+  SpecializedSkill spec;
+  spec.skill_id = 2;
+  spec.allocated_points[201] = 1; // 非空加点使记录通过白名单采集
+  BakedSkillProfile profile{};
+  SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+
+  // 先 flat 后 mult：(10 - 1) * 0.90 = 8.10；若顺序颠倒则为 10 * 0.90 - 1 = 8.00。
+  CHECK(profile.effective_mana_cost == doctest::Approx(8.10f));
+
+  // 恢复真实运行时产物，避免合成数据泄漏到其它用例。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Mana Cost Floors At Zero") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+
+  // 平减额远超基础法耗（10 - 100）*1.0 = -90，必须被钳制为 0 而非负法耗。
+  // 折扣率传 0（乘性系数 = 1 - 0*1 = 1），否则算子自身的乘性下限会把结果归零，
+  // 使本用例无法区分生产端是否真的做了钳制。
+  REQUIRE(ModifierRuntimeRegistry::Get().LoadFromBytes(
+      BuildManaRuntimeBlob(-100.0f, 0.0f)));
+
+  entt::registry registry;
+  const auto player = registry.create();
+  SpecializedSkill spec;
+  spec.skill_id = 2;
+  spec.allocated_points[201] = 1;
+  BakedSkillProfile profile{};
+  SkillSpecializationBaker::Bake(registry, player, 2, &spec, profile, nullptr);
+
+  CHECK(profile.effective_mana_cost == doctest::Approx(0.0f));
+
+  REQUIRE(ReloadModifierRuntimeFromAsset());
 }
 
 TEST_CASE("[Unit] SkillSpecializationBaker - Trigger Contract Rule Generation") {
@@ -212,6 +513,7 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Rebake TriggerRule Idempotency") {
 TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Fields") {
   TestSetupScope scope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
 
   entt::registry registry;
   const auto player = registry.create();

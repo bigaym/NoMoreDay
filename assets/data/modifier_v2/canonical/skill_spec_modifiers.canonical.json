@@ -430,6 +430,479 @@
         "debug_name": "FlowingThrust_Node134_AreaMult",
         "debug_source": "skill_spec_node"
       }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2002000,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.area_mult",
+        "value": 0.1,
+        "stacks": 2,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            2
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          2
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          200
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_AREA_MULT",
+        "target": "skill.area_mult",
+        "param_u32": 2,
+        "param_f32": 0.1,
+        "debug_name": "RendingWave_Node200_AreaMult",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2002001,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.range_mult",
+        "value": 0.1,
+        "stacks": 2,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            2
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          2
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          200
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_RANGE_MULT",
+        "target": "skill.range_mult",
+        "param_u32": 2,
+        "param_f32": 0.1,
+        "debug_name": "RendingWave_Node200_RangeMult",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2002010,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.mana_cost_flat",
+        "value": -1.0,
+        "stacks": 2,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            2
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          2
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          201
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MANA_COST_FLAT",
+        "target": "skill.mana_cost_flat",
+        "param_u32": 2,
+        "param_f32": -1.0,
+        "debug_name": "RendingWave_Node201_ManaCostFlat",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2002020,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.more_damage",
+        "value": 0.1,
+        "stacks": 2,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            2
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          2
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          202
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MORE_DAMAGE_MULT",
+        "target": "skill.more_damage",
+        "param_u32": 2,
+        "param_f32": 0.1,
+        "debug_name": "RendingWave_Node202_MoreDamage",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2002100,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.projectiles_add",
+        "value": 1.0,
+        "stacks": 2,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            2
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          2
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          210
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_PROJECTILES_ADD",
+        "target": "skill.projectiles_add",
+        "param_u32": 2,
+        "param_f32": 1.0,
+        "debug_name": "RendingWave_Node210_Projectiles",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2003000,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.projectiles_add",
+        "value": 1.0,
+        "stacks": 3,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            3
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          3
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          300
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_PROJECTILES_ADD",
+        "target": "skill.projectiles_add",
+        "param_u32": 3,
+        "param_f32": 1.0,
+        "debug_name": "BladeFormation_Node300_Projectiles",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2003020,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.more_damage",
+        "value": 0.1,
+        "stacks": 3,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            3
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          3
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          302
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MORE_DAMAGE_MULT",
+        "target": "skill.more_damage",
+        "param_u32": 3,
+        "param_f32": 0.1,
+        "debug_name": "BladeFormation_Node302_MoreDamage",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2003100,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.range_mult",
+        "value": 0.2,
+        "stacks": 3,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            3
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          3
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          310
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_RANGE_MULT",
+        "target": "skill.range_mult",
+        "param_u32": 3,
+        "param_f32": 0.2,
+        "debug_name": "BladeFormation_Node310_RangeMult",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2003120,
+        "domain": "skill_spec",
+        "operation": "mul",
+        "stat_path": "skill.mana_cost",
+        "value": 0.05,
+        "stacks": 3,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            3
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          3
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          312
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_MANA_COST_MULT",
+        "target": "skill.mana_cost",
+        "param_u32": 3,
+        "param_f32": 0.05,
+        "debug_name": "BladeFormation_Node312_ManaCost",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2003310,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.bonus_crit",
+        "value": 0.05,
+        "stacks": 3,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            3
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          3
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          331
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_BONUS_CRIT",
+        "target": "skill.bonus_crit",
+        "param_u32": 3,
+        "param_f32": 0.05,
+        "debug_name": "BladeFormation_Node331_BonusCrit",
+        "debug_source": "skill_spec_node"
+      }
+    },
+    {
+      "record": {
+        "schema_version": 1,
+        "record_type": "modifier",
+        "modifier_id": 2003320,
+        "domain": "skill_spec",
+        "operation": "add",
+        "stat_path": "skill.bonus_crit_damage",
+        "value": 0.25,
+        "stacks": 3,
+        "tags": [
+          "skill"
+        ],
+        "conditions": {
+          "all_skill_ids": [
+            3
+          ],
+          "min_player_level": 1
+        }
+      },
+      "runtime": {
+        "priority": 200,
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          3
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          332
+        ],
+        "exclusive_group": 0,
+        "max_active": 0,
+        "opcode": "SKILL_BONUS_CRIT_DAMAGE",
+        "target": "skill.bonus_crit_damage",
+        "param_u32": 3,
+        "param_f32": 0.25,
+        "debug_name": "BladeFormation_Node332_BonusCritDamage",
+        "debug_source": "skill_spec_node"
+      }
     }
   ]
 }

@@ -61,6 +61,10 @@ SUPPORTED_OPCODE_TO_OPERATION = {
     "SKILL_COOLDOWN_MULT": "mul",
     "SKILL_AREA_MULT": "mul",
     "SKILL_MANA_COST_MULT": "mul",
+    "SKILL_PROJECTILES_ADD": "add",
+    "SKILL_MANA_COST_FLAT": "add",
+    "SKILL_BONUS_CRIT_DAMAGE": "add",
+    "SKILL_RANGE_MULT": "mul",
 }
 
 TARGET_PATTERN = re.compile(r"^[a-z][a-z0-9_.]*$")

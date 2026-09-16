@@ -29,7 +29,7 @@ public:
       Tag skillTags,
       std::span<const uint32_t> nodeIds);
 
-  // 技能交付参数算子 (opcode 30..36)：从专精加点求值交付 delta，
+  // 技能交付参数算子 (opcode 30..40)：从专精加点求值交付 delta，
   // 调用方按设计 §3.4 的顺序合成进 BakedSkillProfile；无可采集记录返回默认 delta。
   [[nodiscard]] static ModifierDelta EvaluateSkillDeliveryDeltas(
       uint32_t skillId, Tag skillTags, const SpecializedSkill &activeSkillSlot);

@@ -28,6 +28,9 @@ constexpr uint32_t kSkillId = 2;
 void LoadSkillData() {
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json"));
+  // 200/201/202/210 的专精数值已迁入 UMR canonical 记录，烘焙结果依赖真实运行时数据。
+  // 该 registry 是进程级单例，会被其它用例注入的合成 blob 覆盖，故显式重载以消除顺序依赖。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   SkillBehaviorRegistry::Initialize();
   ProcBudgetManager::Get().ResetForTests();
   CombatEventDispatcher::Init();

@@ -191,7 +191,7 @@ ModifierDelta SkillSpecModifierAdapter::EvaluateSkillDeliveryDeltas(
   ctx.active_node_ids = snapshot.activeNodeIds;
   ctx.node_points = snapshot.nodePoints;
 
-  // 仅应用 SkillDelivery 类别（opcode 30..36）：采集记录若同时携带 Stats 类别算子
+  // 仅应用 SkillDelivery 类别（opcode 30..40）：采集记录若同时携带 Stats 类别算子
   // （如 MANA_COST_MULT），不得被折叠进交付 delta 而误改法耗等参数。
   return ModifierEvaluator::Evaluate(
       runtimeRegistry,
@@ -217,9 +217,13 @@ float SkillSpecModifierAdapter::EvaluateDamageMultiplier(
   ctx.skill_tags = skillTags;
   ctx.active_node_ids.assign(nodeIds.begin(), nodeIds.end());
 
+  // 仅取属性乘算贡献，显式排除 SkillDelivery：交付算子由
+  // EvaluateSkillDeliveryDeltas 单独消费，不得混入伤害乘算路径。
   const auto delta = ModifierEvaluator::Evaluate(
       runtimeRegistry,
-      std::span<const uint32_t>(recordIds.data(), recordIds.size()), ctx);
+      std::span<const uint32_t>(recordIds.data(), recordIds.size()), ctx,
+      ModifierOpCategory::Stats | ModifierOpCategory::Events |
+          ModifierOpCategory::Behavior);
   return ModifierEvaluator::ApplyStat(1.0f, kPhysicalDamageStat, delta);
 }
 

@@ -111,10 +111,13 @@ MapModifierAdapter::EvaluateEnemyAffixDelta(const ActiveDimensionalState &state)
     return ModifierDelta{};
   }
 
+  // 地图词缀仅消费属性/事件/行为算子，显式排除 SkillDelivery：30..40 只允许出自
+  // 技能专精记录，避免地图记录误带交付算子污染属性增量。
   return ModifierEvaluator::Evaluate(
       registry,
       std::span<const ModifierRecordRequest>(requests.data(), requests.size()),
-      ctx);
+      ctx, ModifierOpCategory::Stats | ModifierOpCategory::Events |
+               ModifierOpCategory::Behavior);
 }
 
 } // namespace NoMoreDay

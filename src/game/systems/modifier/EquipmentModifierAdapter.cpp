@@ -128,7 +128,7 @@ EvaluateEquippedRecordRefs(const std::span<const EquippedRecordRef> refs,
 
     slotCtx.equip_slot_mask = slotBit;
     // 装备/天赋记录只应产生属性、怪物事件与行为算子；显式排除 SkillDelivery
-    // (30..36)，避免非技能路径误施加技能交付算子（交付 op 由 SkillSpec 路径求值）。
+    // (30..40)，避免非技能路径误施加技能交付算子（交付 op 由 SkillSpec 路径求值）。
     total.MergeFrom(ModifierEvaluator::Evaluate(
         runtimeRegistry,
         std::span<const uint32_t>(groupRecordIds.data(), groupRecordIds.size()),

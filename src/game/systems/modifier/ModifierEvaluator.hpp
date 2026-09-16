@@ -22,6 +22,10 @@ struct ModifierDelta {
   void AddSkillCharges(uint32_t skillId, int value);
   void AddSkillBonusCrit(uint32_t skillId, float value);
   void AddSkillAreaMult(uint32_t skillId, float mult);
+  void AddSkillProjectiles(uint32_t skillId, int value);
+  void AddSkillManaCostFlat(uint32_t skillId, float value);
+  void AddSkillBonusCritDamage(uint32_t skillId, float value);
+  void AddSkillRangeMult(uint32_t skillId, float mult);
   void AddMonsterEventOnUpdate(uint32_t affixId);
   void AddMonsterEventOnHit(uint32_t affixId);
   void AddMonsterEventOnDeath(uint32_t affixId);
@@ -37,6 +41,10 @@ struct ModifierDelta {
   [[nodiscard]] int GetSkillCharges(uint32_t skillId) const;
   [[nodiscard]] float GetSkillBonusCrit(uint32_t skillId) const;
   [[nodiscard]] float GetSkillAreaMult(uint32_t skillId) const;
+  [[nodiscard]] int GetSkillProjectiles(uint32_t skillId) const;
+  [[nodiscard]] float GetSkillManaCostFlat(uint32_t skillId) const;
+  [[nodiscard]] float GetSkillBonusCritDamage(uint32_t skillId) const;
+  [[nodiscard]] float GetSkillRangeMult(uint32_t skillId) const;
 
   // 全容器合并：加性容器累加、乘性容器累乘、怪物集合取并集。
   // 供按槽分组多次求值后合并结果使用。
@@ -55,6 +63,10 @@ struct ModifierDelta {
   std::unordered_map<uint32_t, int> skill_charges_add;
   std::unordered_map<uint32_t, float> skill_bonus_crit;
   std::unordered_map<uint32_t, float> skill_area_mult;
+  std::unordered_map<uint32_t, int> skill_projectiles_add;
+  std::unordered_map<uint32_t, float> skill_mana_cost_flat;
+  std::unordered_map<uint32_t, float> skill_bonus_crit_damage;
+  std::unordered_map<uint32_t, float> skill_range_mult;
   std::unordered_set<uint32_t> monster_event_on_update_affix_ids;
   std::unordered_set<uint32_t> monster_event_on_hit_affix_ids;
   std::unordered_set<uint32_t> monster_event_on_death_affix_ids;
@@ -63,7 +75,7 @@ struct ModifierDelta {
   std::unordered_set<uint16_t> monster_behavior_on_death_opcodes;
 };
 
-// 技能交付参数算子判定（opcode 30..36）。
+// 技能交付参数算子判定（opcode 30..40）。
 // 技能路径借此筛选交付记录，避免在适配器内维护会随枚举重编号而失效的区间常量。
 [[nodiscard]] bool IsSkillDeliveryOpCode(ModifierOpCode opcode);
 
@@ -76,7 +88,7 @@ public:
    * @brief 按 record_id 序列求值（每条记录施加一次，不做滚值覆盖）。
    *
    * categories 用于跳过无关算子组：非技能消费者可传入不含 SkillDelivery 的掩码，
-   * 避免装备/天赋等记录意外施加 30..36 的技能交付算子；缺省 All 保持既有行为。
+   * 避免装备/天赋等记录意外施加 30..40 的技能交付算子；缺省 All 保持既有行为。
    */
   [[nodiscard]] static ModifierDelta
   Evaluate(const ModifierRuntimeRegistry &registry,
