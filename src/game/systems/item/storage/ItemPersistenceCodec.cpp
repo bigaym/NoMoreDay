@@ -22,6 +22,15 @@ namespace {
 // 用整段字节数作上限把 reserve() 推到接近段大小。
 constexpr uint32_t kMaxModifierRecordIdsPerItem = 64;
 
+// 单个物品旁表允许持久化的属性转换 / 伤害修正条数上限，
+// 与解码侧 convCount/dmgCount 的固定上限保持一致，避免编码写入解码必然拒绝的数据。
+constexpr uint32_t kMaxConversionsPerItem = 100;
+constexpr uint32_t kMaxDamageModifiersPerItem = 100;
+
+// 单个物品旁表允许持久化的技能修饰器条数上限，
+// 与解码侧 modCount 的固定上限保持一致，避免编码写入解码必然拒绝的数据。
+constexpr uint32_t kMaxSkillModifiersPerItem = 100;
+
 // 辅助向 vector<uint8_t> 中追加任意 POD 字节
 template <typename T>
 void appendBytes(std::vector<uint8_t> &dest, const T &val) {
@@ -509,6 +518,40 @@ bool ItemPersistenceCodec::encode(const ItemStorageService &service,
   }
   const std::unordered_set<uint32_t> *allowedPtr = reachableIndices ? &*reachableIndices : nullptr;
 
+  // 编码前对本次会写出的旁表做上限防御：坏数据在此 fail-closed，
+  // 避免在 section 构建期抛错造成空段与静默丢档。
+  // 旁表拆分在两个 section 中写出（ItemSideTables 与 ItemSkillModifiers），
+  // 因此按各自的脏标记独立门控：命中缓存的段在首次构建时已校验过，
+  // 未脏写的轻量存盘不应被本次不会写出的旁表卡死。
+  const bool checkSideTables = (dirtyMask & ContainerDirtyFlags::ItemSideTables) != 0;
+  const bool checkSkillModifiers = (dirtyMask & ContainerDirtyFlags::ItemSkillModifiers) != 0;
+  if (checkSideTables || checkSkillModifiers) {
+    for (const auto &[idx, data] : service.getStore().getAllSideTables()) {
+      if (allowedPtr != nullptr && !allowedPtr->contains(idx)) {
+        continue;
+      }
+      if (checkSideTables &&
+          (data.modifier_record_ids.size() > kMaxModifierRecordIdsPerItem ||
+           data.conversions.size() > kMaxConversionsPerItem ||
+           data.damage_modifiers.size() > kMaxDamageModifiersPerItem)) {
+        LOG_ERROR(
+            "ItemPersistenceCodec: side-table {} exceeds persistence limits "
+            "(modifier_record_ids={}/{}, conversions={}/{}, "
+            "damage_modifiers={}/{})",
+            idx, data.modifier_record_ids.size(), kMaxModifierRecordIdsPerItem,
+            data.conversions.size(), kMaxConversionsPerItem,
+            data.damage_modifiers.size(), kMaxDamageModifiersPerItem);
+        return false;
+      }
+      if (checkSkillModifiers && data.skill_modifiers.size() > kMaxSkillModifiersPerItem) {
+        LOG_ERROR("ItemPersistenceCodec: side-table {} exceeds persistence limits "
+                  "(skill_modifiers={}/{})",
+                  idx, data.skill_modifiers.size(), kMaxSkillModifiersPerItem);
+        return false;
+      }
+    }
+  }
+
   processSection(SectionType::TemplateFingerprint, ContainerDirtyFlags::TemplateFingerprint,
                  [&]() { return buildTemplateFingerprintSection(); });
   processSection(SectionType::ItemInstances, ContainerDirtyFlags::ItemInstances,
@@ -746,7 +789,7 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
 
         uint32_t convCount = 0;
         if (!readBytes(ptr, end, convCount)) return false;
-        if (convCount > 100) return false;
+        if (convCount > kMaxConversionsPerItem) return false;
         for (uint32_t c = 0; c < convCount; ++c) {
           uint32_t src = 0, tgt = 0;
           float ratio = 0.0f;
@@ -762,7 +805,7 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
 
         uint32_t dmgCount = 0;
         if (!readBytes(ptr, end, dmgCount)) return false;
-        if (dmgCount > 100) return false;
+        if (dmgCount > kMaxDamageModifiersPerItem) return false;
         for (uint32_t d = 0; d < dmgCount; ++d) {
           uint64_t srcTag = 0, tgtTag = 0;
           float val = 0.0f;
@@ -1004,7 +1047,7 @@ bool ItemPersistenceCodec::decode(std::istream &inStream,
         if (!readBytes(ptr, end, idx)) return false;
         uint32_t modCount = 0;
         if (!readBytes(ptr, end, modCount)) return false;
-        if (modCount > 100) return false;
+        if (modCount > kMaxSkillModifiersPerItem) return false;
         std::vector<ItemSkillModifier> mods;
         mods.reserve(modCount);
         for (uint32_t m = 0; m < modCount; ++m) {

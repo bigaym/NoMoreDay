@@ -7,6 +7,7 @@
 #include "game/contracts/CombatEvents.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
+#include "game/systems/modifier/EquipmentModifierAdapter.hpp"
 #include <algorithm>
 
 namespace NoMoreDay {
@@ -210,6 +211,13 @@ void SkillSpecializationBaker::Bake(
       }
     }
   }
+
+  // 装备 UMR 词缀的法力消耗乘算统一折叠于此：施法、引导每秒抽蓝、触发施法
+  // 与 UI 显示均读取该结果，避免各消费点重复求值造成结算口径分裂。
+  // 过滤条件沿用静态技能标签，与接入前各消费点语义保持一致。
+  out_profile.effective_mana_cost *=
+      EquipmentModifierAdapter::GetEquippedManaCostMultiplier(
+          registry, caster, skill_id, skillData->tags);
 }
 
 void SkillSpecializationBaker::ApplyNodeModifiersToProfile(

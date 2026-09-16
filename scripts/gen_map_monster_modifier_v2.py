@@ -1,6 +1,7 @@
 import argparse
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -531,6 +532,86 @@ def _validate_behavior_affix_classification(
         )
 
 
+def _validate_affix_flags_against_behavior_ops(
+    monster_affix_enum: dict[str, int],
+    monster_defs: dict[str, dict[str, Any]],
+) -> None:
+    """校验 AffixFlags 与行为算子表逐项一致，阻断头文件与算子表漂移。
+
+    对每个词缀 A 要求：
+      hasUpdate  == (A in MONSTER_UPDATE_BEHAVIOR_OPS)
+      hasOnHit   == (A in MONSTER_ON_HIT_BEHAVIOR_OPS)
+      hasOnDeath == (A in MONSTER_ON_DEATH_BEHAVIOR_OPS)
+    若枚举项在 kAffixData 中缺失，则无法读取其 flags，同样视为违规。
+    """
+    behavior_tables: dict[str, dict[str, str]] = {
+        "has_update": MONSTER_UPDATE_BEHAVIOR_OPS,
+        "has_on_hit": MONSTER_ON_HIT_BEHAVIOR_OPS,
+        "has_on_death": MONSTER_ON_DEATH_BEHAVIOR_OPS,
+    }
+
+    known_affixes = [
+        name
+        for name, _ in sorted(
+            monster_affix_enum.items(), key=lambda item: item[1]
+        )
+        if name not in {"None", "Count"}
+    ]
+
+    missing_defs = [name for name in known_affixes if name not in monster_defs]
+    if missing_defs:
+        raise RuntimeError(
+            "affixes missing from MonsterAffixRegistry::kAffixData: "
+            + ", ".join(missing_defs)
+        )
+
+    failures: list[str] = []
+    for affix_name in known_affixes:
+        affix_def = monster_defs[affix_name]
+        for flag_key, behavior_ops in behavior_tables.items():
+            expected = affix_name in behavior_ops
+            actual = affix_def[flag_key]
+            if actual != expected:
+                failures.append(
+                    f"{affix_name}.{flag_key}={actual} but behavior op table "
+                    f"says {expected}"
+                )
+
+    if failures:
+        raise RuntimeError(
+            "affix flags mismatch behavior op tables:\n  - "
+            + "\n  - ".join(failures)
+        )
+
+
+def _validate_single_stat_percent_mult(
+    records: list[dict[str, Any]], domain: str
+) -> None:
+    """同一 record 内同一 target_stat 至多 1 个 ADD_STAT_PERCENT_MULT。"""
+    failures: list[str] = []
+    for record in records:
+        targets = [
+            op.get("param_u32", 0)
+            for op in record.get("ops", [])
+            if op.get("opcode") == "ADD_STAT_PERCENT_MULT"
+        ]
+        counts = Counter(targets)
+        duplicated = sorted(
+            target for target, count in counts.items() if count > 1
+        )
+        if duplicated:
+            failures.append(
+                f"{domain} record {record.get('id')}: duplicate "
+                f"ADD_STAT_PERCENT_MULT for target_stat(s) {duplicated}"
+            )
+
+    if failures:
+        raise RuntimeError(
+            "single-record ADD_STAT_PERCENT_MULT invariant violated:\n  - "
+            + "\n  - ".join(failures)
+        )
+
+
 def _collect_behavior_opcodes(ops: list[dict[str, Any]]) -> frozenset[str]:
     return frozenset(
         sorted(
@@ -814,6 +895,7 @@ def _generate() -> tuple[str, str, int, int]:
         _load_text(MONSTER_AFFIX_REGISTRY), monster_affix_enum
     )
     _validate_behavior_affix_classification(monster_affix_enum, monster_defs)
+    _validate_affix_flags_against_behavior_ops(monster_affix_enum, monster_defs)
     monster_records, emitted_behavior_opcodes = _build_monster_records(
         monster_affix_enum, stat_type_enum, monster_defs
     )
@@ -831,6 +913,9 @@ def _generate() -> tuple[str, str, int, int]:
         "domain": "monster",
         "records": monster_records,
     }
+
+    _validate_single_stat_percent_mult(map_payload["records"], "map")
+    _validate_single_stat_percent_mult(monster_payload["records"], "monster")
 
     map_text = _render_json(map_payload)
     monster_text = _render_json(monster_payload)

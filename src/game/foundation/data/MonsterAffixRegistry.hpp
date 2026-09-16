@@ -152,16 +152,30 @@ public:
   static MonsterAffixType GetTypeFromName(std::string_view name);
 
   static constexpr auto &GetAffixDef(MonsterAffixType type) {
-    return kAffixData[static_cast<size_t>(type)];
+    const size_t index = static_cast<size_t>(type);
+    // 越界（例如调用方把越界的 int 强转成枚举）时回退到首项，
+    // 避免读出数组外的内存；正常路径由 ValidateAffixDataIds 保证对齐。
+    return kAffixData[index < kAffixData.size() ? index : 0];
   }
 
   static constexpr std::string_view GetAffixName(MonsterAffixType type) {
-    return kAffixData[static_cast<size_t>(type)].name;
+    const size_t index = static_cast<size_t>(type);
+    return kAffixData[index < kAffixData.size() ? index : 0].name;
   }
 
   static constexpr std::string_view GetAffixNameEn(MonsterAffixType type) {
-    return kAffixData[static_cast<size_t>(type)].name_en;
+    const size_t index = static_cast<size_t>(type);
+    return kAffixData[index < kAffixData.size() ? index : 0].name_en;
   }
+
+  /**
+   * @brief 编译期校验 kAffixData 与 MonsterAffixType 枚举按位置一一对应。
+   *
+   * 定义列表按枚举顺序初始化；一旦漏写某项或错位，id 与数组下标即不一致，
+   * 会让 GetAffixDef(按枚举取值) 读到错误词缀定义。
+   * 函数定义在类外（文件内类定义之后），以便 MSVC 在类完整后求值。
+   */
+  [[nodiscard]] static constexpr bool ValidateAffixDataIds();
 
   /**
    * @brief Calculate scaled value based on evolution tier.
@@ -389,6 +403,30 @@ private:
            50,
            50}, // 红色
 
+          // Vortex: Periodic pull field (requires Update)
+          {MonsterAffixType::Vortex,
+           "漩涡",
+           "Vortex",
+           3,
+           {},
+           0,
+           {true, false, false, true},
+           120,
+           60,
+           200}, // 深紫色
+
+          // Entangler: Root player on hit (requires OnHit)
+          {MonsterAffixType::Entangler,
+           "纠缠",
+           "Entangler",
+           3,
+           {},
+           0,
+           {false, true, false, true},
+           80,
+           180,
+           60}, // 苔绿色
+
           // Avenger (existing) - handled by AvengerComponent
           {MonsterAffixType::Avenger,
            "复仇者",
@@ -396,7 +434,7 @@ private:
            3,
            {},
            0,
-           {false, false, false, true},
+           {false, false, true, true},
            200,
            50,
            255}, // 品红色
@@ -421,7 +459,7 @@ private:
            3,
            {},
            0,
-           {true, true, false, true},
+           {false, true, false, true},
            180,
            180,
            255}, // 淡紫色
@@ -434,7 +472,7 @@ private:
            3,
            {},
            0,
-           {true, false, true, true},
+           {false, false, true, true},
            50,
            0,
            100}, // 暗紫色
@@ -447,7 +485,7 @@ private:
            3,
            {},
            0,
-           {false, false, false, true},
+           {true, false, false, true},
            255,
            50,
            50}, // 红色
@@ -465,6 +503,19 @@ private:
            200}, // 紫色
       }};
 };
+
+constexpr bool MonsterAffixRegistry::ValidateAffixDataIds() {
+  for (size_t i = 0; i < kAffixData.size(); ++i) {
+    if (static_cast<size_t>(kAffixData[i].id) != i) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static_assert(
+    MonsterAffixRegistry::ValidateAffixDataIds(),
+    "kAffixData must be positionally aligned with MonsterAffixType");
 
 /**
  * @brief 怪物词缀运行时组件

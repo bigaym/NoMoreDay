@@ -30,6 +30,7 @@
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/contracts/impl/ProcBudgetManager.hpp"
 #include "game/contracts/impl/StatsSystem.hpp"
+#include "game/systems/modifier/EquipmentModifierAdapter.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include "game/systems/skill/AreaFieldDeliverySystem.hpp"
 #include "game/systems/skill/BeamChannelDeliverySystem.hpp"
@@ -917,8 +918,19 @@ void SkillSystem::InitHooks() {
                 continue;
               }
               if (node_contract->trigger.consumes_mana) {
+                // 统一结算：优先取烘焙档案（已含专精与装备降耗）；未入槽而
+                // 未烘焙的触发技能回退静态法耗，再叠加装备降耗乘算。
+                float trigger_mana_cost = trigger_skill->mana_cost;
+                if (const auto *trigger_profile =
+                        GetBakedSkillProfile(registry, caster, trigger_skill_id)) {
+                  trigger_mana_cost = trigger_profile->effective_mana_cost;
+                } else {
+                  trigger_mana_cost *=
+                      EquipmentModifierAdapter::GetEquippedManaCostMultiplier(
+                          registry, caster, trigger_skill_id, trigger_skill->tags);
+                }
                 if (auto *stats = registry.try_get<CombatStats>(caster)) {
-                  if (stats->mana < trigger_skill->mana_cost) {
+                  if (stats->mana < trigger_mana_cost) {
 #if COMBAT_TELEMETRY_ENABLED
                     recordTriggerBlocked(parent_depth);
 #endif
@@ -926,7 +938,7 @@ void SkillSystem::InitHooks() {
                                     node_id, caster, "insufficient mana");
                     continue;
                   }
-                  stats->mana -= trigger_skill->mana_cost;
+                  stats->mana -= trigger_mana_cost;
                 }
               }
 
@@ -2032,7 +2044,16 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
                           data->tags, slot.id) /
                           100.0f
                     : 0.0f;
-  float raw_mana_cost = bakedProfile ? bakedProfile->effective_mana_cost : data->mana_cost;
+  float raw_mana_cost = 0.0f;
+  if (bakedProfile != nullptr) {
+    raw_mana_cost = bakedProfile->effective_mana_cost;
+  } else {
+    // 未烘焙（技能尚未重烘焙入档）时在此补上装备降耗，与触发路径和已结算的
+    // 显示值保持同一口径；已烘焙档案内已折叠该乘算，此处不得重复应用。
+    raw_mana_cost = data->mana_cost *
+                    EquipmentModifierAdapter::GetEquippedManaCostMultiplier(
+                        registry, entity, slot.id, data->tags);
+  }
   // 834 御剑接踵: 接刃后获得的 FreeCast 使来源技能的下次施放免蓝，施放即消耗。
   // 移除按来源技能过滤 (N4-2)：仅清 skill8 自身与无归属通配的 FreeCast，
   // 不误清其它来源的同类别效果。

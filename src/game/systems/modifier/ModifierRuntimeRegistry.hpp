@@ -18,6 +18,7 @@ public:
 
   // 已加载且路径一致时直接返回 true；路径不同则重新加载，避免返回与请求
   // 路径不符的旧数据。经 LoadFromBytes 注入的合成数据视为通配来源。
+  // 同一路径的失败结果会被记忆：缺失或损坏的资产不会被每次调用反复打开解析。
   [[nodiscard]] bool EnsureLoaded(
       std::string_view path = "assets/generated/modifier_runtime_v2.bin");
   // 无条件重新读取：用于测试在同一进程内覆盖单例状态。
@@ -48,6 +49,10 @@ private:
   // 当前数据来源路径；Reload 成功后写入。经 LoadFromBytes 注入的合成数据
   // 不携带路径，此处保持为空，EnsureLoaded 将其视为通配来源。
   std::string m_loadedPath;
+  // 最近一次 EnsureLoaded 失败的路径。热路径（每帧技能烘焙）不应因资产缺失
+  // 或损坏而反复打开解析同一文件，故失败结果按路径记忆，直到显式 Reload
+  // 或 Clear/LoadFromBytes 重置。
+  std::string m_failedPath;
 };
 
 } // namespace NoMoreDay

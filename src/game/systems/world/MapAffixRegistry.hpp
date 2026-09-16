@@ -59,19 +59,19 @@ public:
         // Enemy_Dodge
         MapAffixDefinition{"of Mist", "迷雾之", "怪物闪避: +{value}", MapAffixCategory::Debuff, 1.0f, 500.0f, 2500.0f, true, StatType::Count},
         // Enemy_ResistAll
-        MapAffixDefinition{"of Prism", "棱镜之", "怪物全抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 5.0f, 20.0f, true, StatType::Count},
+        MapAffixDefinition{"of Prism", "棱镜之", "怪物全抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 5.0f, 20.0f, true, StatType::ResistAll},
         // Enemy_ResistPhys
-        MapAffixDefinition{"of Granite", "花岗岩之", "怪物物理抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::Count},
+        MapAffixDefinition{"of Granite", "花岗岩之", "怪物物理抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::ResistPhysical},
         // Enemy_ResistFire
-        MapAffixDefinition{"of Embers", "灰烬之", "怪物火焰抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::Count},
+        MapAffixDefinition{"of Embers", "灰烬之", "怪物火焰抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::ResistFire},
         // Enemy_ResistCold
-        MapAffixDefinition{"of Frost", "霜冻之", "怪物冰霜抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::Count},
+        MapAffixDefinition{"of Frost", "霜冻之", "怪物冰霜抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::ResistCold},
         // Enemy_ResistLight
-        MapAffixDefinition{"of Storms", "风暴之", "怪物闪电抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::Count},
+        MapAffixDefinition{"of Storms", "风暴之", "怪物闪电抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::ResistLightning},
         // Enemy_ResistPois
-        MapAffixDefinition{"of Venom", "剧毒之", "怪物毒素抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::Count},
+        MapAffixDefinition{"of Venom", "剧毒之", "怪物毒素抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::ResistPoison},
         // Enemy_ResistVoid
-        MapAffixDefinition{"of Null", "虚无之", "怪物虚无抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::Count},
+        MapAffixDefinition{"of Null", "虚无之", "怪物虚无抗性: +{value}%", MapAffixCategory::Debuff, 1.0f, 25.0f, 60.0f, true, StatType::ResistShadow},
         // Enemy_CritResist
         MapAffixDefinition{"of Adamant", "坚韧之", "怪物爆伤减免: +{value}%", MapAffixCategory::Debuff, 1.0f, 30.0f, 60.0f, true, StatType::Count},
         // Enemy_ExtraDamage
@@ -79,7 +79,7 @@ public:
         // Enemy_Fast
         MapAffixDefinition{"of Frenzy", "狂乱之", "怪物速度: +{value}%", MapAffixCategory::Debuff, 2.0f, 10.0f, 35.0f, true, StatType::MoveSpeed},
         // Enemy_CritChance
-        MapAffixDefinition{"of Precision", "精准之", "怪物暴击率: +{value}%", MapAffixCategory::Debuff, 2.0f, 20.0f, 100.0f, true, StatType::Count},
+        MapAffixDefinition{"of Precision", "精准之", "怪物暴击率: +{value}%", MapAffixCategory::Debuff, 2.0f, 20.0f, 100.0f, true, StatType::CritChance},
         // Enemy_ArmorShred
         MapAffixDefinition{"of Sundering", "穿透之", "怪物护甲穿透: +{value}", MapAffixCategory::Debuff, 2.0f, 5.0f, 15.0f, true, StatType::Count},
         // Player_ResistRedAll

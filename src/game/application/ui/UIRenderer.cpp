@@ -1290,13 +1290,18 @@ void UIRenderer::DrawSkillTooltip(const Font &font, entt::registry &registry,
 
   char buf[64];
   auto playerView = registry.view<PlayerTag, CombatStats>();
-  const SkillDisplayPreview preview = (playerView.begin() != playerView.end())
-                                          ? SkillDisplayPreviewService::Build(
-                                                registry, playerView.front(), skillId)
-                                          : SkillDisplayPreview{};
+  const bool hasPlayerContext = playerView.begin() != playerView.end();
+  const SkillDisplayPreview preview =
+      hasPlayerContext
+          ? SkillDisplayPreviewService::Build(registry, playerView.front(), skillId)
+          : SkillDisplayPreview{};
 
-  if (skill->mana_cost > 0) {
-    utils::FormatToBuffer(buf, "{:.0f}", skill->mana_cost);
+  // 有玩家上下文时预览值即结算值（含专精与装备降耗），且可能合法地为 0；
+  // 不得以 0 作为"无预览"哨兵，否则零消耗技能会显示未结算的静态消耗。
+  const float displayManaCost =
+      hasPlayerContext ? preview.display_mana_cost : skill->mana_cost;
+  if (hasPlayerContext || displayManaCost > 0.0f) {
+    utils::FormatToBuffer(buf, "{:.0f}", displayManaCost);
     coreStats.push_back({"法力消耗", buf, SKYBLUE});
   }
   if (skill->cooldown > 0) {
@@ -1869,8 +1874,9 @@ void UIRenderer::DrawSkillTooltipFromSnapshot(const Font& font,
 
   // R8: the estimated-damage / duration preview rows are skipped in the
   // snapshot path (SkillDisplayPreviewService requires registry + CombatStats,
-  // which the render path must not touch). Mana cost / cooldown / tags /
-  // description are static skill data and stay.
+  // which the render path must not touch). Cooldown / tags / description stay
+  // static skill data; mana cost prefers the snapshot's settled value so the
+  // displayed cost matches the deducted cost without touching the registry.
   struct Stat {
     std::string label;
     std::string value;
@@ -1879,8 +1885,21 @@ void UIRenderer::DrawSkillTooltipFromSnapshot(const Font& font,
   std::vector<Stat> coreStats;
 
   char buf[64];
-  if (skill->mana_cost > 0) {
-    utils::FormatToBuffer(buf, "{:.0f}", skill->mana_cost);
+  // 热键栏槽位已在快照构建期结算（含专精与装备降耗），优先采用并渲染其结算值
+  // （可能合法地为 0）；未命中说明该技能不在热键栏，快照中没有其结算值，
+  // 此时回退静态数据——该回退值不代表实际扣除，仅供展示。
+  // 用显式标志区分"结算为 0"与"未结算"，不以数值 0 作哨兵。
+  float displayedManaCost = skill->mana_cost;
+  bool isSettledManaCost = false;
+  for (const auto &slot : snapshot.skillBar.slots) {
+    if (slot.skillId == skillId) {
+      displayedManaCost = slot.manaCost;
+      isSettledManaCost = true;
+      break;
+    }
+  }
+  if (isSettledManaCost || displayedManaCost > 0) {
+    utils::FormatToBuffer(buf, "{:.0f}", displayedManaCost);
     coreStats.push_back({"法力消耗", buf, SKYBLUE});
   }
   if (skill->cooldown > 0) {

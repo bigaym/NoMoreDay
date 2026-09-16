@@ -516,6 +516,143 @@ TEST_CASE("[Unit] ItemPersistenceCodec - Round-Trip Modifier Record Ids") {
   CHECK(restoredSide->modifier_record_ids.empty());
 }
 
+TEST_CASE("[Unit] ItemPersistenceCodec - Modifier Record Ids over limit fail-closed") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  // 与 kMaxModifierRecordIdsPerItem 保持一致：合法上限 64。
+  constexpr size_t kLimit = 64;
+  ItemStorageService service;
+
+  ItemInstance item{};
+  item.instanceId = 7002;
+  item.baseId = 1001;
+  const ItemHandle handle = service.getStoreMutable().create(item);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, handle);
+
+  // 恰好 64 条：编码成功且可完整往返。
+  ItemSideTableData side;
+  side.modifier_record_ids.assign(kLimit, 1000001u);
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream okStream(std::ios::in | std::ios::out | std::ios::binary);
+  REQUIRE(ItemPersistenceCodec::encode(service, okStream, nullptr,
+                                       ContainerDirtyFlags::All));
+
+  ItemStorageService restored;
+  okStream.seekg(0, std::ios::beg);
+  REQUIRE(ItemPersistenceCodec::decode(okStream, restored));
+  const auto *restoredSide = restored.getStore().getSideTable(handle);
+  REQUIRE(restoredSide != nullptr);
+  CHECK(restoredSide->modifier_record_ids.size() == kLimit);
+
+  // 65 条：超限 fail-closed，且流中不得留下任何分段。
+  side.modifier_record_ids.push_back(1000002u);
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream badStream(std::ios::in | std::ios::out | std::ios::binary);
+  CHECK_FALSE(ItemPersistenceCodec::encode(service, badStream, nullptr,
+                                           ContainerDirtyFlags::All));
+  CHECK(badStream.str().empty());
+}
+
+TEST_CASE("[Unit] ItemPersistenceCodec - Conversions/DamageModifiers over limit "
+          "fail-closed") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  // 与解码侧 convCount/dmgCount 的固定上限保持一致：合法上限 100。
+  constexpr size_t kLimit = 100;
+  ItemStorageService service;
+
+  ItemInstance item{};
+  item.instanceId = 7003;
+  item.baseId = 1001;
+  const ItemHandle handle = service.getStoreMutable().create(item);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, handle);
+
+  // 恰好 100 条转换：编码成功且可完整往返。
+  ItemSideTableData side;
+  side.conversions.assign(kLimit, StatConversion{});
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream okStream(std::ios::in | std::ios::out | std::ios::binary);
+  REQUIRE(ItemPersistenceCodec::encode(service, okStream, nullptr,
+                                       ContainerDirtyFlags::All));
+
+  ItemStorageService restored;
+  okStream.seekg(0, std::ios::beg);
+  REQUIRE(ItemPersistenceCodec::decode(okStream, restored));
+  const auto *restoredSide = restored.getStore().getSideTable(handle);
+  REQUIRE(restoredSide != nullptr);
+  CHECK(restoredSide->conversions.size() == kLimit);
+
+  // 101 条转换：超限 fail-closed，且流中不得留下任何分段。
+  side.conversions.push_back(StatConversion{});
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream badConvStream(std::ios::in | std::ios::out | std::ios::binary);
+  CHECK_FALSE(ItemPersistenceCodec::encode(service, badConvStream, nullptr,
+                                           ContainerDirtyFlags::All));
+  CHECK(badConvStream.str().empty());
+
+  // 转换回到上限内、伤害修正 101 条：同样超限 fail-closed。
+  side.conversions.assign(kLimit, StatConversion{});
+  side.damage_modifiers.assign(kLimit + 1, DamageModifier{});
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream badDmgStream(std::ios::in | std::ios::out | std::ios::binary);
+  CHECK_FALSE(ItemPersistenceCodec::encode(service, badDmgStream, nullptr,
+                                           ContainerDirtyFlags::All));
+  CHECK(badDmgStream.str().empty());
+}
+
+TEST_CASE("[Unit] ItemPersistenceCodec - SkillModifiers over limit fail-closed") {
+  TestSetupScope scope;
+  ItemTemplateRegistry::Instance().initializeDefaults();
+
+  // 与解码侧 modCount 的固定上限保持一致：合法上限 100。
+  constexpr size_t kLimit = 100;
+  ItemStorageService service;
+
+  ItemInstance item{};
+  item.instanceId = 7004;
+  item.baseId = 1001;
+  const ItemHandle handle = service.getStoreMutable().create(item);
+  service.setSlotHandle(SlotRef{ContainerKind::Inventory, 0, 0, 0}, handle);
+
+  ItemSideTableData side;
+  side.skill_modifiers.assign(kLimit, ItemSkillModifier{});
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream okStream(std::ios::in | std::ios::out | std::ios::binary);
+  REQUIRE(ItemPersistenceCodec::encode(service, okStream, nullptr,
+                                       ContainerDirtyFlags::All));
+
+  ItemStorageService restored;
+  okStream.seekg(0, std::ios::beg);
+  REQUIRE(ItemPersistenceCodec::decode(okStream, restored));
+  const auto *restoredSide = restored.getStore().getSideTable(handle);
+  REQUIRE(restoredSide != nullptr);
+  CHECK(restoredSide->skill_modifiers.size() == kLimit);
+
+  // 101 条：超限 fail-closed，且流中不得留下任何分段。
+  side.skill_modifiers.push_back(ItemSkillModifier{});
+  service.getStoreMutable().setSideTable(handle, side);
+
+  std::stringstream badStream(std::ios::in | std::ios::out | std::ios::binary);
+  CHECK_FALSE(ItemPersistenceCodec::encode(service, badStream, nullptr,
+                                           ContainerDirtyFlags::All));
+  CHECK(badStream.str().empty());
+
+  // 未脏写 ItemSkillModifiers 的轻量存盘不得被这张超限旁表卡死：
+  // 上限校验按各自分段的脏标记独立门控。
+  std::stringstream lightStream(std::ios::in | std::ios::out | std::ios::binary);
+  CHECK(ItemPersistenceCodec::encode(service, lightStream, nullptr,
+                                     ContainerDirtyFlags::Inventory));
+  CHECK_FALSE(lightStream.str().empty());
+}
+
 TEST_CASE("[Unit] ItemPersistenceCodec - SaveFileAtomic") {
   namespace fs = std::filesystem;
   const std::string testDir = "build/test_save_atomic";

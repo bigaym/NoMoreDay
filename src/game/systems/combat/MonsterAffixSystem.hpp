@@ -93,6 +93,12 @@ public:
 
     for (auto entity : view) {
       auto &affix = view.get<MonsterAffixComponent>(entity);
+
+      // 无 Update 类词缀的实体直接跳过：hasUpdate 由词缀定义缓存，已在生成期
+      // 与 UMR 行为算子表交叉校验，此处短路可省去一次行为算子求值。
+      if (!affix.hasUpdate)
+        continue;
+
       const auto &pos = view.get<Position>(entity);
       const auto behaviorOps =
           MonsterModifierAdapter::EvaluateBehaviorOps(affix);

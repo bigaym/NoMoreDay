@@ -215,6 +215,36 @@ add_custom_command(
 
 add_custom_target(GenerateSpecState DEPENDS ${SPECSTATE_GENERATED_HEADERS})
 
+# --- UMR Modifier Runtime Blob Generation ---
+# Fail-safe generation of the local runtime blob (gitignored). build.bat:307/313
+# remains the single source of truth for drift gating (--check) and for the
+# canonical generation entry point; CMake only regenerates the blob when it is
+# missing or stale (generator script or any input JSON is newer). The generator
+# is deterministic and writes a stable (priority, id) ordering, so a blob
+# produced here must be byte-identical to the one build.bat writes; should both
+# run within one build, the final artifact stays unchanged.
+#
+# NOTE: GLOB_RECURSE is required so the canonical/ subdirectory JSONs are tracked
+# as inputs; a flat glob would silently drop the canonical catalog dependency.
+set(MODIFIER_GEN_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/gen_modifier_runtime_v2.py")
+set(MODIFIER_DATA_DIR "${CMAKE_SOURCE_DIR}/assets/data/modifier_v2")
+set(MODIFIER_BIN_OUTPUT "${CMAKE_SOURCE_DIR}/assets/generated/modifier_runtime_v2.bin")
+set(MODIFIER_DEBUG_OUTPUT
+    "${CMAKE_SOURCE_DIR}/assets/generated/modifier_runtime_v2.debug.json")
+
+file(GLOB_RECURSE MODIFIER_JSON_INPUTS CONFIGURE_DEPENDS
+    "${MODIFIER_DATA_DIR}/*.json")
+
+add_custom_command(
+    OUTPUT ${MODIFIER_BIN_OUTPUT} ${MODIFIER_DEBUG_OUTPUT}
+    COMMAND Python3::Interpreter ${MODIFIER_GEN_SCRIPT} --build
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    DEPENDS ${MODIFIER_GEN_SCRIPT} ${MODIFIER_JSON_INPUTS}
+    COMMENT "Building UMR binary blob (modifier_runtime_v2.bin) from JSON assets..."
+)
+
+add_custom_target(GenerateModifierRuntime DEPENDS ${MODIFIER_BIN_OUTPUT})
+
 # --- Skill Behaviors (Object Library) ---
 # Using OBJECT library ensures all behaviors are linked even if they have no explicit references,
 # which is necessary for the static registration pattern to work.
@@ -249,6 +279,13 @@ target_precompile_headers(SkillBehaviors PRIVATE src/game/pch.hpp)
 add_subdirectory(src/core)
 add_subdirectory(src/engine)
 add_subdirectory(src/game)
+# NoMoreDayGameModifier consumes the generated UMR blob at runtime, so attach the
+# generation target after its library target exists: targets created inside
+# add_subdirectory(src/game) are visible to the root scope from here on. Upper
+# layers (NoMoreDayApp / NoMoreDayTests) inherit the ordering transitively
+# through their link dependency on NoMoreDayGameModifier.
+add_dependencies(NoMoreDayGameModifier GenerateModifierRuntime)
+
 add_subdirectory(src/app)
 
 # --- Main Executable ---

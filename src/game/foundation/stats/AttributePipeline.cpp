@@ -303,6 +303,24 @@ struct SetTrack {
   const std::vector<SetBonus> *defs;
 };
 
+// 敌方地图词缀把百分比 delta 还原为 ×100 刻度的百分点增量：
+// flat 原样计入、percent_add 放大 100、percent_mult 折算 (m - 1) * 100。
+// 同一属性的多份滚值在此累加（而非连乘），对 ×100 刻度属性是刻意的归一化。
+static float MapPercentPointsBonus(const ModifierDelta &delta, StatType stat) {
+  const uint32_t key = static_cast<uint32_t>(stat);
+  float points = 0.0f;
+  if (auto it = delta.flat.find(key); it != delta.flat.end()) {
+    points += it->second;
+  }
+  if (auto it = delta.percent_add.find(key); it != delta.percent_add.end()) {
+    points += it->second * 100.0f;
+  }
+  if (auto it = delta.percent_mult.find(key); it != delta.percent_mult.end()) {
+    points += (it->second - 1.0f) * 100.0f;
+  }
+  return points;
+}
+
 void AttributePipeline::Calculate(entt::registry &registry,
                                   entt::entity entity) {
   auto components = registry.try_get<CombatStats, GlobalModifierComponent, ActiveSkillsComponent, EquipmentComponent, PrimaryStats, MovementStanceComponent>(entity);
@@ -378,10 +396,20 @@ void AttributePipeline::Calculate(entt::registry &registry,
     const auto &raceData = kRaceData[static_cast<size_t>(enemy->raceType)];
     constexpr float NATIVE_RES = 50.0f;
     float bonus = scaled.resistanceBonus * 100.0f;
-    
+
+    // 暴击率与全抗基础值为 0 或 ×100 刻度，乘算 delta 无法表达，
+    // 故按百分点增量叠加到基础值上（仅敌方地图词缀路径）。
+    // 注意：同一属性多次出现的 percent_mult 会被折算成单份 (m-1)*100 累加，
+    // 与“多次滚值连乘”的 delta 语义不同；对 ×100 刻度属性这是刻意的归一化。
+    calcs[static_cast<size_t>(StatType::CritChance)].base +=
+        MapPercentPointsBonus(mapEnemyDelta, StatType::CritChance);
+    calcs[static_cast<size_t>(StatType::ResistAll)].base +=
+        MapPercentPointsBonus(mapEnemyDelta, StatType::ResistAll);
+
     auto applyRes = [&](Tag tag, StatType t) {
-      float val = bonus + (HasTag(raceData.resistances, tag) ? NATIVE_RES : 0.0f);
-      if (val > 0) ApplyStatModifier(calcs, t, ModifierMode::Flat, val);
+      float val = bonus + (HasTag(raceData.resistances, tag) ? NATIVE_RES : 0.0f) +
+                  MapPercentPointsBonus(mapEnemyDelta, t);
+      if (val > 0.0f) ApplyStatModifier(calcs, t, ModifierMode::Flat, val);
     };
     applyRes(Tag::Physical, StatType::ResistPhysical);
     applyRes(Tag::Fire, StatType::ResistFire);

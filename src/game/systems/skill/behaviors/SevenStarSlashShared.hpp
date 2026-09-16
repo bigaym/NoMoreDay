@@ -130,10 +130,21 @@ inline void RefundManaCost(entt::registry &registry, entt::entity owner,
                            uint32_t skillId) {
   auto *stats = registry.try_get<CombatStats>(owner);
   const auto *skill = SkillRegistry::Get().GetSkill(skillId);
-  if (stats == nullptr || skill == nullptr || skill->mana_cost <= 0.0f) {
+  if (stats == nullptr || skill == nullptr) {
     return;
   }
-  stats->mana = std::min(stats->max_mana, stats->mana + skill->mana_cost);
+
+  // 返还必须与实际结算口径一致：施法扣的是含装备降耗与专精修正的烘焙值，
+  // 若按静态基础值返还，降耗后的施放会产生净回蓝。
+  float refund = skill->mana_cost;
+  if (const auto *profile =
+          SkillSystem::GetBakedSkillProfile(registry, owner, skillId)) {
+    refund = profile->effective_mana_cost;
+  }
+  if (refund <= 0.0f) {
+    return;
+  }
+  stats->mana = std::min(stats->max_mana, stats->mana + refund);
 }
 
 inline void GrantSwordStep(entt::registry &registry, entt::entity owner,

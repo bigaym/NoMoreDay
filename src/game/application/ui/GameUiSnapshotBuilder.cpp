@@ -840,7 +840,14 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
         if (const auto* skill =
                 SkillRegistry::Get().GetSkill(slots[i].id)) {
           slotView.iconId = skill->icon_id;
-          slotView.manaCost = skill->mana_cost;
+          // 优先取烘焙档案的法耗（已含专精与装备降耗），使显示、施法扣费与
+          // hasEnoughMana 门槛三者口径一致；未烘焙时回退静态技能数据。
+          if (const auto* bakedProfile =
+                  SkillSystem::GetBakedSkillProfile(registry, player, slots[i].id)) {
+            slotView.manaCost = bakedProfile->effective_mana_cost;
+          } else {
+            slotView.manaCost = skill->mana_cost;
+          }
           slotView.maxCharges = skill->max_charges;
           slotView.cooldownMax = skill->cooldown;
         }

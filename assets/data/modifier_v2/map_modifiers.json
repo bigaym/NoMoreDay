@@ -35,6 +35,230 @@
       }
     },
     {
+      "id": 4001009,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700009
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 28,
+          "param_f32": 0.05
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistAll",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001010,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700010
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 22,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistPhys",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001011,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700011
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 23,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistFire",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001012,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700012
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 24,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistCold",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001013,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700013
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 25,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistLight",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001014,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700014
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 26,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistPois",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001015,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700015
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 27,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ResistVoid",
+        "source": "map_affix"
+      }
+    },
+    {
       "id": 4001017,
       "domain": "map",
       "priority": 400,
@@ -95,6 +319,38 @@
       ],
       "debug": {
         "name": "Map_Enemy_Fast",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001019,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700019
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 15,
+          "param_f32": 0.2
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_CritChance",
         "source": "map_affix"
       }
     },

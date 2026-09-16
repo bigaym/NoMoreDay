@@ -134,6 +134,7 @@ void ModifierRuntimeRegistry::Clear() {
   m_recordIndexById.clear();
   m_loaded.store(false, std::memory_order_release);
   m_loadedPath.clear();
+  m_failedPath.clear();
 }
 
 bool ModifierRuntimeRegistry::EnsureLoaded(const std::string_view path) {
@@ -145,7 +146,19 @@ bool ModifierRuntimeRegistry::EnsureLoaded(const std::string_view path) {
       (m_loadedPath.empty() || m_loadedPath == path)) {
     return true;
   }
-  return Reload(path);
+  // 同一路径的失败只尝试一次：本函数处于每帧技能烘焙热路径上，
+  // 缺失或损坏的资产不应被反复打开并解析。
+  if (!m_failedPath.empty() && m_failedPath == path) {
+    return false;
+  }
+
+  const bool loaded = Reload(path);
+  if (loaded) {
+    m_failedPath.clear();
+  } else {
+    m_failedPath.assign(path);
+  }
+  return loaded;
 }
 
 bool ModifierRuntimeRegistry::Reload(const std::string_view path) {

@@ -31,7 +31,6 @@ TEST_CASE("[Unit] MonsterAffix - Persistence") {
   auto &stats = registry.emplace<CombatStats>(enemy);
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Berserker);
-  affix.hasUpdate = false;
 
   // Initial state (not berserk)
   registry.emplace<StatsDirty>(enemy);
@@ -288,7 +287,6 @@ TEST_CASE("[Unit] MonsterAffix - Molten update behavior-op path still spawns haz
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Molten);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
 
   NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
@@ -359,7 +357,6 @@ TEST_CASE("[Unit] MonsterAffix - Teleporter update behavior-op path still starts
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Teleporter);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::TELEPORT_COOLDOWN;
 
   auto player = registry.create();
@@ -380,7 +377,6 @@ TEST_CASE("[Unit] MonsterAffix - Storm update behavior-op path spawns lightning 
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Storm);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::STORM_UPDATE_INTERVAL;
 
   auto player = registry.create();
@@ -408,7 +404,6 @@ TEST_CASE("[Unit] MonsterAffix - Frozen update behavior-op path still spawns orb
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Frozen);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::FROZEN_ORB_INTERVAL;
 
   auto player = registry.create();
@@ -436,7 +431,6 @@ TEST_CASE("[Unit] MonsterAffix - ManaSiphon update behavior-op path drains playe
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::ManaSiphon);
-  affix.hasUpdate = false;
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -461,7 +455,6 @@ TEST_CASE("[Unit] MonsterAffix - Berserker update behavior-op path still activat
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Berserker);
-  affix.hasUpdate = false;
   affix.isBerserk = false;
 
   NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
@@ -479,7 +472,6 @@ TEST_CASE("[Unit] MonsterAffix - VoidZone update behavior-op path still spawns h
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::VoidZone);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MAX;
 
   auto player = registry.create();
@@ -507,7 +499,6 @@ TEST_CASE("[Unit] MonsterAffix - Shielding update behavior-op path initializes p
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Shielding);
-  affix.hasUpdate = false;
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -527,7 +518,6 @@ TEST_CASE("[Unit] MonsterAffix - Vortex update behavior-op path activates force 
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Vortex);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::VORTEX_INTERVAL;
 
   auto player = registry.create();
@@ -551,7 +541,6 @@ TEST_CASE("[Unit] MonsterAffix - Waller update behavior-op path still spawns dyn
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Waller);
-  affix.hasUpdate = false;
   affix.timers[0] = MonsterAffixRegistry::Params::WALLER_COOLDOWN;
 
   auto player = registry.create();
@@ -660,7 +649,6 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor update behavior-op path initializes 
   registry.emplace<Position>(defender, 100.0f, 100.0f);
   auto &affix = registry.emplace<MonsterAffixComponent>(defender);
   affix.AddAffix(MonsterAffixType::Suppressor);
-  affix.hasUpdate = false;
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -740,7 +728,6 @@ TEST_CASE("[Unit] MonsterAffix - SoulLink update behavior-op path initializes so
   registry.emplace<Position>(linker, 100.0f, 100.0f);
   auto &affix = registry.emplace<MonsterAffixComponent>(linker);
   affix.AddAffix(MonsterAffixType::SoulLink);
-  affix.hasUpdate = false;
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -760,7 +747,6 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor op-path update and damage reduction 
   auto &affix = registry.emplace<MonsterAffixComponent>(defender);
   affix.AddAffix(MonsterAffixType::Suppressor);
   affix.AddAffix(MonsterAffixType::Suppressor); // duplicate affix hardening case
-  affix.hasUpdate = false;
   registry.emplace<EnemyTag>(defender);
   registry.emplace<CombatStats>(defender);
 
@@ -798,7 +784,6 @@ TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and link-group damage a
   auto &affix = registry.emplace<MonsterAffixComponent>(linker);
   affix.AddAffix(MonsterAffixType::SoulLink);
   affix.AddAffix(MonsterAffixType::SoulLink); // duplicate affix hardening case
-  affix.hasUpdate = false;
 
   auto allyA = registry.create();
   registry.emplace<Position>(allyA, 110.0f, 100.0f);
@@ -846,4 +831,115 @@ TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and link-group damage a
         doctest::Approx(90.0f));
   CHECK(registry.get<HealthComponent>(linkedAlly).current ==
         doctest::Approx(90.0f));
+}
+
+TEST_CASE("[Unit] MonsterAffix - kAffixData aligns with enum") {
+  for (size_t i = 0; i < static_cast<size_t>(MonsterAffixType::Count); ++i) {
+    const auto type = static_cast<MonsterAffixType>(i);
+    const auto &def = MonsterAffixRegistry::GetAffixDef(type);
+    CHECK(static_cast<size_t>(def.id) == i);
+    if (type != MonsterAffixType::None) {
+      CHECK_FALSE(def.name.empty());
+      CHECK_FALSE(def.name_en.empty());
+    }
+  }
+
+  // Vortex / Entangler 曾被漏写，导致 Avenger 起整体前移两位。
+  const auto &vortex =
+      MonsterAffixRegistry::GetAffixDef(MonsterAffixType::Vortex);
+  CHECK(vortex.id == MonsterAffixType::Vortex);
+  CHECK(vortex.name_en == "Vortex");
+  CHECK(vortex.flags.hasUpdate);
+  CHECK_FALSE(vortex.flags.hasOnHit);
+  CHECK_FALSE(vortex.flags.hasOnDeath);
+
+  const auto &entangler =
+      MonsterAffixRegistry::GetAffixDef(MonsterAffixType::Entangler);
+  CHECK(entangler.id == MonsterAffixType::Entangler);
+  CHECK(entangler.name_en == "Entangler");
+  CHECK(entangler.flags.hasOnHit);
+  CHECK_FALSE(entangler.flags.hasUpdate);
+  CHECK_FALSE(entangler.flags.hasOnDeath);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Affix flags match behavior tables") {
+  struct Row {
+    MonsterAffixType type;
+    bool update;
+    bool onHit;
+    bool onDeath;
+  };
+  static constexpr Row kRows[] = {
+      {MonsterAffixType::Fast, false, false, false},
+      {MonsterAffixType::Tanky, false, false, false},
+      {MonsterAffixType::Powerful, false, false, false},
+      {MonsterAffixType::Accurate, false, false, false},
+      {MonsterAffixType::Molten, true, false, false},
+      {MonsterAffixType::Frozen, true, false, false},
+      {MonsterAffixType::Storm, true, false, false},
+      {MonsterAffixType::Toxic, false, false, true},
+      {MonsterAffixType::Void, false, true, false},
+      {MonsterAffixType::VoidZone, true, false, false},
+      {MonsterAffixType::StormStrider, false, true, false},
+      {MonsterAffixType::Teleporter, true, false, false},
+      {MonsterAffixType::Nullifier, false, true, false},
+      {MonsterAffixType::Shielding, true, false, false},
+      {MonsterAffixType::Waller, true, false, false},
+      {MonsterAffixType::Vampiric, false, true, false},
+      {MonsterAffixType::Berserker, true, false, false},
+      {MonsterAffixType::Vortex, true, false, false},
+      {MonsterAffixType::Entangler, false, true, false},
+      {MonsterAffixType::Avenger, false, false, true},
+      {MonsterAffixType::SoulLink, true, false, false},
+      {MonsterAffixType::MirrorImage, false, true, false},
+      {MonsterAffixType::SoulEater, false, false, true},
+      {MonsterAffixType::Suppressor, true, false, false},
+      {MonsterAffixType::ManaSiphon, true, false, false},
+  };
+
+  for (const auto &row : kRows) {
+    MonsterAffixComponent component;
+    component.AddAffix(row.type);
+    CHECK(component.hasUpdate == row.update);
+    CHECK(component.hasOnHit == row.onHit);
+    CHECK(component.hasOnDeath == row.onDeath);
+  }
+}
+
+TEST_CASE("[Unit] MonsterAffix - Update short-circuits without hasUpdate") {
+  entt::registry registry;
+
+  // 强制构造缓存标志与词缀列表不一致的实体，确认 Update 以 hasUpdate 为准。
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 100.0f, 100.0f);
+  registry.emplace<HealthComponent>(enemy, 10.0f, 100.0f);
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Berserker);
+  affix.hasUpdate = false;
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  CHECK_FALSE(affix.isBerserk);
+  CHECK_FALSE(registry.all_of<StatsDirty>(enemy));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Suppressor update still runs") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 100.0f, 100.0f);
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Suppressor);
+  // Suppressor 的定义必须带 hasUpdate，否则 Update 会被短路跳过。
+  REQUIRE(affix.hasUpdate);
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 150.0f, 150.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  CHECK(registry.all_of<SuppressorComponent>(enemy));
 }

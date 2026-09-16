@@ -775,6 +775,12 @@
       },
       "ops": [
         {
+          "opcode": "MONSTER_EVENT_ON_DEATH",
+          "target": "enemy",
+          "param_u32": 20,
+          "param_f32": 0.0
+        },
+        {
           "opcode": "MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH",
           "target": "enemy",
           "param_u32": 20,
@@ -845,12 +851,6 @@
       },
       "ops": [
         {
-          "opcode": "MONSTER_EVENT_ON_UPDATE",
-          "target": "enemy",
-          "param_u32": 22,
-          "param_f32": 0.0
-        },
-        {
           "opcode": "MONSTER_EVENT_ON_HIT",
           "target": "enemy",
           "param_u32": 22,
@@ -889,12 +889,6 @@
       },
       "ops": [
         {
-          "opcode": "MONSTER_EVENT_ON_UPDATE",
-          "target": "enemy",
-          "param_u32": 23,
-          "param_f32": 0.0
-        },
-        {
           "opcode": "MONSTER_EVENT_ON_DEATH",
           "target": "enemy",
           "param_u32": 23,
@@ -932,6 +926,12 @@
         "max_active": 0
       },
       "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 24,
+          "param_f32": 0.0
+        },
         {
           "opcode": "MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE",
           "target": "enemy",

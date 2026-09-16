@@ -150,13 +150,13 @@ TEST_CASE("[Unit] AttributePipeline - enemy map and monster stat mods follow ada
       mapState.isActive = true;
       mapState.resonance.totalEnemyDensity = 1.0f;
       mapState.explicitAffixes.push_back(
-          {MapAffixType::Enemy_ExtraHealth, MapAffixCategory::Debuff, 0.30f, 5,
+          {MapAffixType::Enemy_ExtraHealth, MapAffixCategory::Debuff, 30.0f, 5,
            "test"});
       mapState.explicitAffixes.push_back(
-          {MapAffixType::Enemy_ExtraDamage, MapAffixCategory::Debuff, 0.50f, 5,
+          {MapAffixType::Enemy_ExtraDamage, MapAffixCategory::Debuff, 50.0f, 5,
            "test"});
       mapState.explicitAffixes.push_back(
-          {MapAffixType::Enemy_Fast, MapAffixCategory::Debuff, 0.20f, 5,
+          {MapAffixType::Enemy_Fast, MapAffixCategory::Debuff, 20.0f, 5,
            "test"});
 
       auto &monsterAffix = registry.emplace<MonsterAffixComponent>(enemy);

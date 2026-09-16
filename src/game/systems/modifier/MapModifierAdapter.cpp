@@ -30,6 +30,9 @@ uint32_t EncodeMapAffixNodeId(const MapAffixType type) {
   return kMapNodeIdBase + static_cast<uint32_t>(type);
 }
 
+// 战斗词缀的百分点刻度（0~100）到求值器所需乘算系数（ratio）的换算系数。
+constexpr float kPercentPointToRatio = 0.01f;
+
 } // namespace
 
 ModifierDelta
@@ -95,7 +98,12 @@ MapModifierAdapter::EvaluateEnemyAffixDelta(const ActiveDimensionalState &state)
     // 否则高阶地图词缀会塌陷为 JSON 中的 valT1 强度。
     // 同一词缀类型出现多次时逐条入队（碎片各产一条），各自携带滚值，
     // 叠加语义为连乘；override 精确限定到 combatStat 对应的目标属性。
-    requests.push_back({recordId, true, affix.value,
+    // 本表映射的战斗词缀全部是百分点语义词缀（ADD_STAT_PERCENT_MULT），
+    // 其 valT1~valT10 与 UI 均以 0~100 刻度表达；平坦语义词缀仍映射到
+    // StatType::Count 哨兵并在上方被跳过，不会走到这里。
+    // 若将来为这些条目引入平坦语义词缀，必须改为按词缀刻度分支归一化。
+    const float normalizedValue = affix.value * kPercentPointToRatio;
+    requests.push_back({recordId, true, normalizedValue,
                         static_cast<uint32_t>(combatStat)});
   }
 

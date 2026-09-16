@@ -2,6 +2,7 @@ import argparse
 import json
 import struct
 import zlib
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,38 @@ def load_records(input_dir: Path) -> list[dict[str, Any]]:
             records.append(record)
 
     return records
+
+
+def validate_single_stat_percent_mult(
+    records: list[dict[str, Any]],
+) -> None:
+    """校验同一 record 内同一 target_stat 至多 1 个 ADD_STAT_PERCENT_MULT。"""
+    failures: list[str] = []
+    for record in records:
+        ops = record.get("ops", [])
+        if not isinstance(ops, list):
+            raise ValueError("record ops must be a list")
+        targets = [
+            op.get("param_u32", 0)
+            for op in ops
+            if isinstance(op, dict)
+            and op.get("opcode") == "ADD_STAT_PERCENT_MULT"
+        ]
+        counts = Counter(targets)
+        duplicated = sorted(
+            target for target, count in counts.items() if count > 1
+        )
+        if duplicated:
+            failures.append(
+                f"record {record.get('id')}: duplicate ADD_STAT_PERCENT_MULT "
+                f"for target_stat(s) {duplicated}"
+            )
+
+    if failures:
+        raise RuntimeError(
+            "single-record ADD_STAT_PERCENT_MULT invariant violated:\n  - "
+            + "\n  - ".join(failures)
+        )
 
 
 def _int_field(record: dict[str, Any], key: str, default: int = 0) -> int:
@@ -221,6 +254,7 @@ def compile_runtime_blob(
 
 def compile_from_input(input_dir: Path) -> tuple[bytes, list[dict[str, Any]]]:
     records = load_records(input_dir)
+    validate_single_stat_percent_mult(records)
     return compile_runtime_blob(records)
 
 

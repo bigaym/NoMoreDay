@@ -3,6 +3,7 @@
 #include "game/foundation/data/TagRegistry.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/foundation/components/SkillDefs.hpp"
+#include "game/systems/modifier/EquipmentModifierAdapter.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
@@ -23,12 +24,19 @@ SkillDisplayPreviewService::Build(entt::registry& registry,
 
     const auto *bakedProfile = SkillSystem::GetBakedSkillProfile(registry, player, skillId);
     if (bakedProfile) {
+        // 烘焙档案已含专精与装备降耗，直接采用。
         preview.display_mana_cost = bakedProfile->effective_mana_cost;
         preview.display_cooldown = bakedProfile->effective_cooldown;
         preview.display_projectiles = bakedProfile->projectile_count;
         preview.display_tags = bakedProfile->effective_tags;
     } else {
-        preview.display_mana_cost = skillData->mana_cost;
+        // 未烘焙（如未入槽技能）时回退静态值，并在此结算装备降耗乘算：
+        // 仅依赖 EquipmentComponent 与运行时词缀表，故在 CombatStats 提前
+        // 返回之前结算，缺属性角色也能显示正确消耗。
+        preview.display_mana_cost =
+            skillData->mana_cost *
+            EquipmentModifierAdapter::GetEquippedManaCostMultiplier(
+                registry, player, skillId, skillData->tags);
         preview.display_cooldown = skillData->cooldown;
         preview.display_projectiles = static_cast<int>(skillData->GetParam("projectile_count", 1.0f));
         if (preview.display_projectiles <= 0) preview.display_projectiles = 1;
