@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "game/systems/item/LootGridSystem.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/LabelCacheComponent.hpp"
 #include "game/foundation/data/BiomeTypes.hpp"
 #include "game/foundation/components/WorldState.hpp"
 #include "game/foundation/components/EffectComponent.hpp"

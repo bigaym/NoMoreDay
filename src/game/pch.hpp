@@ -65,13 +65,21 @@
 #include "core/utils/HashUtils.hpp"             // 哈希工具
 #include "core/utils/FmtBuffer.hpp"            // fmt 缓冲区格式化
 
-// Game Logic Components - Game layer only (MS-7: removed from shared lower PCH)
-#include "game/foundation/data/TagRegistry.hpp"            // 标签注册 (生成文件，变动少，使用广)
-#include "game/foundation/components/Common.hpp"
-#include "game/foundation/components/Stats.hpp"
-#include "game/foundation/components/Combat.hpp"
-#include "game/foundation/components/SkillDefs.hpp"
+// ============================================================================
+// Dual PCH Architecture Rationale:
+// After Phase 3 PCH sanitization, all first-party game business headers
+// (Common.hpp, Stats.hpp, Combat.hpp, SkillDefs.hpp, TagRegistry.hpp, etc.)
+// were removed to eliminate cascading rebuilds across Game targets.
+//
+// This file is intentionally retained separately from src/pch.hpp because:
+// 1. Layer Boundary Governance: scripts/check_module_boundaries.py enforces that
+//    src/pch.hpp is an EngineOwnedPch strictly forbidden from including any game/
+//    or app/ headers.
+// 2. Future Game Isolation: Retaining src/game/pch.hpp provides a safe boundary
+//    for future ubiquitous Game-layer stable dependencies without polluting the
+//    lower Engine/Core layers.
+// 3. Parallel Build Scalability: Peer game targets remain topologically independent
+//    without artificial serialization dependencies (REUSE_FROM across peer libraries
+//    would force a single-queue bottleneck on the parallel compile graph).
+// ============================================================================
 
-// Engine resource registries used by Game-layer systems
-#include "engine/resource/EquipmentAssetRegistry.hpp"
-#include "engine/resource/RuneAssetRegistry.hpp"

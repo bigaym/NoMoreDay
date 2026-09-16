@@ -8,6 +8,7 @@ REM
 REM Options:
 REM   clean       - Clean CMake cache (preserves object files)
 REM   clean-all   - Clean entire build directory
+REM   ninja       - Build using Ninja generator (build-ninja/)
 REM   notest      - Skip building tests
 REM   release     - Build in Release mode (with LTO)
 REM   debug       - Build in Debug mode
@@ -59,7 +60,17 @@ set "COMPILER_CACHE_TOOL=AUTO"
 set "CCACHE_FALLBACK_EXE=C:/Users/yuminao/AppData/Local/Microsoft/WinGet/Packages/Ccache.Ccache_Microsoft.Winget.Source_8wekyb3d8bbwe/ccache-4.12.2-windows-x86_64/ccache.exe"
 set "ONLY_CHECK=OFF"
 set "GENERATOR_NAME="
-set "PARALLEL_JOBS=7"
+if defined NUMBER_OF_PROCESSORS (
+    REM 逻辑核 >= 4：视为开启 SMT，预留 1 个物理核心（2 个逻辑线程）
+    if !NUMBER_OF_PROCESSORS! GEQ 4 (
+        set /a "PARALLEL_JOBS=!NUMBER_OF_PROCESSORS! - 2"
+    ) else (
+        set /a "PARALLEL_JOBS=!NUMBER_OF_PROCESSORS! - 1"
+    )
+) else (
+    set "PARALLEL_JOBS=6"
+)
+if !PARALLEL_JOBS! LSS 1 set "PARALLEL_JOBS=1"
 set "GENERATE_CLANGD_INDEX=OFF"
 set "CLANGD_INDEXER_EXE=D:\Program Files\LLVM\bin\clangd-indexer.exe"
 set "CLANGD_INDEX_FILE=index.yaml"
@@ -168,14 +179,18 @@ if not defined VS_SELECTED_GENERATOR (
 :ARGS_LOOP
 if "%~1"=="" goto :ARGS_DONE
 
+if /i "%~1"=="ninja" (
+    set "GENERATOR_NAME=Ninja"
+    set "BUILD_DIR=build-ninja"
+)
 if /i "%~1"=="clean" (
     echo [Build] Cleaning CMake cache...
-    if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
+    if exist "!BUILD_DIR!\CMakeCache.txt" del /f /q "!BUILD_DIR!\CMakeCache.txt"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="clean-all" (
     echo [Build] Cleaning full build directory...
-    if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
+    if exist "!BUILD_DIR!" rmdir /s /q "!BUILD_DIR!"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="notest" (
@@ -243,7 +258,11 @@ if not errorlevel 1 (
     for /f "tokens=2 delims==" %%a in ("%~1") do set "COMPILER_CACHE_TOOL=%%a"
     set "NEED_CONFIG=1"
 )
-REM Parse j=N parameter for parallel jobs
+REM Parse j=N or --jobs=N parameter for parallel jobs
+echo %~1 | findstr /i /r "^--jobs=[0-9]*$" >nul
+if not errorlevel 1 (
+    for /f "tokens=2 delims==" %%a in ("%~1") do set "PARALLEL_JOBS=%%a"
+)
 echo %~1 | findstr /i /r "^j=[0-9]*$" >nul
 if not errorlevel 1 (
     for /f "tokens=2 delims==" %%a in ("%~1") do set "PARALLEL_JOBS=%%a"
@@ -303,8 +322,8 @@ if /i "!ONLY_CHECK!"=="ON" (
 )
 
 REM Create build directory if needed
-if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
-cd "%BUILD_DIR%"
+if not exist "!BUILD_DIR!" mkdir "!BUILD_DIR!"
+cd "!BUILD_DIR!"
 
 if exist CMakeCache.txt (
     set "CACHE_GENERATOR="
@@ -358,16 +377,24 @@ if exist CMakeCache.txt (
     )
 
     if defined CACHE_GENERATOR (
-        if /i not "!CACHE_GENERATOR!"=="!SUPPORTED_GENERATOR_A!" if /i not "!CACHE_GENERATOR!"=="!SUPPORTED_GENERATOR_B!" (
-            echo [Build] ERROR: Existing CMake generator "!CACHE_GENERATOR!" is unsupported.
-            echo [Build] This project is MSVC-only. Remove build cache with: build.bat clean-all
-            exit /b 1
-        )
+        if /i "!GENERATOR_NAME!"=="Ninja" (
+            if /i not "!CACHE_GENERATOR!"=="Ninja" (
+                echo [Build] ERROR: Cached generator "!CACHE_GENERATOR!" conflicts with requested "Ninja".
+                echo [Build] Run "build.bat ninja clean-all" and configure again.
+                exit /b 1
+            )
+        ) else (
+            if /i not "!CACHE_GENERATOR!"=="!SUPPORTED_GENERATOR_A!" if /i not "!CACHE_GENERATOR!"=="!SUPPORTED_GENERATOR_B!" (
+                echo [Build] ERROR: Existing CMake generator "!CACHE_GENERATOR!" is unsupported.
+                echo [Build] This project is MSVC-only. Remove build cache with: build.bat clean-all
+                exit /b 1
+            )
 
-        if /i not "!CACHE_GENERATOR!"=="!VS_SELECTED_GENERATOR!" (
-            echo [Build] ERROR: Cached generator "!CACHE_GENERATOR!" conflicts with selected "!VS_SELECTED_GENERATOR!".
-            echo [Build] Run "build.bat clean-all" and configure again with a supported MSVC generator.
-            exit /b 1
+            if /i not "!CACHE_GENERATOR!"=="!VS_SELECTED_GENERATOR!" (
+                echo [Build] ERROR: Cached generator "!CACHE_GENERATOR!" conflicts with selected "!VS_SELECTED_GENERATOR!".
+                echo [Build] Run "build.bat clean-all" and configure again with a supported MSVC generator.
+                exit /b 1
+            )
         )
     )
 
@@ -457,9 +484,15 @@ if "!NEED_CONFIG!"=="1" (
         set "GENERATOR_NAME=!VS_SELECTED_GENERATOR!"
     )
 
-    if /i not "!GENERATOR_NAME!"=="!SUPPORTED_GENERATOR_A!" if /i not "!GENERATOR_NAME!"=="!SUPPORTED_GENERATOR_B!" (
+    if /i "!GENERATOR_NAME!"=="Ninja" (
+        where /q ninja
+        if errorlevel 1 (
+            echo [Build] ERROR: Ninja generator requested but ninja.exe not found in PATH.
+            exit /b 1
+        )
+    ) else if /i not "!GENERATOR_NAME!"=="!SUPPORTED_GENERATOR_A!" if /i not "!GENERATOR_NAME!"=="!SUPPORTED_GENERATOR_B!" (
         echo [Build] ERROR: Unsupported generator "!GENERATOR_NAME!".
-        echo [Build] Supported generators: "!SUPPORTED_GENERATOR_A!" or "!SUPPORTED_GENERATOR_B!".
+        echo [Build] Supported generators: "!SUPPORTED_GENERATOR_A!", "!SUPPORTED_GENERATOR_B!", or "Ninja".
         exit /b 1
     )
 
@@ -493,12 +526,21 @@ if "!NEED_CONFIG!"=="1" (
 
     set "CONFIG_LOG=!BUILD_LOG_DIR!\nomoreday_config_%RANDOM%_%RANDOM%.log"
     echo [Build] Configuring CMake project...
-    cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
-        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
-        -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
-        -DBUILD_TESTING=!BUILD_TESTS! ^
-        -DENABLE_LTO=!ENABLE_LTO! ^
-        .. > "!CONFIG_LOG!" 2>&1
+    if /i "!GENERATOR_NAME!"=="Ninja" (
+        cmake -G "Ninja" !CMAKE_OPTS! ^
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
+            -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
+            -DBUILD_TESTING=!BUILD_TESTS! ^
+            -DENABLE_LTO=!ENABLE_LTO! ^
+            .. > "!CONFIG_LOG!" 2>&1
+    ) else (
+        cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
+            -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
+            -DBUILD_TESTING=!BUILD_TESTS! ^
+            -DENABLE_LTO=!ENABLE_LTO! ^
+            .. > "!CONFIG_LOG!" 2>&1
+    )
 
     if errorlevel 1 (
         type "!CONFIG_LOG!"
@@ -523,7 +565,9 @@ set "BUILD_LOG=!BUILD_LOG_DIR!\nomoreday_build_%RANDOM%_%RANDOM%.log"
 set "CMAKE_BUILD_TARGETS=NoMoreDay"
 if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
 echo [Build] Building !CMAKE_BUILD_TARGETS! ^(!BUILD_TYPE!, j=!PARALLEL_JOBS!^)...
-if /i "!ENABLE_FAST_BUILD!"=="ON" (
+if /i "!GENERATOR_NAME!"=="Ninja" (
+    cmake --build . --target !CMAKE_BUILD_TARGETS! --parallel !PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+) else if /i "!ENABLE_FAST_BUILD!"=="ON" (
     cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
 ) else (
     cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
@@ -609,9 +653,9 @@ REM 6. Post-Build Notes (Tests via CTest only)
 REM ============================================================================
 echo [Test] Test execution is managed separately via CTest.
 echo [Test] Examples:
-echo [Test]   ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure
-echo [Test]   ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
-echo [Test]   ctest --test-dir build -C Release -L performance --output-on-failure
+echo [Test]   ctest --test-dir !BUILD_DIR! -C RelWithDebInfo -L ci --output-on-failure
+echo [Test]   ctest --test-dir !BUILD_DIR! -C RelWithDebInfo -L integration --output-on-failure
+echo [Test]   ctest --test-dir !BUILD_DIR! -C Release -L performance --output-on-failure
 
 if "!RUN_GATE!"=="ON" (
     echo.
@@ -619,7 +663,7 @@ if "!RUN_GATE!"=="ON" (
     echo [Gate] Running V3 release gate runner...
     echo ============================================================
     pushd ..
-    set "GATE_ARGS=--build-dir build --config !BUILD_TYPE! --output-dir bin/release_gate --allow-missing-screenshots"
+    set "GATE_ARGS=--build-dir !BUILD_DIR! --config !BUILD_TYPE! --output-dir bin/release_gate --allow-missing-screenshots"
     python scripts\v3_release_gate.py !GATE_ARGS!
     set "GATE_EXIT=!errorlevel!"
     popd

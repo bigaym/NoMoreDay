@@ -4,6 +4,7 @@
 #include "game/systems/item/LootGridSystem.hpp"
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/LabelCacheComponent.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/components/ItemComponent.hpp"
 #include "game/foundation/components/Stats.hpp"

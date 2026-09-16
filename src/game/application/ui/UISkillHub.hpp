@@ -4,6 +4,7 @@
 #include "game/application/ui/UiRuntimeTypes.hpp"
 #include "game/application/ui/UiViewport.hpp"
 #include "game/foundation/data/BladeMasteryData.hpp"
+#include "game/foundation/components/SkillDefs.hpp"
 
 #include <array>
 #include <cstdint>

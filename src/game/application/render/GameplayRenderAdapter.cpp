@@ -20,6 +20,7 @@
 #include "engine/render/core/QualityTierManager.hpp"
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/LabelCacheComponent.hpp"
 #include "game/systems/world/WorldConstants.hpp"
 #include "game/foundation/components/EffectComponent.hpp"
 #include "game/foundation/components/ItemComponent.hpp"

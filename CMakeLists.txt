@@ -3,6 +3,8 @@ project(NoMoreDay VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# 关闭非 C++20 Modules 项目的源依赖扫描，消除 MSBuild 对全部目标的扫描调度时延
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 if(NOT MSVC)
@@ -101,6 +103,8 @@ endif()
 if(MSVC AND ENABLE_FAST_BUILD)
     if(ENABLE_ANALYZE)
         message(STATUS "[Optimization] Fast build enabled (UseMultiToolTask, /MP skipped for /analyze stability)")
+    elseif(CMAKE_GENERATOR MATCHES "Ninja")
+        message(STATUS "[Optimization] Fast build enabled (Ninja task-level parallelism, /MP skipped)")
     else()
         message(STATUS "[Optimization] Enabling fast MSVC build options (/MP + UseMultiToolTask)")
         add_compile_options(/MP)

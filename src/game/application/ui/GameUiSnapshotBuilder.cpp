@@ -31,6 +31,7 @@
 #include "game/foundation/components/Stats.hpp" // CombatStats, PrimaryStats
 #include "game/foundation/components/WorldState.hpp" // ActiveDimensionalState (registry ctx)
 #include "game/foundation/data/BuffRegistry.hpp"     // read-side buff visual table
+#include "engine/resource/AssetRegistry.hpp"
 #include "game/foundation/data/BladeMasteryData.hpp" // BladeMasteryId / BladeAttunement
 #include "game/foundation/data/BladeMasteryRegistry.hpp" // mastery card source
 #include "game/foundation/data/MonsterAffixRegistry.hpp" // MonsterAffixComponent

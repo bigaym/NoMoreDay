@@ -123,10 +123,7 @@
       "path": "src/pch.hpp",
       "status": "engine-core shared lower PCH; game layer pch is src/game/pch.hpp",
       "direct_game_includes": [],
-      "direct_engine_includes": [
-        "engine/resource/EquipmentAssetRegistry.hpp",
-        "engine/resource/RuneAssetRegistry.hpp"
-      ]
+      "direct_engine_includes": []
     }
   },
   "audit_scope": "Direct includes and current CMake ownership only; MS-0 remains the authoritative reverse-edge ledger."

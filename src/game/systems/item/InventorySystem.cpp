@@ -4,6 +4,7 @@
 #include "game/systems/item/LootGridSystem.hpp"
 #include "game/systems/item/ItemConstants.hpp"
 #include "game/foundation/components/Common.hpp"
+#include "game/foundation/components/LabelCacheComponent.hpp"
 #include "game/foundation/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/foundation/components/MaterialBankComponent.hpp"
 #include "game/foundation/components/MapFragmentComponent.hpp" // ADDED THIS LINE

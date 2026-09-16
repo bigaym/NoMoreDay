@@ -66,9 +66,6 @@
 #include "core/utils/FmtBuffer.hpp"            // fmt 缓冲区格式化
 // #include "core/math/PhysicsUtils.hpp"           // 物理 (经常改动，暂不放 PCH)
 
-#include "engine/resource/EquipmentAssetRegistry.hpp"
-#include "engine/resource/RuneAssetRegistry.hpp"
-
 // Engine - REMOVED to avoid frequent PCH rebuilds
 // #include "engine/render/GPUData.hpp"
 // #include "engine/render/GPUEntitySystem.hpp"
