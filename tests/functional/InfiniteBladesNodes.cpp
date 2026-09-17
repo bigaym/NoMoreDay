@@ -29,6 +29,9 @@ void EnsureSkillMechanics() {
   data::SkillMechanicsRegistry::Get().ResetForTests();
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json"));
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // ModifierRuntimeRegistry 为进程级单例，前置用例可能注入合成 blob；依赖真实
+  // 生成数据的烘焙断言前强制重载，避免执行顺序造成跨用例污染。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   SkillBehaviorRegistry::Initialize();
 }
 

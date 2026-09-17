@@ -17,11 +17,11 @@ void UpdateBladeWardRuntime(entt::registry &registry,
                             systems::SpatialHashGrid &grid, entt::entity entity,
                             BladeWardComponent &ward, float dt);
 
-// 反击触发时生成 counter_swords 道反击剑气实体（470）。
+// 反击触发时生成 count 道反击剑气实体（470，count 由 DoCast 缓存自 Profile）。
 // 伤害归因仍由 ResolveSkill4Counter 统一承担，此处实体仅承担表现与射程语义，
 // 因此不挂载 payload_context，避免同一次反击被重复结算。
 void SpawnBladeWardCounterSwords(entt::registry &registry, entt::entity owner,
-                                 uint64_t cast_id);
+                                 uint64_t cast_id, uint8_t count);
 
 // 反击命中时结算 474 霜铠冰霜风暴与 476 元素曝光。
 // owner 为护盾持有者，target 为被反击者。

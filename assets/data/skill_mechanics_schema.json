@@ -510,11 +510,6 @@
     ],
     [
       4,
-      402,
-      "mana_cost_reduction_per_point"
-    ],
-    [
-      4,
       403,
       "counter_chance_per_point"
     ],
@@ -635,11 +630,6 @@
     ],
     [
       4,
-      471,
-      "counter_more_damage_per_point"
-    ],
-    [
-      4,
       472,
       "static_interval"
     ],
@@ -715,16 +705,6 @@
     ],
     [
       5,
-      500,
-      "mana_reduction_pct_per_point"
-    ],
-    [
-      5,
-      502,
-      "phys_damage_pct_per_point"
-    ],
-    [
-      5,
       502,
       "splash_radius"
     ],
@@ -737,21 +717,6 @@
       5,
       510,
       "lock_range"
-    ],
-    [
-      5,
-      510,
-      "mana_cost_increase_pct"
-    ],
-    [
-      5,
-      511,
-      "fall_speed_mult_per_point"
-    ],
-    [
-      5,
-      511,
-      "lock_radius_pct_per_point"
     ],
     [
       5,
@@ -797,11 +762,6 @@
       5,
       532,
       "ward_per_sec_per_point"
-    ],
-    [
-      5,
-      533,
-      "damage_more_pct"
     ],
     [
       5,
@@ -861,17 +821,7 @@
     [
       5,
       554,
-      "crit_chance_bonus"
-    ],
-    [
-      5,
-      554,
       "intent_cost"
-    ],
-    [
-      5,
-      555,
-      "crit_damage_pct_per_point"
     ],
     [
       5,
@@ -955,41 +905,6 @@
     ],
     [
       6,
-      600,
-      "duration_per_point"
-    ],
-    [
-      6,
-      601,
-      "radius_pct_per_point"
-    ],
-    [
-      6,
-      602,
-      "phys_damage_pct_per_point"
-    ],
-    [
-      6,
-      603,
-      "cast_range_pct_per_point"
-    ],
-    [
-      6,
-      603,
-      "mana_reduction_pct_per_point"
-    ],
-    [
-      6,
-      610,
-      "damage_reduction_pct"
-    ],
-    [
-      6,
-      611,
-      "mana_increase_pct"
-    ],
-    [
-      6,
       612,
       "resonance_more_per_point"
     ],
@@ -1045,11 +960,6 @@
     ],
     [
       6,
-      634,
-      "radius_penalty_pct"
-    ],
-    [
-      6,
       650,
       "global_damage_more_per_point"
     ],
@@ -1062,11 +972,6 @@
       6,
       652,
       "intent_chance_per_point"
-    ],
-    [
-      6,
-      653,
-      "damage_reduction_pct"
     ],
     [
       6,
@@ -2616,21 +2521,6 @@
     ],
     [
       5,
-      533,
-      "impact_radius"
-    ],
-    [
-      5,
-      533,
-      "size_bonus_pct"
-    ],
-    [
-      5,
-      533,
-      "sword_count_mult"
-    ],
-    [
-      5,
       553,
       "intent_gain_per_point"
     ],
@@ -2643,16 +2533,6 @@
       5,
       571,
       "ground_burn_duration"
-    ],
-    [
-      6,
-      610,
-      "max_arrays_bonus"
-    ],
-    [
-      6,
-      611,
-      "max_arrays_bonus"
     ],
     [
       6,

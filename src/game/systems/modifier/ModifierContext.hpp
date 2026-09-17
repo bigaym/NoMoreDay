@@ -39,7 +39,7 @@ enum class ModifierOpCode : uint16_t {
   MONSTER_BEHAVIOR_STORM_UPDATE = 27,
   MONSTER_BEHAVIOR_VOID_ON_HIT = 28,
 
-  // 技能交付参数算子 (30..40)：param_u32 恒为技能 ID（delta 容器键），
+  // 技能交付参数算子 (30..42)：param_u32 恒为技能 ID（delta 容器键），
   // param_f32 为每点幅度；应用时按节点分配点数 N 线性缩放（见设计 §3.2.1）。
   SKILL_MORE_DAMAGE_MULT = 30, // 每点 More 加成（0.10 = 每点 +10%，负值合法）
   SKILL_COOLDOWN_FLAT = 31,    // 每点绝对秒数（负值 = 减冷却）
@@ -56,6 +56,10 @@ enum class ModifierOpCode : uint16_t {
   SKILL_BONUS_CRIT_DAMAGE = 39,
   // 每点射程乘算偏移（0.10 = 每点 +10%），乘性累乘。
   SKILL_RANGE_MULT = 40,
+  // Batch 2 新增：每点持续时间绝对秒数增减（0.5 = 每点 +0.5s），加性累加。
+  SKILL_DURATION_FLAT = 41,
+  // Batch 2 新增：每点弹速/下落速度相对乘算偏移（0.25 = 每点 +25%），乘性累乘。
+  SKILL_SPEED_MULT = 42,
 };
 
 /**

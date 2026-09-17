@@ -63,6 +63,10 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
       return profile != nullptr ? stored_active : nodeActive(node_id, stored_active);
     };
 
+    // 剑气护体持续时间以交付档案为单一事实源；未烘焙时回退设计基准 10s。
+    const float wardDuration =
+        profile != nullptr ? profile->delivery.duration : 10.0f;
+
     // 1. 减伤与属性 Buff 配置 (L1 优化: 直接使用静态 std::string，避免重复堆分配)
     static const std::string kBladeWardBuffId{BuffIdToString(BuffId::BladeWard)};
     static const std::string kBladeWardBuffName{"Blade Ward"};
@@ -71,8 +75,8 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
         .id = kBladeWardBuffId,
         .name = kBladeWardBuffName,
         .type = BuffType::Shield,
-        .duration = 10.0f,
-        .remaining = 10.0f
+        .duration = wardDuration,
+        .remaining = wardDuration
     };
     ward_buff.modifiers.push_back({.value = base_dr, .type = StatType::ResistPhysical, .mode = ModifierMode::Flat});
 
@@ -86,17 +90,6 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     if (intentBlockPts > 0) {
       const float blockVal = mechanics.GetFloat(kSkillId, BladeWardNodes::IntentBlock, "block_chance_per_point", 4.0f) * static_cast<float>(intentBlockPts);
       ward_buff.modifiers.push_back({.value = blockVal, .type = StatType::BlockChance, .mode = ModifierMode::Flat});
-    }
-
-    // 402 持久：维持法力消耗降低（ResourceCostReduction 以百分比点数计量）。
-    const int persistPts = nodePoints(BladeWardNodes::Persist, specState.persistPoints);
-    const float persistManaReduction =
-        mechanics.GetFloat(kSkillId, BladeWardNodes::Persist, "mana_cost_reduction_per_point", 0.15f) *
-        static_cast<float>(persistPts);
-    if (persistManaReduction > 0.0f) {
-      ward_buff.modifiers.push_back({.value = persistManaReduction * 100.0f,
-                                     .type = StatType::ResourceCostReduction,
-                                     .mode = ModifierMode::Flat});
     }
 
     // 431 势不可挡：格挡效果提升（BlockRating 百分比乘算）。
@@ -124,7 +117,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
 
     // 3. 剑气护体逻辑核心 (BladeWardComponent)
     auto &ward = registry.get_or_emplace<BladeWardComponent>(owner);
-    ward.duration = ward.remaining = 10.0f;
+    ward.duration = ward.remaining = wardDuration;
     ward.sword_count = sentinel.count;
 
     // 偏转几率计算 (解 H8, M12): 基础 10% + 拨云见日每点 4%
@@ -138,8 +131,27 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     // 专精状态映射
     ward.is_solidified = nodeFlag(BladeWardNodes::Mountain, specState.mountain);
     ward.trigger_counter = nodeFlag(BladeWardNodes::CounterBlade, specState.counterBlade);
-    const int vengeancePts = nodePoints(BladeWardNodes::Vengeance, specState.vengeancePoints);
-    ward.counter_damage_more = mechanics.GetFloat(kSkillId, BladeWardNodes::Vengeance, "counter_more_damage_per_point", 0.20f) * static_cast<float>(vengeancePts);
+    // 470 剑气反震：反击剑气道数由 DoCast 缓存，供伤害拦截站点直接消费；
+    // 无 Profile 时回退机制表 counter_swords 作为安全默认值。
+    // 机制表浮点值在窄化前收敛：NaN 使大小比较为假而归 0，负值归 0，上限钳到 255。
+    const float rawCounterSwords = mechanics.GetFloat(
+        kSkillId, BladeWardNodes::CounterBlade, "counter_swords", 5.0f);
+    ward.counter_sword_count =
+        (profile != nullptr && profile->delivery.sub_count > 0)
+            ? static_cast<uint8_t>(profile->delivery.sub_count)
+            : static_cast<uint8_t>(
+                  rawCounterSwords > 0.0f ? std::min(rawCounterSwords, 255.0f)
+                                          : 0.0f);
+    // 471 以眼还眼：反击增伤单源读取烘焙 More 倍率。
+    // 不变量：技能 4 的 more_damage_mult 当前仅由 471 贡献，故以 -1.0f 提取反击加成；
+    // 若未来新增技能 4 的 More 增伤来源，必须改用独立字段而非差值提取。
+    // 未烘焙分支（profile == nullptr）有意 fail-closed 为 0，与 470 的机制表回退不对称。
+    // 依据 ResolveBakedProfile：缓存档案缺失时会用同 ID 专精即时烘焙，故 nullptr 当且仅当
+    // 专精槽同样缺失；此时 specState 为空，exec.active_nodes 也由专精填充，
+    // 迁移前的 nodePoints(471,...) 回退本就得到 0，本分支无相对迁移前的行为回退。
+    // 唯一「有 active_nodes 而无专精槽」的施放入口是影子复制，而技能 4 带 Tag::Buff 已被其排除。
+    // 470 保留机制表回退是其调用点只能拿到组件的结构性特例。
+    ward.counter_damage_more = profile != nullptr ? (profile->more_damage_mult - 1.0f) : 0.0f;
 
     ward.is_lightning_ward = nodeFlag(BladeWardNodes::StaticField, specState.staticField);
     ward.is_cold_ward = nodeFlag(BladeWardNodes::FrostArmor, specState.frostArmor);
@@ -156,8 +168,7 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     ward.block_ward_amount = mechanics.GetFloat(kSkillId, BladeWardNodes::ShieldBarrier, "ward_per_block_per_point", 10.0f) * static_cast<float>(barrierPts);
 
     // 4. 专精节点运行时数值烘焙（机制表驱动，供运行时、命中结算与反击站点消费）
-    // 402/431 已随护盾 Buff 生效，此处镜像到组件字段供断言与后续读取。
-    ward.mana_cost_reduction = persistManaReduction;
+    // 431 已随护盾 Buff 生效，此处镜像到组件字段供断言与后续读取。
     ward.block_effectiveness = unstoppableBlockEffect;
 
     // 403 剑压外放：反击几率加成并入偏转几率（偏转是剑气护体的几率型反击路径），
@@ -498,14 +509,9 @@ void UpdateBladeWardRuntime(entt::registry &registry,
 }
 
 void SpawnBladeWardCounterSwords(entt::registry &registry, entt::entity owner,
-                                 uint64_t cast_id) {
-  if (!registry.valid(owner) || !registry.all_of<Position>(owner)) {
-    return;
-  }
-  const auto &mechanics = data::SkillMechanicsRegistry::Get();
-  const int swordCount = static_cast<int>(
-      mechanics.GetFloat(4, BladeWardNodes::CounterBlade, "counter_swords", 5.0f));
-  if (swordCount <= 0) {
+                                 uint64_t cast_id, uint8_t count) {
+  // count 为 uint8_t，负值/NaN 已在 DoCast 源头钳制；count == 0 即「非正数量不生成」。
+  if (!registry.valid(owner) || !registry.all_of<Position>(owner) || count == 0) {
     return;
   }
   const auto *ward = registry.try_get<BladeWardComponent>(owner);
@@ -513,9 +519,9 @@ void SpawnBladeWardCounterSwords(entt::registry &registry, entt::entity owner,
   const Position origin = registry.get<Position>(owner);
   // 速度恒定，射程仅由 lifeTime 随 counter_range_bonus 线性缩放（避免二次方增长）。
   const float speed = 520.0f;
-  for (int i = 0; i < swordCount; ++i) {
+  for (int i = 0; i < static_cast<int>(count); ++i) {
     const float angle =
-        (6.2831853f / static_cast<float>(swordCount)) * static_cast<float>(i);
+        (6.2831853f / static_cast<float>(count)) * static_cast<float>(i);
     entt::entity sword = registry.create();
     auto &pos = registry.emplace<Position>(sword);
     pos.x = origin.x;

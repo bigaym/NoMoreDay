@@ -1133,15 +1133,15 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
       }
 
       if (beam.aim_assist) {
-        // 锁敌半径基准挂 510 节点 (lock_range)，511 无处遁形按点数扩大
+        // 锁敌半径基准挂 510 节点 (lock_range)；技能 5 直接单源消费 Baker 已算好的 delivery.range，
+        // 根除运行帧对 511 的二次查表重算
         float lock_radius = data::SkillMechanicsRegistry::Get().GetFloat(5u, 510, "lock_range", 450.0f);
         if (beam.skill_id == 5) {
           const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5u);
-          if (profile && (profile->delivery.feature_flags & 16) != 0) {
-            int pts_511 = GetSkill5Point(registry, entity, 511);
-            lock_radius *= (1.0f + data::SkillMechanicsRegistry::Get()
-                                       .GetFloat(5u, 511, "lock_radius_pct_per_point", 0.15f) *
-                                       static_cast<float>(pts_511));
+          // 511「无处遁形」已分配时锁定半径改由烘焙交付档案单源消费；
+          // 未分配时保持步骤 1 写入的机制表基准 450，与烘焙基准等价。
+          if (profile != nullptr && (profile->delivery.feature_flags & 16) != 0) {
+            lock_radius = profile->delivery.range;
           }
         }
         float bestDistSq = lock_radius * lock_radius;
@@ -1194,15 +1194,13 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         float bonus_armor_pen = beam.bonus_armor_pen;
         float bonus_crit_dmg = profile ? profile->delivery.bonus_crit_damage : 0.0f;
 
-        float speedMult = 1.0f;
-        if (beam.skill_id == 5 && profile && (profile->delivery.feature_flags & 16) != 0) {
-          int pts_511 = GetSkill5Point(registry, entity, 511);
-          speedMult = 1.0f +
-                      data::SkillMechanicsRegistry::Get()
-                              .GetFloat(5u, 511, "fall_speed_mult_per_point", 0.25f) *
-                          static_cast<float>(pts_511);
+        // 511「无处遁形」已分配时下落弹速单源读取烘焙值；未分配或未烘焙时沿用
+        // 基准 1000（与 Baker 步骤 1 写入的引导基准一致），该字面量仅为无档案回退。
+        float finalSpeed = 1000.0f;
+        if (beam.skill_id == 5 && profile != nullptr &&
+            (profile->delivery.feature_flags & 16) != 0) {
+          finalSpeed = profile->delivery.speed;
         }
-        float finalSpeed = 1000.0f * speedMult;
         auto *stats = registry.try_get<CombatStats>(entity);
 
         for (int i = 0; i < count; ++i) {

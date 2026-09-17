@@ -212,6 +212,8 @@ ModifierOpCategory CategoryOfOp(const ModifierOpCode opcode) {
   case ModifierOpCode::SKILL_MANA_COST_FLAT:
   case ModifierOpCode::SKILL_BONUS_CRIT_DAMAGE:
   case ModifierOpCode::SKILL_RANGE_MULT:
+  case ModifierOpCode::SKILL_DURATION_FLAT:
+  case ModifierOpCode::SKILL_SPEED_MULT:
     return ModifierOpCategory::SkillDelivery;
   }
   return ModifierOpCategory::None;
@@ -313,6 +315,15 @@ void ApplyOp(const ModifierOpCode opcode, const uint32_t paramU32,
     break;
   case ModifierOpCode::SKILL_RANGE_MULT:
     out.AddSkillRangeMult(paramU32, 1.0f + paramF32 * pts);
+    break;
+  // Batch 2 交付算子：持续时间每点秒数按加性缩放，弹速每点相对偏移按
+  // 1 + param_f32 * pts 线性外推为乘性系数；同样不做上限截断，
+  // 数值下限（如持续时间/弹速不为负）由消费端负责。
+  case ModifierOpCode::SKILL_DURATION_FLAT:
+    out.AddSkillDurationFlat(paramU32, paramF32 * pts);
+    break;
+  case ModifierOpCode::SKILL_SPEED_MULT:
+    out.AddSkillSpeedMult(paramU32, 1.0f + paramF32 * pts);
     break;
   }
 }
@@ -466,6 +477,21 @@ void ModifierDelta::AddSkillRangeMult(const uint32_t skillId,
   it->second *= mult;
 }
 
+void ModifierDelta::AddSkillDurationFlat(const uint32_t skillId,
+                                         const float delta) {
+  skill_duration_flat[skillId] += delta;
+}
+
+void ModifierDelta::AddSkillSpeedMult(const uint32_t skillId,
+                                      const float mult) {
+  const auto it = skill_speed_mult.find(skillId);
+  if (it == skill_speed_mult.end()) {
+    skill_speed_mult.emplace(skillId, mult);
+    return;
+  }
+  it->second *= mult;
+}
+
 void ModifierDelta::AddMonsterEventOnUpdate(const uint32_t affixId) {
   monster_event_on_update_affix_ids.insert(affixId);
 }
@@ -545,6 +571,14 @@ float ModifierDelta::GetSkillRangeMult(const uint32_t skillId) const {
   return ReadOr(skill_range_mult, skillId, 1.0f);
 }
 
+float ModifierDelta::GetSkillDurationFlat(const uint32_t skillId) const {
+  return ReadOr(skill_duration_flat, skillId, 0.0f);
+}
+
+float ModifierDelta::GetSkillSpeedMult(const uint32_t skillId) const {
+  return ReadOr(skill_speed_mult, skillId, 1.0f);
+}
+
 void ModifierDelta::MergeFrom(const ModifierDelta &other) {
   if (this == &other) {
     return;
@@ -585,6 +619,8 @@ void ModifierDelta::MergeFrom(const ModifierDelta &other) {
   mergeAdditive(skill_mana_cost_flat, other.skill_mana_cost_flat);
   mergeAdditive(skill_bonus_crit_damage, other.skill_bonus_crit_damage);
   mergeMultiplicative(skill_range_mult, other.skill_range_mult);
+  mergeAdditive(skill_duration_flat, other.skill_duration_flat);
+  mergeMultiplicative(skill_speed_mult, other.skill_speed_mult);
   mergeSet(monster_event_on_update_affix_ids,
            other.monster_event_on_update_affix_ids);
   mergeSet(monster_event_on_hit_affix_ids, other.monster_event_on_hit_affix_ids);

@@ -38,6 +38,9 @@ void EnsureSkillMechanics() {
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json"));
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
   (void)systems::AilmentRegistry::Get().EnsureLoaded();
+  // ModifierRuntimeRegistry 为进程级单例，前置用例可能注入合成 blob；依赖真实
+  // 生成数据的烘焙断言前强制重载，避免执行顺序造成跨用例污染。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   SkillBehaviorRegistry::Initialize();
   CombatEventDispatcher::Clear();
   SkillSystem::ShutdownHooks();
@@ -267,6 +270,32 @@ TEST_CASE("[Functional] Skill 6 - Shape & Synergy Nodes 600, 601, 603, 612, 613,
 
     // 基础 30 法耗，-20% = 24
     CHECK(profile.effective_mana_cost == doctest::Approx(24.0f));
+  }
+
+  // 603 施法范围迁移：由旧路径迁移到交付 range 运算，数值须与迁移前一致
+  // （400 * (1 + 0.10N)）。当前无消费端读取技能6 的 delivery.range，故本条
+  // 只做数值 parity 守护，不附带任何行为差异断言。
+  SUBCASE("603 cast range parity (baked numeric only)") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{603, 4}});
+
+    SpecializedSkill spec;
+    spec.skill_id = kSkillId;
+    spec.allocated_points = {{603, 4}};
+    BakedSkillProfile profile;
+    SkillSpecializationBaker::Bake(registry, player, kSkillId, &spec, profile, nullptr);
+
+    // 400 * (1 + 0.10 * 4) = 560
+    CHECK(profile.delivery.range == doctest::Approx(560.0f));
+
+    // 未点 603：射程保持 400、法耗保持 30，迁移不改变默认值。传有效但空加点
+    // 的专精（而非 nullptr），确保 Baker 仍走专精 + UMR 块，覆盖真实场景。
+    SpecializedSkill noNodes;
+    noNodes.skill_id = kSkillId;
+    BakedSkillProfile base;
+    SkillSpecializationBaker::Bake(registry, player, kSkillId, &noNodes, base, nullptr);
+    CHECK(base.effective_mana_cost == doctest::Approx(30.0f));
+    CHECK(base.delivery.range == doctest::Approx(400.0f));
   }
 
   SUBCASE("612 Resonance amplifies damage in overlapping sword arrays") {

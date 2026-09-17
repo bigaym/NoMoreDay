@@ -260,9 +260,7 @@
       "base_deflection": 0.10,
       "deflection_pct_per_point": 0.04
     },
-    "402": {
-      "mana_cost_reduction_per_point": 0.15
-    },
+    "402": {},
     "403": {
       "counter_chance_per_point": 0.10,
       "counter_range_per_point": 0.10
@@ -334,9 +332,7 @@
       "counter_swords": 5.0,
       "base_damage": 35.0
     },
-    "471": {
-      "counter_more_damage_per_point": 0.20
-    },
+    "471": {},
     "472": {
       "static_interval": 0.5,
       "static_radius": 50.0
@@ -366,28 +362,21 @@
     "0": {
       "max_channel_time": 5.0
     },
-    "500": {
-      "mana_reduction_pct_per_point": 0.10
-    },
+    "500": {},
     "501": {
       "frequency_max_pct_per_point": 0.15,
       "ramp_duration": 2.0
     },
     "502": {
-      "phys_damage_pct_per_point": 0.10,
       "splash_radius": 30.0
     },
     "503": {
       "move_penalty_reduction_pct_per_point": 0.10
     },
     "510": {
-      "lock_range": 450.0,
-      "mana_cost_increase_pct": 0.30
+      "lock_range": 450.0
     },
-    "511": {
-      "lock_radius_pct_per_point": 0.15,
-      "fall_speed_mult_per_point": 0.25
-    },
+    "511": {},
     "512": {
       "fate_mark_chance_pct_per_point": 0.20,
       "damage_taken_per_stack": 0.03,
@@ -419,10 +408,6 @@
       "max_barrier": 1000.0
     },
     "533": {
-      "sword_count_mult": 0.5,
-      "size_bonus_pct": 1.0,
-      "damage_more_pct": 1.5,
-      "impact_radius": 80.0,
       "giant_radius": 70.0
     },
     "534": {
@@ -449,12 +434,9 @@
       "hits_required": 10.0
     },
     "554": {
-      "intent_cost": 10.0,
-      "crit_chance_bonus": 100.0
+      "intent_cost": 10.0
     },
-    "555": {
-      "crit_damage_pct_per_point": 0.20
-    },
+    "555": {},
     "570": {
       "frequency_penalty_pct": 0.60,
       "damage_more_mult": 2.0,
@@ -487,27 +469,12 @@
     }
   },
   "6": {
-    "600": {
-      "duration_per_point": 0.5
-    },
-    "601": {
-      "radius_pct_per_point": 0.15
-    },
-    "602": {
-      "phys_damage_pct_per_point": 0.10
-    },
-    "603": {
-      "mana_reduction_pct_per_point": 0.05,
-      "cast_range_pct_per_point": 0.10
-    },
-    "610": {
-      "max_arrays_bonus": 1,
-      "damage_reduction_pct": 0.15
-    },
-    "611": {
-      "max_arrays_bonus": 1,
-      "mana_increase_pct": 0.30
-    },
+    "600": {},
+    "601": {},
+    "602": {},
+    "603": {},
+    "610": {},
+    "611": {},
     "612": {
       "resonance_more_per_point": 0.20
     },
@@ -537,9 +504,7 @@
       "execute_threshold_ratio": 0.12,
       "boss_more_damage_pct": 0.20
     },
-    "634": {
-      "radius_penalty_pct": 0.30
-    },
+    "634": {},
     "635": {
       "echo_skill_id": 2,
       "echo_effectiveness": 0.50,
@@ -554,9 +519,7 @@
     "652": {
       "intent_chance_per_point": 0.333333
     },
-    "653": {
-      "damage_reduction_pct": 0.50
-    },
+    "653": {},
     "654": {
       "cdr_pct_per_point": 0.10
     },

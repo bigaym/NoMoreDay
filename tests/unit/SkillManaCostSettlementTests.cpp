@@ -158,4 +158,38 @@ TEST_CASE("[Unit] SkillManaCostSettlement - TryCast settles folded mana cost") {
   }
 }
 
+TEST_CASE("[Unit] SkillManaCostSettlement - specialization and equipment compose "
+          "multiplicatively") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(SkillRegistry::Get().GetSkill(kFlowingThrustSkillId) != nullptr);
+  REQUIRE(ReloadModifierRuntimeFromAsset());
+
+  entt::registry registry;
+  const entt::entity player = registry.create();
+
+  // 专精降耗（SKILL_MANA_COST_MULT）与装备降耗（MANA_COST_MULT）为同一条乘算链：
+  // 前者烘焙进 effective_mana_cost，后者在烘焙收尾继续乘算，绝不做加性叠加。
+  // 说明：UMR-SKILL-BATCH-2 的 402 专精折扣限定技能 4，而真实资产中唯一带降耗的
+  // 装备记录 1001001 限定技能 1，无技能 4 装备记录；故以技能 1 的 101（同 opcode
+  // SKILL_MANA_COST_MULT、每点 15%）等价验证乘算复合语义，避免注入合成运行时数据。
+  SpecializedSkill spec;
+  spec.skill_id = kFlowingThrustSkillId;
+  spec.allocated_points[101] = 3; // 1 - 0.15 * 3 = 0.55
+
+  // 仅专精：5.0 * 0.55 = 2.75。
+  BakedSkillProfile specOnly{};
+  SkillSpecializationBaker::Bake(registry, player, kFlowingThrustSkillId, &spec,
+                                 specOnly, nullptr);
+  CHECK(specOnly.effective_mana_cost == doctest::Approx(2.75f));
+
+  // 叠装备降耗 0.9：2.75 * 0.9 = 2.475；若为加性叠加会得到 2.25。
+  SetMainHandManaCostAffix(registry, player, true);
+  BakedSkillProfile composed{};
+  SkillSpecializationBaker::Bake(registry, player, kFlowingThrustSkillId, &spec,
+                                 composed, nullptr);
+  CHECK(composed.effective_mana_cost == doctest::Approx(2.475f));
+  CHECK_FALSE(composed.effective_mana_cost == doctest::Approx(2.25f));
+}
+
 } // namespace NoMoreDay

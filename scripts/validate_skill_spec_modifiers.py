@@ -1,11 +1,12 @@
-"""技能专精修饰器离线门禁（UMR-SKILL-BATCH-1 设计 §4.1 / §4.3 / §5.1-5）。
+"""技能专精修饰器离线门禁（UMR-SKILL-BATCH-1/2 设计 §4.1 / §4.3 / §5.1-5 / §6.3）。
 
-汇总 6 项断言，任一失败即以非 0 退出；也可由 SkillSpecBatch1GateTest 按项调用：
+汇总 6 项断言，任一失败即以非 0 退出；也可由 SkillSpecBatch1/2GateTest 按项调用：
   1. 记录 ID 解码：(id - 2_000_000) / 10 == node_id_whitelist[0]（历史例外 2002103）；
   2. SKILL_PROJECTILES_ADD 的 param_f32 必须为非负整数（整数算子静态截断与负值防护）；
-  3. OpCode 30..40 仅允许出现在 debug_source == "skill_spec_node" 的记录上（SkillDelivery 类别防蔓延）；
+  3. OpCode 30..42 仅允许出现在 debug_source == "skill_spec_node" 的记录上（SkillDelivery 类别防蔓延）；
   4. canonical ↔ skill_mechanics 迁移等价（按算子逐条给出期望关系，节点 201 为绝对平减不套用 /100）；
-  5. 退役键不回潮（覆盖设计 §4.3 删除清单）；
+  5. 退役键不回潮：覆盖迁移退役键（设计 §4.3 的 19 条）与无 canonical 记录的历史死键
+     （DEAD_MECHANICS_KEYS 5 项，独立于 MIGRATION_EQUIVALENCE）；
   6. 反向登记：退役键必须有 canonical 替代记录，且已迁移节点下不得残留未登记键。
 """
 
@@ -36,7 +37,7 @@ ID_DECODE_EXEMPT_IDS = frozenset({2002103})
 
 PROJECTILE_OPCODE = "SKILL_PROJECTILES_ADD"
 SKILL_DELIVERY_OPCODE_MIN = 30
-SKILL_DELIVERY_OPCODE_MAX = 40
+SKILL_DELIVERY_OPCODE_MAX = 42
 SKILL_SPEC_DEBUG_SOURCE = "skill_spec_node"
 
 # canonical ↔ skill_mechanics 迁移等价登记表（设计 §4.3）。
@@ -58,6 +59,30 @@ MIGRATION_EQUIVALENCE = (
     (2003120, 3, 312, "cost_reduction_pct_per_point", "percent", 0.05),
     (2003310, 3, 331, "crit_chance_per_point", "percent", 0.05),
     (2003320, 3, 332, "crit_damage_per_point", "percent", 0.25),
+    # Batch 2（技能 4/5/6，19 条）。relation 规格见设计 §4.3 / 计划 §3.3：
+    # 554 为百分比换算（100.0 -> 1.0）；510/610/611/634/653 为取负惩罚；其余按原始数值迁移。
+    # 技能 4（剑气护体）
+    (2004020, 4, 402, "mana_cost_reduction_per_point", "raw", 0.15),
+    (2004710, 4, 471, "counter_more_damage_per_point", "raw", 0.2),
+    # 技能 5（万剑归宗）
+    (2005000, 5, 500, "mana_reduction_pct_per_point", "raw", 0.1),
+    (2005020, 5, 502, "phys_damage_pct_per_point", "raw", 0.1),
+    (2005100, 5, 510, "mana_cost_increase_pct", "flat_negate", -0.3),
+    (2005110, 5, 511, "lock_radius_pct_per_point", "raw", 0.15),
+    (2005111, 5, 511, "fall_speed_mult_per_point", "raw", 0.25),
+    (2005330, 5, 533, "damage_more_pct", "raw", 1.5),
+    (2005540, 5, 554, "crit_chance_bonus", "percent", 1.0),
+    (2005550, 5, 555, "crit_damage_pct_per_point", "raw", 0.2),
+    # 技能 6（剑阵·诛仙）
+    (2006000, 6, 600, "duration_per_point", "raw", 0.5),
+    (2006010, 6, 601, "radius_pct_per_point", "raw", 0.15),
+    (2006020, 6, 602, "phys_damage_pct_per_point", "raw", 0.1),
+    (2006030, 6, 603, "mana_reduction_pct_per_point", "raw", 0.05),
+    (2006031, 6, 603, "cast_range_pct_per_point", "raw", 0.1),
+    (2006100, 6, 610, "damage_reduction_pct", "flat_negate", -0.15),
+    (2006110, 6, 611, "mana_increase_pct", "flat_negate", -0.3),
+    (2006340, 6, 634, "radius_penalty_pct", "flat_negate", -0.3),
+    (2006530, 6, 653, "damage_reduction_pct", "flat_negate", -0.5),
 )
 
 # 已迁移节点下仍保留的 mechanics 键（非线性后处理或本批显式不迁移），用于反向登记校验。
@@ -69,7 +94,24 @@ KEPT_MECHANICS_KEYS = frozenset(
         (3, 300, "duration"),
         (3, 312, "mana_regen_per_sword_per_point"),
         (3, 331, "splash_radius"),
+        # Batch 2：已迁移节点下仍作为单一事实源保留的键（设计 §6.3）。
+        # 4/470 无 canonical 记录，仅作为无 Profile 时的安全回退保留。
+        (4, 470, "counter_swords"),
+        (5, 502, "splash_radius"),
+        (5, 510, "lock_range"),
+        (5, 533, "giant_radius"),
+        (5, 554, "intent_cost"),
     }
+)
+
+# Batch 2 独立死键门禁（设计 §4.3 / §6.3，解 G-8）：
+# 这些键无 canonical 替代记录，因此 MIGRATION_EQUIVALENCE 覆盖不到，需单独登记并断言不得回潮。
+DEAD_MECHANICS_KEYS = (
+    (5, 533, "sword_count_mult"),
+    (5, 533, "size_bonus_pct"),
+    (5, 533, "impact_radius"),
+    (6, 610, "max_arrays_bonus"),
+    (6, 611, "max_arrays_bonus"),
 )
 
 FLOAT_TOLERANCE = 1e-6
@@ -292,7 +334,7 @@ def check_migration_equivalence(
 
 
 def check_retired_keys_absent(mechanics: dict[str, Any]) -> list[str]:
-    """断言退役键不再出现于 skill_mechanics.json（防回潮）。"""
+    """断言迁移退役键不再出现于 skill_mechanics.json（防回潮）。"""
     failures: list[str] = []
     for record_id, skill_id, node_id, key, _relation, _expected in (
         MIGRATION_EQUIVALENCE
@@ -304,6 +346,23 @@ def check_retired_keys_absent(mechanics: dict[str, Any]) -> list[str]:
             failures.append(
                 f"retired mechanics key still present: {skill_id}/{node_id}.{key} "
                 f"(replaced by canonical record {record_id})"
+            )
+    return failures
+
+
+def check_dead_keys_absent(mechanics: dict[str, Any]) -> list[str]:
+    """独立死键门禁：无 canonical 记录的历史死键不得回潮（设计 §4.3 / §6.3）。
+
+    MIGRATION_EQUIVALENCE 只登记带 canonical 替代记录的退役键，无法覆盖
+    5/533 与 6/610、6/611 的死键，故单独断言。
+    """
+    failures: list[str] = []
+    for skill_id, node_id, key in DEAD_MECHANICS_KEYS:
+        node_table = _mechanics_node(mechanics, skill_id, node_id)
+        if key in node_table:
+            failures.append(
+                f"dead mechanics key still present: {skill_id}/{node_id}.{key} "
+                f"(no canonical replacement; must stay retired)"
             )
     return failures
 
@@ -359,7 +418,9 @@ def run_all_checks() -> dict[str, list[str]]:
         "projectile_integer": check_projectile_value_integer(records),
         "skill_delivery_domain": check_skill_delivery_domain(),
         "migration_equivalence": check_migration_equivalence(records, mechanics),
-        "retired_keys_absent": check_retired_keys_absent(mechanics),
+        # 迁移退役键与无 canonical 的独立死键共用「不得回潮」门禁项。
+        "retired_keys_absent": check_retired_keys_absent(mechanics)
+        + check_dead_keys_absent(mechanics),
         "registry_reverse": check_registry_reverse(records, mechanics),
     }
 
@@ -380,6 +441,8 @@ def main() -> int:
     parser.parse_args()
 
     results = run_all_checks()
+    total = len(results)
+    passed = 0
     failed = False
     for name, failures in results.items():
         if failures:
@@ -388,11 +451,15 @@ def main() -> int:
             for failure in failures:
                 print(f"  - {failure}")
         else:
+            passed += 1
             print(f"[OK] {name}")
     if failed:
-        print("[FAIL] skill_spec modifier offline gates detected violations.")
+        print(
+            "[FAIL] skill_spec modifier offline gates detected violations "
+            f"({passed}/{total} passed)."
+        )
         return 1
-    print("[OK] skill_spec modifier offline gates passed.")
+    print(f"[OK] skill_spec modifier offline gates passed: {passed}/{total} passed.")
     return 0
 
 

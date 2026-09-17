@@ -90,6 +90,54 @@ std::vector<uint8_t> BuildManaRuntimeBlob(float flat_delta,
   return blob;
 }
 
+// 合成单记录运行时二进制：同一技能同时携带持续时间加性与弹速乘性两个交付算子，
+// 用于验证负向每点参数经线性外推后产生的非法交付参数会被 Baker 端 max(0) 钳制。
+// duration_flat_per_point 为每点绝对秒数（负值即缩短）；speed_mult_per_point 为每点
+// 乘性偏移，系数由算子计算为 1 + 偏移率 * 点数（可为负）。
+std::vector<uint8_t> BuildDeliveryRuntimeBlob(float duration_flat_per_point,
+                                              float speed_mult_per_point) {
+  ModifierRuntimeHeader header;
+  header.record_count = 1;
+  header.filter_count = 1;
+  header.op_count = 2;
+  header.index_count = 0;
+  header.records_offset = sizeof(ModifierRuntimeHeader);
+  header.filters_offset =
+      header.records_offset + sizeof(ModifierRuntimeRecord);
+  header.ops_offset = header.filters_offset + sizeof(ModifierRuntimeFilter);
+  header.index_offset = header.ops_offset + 2u * sizeof(ModifierRuntimeOp);
+  header.crc32 = 0;
+
+  ModifierRuntimeRecord record;
+  record.id = 6201u;
+  record.filter_index = 0;
+  record.op_offset = 0;
+  record.op_count = 2;
+
+  ModifierRuntimeFilter filter; // 空白名单：技能与节点均按通配处理
+
+  ModifierRuntimeOp durationOp;
+  durationOp.opcode =
+      static_cast<uint16_t>(ModifierOpCode::SKILL_DURATION_FLAT);
+  durationOp.param_u32 = 6u;
+  durationOp.param_f32 = duration_flat_per_point;
+
+  ModifierRuntimeOp speedOp;
+  speedOp.opcode = static_cast<uint16_t>(ModifierOpCode::SKILL_SPEED_MULT);
+  speedOp.param_u32 = 6u;
+  speedOp.param_f32 = speed_mult_per_point;
+
+  std::vector<uint8_t> blob;
+  blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
+               2u * sizeof(ModifierRuntimeOp));
+  AppendRuntimeStruct(blob, header);
+  AppendRuntimeStruct(blob, record);
+  AppendRuntimeStruct(blob, filter);
+  AppendRuntimeStruct(blob, durationOp);
+  AppendRuntimeStruct(blob, speedOp);
+  return blob;
+}
+
 } // namespace
 
 TEST_CASE("[Unit] SkillSpecializationBaker - Base Profile Baking") {
@@ -542,8 +590,10 @@ TEST_CASE("[Unit] SkillSpecializationBaker - BakedDeliveryParams Dedicated Field
     SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
     CHECK(profile.delivery.bonus_crit_damage == doctest::Approx(0.4f));
     CHECK(profile.delivery.armor_pen == doctest::Approx(18.0f));
-    CHECK(profile.delivery.speed == 300.0f); // Default speed NOT clobbered!
-    CHECK(profile.delivery.range == 200.0f); // Default range NOT clobbered!
+    // 技能5 交付基准改由 Baker 显式写入：下落弹速 1000、索敌 range 取机制表
+    // lock_range=450；未分配 511 时乘算因子为 1.0，故保持基准值不被清零。
+    CHECK(profile.delivery.speed == doctest::Approx(1000.0f));
+    CHECK(profile.delivery.range == doctest::Approx(450.0f));
     CHECK(profile.more_damage_mult == doctest::Approx(1.20f));
   }
 
@@ -1713,6 +1763,273 @@ TEST_CASE("[Unit] FlowingThrust - 175 spread slow keeps SpeedDown type on refres
   CHECK(spread->id == "FrostSlow");
   CHECK(spread->type == BuffType::SpeedDown);
   CHECK(spread->kind == BuffKind::Slow);
+}
+
+// ===== UMR-SKILL-BATCH-2：技能 4/5/6 交付算子烘焙断言 =====
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 4 Blade Ward UMR Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 402 法耗折扣：基准 30 法耗，30 * (1 - 0.15 * N)；节点上限 3 点。
+  SUBCASE("402 mana cost discount scales per point") {
+    constexpr int kPoints[3] = {1, 2, 3};
+    constexpr float kExpected[3] = {25.5f, 21.0f, 16.5f};
+    for (int i = 0; i < 3; ++i) {
+      SpecializedSkill spec;
+      spec.skill_id = 4;
+      spec.allocated_points[402] = kPoints[i];
+      BakedSkillProfile profile{};
+      SkillSpecializationBaker::Bake(registry, player, 4, &spec, profile, nullptr);
+      CHECK(profile.effective_mana_cost == doctest::Approx(kExpected[i]));
+    }
+  }
+
+  // 471 反击增伤：1.0 + 0.20 * N。
+  SUBCASE("471 counter more damage scales per point") {
+    {
+      SpecializedSkill spec;
+      spec.skill_id = 4;
+      spec.allocated_points[471] = 3; // 1.0 + 0.60
+      BakedSkillProfile profile{};
+      SkillSpecializationBaker::Bake(registry, player, 4, &spec, profile, nullptr);
+      CHECK(profile.more_damage_mult == doctest::Approx(1.60f));
+    }
+    {
+      // 未点 471：乘算基准保持 1.0，不得产生无来源反击增伤。
+      SpecializedSkill spec;
+      spec.skill_id = 4;
+      BakedSkillProfile profile{};
+      SkillSpecializationBaker::Bake(registry, player, 4, &spec, profile, nullptr);
+      CHECK(profile.more_damage_mult == doctest::Approx(1.0f));
+    }
+  }
+
+  // 470 反击剑气数为交付基准 5，与节点是否点亮、点数多少无关。
+  SUBCASE("470 counter sword base count stays 5") {
+    {
+      SpecializedSkill spec;
+      spec.skill_id = 4;
+      BakedSkillProfile profile{};
+      SkillSpecializationBaker::Bake(registry, player, 4, &spec, profile, nullptr);
+      CHECK(profile.delivery.sub_count == 5);
+    }
+    {
+      SpecializedSkill spec;
+      spec.skill_id = 4;
+      spec.allocated_points[470] = 1;
+      BakedSkillProfile profile{};
+      SkillSpecializationBaker::Bake(registry, player, 4, &spec, profile, nullptr);
+      CHECK(profile.delivery.sub_count == 5);
+    }
+  }
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 5 Infinite Blades UMR Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 引导基准每秒法耗 20：500 折扣 20 * (1 - 0.10N)。
+  SUBCASE("500 mana cost discount") {
+    SpecializedSkill spec;
+    spec.skill_id = 5;
+    spec.allocated_points[500] = 2; // 20 * (1 - 0.20) = 16
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(16.0f));
+  }
+
+  // 502 增伤：1.0 + 0.10N。
+  SUBCASE("502 more damage") {
+    SpecializedSkill spec;
+    spec.skill_id = 5;
+    spec.allocated_points[502] = 2; // 1.0 + 0.20
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.20f));
+  }
+
+  // 510 代价换伤害：法耗 20 * (1 + 0.30N)，索敌基准 450 不变。
+  SUBCASE("510 mana penalty and lock range baseline") {
+    SpecializedSkill spec;
+    spec.skill_id = 5;
+    spec.allocated_points[510] = 1; // 20 * 1.30 = 26
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(26.0f));
+    CHECK(profile.delivery.range == doctest::Approx(450.0f));
+  }
+
+  // 511 双算子：range 450 * (1 + 0.15N)，speed 1000 * (1 + 0.25N)。
+  SUBCASE("511 range and speed multipliers") {
+    SpecializedSkill spec;
+    spec.skill_id = 5;
+    spec.allocated_points[511] = 3;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
+    CHECK(profile.delivery.range == doctest::Approx(652.5f));  // 450 * 1.45
+    CHECK(profile.delivery.speed == doctest::Approx(1750.0f)); // 1000 * 1.75
+  }
+
+  // 533 巨剑：增伤 1.0 + 1.50N = 2.5，索敌半径保底取机制表 giant_radius=70。
+  SUBCASE("533 more damage and giant radius floor") {
+    SpecializedSkill spec;
+    spec.skill_id = 5;
+    spec.allocated_points[533] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(2.50f));
+    CHECK(profile.area_radius == doctest::Approx(70.0f));
+  }
+
+  // 554/555：暴击率 +1.0N，暴伤 +0.20N。
+  SUBCASE("554 bonus crit and 555 bonus crit damage") {
+    SpecializedSkill spec;
+    spec.skill_id = 5;
+    spec.allocated_points[554] = 1; // +1.0
+    spec.allocated_points[555] = 2; // +0.4
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 5, &spec, profile, nullptr);
+    CHECK(profile.delivery.bonus_crit == doctest::Approx(1.0f));
+    CHECK(profile.delivery.bonus_crit_damage == doctest::Approx(0.4f));
+  }
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 6 Sword Array UMR Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  EnsureModifierRuntimeForSkillSpec();
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 600 持续时间加算：5.0 + 0.5N。
+  SUBCASE("600 duration flat") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[600] = 4; // 5.0 + 2.0
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.delivery.duration == doctest::Approx(7.0f));
+  }
+
+  // 601 阵半径：150 * (1 + 0.15N)。
+  SUBCASE("601 area radius") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[601] = 4; // 150 * 1.60
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(240.0f));
+  }
+
+  // 602 增伤：1.0 + 0.10N。
+  SUBCASE("602 more damage") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[602] = 2; // 1.0 + 0.20
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.20f));
+  }
+
+  // 603 同时携带法耗折扣与施法 range 迁移：数值需与迁移前一致。
+  // mana 30 * (1 - 0.05N) = 24；range 400 * (1 + 0.10N) = 560（迁移后暂无消费端）。
+  SUBCASE("603 mana discount and cast range parity") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[603] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(24.0f));
+    CHECK(profile.delivery.range == doctest::Approx(560.0f));
+    // 未点 603 时两基准保持 30 / 400，迁移不改变默认行为。
+    SpecializedSkill empty;
+    empty.skill_id = 6;
+    BakedSkillProfile base{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &empty, base, nullptr);
+    CHECK(base.effective_mana_cost == doctest::Approx(30.0f));
+    CHECK(base.delivery.range == doctest::Approx(400.0f));
+  }
+
+  // 610 增伤惩罚：1.0 * (1 - 0.15N)。
+  SUBCASE("610 more damage penalty") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[610] = 1; // 1 - 0.15
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(0.85f));
+  }
+
+  // 611 法耗惩罚：30 * (1 + 0.30N)。
+  SUBCASE("611 mana penalty") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[611] = 1; // 30 * 1.30 = 39
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(39.0f));
+  }
+
+  // 634 阵半径惩罚：150 * (1 - 0.30N)。
+  SUBCASE("634 area radius penalty") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[634] = 1; // 150 * 0.70
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(105.0f));
+  }
+
+  // 653 增伤惩罚：1.0 * (1 - 0.50N)。
+  SUBCASE("653 more damage penalty") {
+    SpecializedSkill spec;
+    spec.skill_id = 6;
+    spec.allocated_points[653] = 1; // 1 - 0.50
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(0.50f));
+  }
+}
+
+TEST_CASE("[Unit] SkillSpecializationBaker - Skill 6 Delivery Floors At Zero") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+
+  // 注入合成 UMR：技能 6 每点持续时间平减 -100s，弹速乘性偏移 -2。
+  // 600 节点取 1 点（600 max_points=4，合法），则：
+  //   duration 结果 = 5.0 + (-100 * 1) = -95，
+  //   speed 乘性系数 = 1 + (-2) * 1 = -1（基准 300 * (-1)），
+  // 两者均为非法负值，必须在 Baker 端被 max(0) 钳制为 0。速度偏移刻意取 -2 而非 -1：
+  // 系数取 0 时乘积仍为 0，无法区分是否真的施加了下限保护；取负系数才能真正触发钳制。
+  // 合成 blob 会替换整个运行时，故 600 的 canonical 加算 0.5 不参与，duration 只由注入算子决定。
+  REQUIRE(ModifierRuntimeRegistry::Get().LoadFromBytes(
+      BuildDeliveryRuntimeBlob(-100.0f, -2.0f)));
+
+  entt::registry registry;
+  const auto player = registry.create();
+  SpecializedSkill spec;
+  spec.skill_id = 6;
+  spec.allocated_points[600] = 1;
+  BakedSkillProfile profile{};
+  SkillSpecializationBaker::Bake(registry, player, 6, &spec, profile, nullptr);
+
+  // 基准 duration 5.0 + (-95) = -95 → 钳制 0；基准 speed 300 * (-1) = -300 → 钳制 0。
+  // 若删除 Baker 的 max(0) 包装，本用例两处断言都会失败。
+  CHECK(profile.delivery.duration == doctest::Approx(0.0f));
+  CHECK(profile.delivery.speed == doctest::Approx(0.0f));
+
+  // 恢复真实运行时产物，避免合成数据泄漏到其它用例。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
 }
 
 } // namespace NoMoreDay

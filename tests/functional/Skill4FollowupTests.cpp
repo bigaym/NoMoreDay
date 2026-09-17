@@ -5,6 +5,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <filesystem>
+#include <fstream>
 #include <string_view>
 #include <unordered_map>
 
@@ -36,6 +38,9 @@ void EnsureSkillMechanics() {
   data::SkillMechanicsRegistry::Get().ResetForTests();
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile("assets/data/skill_mechanics.json"));
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // ModifierRuntimeRegistry 为进程级单例，前置用例可能注入合成 blob；依赖真实
+  // 生成数据的烘焙断言前强制重载，避免执行顺序造成跨用例污染。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   SkillBehaviorRegistry::Initialize();
 }
 
@@ -156,8 +161,11 @@ TEST_CASE("[Functional] Skill 4 - Followup Nodes Bake Mechanics Values (C2.3/C2.
   const auto *ward = registry.try_get<BladeWardComponent>(player);
   REQUIRE(ward != nullptr);
 
-  // 402/403
-  CHECK(ward->mana_cost_reduction == doctest::Approx(0.15f));
+  // 402 法耗折扣已烘焙进交付档案：30 * (1 - 0.15 * 1) = 25.5；行为层不再持有
+  // mana_cost_reduction，折扣唯一事实源为 profile->effective_mana_cost。
+  CHECK(registry.get<ActiveSkillsComponent>(player)
+            .baked_profiles[0]
+            .effective_mana_cost == doctest::Approx(25.5f));
   CHECK(ward->counter_chance_bonus == doctest::Approx(0.10f));
   CHECK(ward->counter_range_bonus == doctest::Approx(0.10f));
   // 410
@@ -648,6 +656,96 @@ TEST_CASE("[Functional] Skill 4 - 455 Refresh Resets Consumed State") {
   CHECK(resolve_with_key(kKey3) == doctest::Approx(baseline));
   CHECK(FindEffectById(registry.try_get<ActiveEffectsComponent>(player),
                        "blade_ward_dodge_power") == nullptr);
+}
+
+// 470 反击剑数覆盖「档案命中」与「档案缺失回落机制表」两条路径。这里把机制表
+// 的 4/470.counter_swords 改写为 7，用不同数值区分两条路径：命中档案须仍读档案
+// 的 sub_count=5，只有回退路径才反映机制表的 7，避免测试退化到只看默认值 5。
+// 471 增伤则以「清空档案」与「保留档案」分别锁定 0.0 与 0.6 的迁移契约。
+TEST_CASE("[Functional] Skill 4 - 470 Counter Sword Count Parity") {
+  TestSetupScope scope;
+  EnsureSkillMechanics();
+
+  // 合成机制表：把 4/470.counter_swords 置 7.0。加载要求技能 id 1..12 全部在
+  // 场（缺一即拒载），其余技能补空对象占位。
+  const auto mechanics_dir =
+      std::filesystem::temp_directory_path() / "nmd_skill4_470_parity";
+  std::filesystem::create_directories(mechanics_dir);
+  const auto mechanics_path = mechanics_dir / "counter_swords_7.json";
+  {
+    std::ofstream out(mechanics_path, std::ios::binary);
+    REQUIRE(out.good());
+    out << R"({"version":1,"1":{},"2":{},"3":{},)"
+           R"("4":{"470":{"counter_swords":7.0}},)"
+           R"("5":{},"6":{},"7":{},"8":{},"9":{},"10":{},"11":{},"12":{}})";
+  }
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      mechanics_path.string()));
+  // 文件内容已读入内存，立即删除以避开子用例断言失败时的残留清理路径。
+  std::filesystem::remove(mechanics_path);
+
+  SUBCASE("cached baked profile path") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{470, 1}});
+    CastBladeWard(registry, player);
+
+    const auto *ward = registry.try_get<BladeWardComponent>(player);
+    REQUIRE(ward != nullptr);
+    // 机制表为 7 时仍取烘焙档案 sub_count=5，证明本路径读的是档案而非机制表。
+    CHECK(ward->counter_sword_count == 5);
+  }
+
+  SUBCASE("no profile falls back to mechanics default") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{470, 1}});
+
+    // 同时清空缓存档案与槽位专精，迫使 ResolveBakedProfile 返回 nullptr，
+    // DoCast 走机制表 counter_swords 回退。
+    auto &active = registry.get<ActiveSkillsComponent>(player);
+    active.baked_profiles[0] = BakedSkillProfile{};
+    active.specialized_slots[0] = SpecializedSkill{};
+
+    CastBladeWard(registry, player);
+    const auto *ward = registry.try_get<BladeWardComponent>(player);
+    REQUIRE(ward != nullptr);
+    // 机制表为 7 时回退路径反映该值，证明回退确为数据驱动而非默认 5。
+    CHECK(ward->counter_sword_count == 7);
+  }
+
+  SUBCASE("no profile 471 more damage is fail-closed zero") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{471, 3}});
+
+    // 清空档案与专精槽迫使 ResolveBakedProfile 返回 nullptr。profile==nullptr
+    // 意味着专精槽同样缺失（ResolveBakedProfile 会即时烘焙），故 specState 与
+    // exec.active_nodes 均为空，迁移前的 nodePoints 回退本就为 0；该分支与 470
+    // 的机制表回退不对称是有意为之的「失败关闭」契约。
+    auto &active = registry.get<ActiveSkillsComponent>(player);
+    active.baked_profiles[0] = BakedSkillProfile{};
+    active.specialized_slots[0] = SpecializedSkill{};
+
+    CastBladeWard(registry, player);
+    const auto *ward = registry.try_get<BladeWardComponent>(player);
+    REQUIRE(ward != nullptr);
+    CHECK(ward->counter_damage_more == doctest::Approx(0.0f));
+  }
+
+  SUBCASE("baked profile 471 more damage is single source") {
+    entt::registry registry;
+    // 不清档案：profile 命中，471 取 profile->more_damage_mult - 1.0
+    // = (1.0 + 0.20 * 3) - 1.0 = 0.60。
+    auto player = CreateTestPlayer(registry, {{471, 3}});
+    CastBladeWard(registry, player);
+
+    const auto *ward = registry.try_get<BladeWardComponent>(player);
+    REQUIRE(ward != nullptr);
+    CHECK(ward->counter_damage_more == doctest::Approx(0.60f));
+  }
+
+  // 恢复真实机制表，避免合成表泄漏到依赖技能数据的后续用例。
+  data::SkillMechanicsRegistry::Get().ResetForTests();
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      "assets/data/skill_mechanics.json"));
 }
 
 } // namespace NoMoreDay

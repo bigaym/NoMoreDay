@@ -970,7 +970,8 @@ struct BladeWardComponent {
   int sword_count = 3;
   float interception_chance = 0.10f; // 基础偏转 10% (对齐职业设计草案 §3.4)
   bool is_solidified = false;        // Talent 412 不动如山: 偏转时不扣减灵剑数量
-  bool trigger_counter = false;      // Talent 470 剑气反震: 偏转/格挡/受击发射 5 道反击剑气
+  bool trigger_counter = false;      // Talent 470 剑气反震: 偏转/格挡/受击发射反击剑气
+  uint8_t counter_sword_count = 5;   // Talent 470 剑气反震: 反击剑气道数 (DoCast 由 Profile 缓存)
   float counter_damage_more = 0.0f;  // Talent 471 以眼还眼: 反击伤害 More 加成 (+20%..80%)
   bool is_lightning_ward = false;    // Talent 472 雷霆法环: 转闪电
   bool is_cold_ward = false;         // Talent 474 霜铠: 转冰霜
@@ -980,7 +981,6 @@ struct BladeWardComponent {
   float block_intent_chance = 0.0f;  // Talent 435 剑意格御: 格挡回剑意几率 (15%..45%)
   float block_ward_amount = 0.0f;    // Talent 432 剑盾屏障: 格挡获取护盾 (10..30 Ward)
   // --- 专精节点运行时数值：DoCast 时按机制表烘焙，供 Update/命中结算消费 ---
-  float mana_cost_reduction = 0.0f;      // 402 持久: 维持法力消耗降低 (百分比点数)
   float counter_chance_bonus = 0.0f;     // 403 剑压外放: 反击触发几率加成
   float counter_range_bonus = 0.0f;      // 403 剑压外放: 反击剑气射程加成
   float armor_dr_bonus = 0.0f;           // 410 厚积薄发: 护甲减伤效果提升 (百分比点数)

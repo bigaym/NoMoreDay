@@ -70,7 +70,8 @@ ResolveSkill4Counter(entt::entity counter_attacker,
   DamageRequest request =
       ResolveSkill4Counter(counter_attacker, counter_defender, ward);
   if (apply_effects) {
-    skills::SpawnBladeWardCounterSwords(registry, counter_attacker, 0);
+    skills::SpawnBladeWardCounterSwords(registry, counter_attacker, 0,
+                                        ward.counter_sword_count);
     skills::ApplyBladeWardCounterOnHit(registry, counter_attacker,
                                        counter_defender, ward);
   }

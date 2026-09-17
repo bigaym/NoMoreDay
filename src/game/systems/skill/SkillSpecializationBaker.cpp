@@ -82,16 +82,26 @@ void SkillSpecializationBaker::Bake(
     out_profile.projectile_count = 3;
     break;
   case 4: // 剑气护体
-    // 基础交付无专属数值参数，行为层按技能语义选择交付方式
+    // 基准显式化：乘/加算 UMR 算子严格依赖确定性初值，不得依赖结构体默认零值，
+    // 行为层再按技能语义选择交付方式。
+    del.duration = 10.0f;                // 基准持续时间 10s（UMR 加算基准）
+    del.sub_count = 5;                   // 反击剑气基准数量 5，DoCast 缓存到 ward.counter_sword_count
+    // 未点 471 时不产生无来源反击增伤；基准 1.0 已由步骤 1 统一保证。
+    // 法耗基准沿用 skillData->mana_cost（skills.json=30），不在此硬编码
     break;
   case 5: // 万剑归宗
     // 引导上限 max_channel_time 外置于 skill_mechanics 技能5/0 节点，不再在交付层重复写入
-    del.sub_interval = 0.3f;
+    del.sub_interval = 0.3f; // 发射基准间隔 0.3s
+    del.speed = 1000.0f;     // 下落基准弹速 1000（无机制键，集中为具名常量）
+    del.range = data::SkillMechanicsRegistry::Get().GetFloat(5, 510, "lock_range", 450.0f);
+                             // 索敌基准取自机制表单一事实源，消除魔法数（解 G-7）
+    // 引导基准法耗 20 已由步骤 1 统一写入，此处不再重复。
     break;
   case 6: // 剑阵·诛仙
     out_profile.area_radius = 150.0f;
     del.duration = 5.0f;
     del.sub_interval = 0.5f;
+    del.range = 400.0f; // 施法基准射程 400（当前无消费端）
     break;
   case 7: // 心剑·无影
     // 引导时长由行为层经 skill_mechanics 技能7/0 的 max_channel_time 读取，交付层不再写入 duration
@@ -193,6 +203,10 @@ void SkillSpecializationBaker::Bake(
         specDelta.GetSkillBonusCritDamage(skill_id);
     out_profile.area_radius *= specDelta.GetSkillAreaMult(skill_id);
     out_profile.delivery.range *= specDelta.GetSkillRangeMult(skill_id);
+    // Batch 2 新增算子合成：speed（乘算）与 duration（加算）同处确定性序列，
+    // 加下限 0 防护（采纳 B-1），避免负向缩放产生非法交付参数。
+    del.speed = std::max(0.0f, del.speed * specDelta.GetSkillSpeedMult(skill_id));
+    del.duration = std::max(0.0f, del.duration + specDelta.GetSkillDurationFlat(skill_id));
 
     // 4. 确定性终局覆盖：置于普通节点 delta 与 UMR 增量之后，使赋值式语义
     //    不受 allocated_points 遍历顺序影响。
@@ -228,6 +242,14 @@ void SkillSpecializationBaker::Bake(
       } else if ((out_profile.delivery.feature_flags & 1) != 0) {
         out_profile.projectile_count *= 2;
       }
+    }
+
+    // 技能 5 Keystone 533（巨剑术）范围保底：必须晚于步骤 3 的 area_radius 乘算，
+    // 以「保底取最大值」的终局语义消除节点遍历顺序依赖。
+    if (skill_id == 5 && (out_profile.delivery.feature_flags & 4096) != 0) {
+      const float giantRad =
+          data::SkillMechanicsRegistry::Get().GetFloat(5, 533, "giant_radius", 70.0f);
+      out_profile.area_radius = std::max(out_profile.area_radius, giantRad);
     }
   }
 
@@ -545,7 +567,8 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 452) {
       del.feature_flags |= 64; // 瞬身反打 (Trigger)
     } else if (node_id == 470) {
-      del.sub_count = 5;       // 设计基准: 5 道反击剑气 (解 M3)
+      // 剑数基准在步骤 1 显式写入 del.sub_count = 5（无 Profile 时回退机制表
+      // counter_swords），本节点仅置 Keystone 标志位，无数值缩放。
       del.feature_flags |= 128; // 剑气反震 (Keystone)
     } else if (node_id == 471) {
       del.feature_flags |= 256; // 以眼还眼 (反击增伤)
@@ -568,25 +591,23 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
 
   case 5: { // 万剑归宗
     const auto &mech = data::SkillMechanicsRegistry::Get();
-    if (node_id == 500) { // 剑雨绵绵: 引导法耗 -10..40%
-      const float red = mech.GetFloat(5, 500, "mana_reduction_pct_per_point", 0.10f) * static_cast<float>(points);
-      out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - red);
-    } else if (node_id == 501) { // 剑意共鸣: 引导提频
+    // 节点 500 的法耗平减已迁入 canonical UMR 记录（基准 20 在步骤 1 显式写入），
+    // 不再于 Baker 侧保留空分支。
+    if (node_id == 501) { // 剑意共鸣: 引导提频
       // 提频为交付层随引导时间 ramp 的动态加成 (+15%×点数 上限)，
       // Baker 侧只置标志位，不静态写入满额因子，避免与交付层 ramp 双重计入
       del.feature_flags |= 1;
     } else if (node_id == 502) { // 陨铁: 伤害+10..50% + 微小溅射
-      out_profile.more_damage_mult *= (1.0f + mech.GetFloat(5, 502, "phys_damage_pct_per_point", 0.10f) * static_cast<float>(points));
+      // 增伤已迁入 UMR；微小溅射半径仍为交付层几何参数，保留单源读取。
       del.pull_radius = mech.GetFloat(5, 502, "splash_radius", 30.0f);
       del.feature_flags |= 2;
     } else if (node_id == 503) { // 灵动引导: 移速惩罚降低
       del.feature_flags |= 4;
     } else if (node_id == 510) { // 神识锁定: 光标锁敌 + 法耗+30%
-      out_profile.effective_mana_cost *= (1.0f + mech.GetFloat(5, 510, "mana_cost_increase_pct", 0.30f));
+      // 法耗提升已迁入 UMR；索敌基准在步骤 1 读取本节点 lock_range 单一事实源。
       del.feature_flags |= 8;
     } else if (node_id == 511) { // 无处遁形: 锁定半径 + 下落加速
-      del.range = mech.GetFloat(5, 510, "lock_range", 450.0f) * (1.0f + mech.GetFloat(5, 511, "lock_radius_pct_per_point", 0.15f) * static_cast<float>(points));
-      del.speed = 1000.0f * (1.0f + mech.GetFloat(5, 511, "fall_speed_mult_per_point", 0.25f) * static_cast<float>(points));
+      // 半径与弹速缩放均迁入 UMR（基准 450/1000 在步骤 1 显式写入），此处仅保留标志位。
       del.feature_flags |= 16;
     } else if (node_id == 512) { // 天降命印: 命印叠层 + 5层溅射
       del.feature_flags |= 32;
@@ -604,10 +625,8 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 532) { // 剑气充盈: 引导回复 Ward
       del.feature_flags |= 2048;
     } else if (node_id == 533) { // 巨剑术: 数量减半、体积+100%、伤害+150%
-      out_profile.more_damage_mult *= (1.0f + mech.GetFloat(5, 533, "damage_more_pct", 1.50f));
-      // 取最大值而非直接赋值，避免覆盖其它来源 (如 535 余波) 设置的更大范围；
-      // 巨剑半径外置: giant_radius (默认 70)，与 BeamChannelDeliverySystem 共用
-      out_profile.area_radius = std::max(out_profile.area_radius, mech.GetFloat(5, 533, "giant_radius", 70.0f));
+      // 增伤已迁入 UMR；巨剑半径保底（giant_radius 默认 70）移至步骤 4 终局施加，
+      // 以消除其与 area_radius 乘算之间的遍历顺序依赖。
       del.feature_flags |= 4096;
     } else if (node_id == 534) { // 天剑降世: 引导>=2s 召唤 800% 范围巨剑
       del.feature_flags |= 8192;
@@ -618,16 +637,17 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 551) { // 御剑风雷: 御剑步免罚+闪避
       del.feature_flags |= 65536;
     } else if (node_id == 552) { // 随影: 圆形落剑
-      del.range = mech.GetFloat(5, 552, "circle_radius", 150.0f);
+      // 原 del.range = circle_radius 会污染 510/511 的 450 索敌基准（解 F-5），
+      // 此处不再篡改 del.range；环形半径仍由交付系统 BeamChannelDeliverySystem
+      // 单源读取机制表 5/552 circle_radius，本节点仅置标志位。
       del.feature_flags |= 131072;
     } else if (node_id == 553) { // 剑意回流: 击杀/连击回剑意
       del.feature_flags |= 262144;
     } else if (node_id == 554) { // 意气爆发: 满剑意消耗->100%暴击
-      del.bonus_crit =
-          mech.GetFloat(5, 554, "crit_chance_bonus", 100.0f) * 0.01f;
+      // 暴击率加成已迁入 UMR，此处仅保留标志位。
       del.feature_flags |= 524288;
     } else if (node_id == 555) { // 意念合一: 暴伤+20..80%（分数制，直接累加到暴伤倍率）
-      del.bonus_crit_damage += mech.GetFloat(5, 555, "crit_damage_pct_per_point", 0.20f) * static_cast<float>(points);
+      // 暴伤累加已迁入 UMR，此处仅保留标志位。
       del.feature_flags |= 1048576;
     } else if (node_id == 570) { // 天火流星: 火焰转质 / 低频高伤
       auto conv = skills::ResolveElementalConversion(node_id, points);
@@ -677,23 +697,14 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
 
   case 6: { // 剑阵·诛仙
     const auto &mech = data::SkillMechanicsRegistry::Get();
-    // 基础核心 (Base Tier)
-    if (node_id == 600) { // 灵气流转: 持续时间 +0.5s/点
-      del.duration += mech.GetFloat(6, 600, "duration_per_point", 0.5f) * static_cast<float>(points);
-    } else if (node_id == 601) { // 虚空法网: 基础半径增加 15%..60%
-      out_profile.area_radius *= (1.0f + mech.GetFloat(6, 601, "radius_pct_per_point", 0.15f) * static_cast<float>(points));
-    } else if (node_id == 602) { // 极刑: 阵内物理伤害增加 10%..50%
-      out_profile.more_damage_mult *= (1.0f + mech.GetFloat(6, 602, "phys_damage_pct_per_point", 0.10f) * static_cast<float>(points));
-    } else if (node_id == 603) { // 阵基稳固: 法力消耗降低 5%..20%，施法范围 +10%..40%
-      out_profile.effective_mana_cost *= (1.0f - mech.GetFloat(6, 603, "mana_reduction_pct_per_point", 0.05f) * static_cast<float>(points));
-      del.range = (del.range > 0.0f ? del.range : 400.0f) * (1.0f + mech.GetFloat(6, 603, "cast_range_pct_per_point", 0.10f) * static_cast<float>(points));
-    }
+    // 基础核心 (Base Tier)：节点 600/601/602/603 的数值均已迁入 canonical UMR 记录
+    // （基准在步骤 1 显式写入），不再于 Baker 侧保留空分支。
     // 分支 A: 多阵联动与共鸣 (Link & Multi-Array)
-    else if (node_id == 610) { // 双生剑阵: 数量上限 +1，单个伤害 -15%
-      out_profile.more_damage_mult *= (1.0f - mech.GetFloat(6, 610, "damage_reduction_pct", 0.15f));
+    if (node_id == 610) { // 双生剑阵: 数量上限 +1，单个伤害 -15%
+      // 伤害惩罚已迁入 UMR，此处仅保留数量上限标志位。
       del.feature_flags |= 16;
     } else if (node_id == 611) { // 三才阵: 数量上限再 +1，法力消耗 +30%
-      out_profile.effective_mana_cost *= (1.0f + mech.GetFloat(6, 611, "mana_increase_pct", 0.30f));
+      // 法耗提升已迁入 UMR，此处仅保留数量上限标志位。
       del.feature_flags |= 32;
     } else if (node_id == 612) { // 剑气共鸣: 重叠 More 20%..60%
       del.feature_flags |= 64;
@@ -714,7 +725,7 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 633) { // 绝命法场 (Keystone): 处决 <12% 非Boss敌人，对Boss伤害 More 20%
       del.feature_flags |= 4;
     } else if (node_id == 634) { // 剑阵牢笼 (Keystone): 实体剑墙，半径固定缩小 30%
-      out_profile.area_radius *= (1.0f - mech.GetFloat(6, 634, "radius_penalty_pct", 0.30f));
+      // 半径固定缩小已迁入 UMR，此处仅保留 Keystone 标志位。
       del.feature_flags |= 2048;
     } else if (node_id == 635) { // 阵斩回响 (Trigger): 处决触发裂空斩
       del.feature_flags |= 4096;
@@ -727,7 +738,7 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 652) { // 意念合一: 阵内每秒 33%..100% 几率自然生成 1 层剑意
       del.feature_flags |= 8;
     } else if (node_id == 653) { // 随身剑垒 (Keystone): 随身光环，伤害降低 50%
-      out_profile.more_damage_mult *= (1.0f - mech.GetFloat(6, 653, "damage_reduction_pct", 0.50f));
+      // 伤害降低已迁入 UMR，此处仅保留 Keystone 标志位。
       del.feature_flags |= 32768;
     } else if (node_id == 654) { // 剑神领域: 光环覆盖期间 CDR +10%..30%
       del.feature_flags |= 65536;
