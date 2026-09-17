@@ -922,7 +922,7 @@ void SkillSystem::InitHooks() {
                 // 未烘焙的触发技能回退静态法耗，再叠加装备降耗乘算。
                 float trigger_mana_cost = trigger_skill->mana_cost;
                 if (const auto *trigger_profile =
-                        GetBakedSkillProfile(registry, caster, trigger_skill_id)) {
+                        GetValidBakedSkillProfile(registry, caster, trigger_skill_id)) {
                   trigger_mana_cost = trigger_profile->effective_mana_cost;
                 } else {
                   trigger_mana_cost *=
@@ -1802,7 +1802,7 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
       if (!data)
         continue;
 
-      const auto *bakedProfile = GetBakedSkillProfile(registry, entity, slot.id);
+      const auto *bakedProfile = GetValidBakedSkillProfile(registry, entity, slot.id);
       const int maxCharges = (bakedProfile && bakedProfile->effective_charges > 0)
                                  ? bakedProfile->effective_charges
                                  : data->max_charges;
@@ -2001,7 +2001,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     return false;
   }
 
-  const auto *bakedProfile = GetBakedSkillProfile(registry, entity, slot.id);
+  const auto *bakedProfile = GetValidBakedSkillProfile(registry, entity, slot.id);
   const int maxCharges = (bakedProfile && bakedProfile->effective_charges > 0)
                              ? bakedProfile->effective_charges
                              : data->max_charges;
@@ -2776,6 +2776,13 @@ const BakedSkillProfile *SkillSystem::GetBakedSkillProfile(const entt::registry 
     }
   }
   return nullptr;
+}
+
+const BakedSkillProfile *
+SkillSystem::GetValidBakedSkillProfile(const entt::registry &registry,
+                                      entt::entity entity, uint32_t skill_id) {
+  const BakedSkillProfile *profile = GetBakedSkillProfile(registry, entity, skill_id);
+  return (profile != nullptr && profile->is_baked) ? profile : nullptr;
 }
 
 } // namespace NoMoreDay

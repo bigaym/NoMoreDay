@@ -72,8 +72,8 @@ bool IsHeavyEnemy(entt::registry &registry, entt::entity e) {
 // 哨兵档案（技能 7 缺表）必须视同未烘焙：其 effective_tags 为默认空集，虽与
 // "无元素"结果等价，但语义上不可消费，故先行过滤以免日后默认值变动时渗入。
 Tag ResolveSkill7Element(entt::registry &registry, entt::entity caster) {
-  if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 7u);
-      profile != nullptr && profile->is_baked) {
+  if (const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, caster, 7u);
+      profile != nullptr) {
     if (HasTag(profile->effective_tags, Tag::Cold)) return Tag::Cold;
     if (HasTag(profile->effective_tags, Tag::Lightning)) return Tag::Lightning;
   }
@@ -154,14 +154,11 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
                          entt::entity caster, BeamChannelComponent &beam,
                          const Position &pos, float dt) {
   const auto &mech = data::SkillMechanicsRegistry::Get();
-  // 契约归一：GetBakedSkillProfile 是只读缓存查询且不区分是否完整烘焙。哨兵档案
-  // （skillData 缺失时写入、area_radius==1.0f）在此一次性归一为 nullptr，避免其
-  // 默认值经 effective_tags / more_damage_mult / bonus_crit 等字段渗入结算；本函数
-  // 逐帧执行，故不复用会触发回退重烘的 ResolveBakedProfile。
-  const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 7u);
-  if (profile != nullptr && !profile->is_baked) {
-    profile = nullptr;
-  }
+  // 哨兵档案（skillData 缺失时写入、area_radius==1.0f）由 GetValidBakedSkillProfile
+  // 统一过滤为 nullptr，避免其默认值经 effective_tags / more_damage_mult / bonus_crit
+  // 等字段渗入结算；本函数逐帧执行，故不复用会触发回退重烘的 ResolveBakedProfile。
+  const auto *profile =
+      SkillSystem::GetValidBakedSkillProfile(registry, caster, 7u);
   auto *stats = registry.try_get<CombatStats>(caster);
 
   const Tag element = ResolveSkill7Element(registry, caster);
@@ -945,7 +942,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         data::SkillMechanicsRegistry::Get().GetFloat(5u, 535, "stun_duration", 1.5f);
 
     if (b.skill_id != 5 || b.current_channel_time < minChannelDuration) return;
-    const auto *prof = SkillSystem::GetBakedSkillProfile(registry, ent, 5u);
+    const auto *prof = SkillSystem::GetValidBakedSkillProfile(registry, ent, 5u);
     if (!prof || (prof->delivery.feature_flags & 8192) == 0) return; // 534 天剑降世
 
     int pts_535 = GetSkill5Point(registry, ent, 535);
@@ -1014,7 +1011,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
     beam.tick_timer -= dt;
     if (beam.tick_timer <= 0.0f) {
       if (beam.skill_id == 5) {
-        const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5u);
+        const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, entity, 5u);
 
         // 501 剑意共鸣: 随着引导时间增加，发射频率逐步提升 (2秒达最大)
         if (profile && (profile->delivery.feature_flags & 1) != 0) {
@@ -1093,7 +1090,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
       if (beam.skill_id == 5) {
         // 持续引导每秒消耗 20 法力 (drain)；effective_mana_cost 为每秒法耗绝对值
         //（Baker 已对技能5 写入 20.0f，并将 500 减免/510 增耗乘入该值）
-        const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5u);
+        const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, entity, 5u);
         float mana_rate = profile ? profile->effective_mana_cost : 20.0f;
         float mana_cost = mana_rate * beam.tick_interval;
         auto *stats = registry.try_get<CombatStats>(entity);
@@ -1113,7 +1110,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
 
       // 515 万剑归阵: 位于剑阵内时，集中轰击该剑阵区域且剑阵持续时间判定暂停
       if (beam.skill_id == 5) {
-        const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5u);
+        const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, entity, 5u);
         const bool has_515 = profile ? ((profile->delivery.feature_flags & 256) != 0)
                                      : (GetSkill5Point(registry, entity, 515) > 0);
         if (has_515) {
@@ -1149,7 +1146,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
         // 根除运行帧对 511 的二次查表重算
         float lock_radius = data::SkillMechanicsRegistry::Get().GetFloat(5u, 510, "lock_range", 450.0f);
         if (beam.skill_id == 5) {
-          const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5u);
+          const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, entity, 5u);
           // 511「无处遁形」已分配时锁定半径改由烘焙交付档案单源消费；
           // 未分配时保持步骤 1 写入的机制表基准 450，与烘焙基准等价。
           if (profile != nullptr && (profile->delivery.feature_flags & 16) != 0) {
@@ -1176,7 +1173,7 @@ void BeamChannelDeliverySystem::Update(entt::registry &registry,
 
       if (beam.mode == BeamChannelMode::BarrageEmitter) {
         Vector2 dirToTarget = Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
-        const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, beam.skill_id ? beam.skill_id : 5);
+        const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, entity, beam.skill_id ? beam.skill_id : 5);
 
         // 533 巨剑术: 数量减半 (3 -> 1), 体积+100% (radius 35 -> giant_radius)
         bool isColossal = profile && ((profile->delivery.feature_flags & 4096) != 0);

@@ -148,6 +148,14 @@ public:
     static const BakedSkillProfile* GetBakedSkillProfile(const entt::registry& registry, entt::entity entity, uint32_t skill_id);
 
     /**
+     * @brief 只返回完整成功烘焙的技能档案；哨兵档案（is_baked == false）视为不存在。
+     * 生产取值路径应优先使用本接口，避免消费未烘焙档案的默认零值（法力/冷却/层数）。
+     */
+    [[nodiscard]] static const BakedSkillProfile*
+    GetValidBakedSkillProfile(const entt::registry& registry, entt::entity entity,
+                              uint32_t skill_id);
+
+    /**
      * @brief Get the effective tags for a skill after talent modifications.
      * 
      * Talents can add or remove tags from a skill. This function computes

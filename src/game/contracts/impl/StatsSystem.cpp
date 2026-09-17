@@ -298,7 +298,10 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   }
 
   // 2. 累加动态标签修饰符
+  // source_prebaked：该来源是否已被 AttributePipeline 折叠进基础属性。无默认值，
+  // 必须由调用点显式声明，避免漏传后沿用旧启发式造成静默回归。
   auto apply_if_tags_match = [&](const std::vector<StatModifier> &modifiers,
+                                 bool source_prebaked,
                                  float scale = 1.0f) {
     for (const auto &mod : modifiers) {
       bool type_match = (mod.type == type);
@@ -312,26 +315,34 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
         }
       }
 
-      if (type_match) {
-        // Check if modifier was already baked in AttributePipeline
-        // AttributePipeline applies modifiers if required_tags is None or if player_tags satisfy the requirement.
-        bool is_baked = (mod.required_tags == Tag::None);
-        if (!is_baked && player_tags != Tag::None) {
-             is_baked = HasTag(player_tags, mod.required_tags);
-        }
+      if (!type_match) {
+        continue;
+      }
 
-        if (!is_baked) {
-             bool tags_match = HasTag(combined_query_tags, mod.required_tags);
-             if (tags_match) {
-                  ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
-             }
+      // 仅预烘焙来源需跳过已计入 AttributePipeline 的部分；运行时来源从不被
+      // 管道遍历，required_tags == Tag::None 表示无条件生效。
+      bool is_baked = false;
+      if (source_prebaked) {
+        is_baked = (mod.required_tags == Tag::None);
+        if (!is_baked && player_tags != Tag::None) {
+          is_baked = HasTag(player_tags, mod.required_tags);
         }
+      }
+      if (is_baked) {
+        continue;
+      }
+
+      // HasTag(x, Tag::None) 恒为 true，保留显式 None 分支用于表意。
+      const bool tags_match = (mod.required_tags == Tag::None) ||
+                              HasTag(combined_query_tags, mod.required_tags);
+      if (tags_match) {
+        ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
       }
     }
   };
 
   if (auto *list = registry.try_get<ModifierList>(entity)) {
-    apply_if_tags_match(list->modifiers);
+    apply_if_tags_match(list->modifiers, true);
   }
 
   if (auto *astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
@@ -339,7 +350,8 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
     for (const auto& [node_id, points] : astrolabe->nodePoints) {
       if (points > 0) {
         if (const auto *node = reg.GetNode(node_id)) {
-          apply_if_tags_match(node->modifiers, static_cast<float>(points));
+          apply_if_tags_match(node->modifiers, true,
+                              static_cast<float>(points));
         }
       }
     }
@@ -349,13 +361,13 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   if (registry.valid(source_entity)) {
     if (auto *skillMods =
             registry.try_get<SkillModifierComponent>(source_entity)) {
-      apply_if_tags_match(skillMods->stat_modifiers);
+      apply_if_tags_match(skillMods->stat_modifiers, false);
     }
   }
 
   // 2.3 NEW: 处理条件装备词缀 (GlobalModifierComponent.stat_modifiers)
   if (auto *global = registry.try_get<GlobalModifierComponent>(entity)) {
-    apply_if_tags_match(global->stat_modifiers);
+    apply_if_tags_match(global->stat_modifiers, false);
   }
 
   // 2.4 NEW: 处理 Avenger (复仇者) 词缀加成
@@ -484,7 +496,7 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
                                  node_contract)) {
           continue;
         }
-        apply_if_tags_match(node_it->second.stat_modifiers,
+        apply_if_tags_match(node_it->second.stat_modifiers, false,
                             static_cast<float>(pts));
         if (node_contract && node_contract->cost_affix != CostAffixPreset::None) {
           const auto &cost_affix =

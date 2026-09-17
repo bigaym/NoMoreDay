@@ -444,7 +444,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
           const bool ownerIsEnemy = registry.valid(skyfall.owner) && registry.any_of<EnemyTag>(skyfall.owner);
           const bool targetIsEnemy = registry.any_of<EnemyTag>(target);
           if (ownerIsEnemy != targetIsEnemy) {
-            const auto *p = SkillSystem::GetBakedSkillProfile(registry, skyfall.owner, skyfall.skill_id);
+            const auto *p = SkillSystem::GetValidBakedSkillProfile(registry, skyfall.owner, skyfall.skill_id);
             const float eff = (p && p->more_damage_mult > 0.0f)
                                   ? (kSkyfallImpactEffectiveness * p->more_damage_mult)
                                   : kSkyfallImpactEffectiveness;
@@ -465,7 +465,7 @@ void AreaFieldDeliverySystem::Update(entt::registry &registry,
 
     if (skyfall.waves_spawned >= skyfall.wave_count) {
       if (skyfall.leave_field_skill_id != 0) {
-        const auto *p = SkillSystem::GetBakedSkillProfile(registry, skyfall.owner, skyfall.leave_field_skill_id);
+        const auto *p = SkillSystem::GetValidBakedSkillProfile(registry, skyfall.owner, skyfall.leave_field_skill_id);
         const float resDuration = (p && p->delivery.duration > 0.0f)
                                       ? p->delivery.duration
                                       : kSkyfallResidualFieldDuration;

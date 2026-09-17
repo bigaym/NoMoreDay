@@ -298,7 +298,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     // 节点机制数值统一从 skill_mechanics.json 读取
     const auto &mech = data::SkillMechanicsRegistry::Get();
 
-    const auto *profile = SkillSystem::GetBakedSkillProfile(reg, actualAttacker, kSkillId);
+    const auto *profile = SkillSystem::GetValidBakedSkillProfile(reg, actualAttacker, kSkillId);
     const FlowingThrustSpecStateGen specState = ResolveState(reg, actualAttacker);
     const int ridingPoints = specState.ridingTheWindPoints;
     const int deepWoundsPoints = specState.deepWoundsPoints;

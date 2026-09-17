@@ -478,7 +478,7 @@ m_uiHost->InputCapture();
     if (auto *chan = registry.try_get<BeamChannelComponent>(entity);
         chan && chan->skill_id == 5) {
       channelingSkill5 = true;
-      if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, entity, 5)) {
+      if (const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, entity, 5)) {
         constexpr uint32_t kWalkThePathFlag = 32768;      // 550 御剑行
         constexpr uint32_t kSwordStepChannelFlag = 65536; // 551 御剑风雷
         if ((profile->delivery.feature_flags & kWalkThePathFlag) != 0) {
@@ -872,8 +872,9 @@ void GameplayState::OnRender() {
       for (auto entity : view_chan) {
         auto &chan = view_chan.get<BeamChannelComponent>(entity);
         if (chan.skill_id == 7) { // Heart Sword: Shadowless
-          // 渲染路径只读缓存档案（GetBakedSkillProfile 不触发烘焙）；owner 缺失或无
-          // 专精组件时安全跳过。射程与交付系统共用 ResolveBeamChannelMaxRange 单源函数，
+          // 渲染路径只读缓存档案（GetValidBakedSkillProfile 不触发烘焙，哨兵档案归一为
+          // nullptr）；owner 缺失或无专精组件时安全跳过。射程与交付系统共用
+          // ResolveBeamChannelMaxRange 单源函数，
           // 703 的 SKILL_RANGE_MULT 已由 Baker 折入 delivery.range。
           const entt::entity owner = chan.owner;
           if (owner == entt::null || !registry.valid(owner) ||
@@ -881,7 +882,7 @@ void GameplayState::OnRender() {
             continue;
           }
           const auto &pos = view_chan.get<Position>(entity);
-          const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, 7u);
+          const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, owner, 7u);
           const float range = ResolveBeamChannelMaxRange(profile, 7u);
           DrawCircleLines((int)pos.x, (int)pos.y, range, ColorAlpha(GOLD, 0.2f));
           DrawCircleLines((int)pos.x, (int)pos.y, range + 2.0f,

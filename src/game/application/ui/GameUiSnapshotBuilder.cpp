@@ -843,7 +843,7 @@ GameUiSnapshot GameUiSnapshotBuilder::Build(
           // 优先取烘焙档案的法耗（已含专精与装备降耗），使显示、施法扣费与
           // hasEnoughMana 门槛三者口径一致；未烘焙时回退静态技能数据。
           if (const auto* bakedProfile =
-                  SkillSystem::GetBakedSkillProfile(registry, player, slots[i].id)) {
+                  SkillSystem::GetValidBakedSkillProfile(registry, player, slots[i].id)) {
             slotView.manaCost = bakedProfile->effective_mana_cost;
           } else {
             slotView.manaCost = skill->mana_cost;

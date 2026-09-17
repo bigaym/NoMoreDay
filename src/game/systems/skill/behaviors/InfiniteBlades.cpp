@@ -54,7 +54,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
       proj.visualType = 2;
 
       Tag effectiveTags = Tag::Physical;
-      if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId)) {
+      if (const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, owner, kSkillId)) {
         if (profile->effective_tags != Tag::None) effectiveTags = profile->effective_tags;
       }
 

@@ -66,7 +66,7 @@ bool TryGetEntityPosition(entt::registry &registry, entt::entity entity,
 // 876 元素护体的减伤比例：以烘焙产物为唯一数值权威（未投入 876 时 Baker 写 0），
 // 避免运行期重复读取点数与机制表造成双权威。
 float ResolveElementShieldPct(entt::registry &registry, entt::entity owner) {
-  const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, kSkillId);
+  const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, owner, kSkillId);
   if (profile == nullptr) {
     return 0.0f;
   }

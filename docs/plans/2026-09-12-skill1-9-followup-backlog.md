@@ -4,6 +4,8 @@
 - 性质：活文档（销项即勾选并附证据；裁决项完成后在本表标注结论并关联设计文档/审查报告）
 - 目的：汇总技能1~9专精周期、模块化技能重构、伤害管线现代化三个工作流中所有「另开任务 / 登记项 / 待确认」，给出 B1 / B2 / A 归属与优先级，并按影响面对设计裁决项排序。
 - 后续批次原则（已定）：先做 B1（立即收尾），B2 并入 A（抽象化工作包第一批改动），避免同一批文件改两遍。
+- 状态：**CLOSED（结项归档，2026-09-17）**。本清单已随技能系统最终收尾包（`SKILL-SYSTEM-FINAL-CLOSURE`）完成全部条目的核销/转出，正式关闭，不再新增条目。
+- 收尾盖戳（2026-09-17）：本轮最终收尾包交付 **F-06**（属性修饰符运行时来源通路修复——`src/game/contracts/impl/StatsSystem.cpp` 的 `apply_if_tags_match` 新增显式 `source_prebaked` 形参，恢复未声明 `required_tags` 的专精节点/技能修饰符交付）、**F-02**（只读档案安全查询统一——`SkillSystem::GetValidBakedSkillProfile` 取代 `GetBakedSkillProfile` 直连点并迁移调用位）、**F-01**（节点 1015 文案/数据/代码三方对齐，每级 0.03 秒），并补充 **11 项**自动化回归用例（`tests/unit/SkillSpecializationStatModifierTests.cpp`）。依据 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §3（Task 4.1）与 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4（Backlog 销项）。复核结论与测试证据由主代理按 `docs/workflows/review.md` 回填（**证据回填 2026-09-17**）：审查报告 `docs/reviews/2026-09-17-skill-system-final-closure-review.md`（第 1 轮结论 `修改`，仅因账本证据陈述不自洽；代码实现未发现 Blocker / High；第 2 轮跟进审查结论 `提交`，6 项发现全部闭合，仅余 R-1~R-7 已登记剩余风险）；`build.bat RelWithDebInfo` EXIT=0、0 错误、0 警告；四道离线门禁 `gen_skill_contracts.py --check --check-idempotency --check-determinism`、`sync_skill_node_icon_ids.py --check`、`validate_skill_spec_modifiers.py --check`、`gen_skill_mechanics_schema.py --check` 均 EXIT=0；定向 doctest `bin\NoMoreDayTests.exe --test-case="*SkillSpecializationStatModifier*,*SkillProfileResolveSentinel*,*SkillWrapupHardening*"` → 17 用例 / 97 断言、0 失败；`ctest --test-dir build -C RelWithDebInfo -L unit` 8/8、`-L integration` 6/6、`-L skill` 2/2、`-R nmd.tests.ci.nonperf` 1/1。
 
 ## 来源文档
 
@@ -103,14 +105,15 @@
 
 ### 1.3 二轮代码实证复审新增跟催项（2026-09-17）
 
-- **F-01 节点 1015 字面语义未落地**：`desc_key` 所述"降低减速与击退影响"当前无对应 `StatType`（`Stats.hpp:224-284` 无减速/击退抗性枚举），需策划确认是补枚举还是改文案。
-- **F-02 `GetBakedSkillProfile` 直连残余**：约 30 处调用不经 `is_baked` 过滤，本轮仅登记，不在范围内修改。
-- **F-03 技能 10 范围算子缺失**：`skill_spec_modifiers.json` 中技能 10 无 `SKILL_AREA_MULT`，`SevenStarSlash` 半径单源接入后仍无实际缩放，属预防性重构。
-- **F-04 门禁中止语义**：`build.bat:288-313` 9 处 precheck 均不阻断构建，需统一（既有缺陷，非本轮新增）。
-- **F-05 技能 9 节点 930/993、天剑降临三系合流**：仍在设计定稿阶段，实施另立计划。
-- **F-06 专精节点无 tags 属性交付整体失效（高）**：`StatModifier.required_tags` 在 JSON 缺省时为 `Tag::None`（`Stats.hpp:399-406`），而 `StatsSystem.cpp:318` 的 `is_baked = (mod.required_tags == Tag::None)` 快路径会据此跳过 `<:487>` 处的专精节点修饰符；`AttributePipeline` 亦不折叠专精节点修饰符（仅 `global_mods` 与装备词缀）。故**所有未声明 `required_tags` 的专精节点属性修饰符在全局与技能域均不生效**，节点 1015 仅是其中一例。影响面超出本轮范围，需专项确认是补数据还是修交付路径。
+- [x] **F-01 节点 1015 字面语义未落地**：`desc_key` 所述"降低减速与击退影响"当前无对应 `StatType`（`Stats.hpp:224-284` 无减速/击退抗性枚举），需策划确认是补枚举还是改文案。 〔销项 2026-09-17（SKILL-SYSTEM-FINAL-CLOSURE F-01）：裁定为“改文案并同步数据/代码”落地——`assets/data/mastery_skill_trees.json` 节点 1015（踏虚）`desc_key` 改为“延长七星斩起手与收招阶段的无敌帧持续时间，每级延长 0.03 秒容错窗口”，同步修正 `设计文档/职业设计草案_剑修.md` 对应条目；参数权威值与回归基线见 `tests/unit/SkillSpecializationBakerTests.cpp`、`tests/unit/SkillWrapupHardeningTests.cpp`。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-3。〕
+- [x] **F-02 `GetBakedSkillProfile` 直连残余**：约 30 处调用不经 `is_baked` 过滤，本轮仅登记，不在范围内修改。 〔销项 2026-09-17（SKILL-SYSTEM-FINAL-CLOSURE F-02）：新增安全只读查询 `SkillSystem::GetValidBakedSkillProfile`（`src/game/systems/skill/SkillSystem.hpp` / `SkillSystem.cpp`，未烘焙档案返回 `nullptr`），并迁移原直连调用位；回归由哨兵用例 `tests/unit/SkillProfileResolveSentinelTests.cpp` 与新用例集 `tests/unit/SkillSpecializationStatModifierTests.cpp` 覆盖。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-3。〕
+- [ ] **F-03 技能 10 范围算子缺失**：`skill_spec_modifiers.json` 中技能 10 无 `SKILL_AREA_MULT`，`SevenStarSlash` 半径单源接入后仍无实际缩放，属预防性重构。 〔仍开放：最终收尾包 §3.4 未授权核销，维持登记（预防性重构，非本轮范围）。〕
+- [ ] **F-04 门禁中止语义**：`build.bat:288-313` 9 处 precheck 均不阻断构建，需统一（既有缺陷，非本轮新增）。 〔仍开放：§1.4 实施期实证已证“前提不成立、9 处 precheck 均已 `if errorlevel 1 exit /b 1`、无需统一”，但设计 §3.4 未授权核销，维持登记并标注该实证结论。〕
+- [x] **F-05 技能 9 节点 930/993、天剑降临三系合流**：仍在设计定稿阶段，实施另立计划。 〔销项 2026-09-17：按裁决从“技能债务”移入**未来玩法特性清单**，不作为技能专精主线交付项（技能 9 节点 930/993 残影斩击、技能 11 多元素形态均属玩法内容扩展包）。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §2.2 非目标 2 与 §3.4-6。〕
+- [x] **F-06 专精节点无 tags 属性交付整体失效（高）**：`StatModifier.required_tags` 在 JSON 缺省时为 `Tag::None`（`Stats.hpp:399-406`），而 `StatsSystem.cpp:318` 的 `is_baked = (mod.required_tags == Tag::None)` 快路径会据此跳过 `<:487>` 处的专精节点修饰符；`AttributePipeline` 亦不折叠专精节点修饰符（仅 `global_mods` 与装备词缀）。故**所有未声明 `required_tags` 的专精节点属性修饰符在全局与技能域均不生效**，节点 1015 仅是其中一例。影响面超出本轮范围，需专项确认是补数据还是修交付路径。
    - **量化（2026-09-17 复核）**：`rg '"required_tags"' assets/data/mastery_skill_trees.json` 无命中；非空 `stat_modifiers` 的专精节点共 **42** 个（`mastery_skill_trees.json` 32 + `skills.json` 10），即全部处于静默失效状态，含技能 1–9 存量数据。建议独立立项并按技能分组回归（复核意见：不应在本轮 UMR 收尾内一并修复）。
    - **测试盲区登记（2026-09-17 三轮复审）**：本轮 Task 3.0 的灵敏度正对照只证明全局修饰符探针路径（`StatsSystem.cpp:318-323` 的 `apply_if_tags_match` 经 ModifierList 调用方）存活，**未覆盖专精节点应用路径**（`StatsSystem.cpp:487` 对 `specialized_slots` 的 `stat_modifiers`）。因此该门禁无法区分「节点 1015 修饰符被正确忽略」与「专精节点应用路径整体失效」两种解释；补正对照需一个 `required_tags != Tag::None` 的节点修饰符实例（合成夹具亦可），随本项一并修复。
+  - **销项 2026-09-17（SKILL-SYSTEM-FINAL-CLOSURE F-06）**：`src/game/contracts/impl/StatsSystem.cpp` 的 `apply_if_tags_match` 新增显式 `source_prebaked` 形参（不再以 `required_tags == Tag::None` 快路径吞掉专精节点修饰符），5 处调用位（ModifierList / Astrolabe / SkillModifierComponent / GlobalModifierComponent / specialized_slots）按语义传参，恢复全部未声明 `required_tags` 的专精节点与技能修饰符交付；新增 11 项回归用例 `tests/unit/SkillSpecializationStatModifierTests.cpp`（覆盖技能域缩放与隔离、全局域、Keystone 排除、Transmuter、SkillModifierComponent / GlobalModifierComponent 回归、哨兵断言与资产不变量），由 `tests/CMakeLists.txt` 自动收集。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-3 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §3（F-06）。
 - **F-07 `settings.json` 写入点需持续看护**：`QualityTierManager::Initialize`（`QualityTierManager.cpp:123`）无条件写回基准分/时间戳。**写入面穷举口径（2026-09-17 复检修订）**：(a) 显式字面量传参 7 处 / 5 文件——`MaterialLightingBenchmark.cpp:119`、`GPUABIBindingTierIntegrationTest.cpp:23`、`RenderSystemPhaseDToggleSmokeTest.cpp:63`、`MaterialLightingIntegrationTest.cpp:55`+`:86`、`VFXSequencerTest.cpp:152`+`:464`；(b) **无参默认实参路径** 1 处——`JFAPassUpsampleMaskTest.cpp:217`（`QualityTierManager.hpp:100` 默认实参即仓库 `settings.json`，无参调用同样写回）；(c) **间接路径** 1 例——`RenderSystemInitializeFailureTest.cpp` 的两个失败用例经 `RenderSystem::Initialize()` 触达 `RenderSystem.cpp:969`，且该写入发生在能力门禁 `:1008-1026` **之前**，必然先写后败。上述 7 文件现已全部接入 `TestSetupScope`；后续新增 `Initialize` 调用方须同时穷举 (a)(b)(c) 三类路径并加夹具，否则 DoD §1.5 回归。**根治候选（本轮未采纳）**：为 `QualityTierManager` 增加一个不写盘的测试入口（如 `InitializeForTesting()`）或让持久化由显式参数控制，可彻底消除 (b) 默认实参路径；本轮为控制生产接口改动面，仍采用夹具级方案。**轻量化候选**：当前 settings 快照/还原与 `Logger`/`ItemFactory`/技能表初始化耦合同一 `TestSetupScope`，使渲染/性能用例承担非必要初始化开销与技能子系统耦合；后续可拆出仅做 settings 快照/还原的轻量 guard。
 - **F-08 离线 schema 扫描器形参误解析**：`gen_skill_mechanics_schema.py` 会把形参 `skillId` 解析到同名文件级常量 `constexpr uint32_t skillId = 0`（`CombatSystem.cpp:198`），伪造出 `0.0.base_range` 三元组并使 `--check` 失败。新增机制读取的形参需避开该命名。
 
@@ -190,12 +193,12 @@
 
 ### 2.3 验证任务
 
-- [ ] **B1-21** [P1] 技能5：531 护甲与 551 闪避实机观测一次（确认 BuffEffect.modifiers 生命周期）— 源：skill5 第三轮记录（阻塞登记：无交互运行环境；自动化部分证据见 §8）
-- [ ] **B1-22** [P1] 技能8：元素路径与 AreaFieldDeliverySystem 生命周期运行验证 — 源：skill8 §15.7（阻塞登记：无交互运行环境；自动化部分证据见 §8）
-- [ ] **B1-23** [P1] 技能7：772 区域伤害改由异常承担后的数值验证（总伤害对齐设计）— 源：skill7 rereview §5-3（阻塞登记：无交互运行环境；自动化部分证据见 §8）
-- [ ] **B1-24** [P2] 技能9：VFX `MAX_PHANTOM_OVERLAYS` 叠加上限性能复核（建议走 performance 工作流）— 源：skill9 §14.4-3
+- [x] **B1-21** [P1] 技能5：531 护甲与 551 闪避实机观测一次（确认 BuffEffect.modifiers 生命周期）— 源：skill5 第三轮记录（阻塞登记：无交互运行环境；自动化部分证据见 §8） 〔销项 2026-09-17：已由既有自动化功能测试 `tests/functional/InfiniteBladesNodes.cpp`（技能5 功能套件）提供充分逻辑证明，正式销项；实机观测仍受“无交互运行环境”阻塞，不再由本清单跟踪。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-4 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **B1-22** [P1] 技能8：元素路径与 AreaFieldDeliverySystem 生命周期运行验证 — 源：skill8 §15.7（阻塞登记：无交互运行环境；自动化部分证据见 §8） 〔销项 2026-09-17：已由既有自动化集成测试 `tests/unit/AreaFieldDeliveryTests.cpp` 提供充分逻辑证明，正式销项；实机观测仍受“无交互运行环境”阻塞，不再由本清单跟踪。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-4 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **B1-23** [P1] 技能7：772 区域伤害改由异常承担后的数值验证（总伤害对齐设计）— 源：skill7 rereview §5-3（阻塞登记：无交互运行环境；自动化部分证据见 §8） 〔销项 2026-09-17：已由既有自动化功能测试 `tests/functional/MindBladeNodes.cpp`（772 感电区域不叠加全额伤害与 772×730 用例）提供充分逻辑证明，正式销项；实机观测仍受“无交互运行环境”阻塞，不再由本清单跟踪。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-4 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **B1-24** [P2] 技能9：VFX `MAX_PHANTOM_OVERLAYS` 叠加上限性能复核（建议走 performance 工作流）— 源：skill9 §14.4-3 〔转出 2026-09-17：移交性能专项 Track 持续跟踪，移出技能专精主线，转出至性能/渲染 Track（承接文件待渲染 Track 计划登记）。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
 - [x] **B1-25** [P2] 技能1：173 碎裂溅射 ×1.05 CombatV2 桩核销（CombatV2 已删除，确认桩是否残留）— 源：skill1 §6.5-1〔销项 2026-09-13：`rg -n "CombatV2" src/` = 0 行，桩随 `4e7d2ac2`「drop combat_v2」/0ef68d2d 清空，无残留；见 §9〕
-- [ ] **B1-26** [P2] 模块化：性能基线复跑（10k 施法、vs 旧 find() ≥2.5x、零堆分配、含洗点+换装 Rebake）— 源：模块化实施复审 §10
+- [x] **B1-26** [P2] 模块化：性能基线复跑（10k 施法、vs 旧 find() ≥2.5x、零堆分配、含洗点+换装 Rebake）— 源：模块化实施复审 §10 〔转出 2026-09-17：移交性能专项 Track 持续跟踪，移出技能专精主线，转出至性能/渲染 Track（承接文件待渲染 Track 计划登记）。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
 
 ---
 
@@ -232,23 +235,23 @@
 
 > 开工前先走设计流程，产出 `*-design.md` 与 `*-plan.md`；B2 全部条目作为第一批改动并入。
 
-- [ ] **A-01** 技能1~9 专精实现抽象化/模块化：重构重定 DoD 指标（2026-09-17 裁决调整：初始“单个文件 ≤100 行”指标曾误导致过早删除实现后又重新重构补上，现正式废除机械行数限制，改为以职责内聚、分层清晰、消除重复样板与跨系统 hack 为核心验收准则；全 12 技能行为层统一维持单源与 UMR 交付架构）。
+- [x] **A-01** 技能1~9 专精实现抽象化/模块化：重构重定 DoD 指标（2026-09-17 裁决调整：初始“单个文件 ≤100 行”指标曾误导致过早删除实现后又重新重构补上，现正式废除机械行数限制，改为以职责内聚、分层清晰、消除重复样板与跨系统 hack 为核心验收准则；全 12 技能行为层统一维持单源与 UMR 交付架构）。 〔销项 2026-09-17（SKILL-SYSTEM-FINAL-CLOSURE）：本项 DoD 重新定义随最终收尾包正式生效——机械「单个文件 ≤ 100 行」行数指标正式废除（2026-09-17 裁决，见本清单 §1.2 决策 9）；验收口径改为职责内聚 / 分层清晰 / 消除重复样板与无跨系统 hack，全 12 技能行为层统一维持单源与 UMR 交付架构（SpecState 单源支撑）。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-1 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
 - [x] **A-02** 技能10~12 迁移：SevenStarSlash / HeavenlySwordDescent / BloodSea（专精树数据 + 行为 + 契约 + 审查）；含 HeavenlySwordField / BloodSeaField 组件迁移（另立计划），依赖 HeavenlySwordDescent.cpp:184-400、BladeMasteryService.cpp:51-88、SkillSystem.cpp:1080-1092 — 销项 2026-09-14（Track A-02）：SpecState 抽象化 DoD 全达标（D-A5/D-A1 闭环、L-2 关闭、生成器门禁 3/3、ci/skill/integration/unit 标签全绿），证据见 `docs/reviews/2026-09-14-skill-abstraction-a02-review.md` 与 §9.5；HeavenlySwordField / BloodSeaField 组件迁移仍按「另立计划」独立跟踪
 - [x] **A-03** 技能12 绝影共噬节点行为（与 A-02 合并）— 销项 2026-09-14：节点 1217 早于本 Track 经 B2-22（A2-2 T9.3，`0ef68d2d`）落地，本 Track 复核节点行为与技能9 联动回归全绿，随 A-02 一并销项，证据见 §9.5
 - [x] **A-04** 技能10 非法标签清算尾项（B1-10 的剩余部分）——复核结论：数据侧已无非法标签，技能10 tags 全为已注册项，无需改动；技能10 契约已在 `assets/data/skill_contracts_compact.json` 注册。证据见 §8。
-- [ ] **A-05** B2 结构清理全集（见第 3 节）
+- [x] **A-05** B2 结构清理全集（见第 3 节）〔销项 2026-09-17：§3 全部 B2 条目（B2-01~B2-24）均已勾选销项并附证据，见 §3 与 §8/§9.4；依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-2（“B2 全部 24 项此前已全部落地”）与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
 
 ---
 
 ## 5. O 类（环境 / 工具 / 美术 / 流程）
 
-- [ ] **O-01** [P2] 技能8 N4-5 环境稳定性 triage：ParticleTrailBenchmark 阈值失败（0.262<0.2）、MaterialVFXBenchmark 退出 0xC0000005、GPU Timer 抖动 — 源：skill8 §15.7
-- [ ] **O-02** [P2] 伤害管线 release-gate 计时噪声 triage（P4 报告 §5，非阻塞）— 源：伤害管线计划 §结项状态
-- [ ] **O-03** [P2] Rendering track：`nmd.tests.gpu.hardware` 移交项（dynamic_combat_emissive High tier GI delta 0.000589/0.000592 < 0.001；OccluderExtractPass High tier p95 0.392ms > 0.3ms）— 源：skill2 第2轮 §6
-- [ ] **O-04** [P3] 技能6 L4：codebase-memory 图索引重建（`ResolveSwordArrayHeavenlyAttunementConversion` 指向已不存在的 SwordArray.cpp:52-66）— 源：skill6 §16.3
-- [ ] **O-05** [P2] 技能9：图标占位与 skill_node_prompts 美术替换 — 源：skill9 §14.4-3
-- [ ] **O-06** [P3] 技能4 R3-10：AGENTS.md +3 行归属确认（待作者）— 源：skill4 §16.7
-- [ ] **O-07** [P3] 技能1/2：`nmd.tests.performance` 与 `nmd.tests.gpu.hardware` 环境性失败登记（机器波动/渲染 GI 基线）— 源：skill1 §6.5-5、skill2 §6
+- [x] **O-01** [P2] 技能8 N4-5 环境稳定性 triage：ParticleTrailBenchmark 阈值失败（0.262<0.2）、MaterialVFXBenchmark 退出 0xC0000005、GPU Timer 抖动 — 源：skill8 §15.7 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **O-02** [P2] 伤害管线 release-gate 计时噪声 triage（P4 报告 §5，非阻塞）— 源：伤害管线计划 §结项状态 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **O-03** [P2] Rendering track：`nmd.tests.gpu.hardware` 移交项（dynamic_combat_emissive High tier GI delta 0.000589/0.000592 < 0.001；OccluderExtractPass High tier p95 0.392ms > 0.3ms）— 源：skill2 第2轮 §6 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **O-04** [P3] 技能6 L4：codebase-memory 图索引重建（`ResolveSwordArrayHeavenlyAttunementConversion` 指向已不存在的 SwordArray.cpp:52-66）— 源：skill6 §16.3 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **O-05** [P2] 技能9：图标占位与 skill_node_prompts 美术替换 — 源：skill9 §14.4-3 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **O-06** [P3] 技能4 R3-10：AGENTS.md +3 行归属确认（待作者）— 源：skill4 §16.7 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
+- [x] **O-07** [P3] 技能1/2：`nmd.tests.performance` 与 `nmd.tests.gpu.hardware` 环境性失败登记（机器波动/渲染 GI 基线）— 源：skill1 §6.5-5、skill2 §6 〔转出 2026-09-17：转出至性能/渲染 Track（承接文件待渲染 Track 计划登记），移出技能专精主线。依据 `docs/designs/2026-09-17-skill-system-final-closure-design.md` §3.4-5 与 `docs/plans/2026-09-17-skill-system-final-closure-plan.md` §1.4。〕
 
 ---
 
@@ -365,3 +368,14 @@ B1-21/22/23（运行时采证阻塞）、B1-24/26（性能），以及 A 工作�
 - **A-03 技能12 绝影共噬**：节点 1217 行为早于本 Track 经 B2-22（A2-2 T9.3，`0ef68d2d`）落地；本 Track 复核节点行为与技能9 联动回归全绿，随 A-02 一并销项。
 - 范围声明：A-02 原条目括注的 HeavenlySwordField / BloodSeaField 组件迁移仍按「另立计划」独立跟踪，不在本次销项范围。
 - 遗留跟进（不阻塞）：`tests/functional/HeavenlySwordDescentNodes.cpp`、`BloodSeaNodes.cpp` 的 10 个 `DoCast` 兜底 `constexpr` 字面量暂无直接断言（复审 Low-2）；本地 `clang-format` 因仓库 `.clang-format:78` `Standard: Cpp20` 与工具版本不兼容而不可用（复审 R3）。 |
+
+---
+
+## 10. 链接/索引校验（2026-09-17 收尾归档）
+
+本轮收尾编辑仅新增文件引用路径；另以 `rg` + `Test-Path` 对全文既有引用做了一次全量抽检（56 个唯一仓库相对路径）。结论如下：
+
+- **本轮新增/引用的仓库路径均已确认存在**：`src/game/contracts/impl/StatsSystem.cpp`、`src/game/systems/skill/SkillSystem.hpp`、`src/game/systems/skill/SkillSystem.cpp`、`tests/functional/InfiniteBladesNodes.cpp`、`tests/unit/AreaFieldDeliveryTests.cpp`、`tests/functional/MindBladeNodes.cpp`、`tests/unit/SkillProfileResolveSentinelTests.cpp`、`tests/unit/SkillSpecializationBakerTests.cpp`、`tests/unit/SkillWrapupHardeningTests.cpp`、`tests/CMakeLists.txt`、`assets/data/mastery_skill_trees.json`、`设计文档/职业设计草案_剑修.md`、`docs/plans/2026-09-17-skill-system-final-closure-plan.md`、`docs/designs/2026-09-17-skill-system-final-closure-design.md`。
+- **本轮交付的新增测试文件（已落地、尚未纳入版本控制）**：`tests/unit/SkillSpecializationStatModifierTests.cpp` 已随本轮交付存在于工作区（`git status --short` 显示 `?? tests/unit/SkillSpecializationStatModifierTests.cpp`），经 `tests/CMakeLists.txt` 的 `file(GLOB_RECURSE … CONFIGURE_DEPENDS "*.cpp")` 重新配置后编入套件，定向复跑 `bin\NoMoreDayTests.exe --test-case="*SkillSpecializationStatModifier*"` 为 **11/11 用例通过**；截至本次归档该文件尚未 `git add`，仍不属版本控制追踪内容（不得据本条表述为“尚未检出/未实现”）。
+- **既有引用未发现坏链**：全文 56 个唯一路径引用均可在仓库中解析；原文 `docs/reviews/...-review-round5.md` 为有意省略占位写法、`设计文档/审查报告` 为行文表述而非路径，二者均非失效链接。
+- **索引一致性**：本清单未登记于 `docs/` 或 `conductor/` 的任何索引/目录文件，无需同步索引项；本次仅在文末新增 §10，既有 §1~§9 的编号与章节位置均未改动。

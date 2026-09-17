@@ -139,7 +139,7 @@ inline void RefundManaCost(entt::registry &registry, entt::entity owner,
   // 若按静态基础值返还，降耗后的施放会产生净回蓝。
   float refund = skill->mana_cost;
   if (const auto *profile =
-          SkillSystem::GetBakedSkillProfile(registry, owner, skillId)) {
+          SkillSystem::GetValidBakedSkillProfile(registry, owner, skillId)) {
     refund = profile->effective_mana_cost;
   }
   if (refund <= 0.0f) {

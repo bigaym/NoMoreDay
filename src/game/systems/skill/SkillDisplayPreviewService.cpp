@@ -22,7 +22,7 @@ SkillDisplayPreviewService::Build(entt::registry& registry,
         return preview;
     }
 
-    const auto *bakedProfile = SkillSystem::GetBakedSkillProfile(registry, player, skillId);
+    const auto *bakedProfile = SkillSystem::GetValidBakedSkillProfile(registry, player, skillId);
     if (bakedProfile) {
         // 烘焙档案已含专精与装备降耗，直接采用。
         preview.display_mana_cost = bakedProfile->effective_mana_cost;

@@ -249,7 +249,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     }
 
     const auto &mech = data::SkillMechanicsRegistry::Get();
-    const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, kSkillId);
+    const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, caster, kSkillId);
     BakedDeliveryParams defaultDelivery;
     const BakedDeliveryParams &del = profile ? profile->delivery : defaultDelivery;
 

@@ -128,7 +128,7 @@ float DamageMitigationService::Apply(
         registry, defender, skill_id, damage_type);
     // 技能2 灵根亲和 (Node 274)：裂空斩及其触发效果的对应元素抗性穿透增加 5%...20%
     if (skill_id == 2 && registry.valid(attacker)) {
-      const auto *profile = SkillSystem::GetBakedSkillProfile(registry, attacker, 2);
+      const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, attacker, 2);
       BakedSkillProfile localProfile;
       if (!profile && registry.all_of<ActiveSkillsComponent>(attacker)) {
         for (const auto &spec : registry.get<ActiveSkillsComponent>(attacker).specialized_slots) {
@@ -160,7 +160,7 @@ float DamageMitigationService::Apply(
           }
         }
         if (skill5Slot != nullptr) {
-          const auto *profile = SkillSystem::GetBakedSkillProfile(registry, attacker, 5u);
+          const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, attacker, 5u);
           BakedSkillProfile localProfile;
           if (profile == nullptr) {
             SkillSpecializationBaker::Bake(registry, attacker, 5u, skill5Slot,
@@ -315,7 +315,7 @@ float DamageMitigationService::Apply(
     const auto *beamChannel = registry.try_get<BeamChannelComponent>(defender);
     const bool channelingSkill5 = beamChannel != nullptr && beamChannel->skill_id == 5u;
     if (channelingSkill5) {
-      const auto *profile = SkillSystem::GetBakedSkillProfile(registry, defender, 5u);
+      const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, defender, 5u);
       if (profile && (profile->delivery.feature_flags & 512) != 0) {
         int pts_530 = 0;
         if (const auto *active = registry.try_get<ActiveSkillsComponent>(defender)) {

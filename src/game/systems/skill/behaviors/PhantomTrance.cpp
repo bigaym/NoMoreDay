@@ -82,10 +82,10 @@ constexpr float kShockMagnitude = 15.0f;      // 雷盾脉冲感电强度
                                                        SkillExecution &exec,
                                                        BakedSkillProfile &scratch) {
   // 缓存命中：直接取形态参数，避免为合成专精分配 allocated_points。
-  // 哨兵档案（技能表缺失时写入、!is_baked）不可消费，继续走合成烘焙路径。
-  if (const auto *profile = SkillSystem::GetBakedSkillProfile(
-          registry, owner, PhantomTrance::kSkillId);
-      profile != nullptr && profile->is_baked) {
+  // GetValidBakedSkillProfile 已把哨兵档案（技能表缺失时写入、!is_baked）归一为
+  // 空指针，未命中时继续走合成烘焙路径。
+  if (const auto *profile = SkillSystem::GetValidBakedSkillProfile(
+          registry, owner, PhantomTrance::kSkillId)) {
     return profile->delivery.trance;
   }
   // 未命中：按 active_nodes 合成专精，交给基元走同一烘焙路径，

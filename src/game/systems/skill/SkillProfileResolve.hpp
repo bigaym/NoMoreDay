@@ -16,7 +16,7 @@ namespace NoMoreDay::skills {
  *
  * 多个技能行为的 DoCast 重复了同一段样板：先取 ActiveSkillsComponent::baked_profiles
  * 缓存；未命中且存在专精槽时，按首个同 ID 槽位烘焙到调用方栈对象。本基元抽取该
- * 样板，命中语义与 SkillSystem::GetBakedSkillProfile 逐字一致。
+ * 样板，命中语义与 SkillSystem::GetValidBakedSkillProfile 逐字一致。
  *
  * @param registry     ECS 注册表（回退烘焙会写实体组件，故需非 const 引用）
  * @param owner        已解析的施法者实体（召唤物命中回调须先解析到真正的 owner）

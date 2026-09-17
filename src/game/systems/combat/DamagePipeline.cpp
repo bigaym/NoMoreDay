@@ -334,7 +334,7 @@ void DispatchSingleDamageEvents(entt::registry &registry, entt::entity attacker,
   float parent_skill_cd = 0.0f;
   if (skill_id != 0) {
     if (registry.valid(event_attacker.attacker)) {
-      if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, event_attacker.attacker, skill_id)) {
+      if (const auto *profile = SkillSystem::GetValidBakedSkillProfile(registry, event_attacker.attacker, skill_id)) {
         parent_skill_cd = profile->effective_cooldown;
       }
     }
@@ -610,7 +610,7 @@ BuildConditionalOps(entt::registry &registry, entt::entity attacker,
   // 812 撕裂伤口: 对流血目标增加暴击倍率 (仅 skill 8 域)
   if (skill_id == 8) {
     if (const auto *profile =
-            SkillSystem::GetBakedSkillProfile(registry, attacker, 8)) {
+            SkillSystem::GetValidBakedSkillProfile(registry, attacker, 8)) {
       if (profile->delivery.crit_mult_vs_bleeding != 0.0f) {
         ops.push_back({damage::TargetCondition::Bleeding,
                        damage::OpStage::CritDamage,

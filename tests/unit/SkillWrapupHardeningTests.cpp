@@ -177,12 +177,11 @@ float ReadDodgeChance(entt::registry &registry, entt::entity caster,
 // "探针读不到任何来源"造成的假阴性。
 //
 // 实测偏差（相对计划 v1.2 的预期）：计划原以"skill_id=10 时应可观测"作为作用域
-// 正对照，但节点 1015 的修饰符未声明 required_tags，StatsSystem.cpp:318 的
-// is_baked 快路径（required_tags==Tag::None 视为已由 AttributePipeline 烘焙）
-// 会在所有作用域整体跳过它，且 AttributePipeline 并不折叠专精节点修饰符，故该
-// 修饰符为双重惰性；计划原先的 skill_id=0 相等断言亦因 ScopePolicy::SkillOnly
-// 的结构性约束而恒真，不构成门禁证据。故此处改以"加载后的技能树不再携带该组
-// stat_modifiers"作为可证伪的主要证据，作用域探针降级为不变量锁定项。
+// 正对照，但节点 1015 清理后已不再携带任何 stat_modifiers，其惰性由数据本身
+// 保证（与作用域谓词、与已移除的 is_baked 快路径均无关）；计划原先的 skill_id=0
+// 相等断言亦因 ScopePolicy::SkillOnly 的结构性约束而恒真，不构成门禁证据。故此处
+// 改以"加载后的技能树不再携带该组 stat_modifiers"作为可证伪的主要证据，作用域
+// 探针降级为不变量锁定项。
 TEST_CASE("[Unit] SkillWrapup - Node 1015 stat scope gate (Task 3.0)") {
   TestSetupScope setup;
   EnsureGameData();
@@ -206,8 +205,8 @@ TEST_CASE("[Unit] SkillWrapup - Node 1015 stat scope gate (Task 3.0)") {
   CHECK(voidTreadIt->second.stat_modifiers.empty());
 
   // (2) 作用域不变量：skill_id=0 与 skill_id=10 查询均与基准一致。该结论由
-  // ScopePolicy::SkillOnly 与 is_baked 快路径结构性保证，此处仅作"不得回归"的
-  // 锁定项，不作为门禁的证伪证据。
+  // ScopePolicy::SkillOnly 与节点 1015 的空 stat_modifiers 共同结构性保证，此处
+  // 仅作"不得回归"的锁定项，不作为门禁的证伪证据。
   const auto scopedEqual = [&](uint32_t skillId) {
     const float allocatedValue = ReadDodgeChance(registry, allocated, skillId);
     const float baselineValue = ReadDodgeChance(registry, baseline, skillId);
