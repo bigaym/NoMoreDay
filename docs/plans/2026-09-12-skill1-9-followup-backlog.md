@@ -82,6 +82,79 @@
 - 全部 RD 裁决闭环；设计产物为 `docs/designs/2026-09-13-skill-rd-rulings-design.md`（修订首版设计，§6.1 列 10 项已定稿）。
 - **实施状态（2026-09-13）**：代码改动型 RD（RD-01/02/03/06/08 + RD-14 确认）已按 `docs/plans/2026-09-13-skill-rd-rulings-plan.md` 实施完成；`build.bat`(RelWithDebInfo) EXIT 0、`ctest -C RelWithDebInfo -L ci` 全绿、数据脚本三连 PASS。执行记录与残余风险见该 plan §9。首版设计 D1/D2/D6/D10 以本设计为准。
 
+### 1.2 UMR 收尾与契约加固裁决（2026-09-17 用户拍板）
+
+- **哨兵档案治理（决策 1）**：采纳方案 A——在 `ResolveBakedProfile` 统一校验有效性，若为哨兵直接返回 `nullptr`，使经该出口解析的行为层只需处理空指针语义。
+  - 实证修订（2026-09-17 二轮复审）：`is_baked` 仅覆盖 `ResolveBakedProfile`；`SkillSystem::GetBakedSkillProfile`（约 30 处直连，含 `BeamChannelDeliverySystem.cpp:153`）不过滤，其空指针与数值守卫必须保留。
+- **技能 10 判定半径（决策 2）**：采纳方案 A——接入行为层单源，`SevenStarSlash.cpp` 使用 `profile->area_radius` 作为基准进行多段几何派生。
+- **技能 6 施法距离（决策 3）**：采纳方案 A——将 `del.range` 接入施法前置距离限制（选点距离不得超过 `del.range`）。
+- **技能 10 节点 1015 闪避（决策 4）**：采纳方案 A——清理 `mastery_skill_trees.json` 中该节点误映射的 `stat_modifiers`。
+  - 实证修订（2026-09-17 二轮复审）：原文"全局属性污染"不成立——节点 1015 不在 skill 10 的 `skill_contract.nodes[]` 中，`NodeContractData` 默认 `ScopePolicy::SkillOnly`（`SkillContract.hpp:64`），且全仓 `StatType::DodgeChance` 不经 `GetStatWithTags` 查询，故该修饰符极可能不生效；须先以 `skill_id = 0 / 10` 双断言证伪。
+  - 语义修订：该节点 `desc_key` 描述的是"延长无敌帧前后容错窗口 + 降低 20%/40%/60% 减速与击退影响"，与闪避无关，属误映射。原 `mode:1 (PercentAdd)` 3 点为 `base × (1+0.6)`，故"局部 `Flat 20.0f`"既非旧语义等价、亦非文案语义，不得硬编码。
+  - 处置：见 `docs/plans/2026-09-17-umr-skill-wrapup-and-contract-hardening-plan.md` Task 3.0~3.4。**已裁决方案甲**：清空误映射 `stat_modifiers`，不新增闪避 Buff；节点保留 `2010150` 无敌时长效果；文案字面语义（减速/击退）登记为 F-01，方案乙已否决。
+- **装备范围折叠（决策 5）**：暂时跳过，专精收尾暂不引入装备外部范围折叠。
+- **技能 9 节点 930 协同（决策 6）**：采纳方案 A——定稿为与位移/剑技协同（绝影姿态下施放位移/剑技暴击生成残影斩击）。
+- **技能 4 节点 473/474 异常强度（决策 7）**：采纳方案 B——挂靠统一基础异常强度（AilmentEngine 基础单层强度 1.0），无需点数加成。
+- **天剑降临多元素形态（决策 8）**：采纳方案 A——本次做设计定稿与数据契约，后续作为独立深化包落地。
+- **模块化重构 DoD 目标调整（决策 9）**：调整初始“单个文件 ≤ 100 行”的僵化指标（该指标曾误导致所有技能实现被删除后重新重构补上），调整为以职责内聚、分层清晰、无跨系统 hack 为核心。
+- **职业路线规划（决策 10）**：采纳方案 A——深挖剑修纵深，暂不开启其余 5 个职业的 build 与技能设计。
+- **测试环境配置污染治理（决策 11）**：采纳方案 B——在测试/构建脚本层面自动清理或还原 `settings.json`。
+  - 实证修订（2026-09-17 二轮复审）：仓库无 `.github` 目录，"仅在 CI 下还原"为死代码；改为在 `TestSetupScope`（`tests/TestCommon.hpp`）做条件保存/还原，本地与 CI 一致有效。
+
+### 1.3 二轮代码实证复审新增跟催项（2026-09-17）
+
+- **F-01 节点 1015 字面语义未落地**：`desc_key` 所述"降低减速与击退影响"当前无对应 `StatType`（`Stats.hpp:224-284` 无减速/击退抗性枚举），需策划确认是补枚举还是改文案。
+- **F-02 `GetBakedSkillProfile` 直连残余**：约 30 处调用不经 `is_baked` 过滤，本轮仅登记，不在范围内修改。
+- **F-03 技能 10 范围算子缺失**：`skill_spec_modifiers.json` 中技能 10 无 `SKILL_AREA_MULT`，`SevenStarSlash` 半径单源接入后仍无实际缩放，属预防性重构。
+- **F-04 门禁中止语义**：`build.bat:288-313` 9 处 precheck 均不阻断构建，需统一（既有缺陷，非本轮新增）。
+- **F-05 技能 9 节点 930/993、天剑降临三系合流**：仍在设计定稿阶段，实施另立计划。
+- **F-06 专精节点无 tags 属性交付整体失效（高）**：`StatModifier.required_tags` 在 JSON 缺省时为 `Tag::None`（`Stats.hpp:399-406`），而 `StatsSystem.cpp:318` 的 `is_baked = (mod.required_tags == Tag::None)` 快路径会据此跳过 `<:487>` 处的专精节点修饰符；`AttributePipeline` 亦不折叠专精节点修饰符（仅 `global_mods` 与装备词缀）。故**所有未声明 `required_tags` 的专精节点属性修饰符在全局与技能域均不生效**，节点 1015 仅是其中一例。影响面超出本轮范围，需专项确认是补数据还是修交付路径。
+   - **量化（2026-09-17 复核）**：`rg '"required_tags"' assets/data/mastery_skill_trees.json` 无命中；非空 `stat_modifiers` 的专精节点共 **42** 个（`mastery_skill_trees.json` 32 + `skills.json` 10），即全部处于静默失效状态，含技能 1–9 存量数据。建议独立立项并按技能分组回归（复核意见：不应在本轮 UMR 收尾内一并修复）。
+   - **测试盲区登记（2026-09-17 三轮复审）**：本轮 Task 3.0 的灵敏度正对照只证明全局修饰符探针路径（`StatsSystem.cpp:318-323` 的 `apply_if_tags_match` 经 ModifierList 调用方）存活，**未覆盖专精节点应用路径**（`StatsSystem.cpp:487` 对 `specialized_slots` 的 `stat_modifiers`）。因此该门禁无法区分「节点 1015 修饰符被正确忽略」与「专精节点应用路径整体失效」两种解释；补正对照需一个 `required_tags != Tag::None` 的节点修饰符实例（合成夹具亦可），随本项一并修复。
+- **F-07 `settings.json` 写入点需持续看护**：`QualityTierManager::Initialize`（`QualityTierManager.cpp:123`）无条件写回基准分/时间戳。**写入面穷举口径（2026-09-17 复检修订）**：(a) 显式字面量传参 7 处 / 5 文件——`MaterialLightingBenchmark.cpp:119`、`GPUABIBindingTierIntegrationTest.cpp:23`、`RenderSystemPhaseDToggleSmokeTest.cpp:63`、`MaterialLightingIntegrationTest.cpp:55`+`:86`、`VFXSequencerTest.cpp:152`+`:464`；(b) **无参默认实参路径** 1 处——`JFAPassUpsampleMaskTest.cpp:217`（`QualityTierManager.hpp:100` 默认实参即仓库 `settings.json`，无参调用同样写回）；(c) **间接路径** 1 例——`RenderSystemInitializeFailureTest.cpp` 的两个失败用例经 `RenderSystem::Initialize()` 触达 `RenderSystem.cpp:969`，且该写入发生在能力门禁 `:1008-1026` **之前**，必然先写后败。上述 7 文件现已全部接入 `TestSetupScope`；后续新增 `Initialize` 调用方须同时穷举 (a)(b)(c) 三类路径并加夹具，否则 DoD §1.5 回归。**根治候选（本轮未采纳）**：为 `QualityTierManager` 增加一个不写盘的测试入口（如 `InitializeForTesting()`）或让持久化由显式参数控制，可彻底消除 (b) 默认实参路径；本轮为控制生产接口改动面，仍采用夹具级方案。**轻量化候选**：当前 settings 快照/还原与 `Logger`/`ItemFactory`/技能表初始化耦合同一 `TestSetupScope`，使渲染/性能用例承担非必要初始化开销与技能子系统耦合；后续可拆出仅做 settings 快照/还原的轻量 guard。
+- **F-08 离线 schema 扫描器形参误解析**：`gen_skill_mechanics_schema.py` 会把形参 `skillId` 解析到同名文件级常量 `constexpr uint32_t skillId = 0`（`CombatSystem.cpp:198`），伪造出 `0.0.base_range` 三元组并使 `--check` 失败。新增机制读取的形参需避开该命名。
+
+### 1.4 实施期实证修订（2026-09-17，UMR 收尾落地）
+
+- **Task 3.0 正对照被证伪**：计划原设断言 (2)"skill_id=10 时应可观测"不成立，实测该修饰符为双重惰性（见 F-06）。门禁结论改由断言 (1)（全局域未污染）加灵敏度对照（基线 `dodge_chance=0.15` → 探针须读出 15.0）支撑；`SkillWrapupHardeningTests.cpp` 已按实况断言并留证，Task 3.2/3.3 结论不变。
+- **Task 5.2 前提不成立**：`build.bat` 既有 9 处 precheck 均已 `if errorlevel 1 exit /b 1`（计划 C-8 描述有误），无需统一；新增 2 处沿用同模式，共 11 处一致。
+- **Task 5.3 死代码不存在**：`build.bat` 中无 `GITHUB_ACTIONS` / `settings.json` / `git checkout` 处理，无需删除。
+- **范围扩展（边界说明）**：为补足 DoD §1.5，`TestSetupScope` 已接入 7 个文件——`tests/integration/{RenderSystemPhaseDToggleSmokeTest,GPUABIBindingTierIntegrationTest,MaterialLightingIntegrationTest}.cpp`（首轮）、`tests/unit/{VFXSequencerTest,RenderSystemInitializeFailureTest}.cpp`、`tests/performance/MaterialLightingBenchmark.cpp`、`tests/integration/JFAPassUpsampleMaskTest.cpp`（复检补齐 (a)(b)(c) 三类路径）。均属同主题必要扩展，计划文件清单已同步登记。
+- **生成物更新**：`assets/data/skill_mechanics_schema.json` 的 `dynamic_keys` 新增 `base_range`（helper 形参改名 `beamSkillId` 后由扫描器归类为运行时变量键），`--check` 绿色。
+- **构建脚本注释编码风险**：`build.bat` 中新增的中文 `REM` 行在 cmd 解析下可能因 UTF-8 字节与当前代码页错位而被截断为命令（实测报 `'...' is not recognized as an internal or external command`，构建仍继续但留下噪声）。该行为非致命、但会污染预检日志，本轮改为 ASCII 注释；后续在 `.bat` 内新增中文注释需实测解析后再提交。
+
+### 1.5 独立扫描复审整改（2026-09-17，仓库根 `review.md`，11 项）
+
+第三轮交付后由独立子代理对全部变更文件做了一次静态扫描，提出 11 项发现（1 High / 3 bug-medium / 3 maint / 3 test / 1 bug-low），**全部采纳并修复**：
+
+- **[High] 空指针回归**：`ResolveBakedProfile` 第二步出口由「恒返回 `&scratch`」改为「哨兵返回 `nullptr`」后，唯一传 `fallbackSpec` 的生产调用方 `PhantomTrance.cpp` 无条件解引用返回值；技能 9 不在技能表时（异常态）会崩溃。已在消费侧补空指针守卫，回退到默认构造的 `PhantomTranceParams`（`PhantomTrance.cpp` `ResolveParams`）。**教训：出口契约变化必须逐一核对调用方，而非只看被改函数。**
+- **[bug-low] 射程约束可绕过**：`SwordArray.cpp` 新增的施法落点钳制只覆盖新建分支，675 移形换阵的「重按挪阵」分支仍直接写原始目标点。已把落点解析上提为函数开头的单源 `cast_target`，两条路径共用；并新增功能用例 `675 Relocate clamps out-of-range target to cast range`（超距目标 → 400.0f，修复前会得到 10000.0f）。
+- **[maint] 死分支与字面量漂移**：`SevenStarSlash.cpp` 的 `skillData ? ... : 96.0f` 分支不可达（前文已校验非空）；`96.0f` 与 Baker case 10 重复。已改为直接 `skillData->GetParam("radius", ...)`，并把默认值上提为 `SevenStarSlashConstants.hpp` 的 `kSevenStarSlashBaseRadius`（零依赖头），Baker case 10 与行为层回退共用。
+- **[maint-medium] 哨兵半防护**：`BeamChannelDeliverySystem.cpp` 的 `is_baked` 过滤只加在半径上，同一 `profile` 仍在 `effective_tags` / `more_damage_mult` / `bonus_crit` 等处被无过滤解引用。已改为在 `GetBakedSkillProfile` 查询后集中归一（非 `is_baked` 即置空），半径处去掉冗余判断；不引入 `ResolveBakedProfile`（该路径逐帧执行，需避开回退重烘焙）。
+- **[bug-medium ×2 + maint] `settings.json` 夹具加固**：`TestCommon.hpp` 的快照读取经 `istreambuf_iterator` 遇 I/O 错误会静默截断，配合「内容不同才写回」逻辑会以残缺快照**覆盖**真实文件；快照时文件不存在则完全不清理用例新建的文件；还原写失败被静默吞掉。已分别补：按文件大小校验完整性（残缺即放弃快照）、原本不存在时析构删除用例产物、`flush()` + `good()` 校验并 `DOCTEST_WARN_MESSAGE` 提示兜底命令。
+- **[test-medium] 门禁断言恒真**：Task 3.0 的 `skill_id==0` 相等断言因 `ScopePolicy::SkillOnly` 结构性恒真，不构成可证伪证据。已改以数据契约为主要证据（`SkillRegistry::Get().GetSkillTree(10)->nodes[1015].stat_modifiers.empty()`，回写数据前必然失败），作用域探针降级为「不得回归」锁定项。
+- **[test-low] 出口覆盖不全**：`SkillProfileResolveSentinelTests.cpp` 原先只钉住第一步（缓存命中）出口；已补第二步（`fallbackSpec` 未注册 → Bake 出哨兵 → `nullptr`）与第三步（未注册 ID 命中 `specialized_slots` → `nullptr`）两个用例，均对修复前实现可证伪。
+- **[test-low] 用例重复**：`SwordArrayNodes.cpp` 的钳制断言与单元用例重复，且缺「653 随身剑垒 + 超距目标」覆盖。已删除重复断言，新增子用例「653 Mobile Fortress aura ignores out-of-range target」（落点须为施法者而非钳制后的 400）。
+- **验证证据**：`build.bat RelWithDebInfo` EXIT=0 且告警数 0；新增两处 precheck（`validate_skill_spec_modifiers.py --check`、`gen_skill_mechanics_schema.py --check`）均 OK；`ctest -L unit` 8/8、`-L integration` 6/6、`-R nmd.tests.ci.nonperf` 1/1；技能 6/10、Wrapup、ProfileResolve 定向用例 35 用例 / 732 断言全绿；`gen_skill_contracts.py --check` EXIT 0；`settings.json` SHA256 与基线一致（未污染）。
+- **本轮未采纳项**：`review.md` 未提出、但 §1.3 F-06 登记的「专精节点 `stat_modifiers` 全局静默失效」（42 个节点）与 F-02（其余 `GetBakedSkillProfile` 直调点）仍为独立立项范围，不在本轮修复。
+
+
+### 1.6 第五轮复检整改（2026-09-17，`docs/reviews/...-review-round5.md`）
+
+§1.5 的整改由独立复检子代理只读复核，判定 8/11 为**真正修复**，3 项为部分修复，**结论 `修改`**。已全部闭合：
+
+- **[High] 夹具反向数据丢失（§1.5 整改自身引入）**：`TestCommon.hpp` 的三条「放弃快照」分支（`file_size` 失败 / 打开失败 / 读截断）都直接 `return`，而 `m_settingsFileExisted` 直到成功分支末尾才置位 → 析构走「快照时不存在」路径，把**真实的** `settings.json` 当作用例产物删除；注释宣称的「保守放弃」与代码相反。已改为三态：确认文件存在即置 `m_settingsFileExisted`，放弃分支统一置 `m_settingsSnapshotAbandoned`，析构先判存在性（删产物）再判放弃态（仅告警、绝不删改）。
+- **[Medium] 清理失败静默**：`std::filesystem::remove(kSettingsFilePath, ec)` 丢弃 `ec` → 清理失败无任何可观测信号。已补 `DOCTEST_WARN_MESSAGE`。
+- **[Medium] 哨兵消费点漏改**：`BeamChannelDeliverySystem.cpp` 的 `ResolveSkill7Element` 仍自行 `GetBakedSkillProfile` 且不判 `is_baked`，哨兵 `effective_tags` 可渗入（当前仅因默认 `Tag::None` 而无害）。已同补 `is_baked` 过滤并注明语义。
+- **[Low] 重复断言未清干净**：`SwordArrayNodes.cpp` 保留的 560f 钳制断言与单测重复，且对修复前实现不失败（非独立证据）。已删除，子用例更名 `603 cast range parity`，注释显式交叉引用单测与 675 子用例。
+- **[Low] 语义偏差未披露**：mobile-aura 覆盖现也作用于 675 挪阵分支，设计未明写。已在 design §2.2.2 补「落点单源（v1.3 修正）」说明及净影响可忽略的理由，测例由三种覆盖扩为四种。
+- **[Low] 头文件重量**：为单个 `constexpr float` 让烘焙 TU 包含 `SevenStarSlashShared.hpp`（连带 `SkillSystem.hpp` / `SkillRegistry.hpp` / `SevenStarSlashSpecState.gen.hpp` / `BladeResourceService.hpp`）。已析出零依赖头 `SevenStarSlashConstants.hpp`。
+- **[BestPractice] `build.bat` 注释冗余**：5 行语义重叠 REM 精简为 3 行。
+- **[Low] 未跟踪文件**：8 个未跟踪文件（含 `SevenStarSlashConstants.hpp`）须显式 `git add`，禁止 `git add -u`。
+- **验证证据（全部实跑）**：`build.bat RelWithDebInfo` EXIT=0、告警 0 命中，两道新门禁 OK 且先于 `gen_modifier_runtime_binary`；定向 80 用例 / 1184 断言全过；`ctest -L unit` 8/8、`-L integration` 6/6、`-R nmd.tests.ci.nonperf` 1/1；三道 Python `--check` 门禁 EXIT=0；`settings.json` SHA256 与基线一致。
+- **保留为独立跟催项**：§6 最佳实践 1（为 `TestSetupScope` 构造可注入 I/O 失败的最小单测，需先抽象文件系统访问）；最佳实践 2/3（`is_baked` 生产者契约文档、`GetBakedSkillProfile` 直连点静态清单）与 F-02 合并立项；UI 展示路径（`GameUiSnapshotBuilder.cpp:406`、`PlayerHUD.cpp:144`）遍历哨兵档案维持既有残余判定。
+
+
 ---
 
 ## 2. B1 销项清单（立即收尾）
@@ -159,7 +232,7 @@
 
 > 开工前先走设计流程，产出 `*-design.md` 与 `*-plan.md`；B2 全部条目作为第一批改动并入。
 
-- [ ] **A-01** 技能1~9 专精实现抽象化/模块化：技能1~9 行为文件合计约 4542 行（FlowingThrust 955 / RendingWave 700 / PhantomTrance 747 / BladeFormation 517 / InfiniteBlades 522 / SwordArray 495 / BladeBoomerang 383 / BladeWard 137 / MindBlade 86）；全 12 技能行为文件合计约 6615 行（另加 HeavenlySwordDescent 832 / SevenStarSlash 681 / BloodSea 560）、Baker 1117 行 18 case。需先重定 DoD（恢复薄装配 ≤100 行/文件，或承认节点逻辑内聚、只抽取「触发/效果/交付」三层参数化模式）
+- [ ] **A-01** 技能1~9 专精实现抽象化/模块化：重构重定 DoD 指标（2026-09-17 裁决调整：初始“单个文件 ≤100 行”指标曾误导致过早删除实现后又重新重构补上，现正式废除机械行数限制，改为以职责内聚、分层清晰、消除重复样板与跨系统 hack 为核心验收准则；全 12 技能行为层统一维持单源与 UMR 交付架构）。
 - [x] **A-02** 技能10~12 迁移：SevenStarSlash / HeavenlySwordDescent / BloodSea（专精树数据 + 行为 + 契约 + 审查）；含 HeavenlySwordField / BloodSeaField 组件迁移（另立计划），依赖 HeavenlySwordDescent.cpp:184-400、BladeMasteryService.cpp:51-88、SkillSystem.cpp:1080-1092 — 销项 2026-09-14（Track A-02）：SpecState 抽象化 DoD 全达标（D-A5/D-A1 闭环、L-2 关闭、生成器门禁 3/3、ci/skill/integration/unit 标签全绿），证据见 `docs/reviews/2026-09-14-skill-abstraction-a02-review.md` 与 §9.5；HeavenlySwordField / BloodSeaField 组件迁移仍按「另立计划」独立跟踪
 - [x] **A-03** 技能12 绝影共噬节点行为（与 A-02 合并）— 销项 2026-09-14：节点 1217 早于本 Track 经 B2-22（A2-2 T9.3，`0ef68d2d`）落地，本 Track 复核节点行为与技能9 联动回归全绿，随 A-02 一并销项，证据见 §9.5
 - [x] **A-04** 技能10 非法标签清算尾项（B1-10 的剩余部分）——复核结论：数据侧已无非法标签，技能10 tags 全为已注册项，无需改动；技能10 契约已在 `assets/data/skill_contracts_compact.json` 注册。证据见 §8。

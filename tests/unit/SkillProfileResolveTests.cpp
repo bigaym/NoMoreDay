@@ -50,6 +50,7 @@ TEST_CASE("[Unit] SkillProfileResolve - Cache Hit Returns Cached Profile") {
   auto &active = registry.emplace<ActiveSkillsComponent>(entity);
   active.baked_profiles[0].skill_id = kSkillId;
   active.baked_profiles[0].effective_level = 7;
+  active.baked_profiles[0].is_baked = true;
 
   BakedSkillProfile scratch{};
   scratch.skill_id = 999; // 哨兵：命中时不得被改写
@@ -142,11 +143,13 @@ TEST_CASE("[Unit] SkillProfileResolve - Resolves Passed Owner") {
   auto &casterActive = registry.emplace<ActiveSkillsComponent>(caster);
   casterActive.baked_profiles[0].skill_id = kSkillId;
   casterActive.baked_profiles[0].effective_level = 7;
+  casterActive.baked_profiles[0].is_baked = true;
 
   const auto summon = registry.create();
   auto &summonActive = registry.emplace<ActiveSkillsComponent>(summon);
   summonActive.baked_profiles[0].skill_id = kSkillId;
   summonActive.baked_profiles[0].effective_level = 3;
+  summonActive.baked_profiles[0].is_baked = true;
 
   BakedSkillProfile scratch{};
   const auto *resolved = skills::ResolveBakedProfile(registry, summon, kSkillId, scratch);

@@ -2,6 +2,7 @@
 
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/SkillPointAccess.hpp" // 统一技能节点读点 helper
+#include "game/systems/skill/behaviors/BeamChannelShared.hpp" // 引导射程单源解析
 
 #include "game/systems/skill/ElementPathSystem.hpp" // 技能8 元素路径
 
@@ -871,10 +872,17 @@ void GameplayState::OnRender() {
       for (auto entity : view_chan) {
         auto &chan = view_chan.get<BeamChannelComponent>(entity);
         if (chan.skill_id == 7) { // Heart Sword: Shadowless
-          auto &pos = view_chan.get<Position>(entity);
-          // 射程基准与 Baker 共用机制表键 base_range，避免双源漂移；
-          // TODO: 703 的 SKILL_RANGE_MULT 专精放大未接入，渲染圈未随节点放大。
-          const float range = skills::GetMech(7, 0, "base_range", 350.0f);
+          // 渲染路径只读缓存档案（GetBakedSkillProfile 不触发烘焙）；owner 缺失或无
+          // 专精组件时安全跳过。射程与交付系统共用 ResolveBeamChannelMaxRange 单源函数，
+          // 703 的 SKILL_RANGE_MULT 已由 Baker 折入 delivery.range。
+          const entt::entity owner = chan.owner;
+          if (owner == entt::null || !registry.valid(owner) ||
+              !registry.any_of<ActiveSkillsComponent>(owner)) {
+            continue;
+          }
+          const auto &pos = view_chan.get<Position>(entity);
+          const auto *profile = SkillSystem::GetBakedSkillProfile(registry, owner, 7u);
+          const float range = ResolveBeamChannelMaxRange(profile, 7u);
           DrawCircleLines((int)pos.x, (int)pos.y, range, ColorAlpha(GOLD, 0.2f));
           DrawCircleLines((int)pos.x, (int)pos.y, range + 2.0f,
                           ColorAlpha(ORANGE, 0.15f)); // Thicker rim

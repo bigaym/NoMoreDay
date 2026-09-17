@@ -1,4 +1,6 @@
 #include "BenchmarkUtils.hpp"
+#include "TestCommon.hpp"
+
 #include "doctest.h"
 
 #include "engine/render/GPUUtils.hpp"
@@ -102,6 +104,9 @@ void SeedBenchmarkParticles(NoMoreDay::systems::GPUParticleSystem &particleSyste
 
 TEST_CASE("[Performance] Material Lighting - Tier overhead budgets") {
   using namespace NoMoreDay;
+
+  // 基准用例同样会触发 settings.json 写回，必须与其余用例一致地还原。
+  TestSetupScope settingsGuard;
 
   if (!utils::GPUUtils::IsInitialized()) {
     utils::GPUUtils::Initialize();

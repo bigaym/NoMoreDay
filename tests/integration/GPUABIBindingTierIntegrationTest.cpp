@@ -1,3 +1,5 @@
+#include "TestCommon.hpp"
+
 #include "doctest.h"
 
 #include "engine/render/GPUABIContract.hpp"
@@ -8,6 +10,10 @@
 
 TEST_CASE("[Integration] GPU ABI - Cross-tier shader/link and binding governance") {
   using namespace NoMoreDay;
+
+  // QualityTierManager::Initialize 会无条件改写 settings.json 的基准分与时间戳，
+  // 由夹具在作用域结束时按内容差异还原。
+  TestSetupScope settingsGuard;
 
   if (!utils::GPUUtils::IsInitialized()) {
     utils::GPUUtils::Initialize();

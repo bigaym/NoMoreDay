@@ -424,23 +424,20 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   field.consumed_bloodthirst = effective_consumed;
   // 领域时长单源消费：1219 的 DURATION_FLAT 已由 Bake 合成进交付 duration（基准 4.8s），
   // 再叠加行为层「每点消耗血渴延长」的运行时项。
-  // 哨兵守卫：skillData 缺失时（Bake 早退 / 槽位缓存）档案只带 skill_id 与 1.0f 默认值，
-  // 非空却无意义，且 1.0f 为正无法用数值判别；而该情形下 skill 必为空指针，故以
-  // 「profile && skill」为判据，确保哨兵档案永不胜过技能级/常量回退。
+  // ResolveBakedProfile 已保证只返回 is_baked 档案，哨兵档案不会越过该边界，故此处
+  // 只需判空，无需再叠加 skillData 是否存在。
   field.header.duration =
-      ((profile && skill != nullptr)
-           ? profile->delivery.duration
-           : (skill ? skill->GetParam("field_duration", kFieldDurationDefault)
-                    : kFieldDurationDefault)) +
+      (profile ? profile->delivery.duration
+               : (skill ? skill->GetParam("field_duration", kFieldDurationDefault)
+                        : kFieldDurationDefault)) +
       field_duration_per_bloodthirst * static_cast<float>(effective_consumed);
   // 领域半径单源消费：1207 的 AREA_MULT 已由 Bake 合成进交付 area_radius（并折叠装备
   // area_radius_mult，SkillSpecializationBaker.cpp:299-301），
-  // 再叠加「每点消耗血渴 + 1200 血幕初开」两个行为层加项。哨兵守卫同上。
+  // 再叠加「每点消耗血渴 + 1200 血幕初开」两个行为层加项。
   field.header.radius =
-      ((profile && skill != nullptr)
-           ? profile->area_radius
-           : (skill ? skill->GetParam("field_radius", kFieldRadiusDefault)
-                    : kFieldRadiusDefault)) +
+      (profile ? profile->area_radius
+               : (skill ? skill->GetParam("field_radius", kFieldRadiusDefault)
+                        : kFieldRadiusDefault)) +
       static_cast<float>(effective_consumed) * field_radius_per_bloodthirst +
       static_cast<float>(spec.bloodCurtainOpeningPoints) * radius_per_point;
   field.header.tick_interval =

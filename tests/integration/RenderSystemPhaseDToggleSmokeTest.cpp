@@ -1,3 +1,5 @@
+#include "TestCommon.hpp"
+
 #include "doctest.h"
 
 #include "engine/render/GPUUtils.hpp"
@@ -47,6 +49,10 @@ TEST_CASE("[Integration] RenderSystem Phase D - resize/toggle smoke across HDR/G
   using namespace NoMoreDay;
   using namespace NoMoreDay::render;
   using namespace NoMoreDay::render::core;
+
+  // QualityTierManager::Initialize 会无条件把 benchmarkScore/updatedAtUtc 写回
+  // settings.json；本夹具在析构时按内容差异还原，避免测试污染工作区。
+  TestSetupScope settingsGuard;
 
   if (!PhaseDEnsureGpuContext()) {
     FAIL("Cannot create GPU context; skipping Phase D toggle smoke");

@@ -82,8 +82,10 @@ constexpr float kShockMagnitude = 15.0f;      // 雷盾脉冲感电强度
                                                        SkillExecution &exec,
                                                        BakedSkillProfile &scratch) {
   // 缓存命中：直接取形态参数，避免为合成专精分配 allocated_points。
+  // 哨兵档案（技能表缺失时写入、!is_baked）不可消费，继续走合成烘焙路径。
   if (const auto *profile = SkillSystem::GetBakedSkillProfile(
-          registry, owner, PhantomTrance::kSkillId)) {
+          registry, owner, PhantomTrance::kSkillId);
+      profile != nullptr && profile->is_baked) {
     return profile->delivery.trance;
   }
   // 未命中：按 active_nodes 合成专精，交给基元走同一烘焙路径，
@@ -95,9 +97,15 @@ constexpr float kShockMagnitude = 15.0f;      // 雷盾脉冲感电强度
       synthesized.allocated_points[node_id] = 1;
     }
   }
-  return ResolveBakedProfile(registry, owner, PhantomTrance::kSkillId, scratch,
-                             &synthesized)
-      ->delivery.trance;
+  // 技能表缺失时烘焙产出哨兵档案，ResolveBakedProfile 返回 nullptr；此时退化为
+  // 默认形态参数，维持本函数「始终返回有效引用」的契约（调用方无条件解引用）。
+  const BakedSkillProfile *resolved = ResolveBakedProfile(
+      registry, owner, PhantomTrance::kSkillId, scratch, &synthesized);
+  if (resolved != nullptr) {
+    return resolved->delivery.trance;
+  }
+  static const PhantomTranceParams kFallbackParams{};
+  return kFallbackParams;
 }
 
 [[nodiscard]] std::vector<entt::entity>

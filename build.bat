@@ -310,6 +310,14 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
     call :run_quiet_step "Checking monster behavior dispatch contract" "Monster behavior dispatch contract broken! Aborting." "python scripts\check_monster_behavior_dispatch.py"
     if errorlevel 1 exit /b 1
 
+    REM Skill gates must run before the runtime binary is generated, otherwise already-drifted
+    REM source data gets baked into the .bin. Both steps below are read-only --check gates;
+    REM run_quiet_step forwards the exit code, the trailing `if errorlevel 1 exit /b 1` is intentional.
+    call :run_quiet_step "Validating skill spec modifiers" "Skill spec modifier validation failed! Aborting." "python scripts\validate_skill_spec_modifiers.py --check"
+    if errorlevel 1 exit /b 1
+    call :run_quiet_step "Checking skill mechanics schema" "Skill mechanics schema check failed! Aborting." "python scripts\gen_skill_mechanics_schema.py --check"
+    if errorlevel 1 exit /b 1
+
     call :run_quiet_step "Generating modifier runtime binary" "Modifier runtime binary generation failed! Aborting." "python scripts\gen_modifier_runtime_v2.py"
     if errorlevel 1 exit /b 1
 ) else (

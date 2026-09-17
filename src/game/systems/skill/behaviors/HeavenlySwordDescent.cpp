@@ -598,12 +598,12 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   // 领域半径单源消费：profile->area_radius 已含 1101(+8%/点) 与 1107(-30%) 的 UMR
   // 合成结果，同时折叠装备 area_radius_mult（SkillSpecializationBaker.cpp:299-301），
   // 以相对基准的缩放比施加到「基准 + 消耗阶数加成」上。
-  // 哨兵守卫：skillData 缺失时档案只带 1.0f 默认值（area_radius=1.0f），比值会把半径
-  // 压到 ~1；该情形下 skill 必为空指针，故以「skill != nullptr && profile」为判据回退 1.0 倍。
+  // ResolveBakedProfile 已保证只返回 is_baked 档案，哨兵档案不会越过该边界；
+  // base_field_radius 除零守卫保留。
   float field_radius =
       base_field_radius + static_cast<float>(spent_tiers) * tier_radius_bonus;
   const float areaMult =
-      (skill != nullptr && profile && base_field_radius > 0.0f)
+      (profile && base_field_radius > 0.0f)
           ? profile->area_radius / base_field_radius
           : 1.0f;
   field_radius *= areaMult;
@@ -651,12 +651,11 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   registry.emplace<PersistentFieldTag>(field_entity); // 持久场原型标记：交付系统据此跳过自管理脉冲
   field.header.owner = owner;
   // 领域时长单源消费：1119 的 DURATION_FLAT 已由 Bake 合成（基准 5.0s）；
-  // 哨兵守卫同半径：skill 为空时回退技能级/常量基准。
+  // ResolveBakedProfile 已保证只返回 is_baked 档案，skill 为空时回退技能级/常量基准。
   field.header.duration =
-      (profile && skill != nullptr)
-          ? profile->delivery.duration
-          : (skill ? skill->GetParam("field_duration", kFieldDurationFallback)
-                   : kFieldDurationFallback);
+      profile ? profile->delivery.duration
+              : (skill ? skill->GetParam("field_duration", kFieldDurationFallback)
+                       : kFieldDurationFallback);
   field.header.radius = field_radius;
   field.spent_tiers = spent_tiers;
   field.attunement = attunement;

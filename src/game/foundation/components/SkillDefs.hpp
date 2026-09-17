@@ -670,6 +670,12 @@ static_assert(std::is_trivially_destructible_v<BakedDeliveryParams>);
 // 纯 POD 实体烘焙属性表
 struct BakedSkillProfile {
   uint32_t skill_id = 0;
+
+  // 显式烘焙成功标记：false 表示该档案不可消费（含 skillData 缺失时写入的哨兵档案）。
+  // "未烘焙"判定必须以此字段为准，不得以 area_radius == 1.0f 推断——1.0f 是结构体
+  // 默认值，合法烘焙结果同样可能等于该值。
+  bool is_baked = false;
+
   int effective_level = 1;
   float effective_cooldown = 0.0f;
   float effective_mana_cost = 0.0f;

@@ -1,3 +1,5 @@
+#include "TestCommon.hpp"
+
 #include "doctest.h"
 
 #include "engine/render/GPUUtils.hpp"
@@ -36,6 +38,10 @@ void WriteText(const std::filesystem::path &path, const std::string &text) {
 TEST_CASE("[Integration] Material Lighting - Cross-tier particle shader ABI path") {
   using namespace NoMoreDay;
 
+  // QualityTierManager::Initialize 会把基准分/时间戳写回 settings.json；夹具按
+  // 内容差异还原，避免集成测试污染工作区。
+  TestSetupScope settingsGuard;
+
   if (!utils::GPUUtils::IsInitialized()) {
     utils::GPUUtils::Initialize();
   }
@@ -73,6 +79,8 @@ TEST_CASE("[Integration] Material Lighting - Cross-tier particle shader ABI path
 
 TEST_CASE("[Integration] Material Lighting - Schema v2 hot reload updates runtime data") {
   using namespace NoMoreDay;
+
+  TestSetupScope settingsGuard;
 
   auto &qm = render::core::QualityTierManager::Get();
   qm.Initialize("settings.json");

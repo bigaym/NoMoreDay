@@ -18,6 +18,7 @@
 #include "game/foundation/data/TagRegistry.hpp"
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/BeamChannelShared.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
@@ -67,9 +68,12 @@ bool IsHeavyEnemy(entt::registry &registry, entt::entity e) {
   return false;
 }
 
-// 技能7 当前元素：优先取 Baker 输出的 effective_tags，回退到引导组件的转换标签
+// 技能7 当前元素：优先取 Baker 输出的 effective_tags，回退到引导组件的转换标签。
+// 哨兵档案（技能 7 缺表）必须视同未烘焙：其 effective_tags 为默认空集，虽与
+// "无元素"结果等价，但语义上不可消费，故先行过滤以免日后默认值变动时渗入。
 Tag ResolveSkill7Element(entt::registry &registry, entt::entity caster) {
-  if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 7u)) {
+  if (const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 7u);
+      profile != nullptr && profile->is_baked) {
     if (HasTag(profile->effective_tags, Tag::Cold)) return Tag::Cold;
     if (HasTag(profile->effective_tags, Tag::Lightning)) return Tag::Lightning;
   }
@@ -150,7 +154,14 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
                          entt::entity caster, BeamChannelComponent &beam,
                          const Position &pos, float dt) {
   const auto &mech = data::SkillMechanicsRegistry::Get();
+  // 契约归一：GetBakedSkillProfile 是只读缓存查询且不区分是否完整烘焙。哨兵档案
+  // （skillData 缺失时写入、area_radius==1.0f）在此一次性归一为 nullptr，避免其
+  // 默认值经 effective_tags / more_damage_mult / bonus_crit 等字段渗入结算；本函数
+  // 逐帧执行，故不复用会触发回退重烘的 ResolveBakedProfile。
   const auto *profile = SkillSystem::GetBakedSkillProfile(registry, caster, 7u);
+  if (profile != nullptr && !profile->is_baked) {
+    profile = nullptr;
+  }
   auto *stats = registry.try_get<CombatStats>(caster);
 
   const Tag element = ResolveSkill7Element(registry, caster);
@@ -206,11 +217,9 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
   const float maxStacks = mech.GetFloat(7u, 710u, "max_stacks", 4.0f);
   const float baseDamage = kMindBladeBaseDamage;
 
-  // 光标位置裁剪到最大施放距离；基准射程与 Baker 共用机制表键 base_range
-  float maxRange = mech.GetFloat(7u, 0u, "base_range", 350.0f);
-  if (profile && profile->delivery.range > 0.0f) {
-    maxRange = profile->delivery.range;
-  }
+  // 光标位置裁剪到最大施放距离；射程解析与渲染指示圈共用 ResolveBeamChannelMaxRange
+  // 单源函数（内部已含 is_baked 过滤），禁止在此复算。
+  const float maxRange = ResolveBeamChannelMaxRange(profile, 7u);
   Vector2 cutPos = beam.target_pos;
   {
     Vector2 diff = Vector2Subtract(beam.target_pos, {pos.x, pos.y});
@@ -221,7 +230,10 @@ bool UpdateMindBladeBeam(entt::registry &registry, systems::SpatialHashGrid &gri
     }
   }
 
-  const float radius = (profile && profile->area_radius > 1.0f)
+  // v1.2 实证：本守卫并非历史死分支，不得删除。哨兵档案已在函数入口归一为
+  // nullptr，故此处只剩 RANGE 单源解析与数值守卫；移除 > 1.0f 将使无档案
+  // 回退半径由 60.0f 坍缩至哨兵值 1.0f。
+  const float radius = (profile != nullptr && profile->area_radius > 1.0f)
                            ? profile->area_radius
                            : mech.GetFloat(7u, 0u, "base_radius", 60.0f);
   const float centerRadius = mech.GetFloat(7u, 715u, "center_radius", 80.0f);

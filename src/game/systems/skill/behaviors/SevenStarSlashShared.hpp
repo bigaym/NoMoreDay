@@ -8,6 +8,7 @@
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/SevenStarSlashConstants.hpp"
 #include "game/systems/skill/behaviors/generated/SevenStarSlashSpecState.gen.hpp"
 
 #include <entt/entt.hpp>

@@ -10,6 +10,8 @@
 #include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 
+#include "TestCommon.hpp"
+
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -18,6 +20,10 @@ TEST_CASE("[Unit] RenderSystem - Capability failure injection returns false and 
   using namespace NoMoreDay::render;
   using namespace NoMoreDay::render::core;
   using namespace NoMoreDay::render::resources;
+
+  // RenderSystem::Initialize 在能力门禁之前会执行 QualityTierManager::Initialize("settings.json")，
+  // 即便本用例期望失败也会先写回基准分数；交由夹具快照/还原保证工作区无污染。
+  TestSetupScope settingsGuard;
 
   const size_t initialResourceCount = GPUResourceRegistry::Get().GetStats().activeCount;
 
@@ -61,6 +67,10 @@ TEST_CASE("[Unit] RenderSystem - ABI mismatch failure returns false and cleans u
   using namespace NoMoreDay::render::abi;
   using namespace NoMoreDay::render::resources;
   namespace fs = std::filesystem;
+
+  // 本用例在 ABI 校验处即返回（RenderSystem.cpp:961-966 先于 :968-969 的写入），
+  // 本身并非污染源；夹具为防御性保留，避免 Initialize 内部顺序调整后悄然回归为写入点。
+  TestSetupScope settingsGuard;
 
   const size_t initialResourceCount = GPUResourceRegistry::Get().GetStats().activeCount;
 

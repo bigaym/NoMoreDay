@@ -10,6 +10,8 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
 
+#include "TestCommon.hpp"
+
 #include "raylib.h"
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
@@ -211,6 +213,10 @@ TEST_CASE("[Integration] JFAPass - Empty scene host skip and non-empty distance 
     FAIL("Cannot initialize OpenGL context for JFAPass");
   }
   (void)DrainGlErrors();
+
+  // qm.Initialize() 走默认实参即仓库根 settings.json，会把基准分数写回；
+  // 用夹具快照并在析构时按需还原，保持工作区干净。
+  TestSetupScope settingsGuard;
 
   ResourceManager resources;
   auto &qm = NoMoreDay::render::core::QualityTierManager::Get();

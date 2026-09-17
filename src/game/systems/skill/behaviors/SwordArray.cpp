@@ -3,6 +3,7 @@
  * @brief 剑阵·诛仙 (ID 6) - 模块化地表领域行为实现
  */
 #include "SwordArray.hpp"
+#include "SwordArrayShared.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/contracts/DamagePipelineTypes.hpp"
@@ -27,6 +28,7 @@
 #include "game/systems/skill/behaviors/generated/SwordArraySpecState.gen.hpp"
 #include "raymath.h"
 #include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace NoMoreDay::skills {
@@ -77,6 +79,32 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
     }
   }
 
+  // 施法落点单源解析：以施法者当前位置为基准、烘焙档案 delivery.range（节点 603 经
+  // UMR RANGE_MULT 放大）为射程半径，超距目标沿施法方向钳制到射程圆周；owner 缺
+  // Position 时保持原始目标点。675 移形换阵的重按挪阵与常规放置共用同一落点，
+  // 避免挪阵路径绕过射程限制。
+  const bool is_mobile_aura =
+      nodeActive(SwordArrayNodes::MobileAura, specState.mobileAura);
+  Vector2 cast_target = exec.target_pos;
+  if (const auto *ownerPos = registry.try_get<Position>(owner)) {
+    const Vector2 casterPos{ownerPos->x, ownerPos->y};
+    if (is_mobile_aura) {
+      cast_target = casterPos; // mobile aura 落点恒为施法者
+    } else {
+      const Vector2 diff = Vector2Subtract(exec.target_pos, casterPos);
+      const float maxRange = (profile != nullptr && profile->delivery.range > 0.0f)
+                                 ? profile->delivery.range
+                                 : kSwordArrayBaseCastRange;
+      const float distSq = diff.x * diff.x + diff.y * diff.y;
+      if (distSq > maxRange * maxRange) { // 常规路径不做开方
+        const float dist = std::sqrt(distSq);
+        if (dist > 0.001f) {
+          cast_target = Vector2Add(casterPos, Vector2Scale(diff, maxRange / dist));
+        }
+      }
+    }
+  }
+
   // 675 移形换阵: 重按挪阵
   const bool allow_relocate = nodeActive(SwordArrayNodes::Relocate, specState.relocate);
   bool chargesExhausted = false;
@@ -99,8 +127,8 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
       }
     }
     if (auto *p = registry.try_get<Position>(closest_ent)) {
-      p->x = exec.target_pos.x;
-      p->y = exec.target_pos.y;
+      p->x = cast_target.x;
+      p->y = cast_target.y;
     }
     auto &arr = registry.get<SwordArrayComponent>(closest_ent);
     const float reset_dur = arr.total_duration * 0.5f;
@@ -116,17 +144,9 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner, SkillExecu
     existing_arrays.erase(existing_arrays.begin());
   }
 
-  // 2. 随身剑垒 (Node 653) 与坐标初始化
-  const bool is_mobile_aura = nodeActive(SwordArrayNodes::MobileAura, specState.mobileAura);
-  Vector2 spawn_pos = exec.target_pos;
-  if (is_mobile_aura) {
-    if (const auto *ownerPos = registry.try_get<Position>(owner)) {
-      spawn_pos = {ownerPos->x, ownerPos->y};
-    }
-  }
-
+  // 2. 坐标初始化：落点已在函数开头按射程单源解析（含 675 挪阵路径共用）。
   auto array_ent = registry.create();
-  registry.emplace<Position>(array_ent, spawn_pos.x, spawn_pos.y);
+  registry.emplace<Position>(array_ent, cast_target.x, cast_target.y);
   registry.emplace<LocalLevelTag>(array_ent);
 
   float dur = (profile && profile->delivery.duration > 0.0f) ? profile->delivery.duration : 5.0f;

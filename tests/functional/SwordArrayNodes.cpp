@@ -237,6 +237,36 @@ TEST_CASE("[Functional] Skill 6 - Multi-Array Nodes 610, 611 & Relocate 675") {
     const auto &newPos = registry.get<Position>(initialEnt);
     CHECK(newPos.x == doctest::Approx(300.0f));
   }
+
+  SUBCASE("675 Relocate clamps out-of-range target to cast range") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{670, 1}, {675, 1}});
+    SkillSystem::RebakeSkillProfiles(registry, player);
+
+    CastSwordArray(registry, player, {0.0f, 0.0f});
+    auto view = registry.view<SwordArrayComponent, Position>();
+    REQUIRE(view.begin() != view.end());
+    const auto arrayEnt = *view.begin();
+
+    // 充能耗尽即进入 675 挪阵分支（不新建阵法，仅移动既有阵法）。
+    auto &active = registry.get<ActiveSkillsComponent>(player);
+    active.slots[0].current_charges = 0;
+
+    // 挪阵落点必须与常规放置共用同一射程钳制：超距目标钳制到 400 半径圆周，
+    // 若挪阵路径直接写原始目标点，此断言会得到 10000.0f。
+    CastSwordArray(registry, player, {10000.0f, 0.0f});
+
+    int count = 0;
+    for (auto e : registry.view<SwordArrayComponent>()) {
+      (void)e;
+      ++count;
+    }
+    CHECK(count == 1);
+    REQUIRE(registry.valid(arrayEnt));
+    const auto &relocated = registry.get<Position>(arrayEnt);
+    CHECK(relocated.x == doctest::Approx(400.0f));
+    CHECK(relocated.y == doctest::Approx(0.0f));
+  }
 }
 
 TEST_CASE("[Functional] Skill 6 - Shape & Synergy Nodes 600, 601, 603, 612, 613, 614, 615") {
@@ -272,10 +302,12 @@ TEST_CASE("[Functional] Skill 6 - Shape & Synergy Nodes 600, 601, 603, 612, 613,
     CHECK(profile.effective_mana_cost == doctest::Approx(24.0f));
   }
 
-  // 603 施法范围迁移：由旧路径迁移到交付 range 运算，数值须与迁移前一致
-  // （400 * (1 + 0.10N)）。当前无消费端读取技能6 的 delivery.range，故本条
-  // 只做数值 parity 守护，不附带任何行为差异断言。
-  SUBCASE("603 cast range parity (baked numeric only)") {
+  // 603 施法范围：数值 parity 守护——range 由旧路径迁移到交付 range 运算后，
+  // 须与迁移前一致（400 * (1 + 0.10N)）。
+  // 行为层钳制的端到端证据不在此重复：常规放置由单元用例
+  // `[Unit] SkillWrapup - Skill 6 cast offset clamps to delivery range` 覆盖，
+  // 挪阵路径由下方 675 子用例覆盖，避免同一条断言在多处冒充独立证据。
+  SUBCASE("603 cast range parity") {
     entt::registry registry;
     auto player = CreateTestPlayer(registry, {{603, 4}});
 
@@ -692,6 +724,22 @@ TEST_CASE("[Functional] Skill 6 - Cage 634 & Mobile Fortress 653") {
     const auto &arrPos = registry.get<Position>(arrayEnt);
     CHECK(arrPos.x == doctest::Approx(120.0f));
     CHECK(arrPos.y == doctest::Approx(80.0f));
+  }
+
+  SUBCASE("653 Mobile Fortress aura ignores out-of-range target") {
+    entt::registry registry;
+    auto player = CreateTestPlayer(registry, {{653, 1}}, {0.0f, 0.0f});
+
+    // 随身剑垒落点恒为施法者：目标点远超射程时不得走"钳制到射程圆周"分支。
+    // 该用例覆盖 mobile aura 覆盖顺序回归——若把覆盖置于钳制之前，或删除覆盖，
+    // 落点会变成钳制后的 400.0f 而非施法者位置，从而在此暴露。
+    CastSwordArray(registry, player, {10000.0f, 0.0f});
+    auto view = registry.view<SwordArrayComponent, Position>();
+    REQUIRE(view.begin() != view.end());
+    CHECK(view.get<SwordArrayComponent>(*view.begin()).is_mobile_aura);
+    const auto &spawn = view.get<Position>(*view.begin());
+    CHECK(spawn.x == doctest::Approx(0.0f));
+    CHECK(spawn.y == doctest::Approx(0.0f));
   }
 }
 

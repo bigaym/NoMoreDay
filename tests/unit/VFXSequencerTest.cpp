@@ -1,3 +1,5 @@
+#include "TestCommon.hpp"
+
 #include "doctest.h"
 
 #include "engine/render/MaterialManager.hpp"
@@ -128,6 +130,9 @@ TEST_CASE("[Unit] VFXSequencer - Play And Stop") {
 }
 
 TEST_CASE("[Unit] VFXSequencer - Hot Reload") {
+  // QualityTierManager::Initialize 会无条件改写 settings.json 的基准分/时间戳，
+  // 由夹具在作用域结束时按内容差异还原。
+  TestSetupScope settingsGuard;
   const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_reload");
   const std::filesystem::path file = dir / "reload.json";
 
@@ -437,6 +442,7 @@ TEST_CASE("[Unit] VFXSequencer - Player Advance Loop And End") {
 }
 
 TEST_CASE("[Unit] VFXSequencer - QualityTier Filtering") {
+  TestSetupScope settingsGuard;
   const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_quality");
   WriteTextFile(
       dir / "quality.json",

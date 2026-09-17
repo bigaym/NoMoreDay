@@ -414,7 +414,14 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::ScarRuin,
                 "explode_damage_per_point", 0.30f);
 
-    const float baseRadius = skillData->GetParam("radius", 96.0f);
+    // 判定半径基准单源：优先消费 UMR 烘焙档案的 area_radius（技能 10 无 AREA_MULT，
+    // 该值与技能级 radius 恒等），档案缺失时回退技能级 params；默认值与 Baker case 10
+    // 共用 seven_star_shared::kSevenStarSlashBaseRadius，避免两处字面量漂移。
+    // 形态派生分支保持不变。
+    const float baseRadius =
+        profile ? profile->area_radius
+                : skillData->GetParam(
+                      "radius", seven_star_shared::kSevenStarSlashBaseRadius);
     const float flowBonusPerStack =
         skillData->GetParam("flow_bonus_per_stack", 0.06f);
     const float singleTargetExecuteBonus =

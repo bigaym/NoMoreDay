@@ -11,17 +11,20 @@ const BakedSkillProfile *ResolveBakedProfile(entt::registry &registry,
                                              uint32_t skillId,
                                              BakedSkillProfile &scratch,
                                              const SpecializedSkill *fallbackSpec) {
-  // 1) 缓存命中：直接复用槽位内已烘焙档案，调用方 scratch 不被触碰。
+  // 1) 缓存命中：仅接受 is_baked 的档案。哨兵档案（skillData 缺失时写入）虽然
+  // skill_id 匹配，但只有默认值不可消费，必须继续走回退路径。
   if (const auto *profile =
           SkillSystem::GetBakedSkillProfile(registry, owner, skillId)) {
-    return profile;
+    if (profile->is_baked) {
+      return profile;
+    }
   }
 
   // 2) 技能专属合成专精：优先于槽位扫描，保证合成回退与生产烘焙同一路径。
   if (fallbackSpec != nullptr) {
     SkillSpecializationBaker::Bake(registry, owner, skillId, fallbackSpec, scratch,
                                    nullptr);
-    return &scratch;
+    return scratch.is_baked ? &scratch : nullptr;
   }
 
   // 3) 槽位回退：取首个同 ID 专精，走与生产一致的烘焙路径。
@@ -30,7 +33,7 @@ const BakedSkillProfile *ResolveBakedProfile(entt::registry &registry,
       if (spec.skill_id == skillId) {
         SkillSpecializationBaker::Bake(registry, owner, skillId, &spec, scratch,
                                        nullptr);
-        return &scratch;
+        return scratch.is_baked ? &scratch : nullptr;
       }
     }
   }

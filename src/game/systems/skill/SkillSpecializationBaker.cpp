@@ -7,6 +7,9 @@
 #include "game/contracts/CombatEvents.hpp"
 #include "game/foundation/components/Stats.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
+#include "game/systems/skill/behaviors/BeamChannelShared.hpp"
+#include "game/systems/skill/behaviors/SevenStarSlashConstants.hpp"
+#include "game/systems/skill/behaviors/SwordArrayShared.hpp"
 #include "game/systems/modifier/EquipmentModifierAdapter.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
@@ -101,7 +104,7 @@ void SkillSpecializationBaker::Bake(
     out_profile.area_radius = 150.0f;
     del.duration = 5.0f;
     del.sub_interval = 0.5f;
-    del.range = 400.0f; // 施法基准射程 400（当前无消费端）
+    del.range = kSwordArrayBaseCastRange; // 施法基准射程单源（行为层按此钳制超距落点）
     break;
   case 7: // 心剑·无影
     // 引导时长由行为层经 skill_mechanics 技能7/0 的 max_channel_time 读取，交付层不再写入 duration
@@ -109,7 +112,8 @@ void SkillSpecializationBaker::Bake(
     // 射程基准外置于技能级键 base_range，交付层缺省回退同键同默认值。
     // 703 心念映射经 UMR RANGE_MULT 算子在该基准上放大；若此处缺省，
     // 乘算将回落到结构体默认值，导致点满反而比 0 点射程更短。
-    del.range = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_range", 350.0f);
+    del.range = data::SkillMechanicsRegistry::Get().GetFloat(
+        7, 0, "base_range", kBeamChannelBaseRangeDefault);
     // 范围半径基准显式化：为 702 的 SKILL_AREA_MULT 提供确定性乘法基准
     out_profile.area_radius = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_radius", 60.0f);
     break;
@@ -130,8 +134,10 @@ void SkillSpecializationBaker::Bake(
   case 10: // 七星斩
     // 范围与短暂无敌时长以技能级 params 为唯一事实源（无敌时长即交付 duration，
     // 由 1015 的 DURATION_FLAT 在步骤 3 加算）；不写入 range/sub_interval 以免死写。
-    // 注：技能 10 行为层不消费 area_radius，此处写入仅为交付基准一致性，非死写数值权威。
-    out_profile.area_radius = skillData->GetParam("radius", 96.0f);
+    // 注：技能 10 行为层消费 area_radius 作为判定半径基准（SevenStarSlash.cpp），
+    // 故此处写入为数值权威；默认值与行为层回退共用同一具名常量。
+    out_profile.area_radius = skillData->GetParam(
+        "radius", skills::seven_star_shared::kSevenStarSlashBaseRadius);
     del.duration = skillData->GetParam("invulnerable_duration", 0.5f);
     break;
   case 11: // 天剑降临
@@ -333,6 +339,10 @@ void SkillSpecializationBaker::Bake(
   if (skill_id == 9) {
     out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown);
   }
+
+  // 唯一成功出口：走完全部烘焙步骤后才标记为可消费。任何提前返回（如 skillData
+  // 缺失的哨兵路径）都不得置位，以便消费端区分哨兵档案与有效档案。
+  out_profile.is_baked = true;
 }
 
 void SkillSpecializationBaker::ApplyNodeModifiersToProfile(

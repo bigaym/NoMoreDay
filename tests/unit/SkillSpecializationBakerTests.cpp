@@ -2138,6 +2138,8 @@ TEST_CASE("[Unit] SkillSpecializationBaker - SkillBatch3 MindBlade/Boomerang/Tra
     BakedSkillProfile profile{};
     SkillSpecializationBaker::Bake(registry, player, 7, &spec, profile, nullptr);
     CHECK(profile.area_radius == doctest::Approx(60.0f));
+    // 350.0 为机制表显式基准（assets/data/skill_mechanics.json:564），
+    // 故意保留字面量作为独立期望，避免与生产常量同源导致回归被掩盖。
     CHECK(profile.delivery.range == doctest::Approx(350.0f));
     CHECK(profile.effective_mana_cost == doctest::Approx(15.0f));
   }

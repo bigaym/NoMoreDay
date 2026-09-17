@@ -124,7 +124,9 @@ TEST_CASE("[Functional] Skill 10 - VoidTread node scales cast invulnerability du
 
     const auto *invulnerable = registry.try_get<InvulnerableComponent>(owner);
     REQUIRE(invulnerable != nullptr);
-    // 基础 0.5s + 每点 0.03s * 4 = 0.62s（skill_mechanics.json 技能 10 / 节点 1015）。
+    // 节点 1015（踏虚）清理 stat_modifiers 后仅保留 SKILL_DURATION_FLAT：基础 0.5s
+    // + 每点 0.03s * 4 = 0.62s。闪避修饰符已随数据清理移除，故本行为层用例不含
+    // 闪避断言（DodgeChance 不经技能行为路径）。
     CHECK(invulnerable->duration == doctest::Approx(0.62f));
   }
 
