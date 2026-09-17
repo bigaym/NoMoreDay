@@ -3,6 +3,9 @@
 #include "game/foundation/components/AIComponent.hpp"
 #include "game/foundation/components/Buff.hpp"
 #include "game/foundation/components/Combat.hpp"
+#include "game/foundation/components/EquipmentComponent.hpp"
+#include "game/foundation/components/ItemComponent.hpp"
+#include "game/foundation/components/ItemStats.hpp"
 #include "game/foundation/components/FlowingThrustComponents.hpp"
 #include "game/foundation/components/DeliveryArchetypes.hpp"
 #include "game/foundation/components/EnemyComponent.hpp"
@@ -135,6 +138,87 @@ std::vector<uint8_t> BuildDeliveryRuntimeBlob(float duration_flat_per_point,
   AppendRuntimeStruct(blob, filter);
   AppendRuntimeStruct(blob, durationOp);
   AppendRuntimeStruct(blob, speedOp);
+  return blob;
+}
+
+// 合成单记录运行时二进制：技能 9 单独携带冷却平减算子。
+// 真实资产 986 每点仅 -1.0s，无法触发步骤 4 的 1.0s 冷却硬下限，
+// 故用大额负值（-20.0/点）令 base + flat 落到 0 以下，验证下限钳制
+// 确实发生在终局覆盖阶段而非步骤 3 的 max(0)。
+std::vector<uint8_t> BuildCooldownRuntimeBlob(float cooldown_flat_per_point) {
+  ModifierRuntimeHeader header;
+  header.record_count = 1;
+  header.filter_count = 1;
+  header.op_count = 1;
+  header.index_count = 0;
+  header.records_offset = sizeof(ModifierRuntimeHeader);
+  header.filters_offset =
+      header.records_offset + sizeof(ModifierRuntimeRecord);
+  header.ops_offset = header.filters_offset + sizeof(ModifierRuntimeFilter);
+  header.index_offset = header.ops_offset + sizeof(ModifierRuntimeOp);
+  header.crc32 = 0;
+
+  ModifierRuntimeRecord record;
+  record.id = 9301u;
+  record.filter_index = 0;
+  record.op_offset = 0;
+  record.op_count = 1;
+
+  ModifierRuntimeFilter filter; // 空白名单：技能与节点均按通配处理
+
+  ModifierRuntimeOp cooldownOp;
+  cooldownOp.opcode =
+      static_cast<uint16_t>(ModifierOpCode::SKILL_COOLDOWN_FLAT);
+  cooldownOp.param_u32 = 9u;
+  cooldownOp.param_f32 = cooldown_flat_per_point;
+
+  std::vector<uint8_t> blob;
+  blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
+               sizeof(ModifierRuntimeOp));
+  AppendRuntimeStruct(blob, header);
+  AppendRuntimeStruct(blob, record);
+  AppendRuntimeStruct(blob, filter);
+  AppendRuntimeStruct(blob, cooldownOp);
+  return blob;
+}
+
+// 合成单记录运行时二进制：技能 8 单独携带法耗平减算子。
+// 真实资产 800 每点仅 -1.0、基础法力 8，无法触达 0 下限，
+// 故用大额负值令 base + flat 落到 0 以下，验证步骤 3 的 max(0, ...) 钳制。
+std::vector<uint8_t> BuildManaCostFlatRuntimeBlob(float mana_cost_flat_per_point) {
+  ModifierRuntimeHeader header;
+  header.record_count = 1;
+  header.filter_count = 1;
+  header.op_count = 1;
+  header.index_count = 0;
+  header.records_offset = sizeof(ModifierRuntimeHeader);
+  header.filters_offset =
+      header.records_offset + sizeof(ModifierRuntimeRecord);
+  header.ops_offset = header.filters_offset + sizeof(ModifierRuntimeFilter);
+  header.index_offset = header.ops_offset + sizeof(ModifierRuntimeOp);
+  header.crc32 = 0;
+
+  ModifierRuntimeRecord record;
+  record.id = 8801u;
+  record.filter_index = 0;
+  record.op_offset = 0;
+  record.op_count = 1;
+
+  ModifierRuntimeFilter filter; // 空白名单：技能与节点均按通配处理
+
+  ModifierRuntimeOp manaCostOp;
+  manaCostOp.opcode =
+      static_cast<uint16_t>(ModifierOpCode::SKILL_MANA_COST_FLAT);
+  manaCostOp.param_u32 = 8u;
+  manaCostOp.param_f32 = mana_cost_flat_per_point;
+
+  std::vector<uint8_t> blob;
+  blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
+               sizeof(ModifierRuntimeOp));
+  AppendRuntimeStruct(blob, header);
+  AppendRuntimeStruct(blob, record);
+  AppendRuntimeStruct(blob, filter);
+  AppendRuntimeStruct(blob, manaCostOp);
   return blob;
 }
 
@@ -2030,6 +2114,180 @@ TEST_CASE("[Unit] SkillSpecializationBaker - Skill 6 Delivery Floors At Zero") {
 
   // 恢复真实运行时产物，避免合成数据泄漏到其它用例。
   REQUIRE(ReloadModifierRuntimeFromAsset());
+}
+
+// UMR-SKILL-BATCH-3 综合烘焙：技能 7/8/9 的手写数值分支已删除，
+// 全部交付数值须由 canonical 交付算子按分配点数合成（设计 §5.3 / §5.4）。
+TEST_CASE("[Unit] SkillSpecializationBaker - SkillBatch3 MindBlade/Boomerang/Trance UMR "
+          "Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // 技能 7/9 的基准半径、射程与形态时长来自机制表；UMR 只在其上叠乘/加算。
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      "assets/data/skill_mechanics.json"));
+  EnsureModifierRuntimeForSkillSpec();
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // 技能 7 未点 702：面积半径必须回落到机制表显式基准 60.0，
+  // 而不是乘性单位元 1.0（步骤 1 case 7 的 base_radius 读取）。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 7;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 7, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(60.0f));
+    CHECK(profile.delivery.range == doctest::Approx(350.0f));
+    CHECK(profile.effective_mana_cost == doctest::Approx(15.0f));
+  }
+
+  // 技能 7 702 光轮：范围乘算 +10%/点，4 点 → 60 × 1.40 = 84.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 7;
+    spec.allocated_points[702] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 7, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(84.0f));
+  }
+
+  // 技能 7 703 远引：射程乘算 +10%/点，4 点 → 350 × 1.40 = 490.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 7;
+    spec.allocated_points[703] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 7, &spec, profile, nullptr);
+    CHECK(profile.delivery.range == doctest::Approx(490.0f));
+  }
+
+  // 技能 7 701 锐意：More 增伤乘算 +10%/点，4 点 → 1.40。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 7;
+    spec.allocated_points[701] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 7, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.40f));
+  }
+
+  // 技能 7 700 节流：法耗乘算 -10%/点，4 点 → 15 × 0.60 = 9.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 7;
+    spec.allocated_points[700] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 7, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(9.0f));
+  }
+
+  // 技能 8 830 侧刃单独点出时产生 2 枚子投射物。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 8;
+    spec.allocated_points[830] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
+    CHECK(profile.delivery.sub_count == 2);
+  }
+
+  // 技能 8 同时点亮 830 与 854：854 巨剑的终局覆盖必须把 sub_count 归零，
+  // 与节点分配表的遍历顺序无关（步骤 4 按特征位 1u<<20 强制覆盖）。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 8;
+    spec.allocated_points[830] = 1;
+    spec.allocated_points[854] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
+    CHECK(profile.delivery.sub_count == 0);
+    CHECK(profile.delivery.giant_armor_scale == doctest::Approx(0.05f));
+  }
+
+  // 技能 9 975 凝时：时长加性 +0.25s/点，4 点 → 基准 3.0 + 1.0 = 4.0；
+  // trance.duration_sec 由步骤 4 单源同步，二者必须一致。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 9;
+    spec.allocated_points[975] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 9, &spec, profile, nullptr);
+    CHECK(profile.delivery.duration == doctest::Approx(4.0f));
+    CHECK(profile.delivery.trance.duration_sec == doctest::Approx(4.0f));
+  }
+
+  // 技能 9 986 短吟：冷却平减 -1.0s/点，1 点 → 基准 15 - 1 = 14.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 9;
+    spec.allocated_points[986] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 9, &spec, profile, nullptr);
+    CHECK(profile.effective_cooldown == doctest::Approx(14.0f));
+  }
+
+  // 技能 8 800 御剑：法耗平减 -1.0/点，4 点 → 基础 8 - 4 = 4.0（真实资产路径）。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 8;
+    spec.allocated_points[800] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(4.0f));
+  }
+
+  // 步骤 3 法耗硬下限：注入合成 SKILL_MANA_COST_FLAT(-100/点) 令 8 - 100 = -92，
+  // 须被 max(0, (base + flat) * mult) 钳为 0；真实资产无法覆盖该边界。
+  {
+    REQUIRE(ModifierRuntimeRegistry::Get().LoadFromBytes(
+        BuildManaCostFlatRuntimeBlob(-100.0f)));
+    SpecializedSkill spec;
+    spec.skill_id = 8;
+    spec.allocated_points[800] = 1; // 非空加点使记录通过白名单采集
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 8, &spec, profile, nullptr);
+    CHECK(profile.effective_mana_cost == doctest::Approx(0.0f));
+
+    // 恢复真实运行时产物，避免合成数据泄漏到其它用例。
+    REQUIRE(ReloadModifierRuntimeFromAsset());
+  }
+
+  // 步骤 4 冷却硬下限：注入合成 SKILL_COOLDOWN_FLAT(-20/点) 令 15 - 20 = -5，
+  // 须先由步骤 3 钳到 0、再由终局覆盖抬回 1.0；真实资产无法覆盖该边界。
+  {
+    REQUIRE(ModifierRuntimeRegistry::Get().LoadFromBytes(
+        BuildCooldownRuntimeBlob(-20.0f)));
+    SpecializedSkill spec;
+    spec.skill_id = 9;
+    spec.allocated_points[986] = 1; // 非空加点使记录通过白名单采集
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 9, &spec, profile, nullptr);
+    CHECK(profile.effective_cooldown == doctest::Approx(1.0f));
+
+    // 恢复真实运行时产物，避免合成数据泄漏到其它用例。
+    REQUIRE(ReloadModifierRuntimeFromAsset());
+  }
+
+  // 步骤 5 装备折叠后的全局冷却硬下限（R-01 回归）：装备的 flat_cooldown_delta
+  // 仅以 max(0.0f, ...) 收口，若下限置于步骤 4 会被装备再次压穿。此处装备 -20
+  // 令 15 - 20 = -5 先被步骤 5 钳到 0，必须再由 Bake 收尾硬下限抬回 1.0。
+  {
+    const auto weapon = registry.create();
+    auto &item = registry.emplace<ItemComponent>(weapon);
+    ItemSkillModifier mod;
+    mod.target_skill_id = 9;
+    mod.flat_cooldown_delta = -20.0f;
+    item.skill_modifiers.push_back(mod);
+    auto &equipment = registry.emplace<EquipmentComponent>(player);
+    equipment.Set(EquipmentSlot::MainHand, weapon);
+
+    SpecializedSkill spec;
+    spec.skill_id = 9;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 9, &spec, profile, nullptr);
+    CHECK(profile.effective_cooldown == doctest::Approx(1.0f));
+  }
 }
 
 } // namespace NoMoreDay

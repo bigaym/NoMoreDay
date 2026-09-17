@@ -1,13 +1,15 @@
-"""技能专精修饰器离线门禁（UMR-SKILL-BATCH-1/2 设计 §4.1 / §4.3 / §5.1-5 / §6.3）。
+"""技能专精修饰器离线门禁（UMR-SKILL-BATCH-1/2/3 设计 §4.1 / §4.3 / §4.4 / §5.1-5 / §6.3）。
 
-汇总 6 项断言，任一失败即以非 0 退出；也可由 SkillSpecBatch1/2GateTest 按项调用：
+汇总 6 项断言，任一失败即以非 0 退出；也可由 SkillSpecBatch1/2/3GateTest 按项调用：
   1. 记录 ID 解码：(id - 2_000_000) / 10 == node_id_whitelist[0]（历史例外 2002103）；
   2. SKILL_PROJECTILES_ADD 的 param_f32 必须为非负整数（整数算子静态截断与负值防护）；
   3. OpCode 30..42 仅允许出现在 debug_source == "skill_spec_node" 的记录上（SkillDelivery 类别防蔓延）；
-  4. canonical ↔ skill_mechanics 迁移等价（按算子逐条给出期望关系，节点 201 为绝对平减不套用 /100）；
-  5. 退役键不回潮：覆盖迁移退役键（设计 §4.3 的 19 条）与无 canonical 记录的历史死键
-     （DEAD_MECHANICS_KEYS 5 项，独立于 MIGRATION_EQUIVALENCE）；
-  6. 反向登记：退役键必须有 canonical 替代记录，且已迁移节点下不得残留未登记键。
+  4. canonical ↔ skill_mechanics 迁移等价（按算子逐条给出期望关系，节点 201 为绝对平减不套用 /100；
+     Batch 1/2/3 合计 41 条 MIGRATION_EQUIVALENCE），并守护 canonical 数值不漂移；
+  5. 退役键不回潮：覆盖迁移退役键（Batch 1/2/3 全量）与无 canonical 记录的历史死键
+     （DEAD_MECHANICS_KEYS 8 项，独立于 MIGRATION_EQUIVALENCE）；
+  6. 反向登记：退役键必须有 canonical 替代记录，且已迁移节点下不得残留未登记键
+     （KEPT_MECHANICS_KEYS 16 项）。
 """
 
 from __future__ import annotations
@@ -83,6 +85,20 @@ MIGRATION_EQUIVALENCE = (
     (2006110, 6, 611, "mana_increase_pct", "flat_negate", -0.3),
     (2006340, 6, 634, "radius_penalty_pct", "flat_negate", -0.3),
     (2006530, 6, 653, "damage_reduction_pct", "flat_negate", -0.5),
+    # Batch 3（技能 7/8/9，11 条）。relation 规格见设计 §4.3 / §4.4：
+    # 732/986 为取负惩罚；800/801 为 Baker 字面量迁移（mechanics_key 为 None）；
+    # 其余按原始数值迁移。
+    (2007000, 7, 700, "mana_reduction_pct_per_point", "raw", 0.1),
+    (2007010, 7, 701, "phys_damage_pct_per_point", "raw", 0.1),
+    (2007020, 7, 702, "radius_pct_per_point", "raw", 0.1),
+    (2007030, 7, 703, "range_pct_per_point", "raw", 0.1),
+    (2007320, 7, 732, "mana_penalty_pct", "flat_negate", -0.5),
+    (2008000, 8, 800, None, "literal", -1.0),
+    (2008010, 8, 801, None, "literal", 0.15),
+    (2008011, 8, 801, None, "literal", 0.15),
+    (2008100, 8, 810, "hover_duration", "raw", 0.8),
+    (2009750, 9, 975, "duration_per_point", "raw", 0.25),
+    (2009860, 9, 986, "cd_per_point", "flat_negate", -1.0),
 )
 
 # 已迁移节点下仍保留的 mechanics 键（非线性后处理或本批显式不迁移），用于反向登记校验。
@@ -101,10 +117,18 @@ KEPT_MECHANICS_KEYS = frozenset(
         (5, 510, "lock_range"),
         (5, 533, "giant_radius"),
         (5, 554, "intent_cost"),
+        # Batch 3：已迁移节点/基准下仍作为单一事实源保留的键（设计 §4.4）。
+        # 7/732 的 move_speed_scale 是 check_registry_reverse 的必需项，
+        # 否则会报 unregistered mechanics key under migrated node。
+        (7, 0, "base_radius"),
+        (7, 0, "base_range"),
+        (7, 0, "mana_cost_per_sec"),
+        (7, 732, "move_speed_scale"),
+        (9, 0, "form_duration"),
     }
 )
 
-# Batch 2 独立死键门禁（设计 §4.3 / §6.3，解 G-8）：
+# 独立死键门禁（设计 §4.3 / §4.4 / §6.3，解 G-8）：
 # 这些键无 canonical 替代记录，因此 MIGRATION_EQUIVALENCE 覆盖不到，需单独登记并断言不得回潮。
 DEAD_MECHANICS_KEYS = (
     (5, 533, "sword_count_mult"),
@@ -112,6 +136,10 @@ DEAD_MECHANICS_KEYS = (
     (5, 533, "impact_radius"),
     (6, 610, "max_arrays_bonus"),
     (6, 611, "max_arrays_bonus"),
+    # Batch 3 无 canonical 替代记录的历史死键（设计 §4.4）。
+    (8, 810, "hover_tick_interval"),
+    (9, 0, "form_move_pct"),
+    (9, 0, "weaken_duration"),
 )
 
 FLOAT_TOLERANCE = 1e-6
@@ -153,12 +181,18 @@ def check_record_id_decode(
     records: list[dict[str, Any]],
     exempt_ids: frozenset[int] = ID_DECODE_EXEMPT_IDS,
 ) -> list[str]:
-    """断言记录 ID 解码结果等于 node_id_whitelist[0]。"""
+    """断言记录 ID 解码结果等于 node_id_whitelist[0]，且 modifier_id 全局唯一。"""
     failures: list[str] = []
+    seen_ids: set[int] = set()
     for entry in records:
         record = entry.get("record", {})
         runtime = entry.get("runtime", {})
         record_id = record.get("modifier_id")
+        # 重复 ID 会使 _canonical_index 静默覆盖记录，须显式拦截。
+        if isinstance(record_id, int) and not isinstance(record_id, bool):
+            if record_id in seen_ids:
+                failures.append(f"duplicate modifier_id {record_id}")
+            seen_ids.add(record_id)
         if record_id in exempt_ids:
             continue
         node_ids = runtime.get("node_id_whitelist")
@@ -210,7 +244,7 @@ def check_projectile_value_integer(
 def check_skill_delivery_domain(
     catalog_path: Path = MODIFIER_CATALOG_PATH,
 ) -> list[str]:
-    """断言 OpCode 30..40 仅出现在 debug_source == skill_spec_node 的记录上。"""
+    """断言 OpCode 30..42 仅出现在 debug_source == skill_spec_node 的记录上。"""
     failures: list[str] = []
     opcode_names = _skill_delivery_opcode_names()
     catalog = _load_json(catalog_path)

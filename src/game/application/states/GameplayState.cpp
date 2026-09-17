@@ -873,7 +873,7 @@ void GameplayState::OnRender() {
         if (chan.skill_id == 7) { // Heart Sword: Shadowless
           auto &pos = view_chan.get<Position>(entity);
           // 射程基准与 Baker 共用机制表键 base_range，避免双源漂移；
-          // TODO: 703 range_pct_per_point 修正未接入，渲染圈未随节点放大。
+          // TODO: 703 的 SKILL_RANGE_MULT 专精放大未接入，渲染圈未随节点放大。
           const float range = skills::GetMech(7, 0, "base_range", 350.0f);
           DrawCircleLines((int)pos.x, (int)pos.y, range, ColorAlpha(GOLD, 0.2f));
           DrawCircleLines((int)pos.x, (int)pos.y, range + 2.0f,

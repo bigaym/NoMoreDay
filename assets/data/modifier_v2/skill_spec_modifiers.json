@@ -1361,6 +1361,380 @@
         "name": "SwordArray_Node653_MoreDamage",
         "source": "skill_spec_node"
       }
+    },
+    {
+      "id": 2007000,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          7
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_MANA_COST_MULT",
+          "target": "skill.mana_cost",
+          "param_u32": 7,
+          "param_f32": 0.1
+        }
+      ],
+      "debug": {
+        "name": "MindBlade_Node700_ManaCost",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2007010,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          7
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          701
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_MORE_DAMAGE_MULT",
+          "target": "skill.more_damage",
+          "param_u32": 7,
+          "param_f32": 0.1
+        }
+      ],
+      "debug": {
+        "name": "MindBlade_Node701_MoreDamage",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2007020,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          7
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          702
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_AREA_MULT",
+          "target": "skill.area_mult",
+          "param_u32": 7,
+          "param_f32": 0.1
+        }
+      ],
+      "debug": {
+        "name": "MindBlade_Node702_AreaMult",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2007030,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          7
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          703
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_RANGE_MULT",
+          "target": "skill.range_mult",
+          "param_u32": 7,
+          "param_f32": 0.1
+        }
+      ],
+      "debug": {
+        "name": "MindBlade_Node703_RangeMult",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2007320,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          7
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          732
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_MANA_COST_MULT",
+          "target": "skill.mana_cost",
+          "param_u32": 7,
+          "param_f32": -0.5
+        }
+      ],
+      "debug": {
+        "name": "MindBlade_Node732_ManaPenalty",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2008000,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          8
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_MANA_COST_FLAT",
+          "target": "skill.mana_cost_flat",
+          "param_u32": 8,
+          "param_f32": -1.0
+        }
+      ],
+      "debug": {
+        "name": "BladeBoomerang_Node800_ManaCostFlat",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2008010,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          8
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          801
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_SPEED_MULT",
+          "target": "skill.speed_mult",
+          "param_u32": 8,
+          "param_f32": 0.15
+        }
+      ],
+      "debug": {
+        "name": "BladeBoomerang_Node801_SpeedMult",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2008011,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          8
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          801
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_RANGE_MULT",
+          "target": "skill.range_mult",
+          "param_u32": 8,
+          "param_f32": 0.15
+        }
+      ],
+      "debug": {
+        "name": "BladeBoomerang_Node801_RangeMult",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2008100,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          8
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          810
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_DURATION_FLAT",
+          "target": "skill.duration_flat",
+          "param_u32": 8,
+          "param_f32": 0.8
+        }
+      ],
+      "debug": {
+        "name": "BladeBoomerang_Node810_HoverDuration",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2009750,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          9
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          975
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_DURATION_FLAT",
+          "target": "skill.duration_flat",
+          "param_u32": 9,
+          "param_f32": 0.25
+        }
+      ],
+      "debug": {
+        "name": "PhantomTrance_Node975_DurationFlat",
+        "source": "skill_spec_node"
+      }
+    },
+    {
+      "id": 2009860,
+      "domain": "skill_spec",
+      "priority": 200,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [
+          9
+        ],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          986
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "SKILL_COOLDOWN_FLAT",
+          "target": "skill.cooldown_flat",
+          "param_u32": 9,
+          "param_f32": -1.0
+        }
+      ],
+      "debug": {
+        "name": "PhantomTrance_Node986_CooldownFlat",
+        "source": "skill_spec_node"
+      }
     }
   ]
 }

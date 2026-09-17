@@ -1075,26 +1075,6 @@
     ],
     [
       7,
-      700,
-      "mana_reduction_pct_per_point"
-    ],
-    [
-      7,
-      701,
-      "phys_damage_pct_per_point"
-    ],
-    [
-      7,
-      702,
-      "radius_pct_per_point"
-    ],
-    [
-      7,
-      703,
-      "range_pct_per_point"
-    ],
-    [
-      7,
       710,
       "max_stacks"
     ],
@@ -1172,11 +1152,6 @@
       7,
       731,
       "secondary_count_per_point"
-    ],
-    [
-      7,
-      732,
-      "mana_penalty_pct"
     ],
     [
       7,
@@ -1365,11 +1340,6 @@
     ],
     [
       8,
-      810,
-      "hover_duration"
-    ],
-    [
-      8,
       811,
       "duration"
     ],
@@ -1550,11 +1520,6 @@
     ],
     [
       9,
-      975,
-      "duration_per_point"
-    ],
-    [
-      9,
       976,
       "burst_per_point"
     ],
@@ -1592,11 +1557,6 @@
       9,
       984,
       "heal_pct"
-    ],
-    [
-      9,
-      986,
-      "cd_per_point"
     ],
     [
       9,
@@ -2580,24 +2540,9 @@
       "echo_effectiveness"
     ],
     [
-      8,
-      810,
-      "hover_tick_interval"
-    ],
-    [
       9,
       0,
       "burst_radius"
-    ],
-    [
-      9,
-      0,
-      "form_move_pct"
-    ],
-    [
-      9,
-      0,
-      "weaken_duration"
     ]
   ]
 }

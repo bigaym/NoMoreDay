@@ -1,6 +1,6 @@
 # UMR 技能专精改造第三批（技能 7 心剑·无影、技能 8 御剑·回旋、技能 9 绝影绝剑）实施计划
 
-- **文档状态**：已批准待实施（v1.1：响应首轮独立审查报告全面修订）
+- **文档状态**：已批准待实施（v1.2：依实施后独立审查报告做文档对齐与门禁补强）
 - **设计依据**：[`docs/designs/2026-09-17-umr-skill-batch3-mind-blade-boomerang-phantom-trance-design.md`](file:///d:/PRJ/NoMoreDay/docs/designs/2026-09-17-umr-skill-batch3-mind-blade-boomerang-phantom-trance-design.md)
 - **计划日期**：2026-09-17
 - **系统代号**：`UMR-SKILL-BATCH-3` (Unified Modifier Runtime - Skill Batch 3)
@@ -11,6 +11,8 @@
     - 步骤 4 伪代码消除巨阙判定裸数字，改用具名位移 `(1u << 20) /* 854 Giant */`（解 F-02）；
     - 步骤 4 伪代码明确技能 9 冷却保底为“全局硬下限 1.0s”（解 F-03）；
     - Task 7 明确 C++ 单元测试职责划分：纯交付算子在 `DeliveryOpTests`，Baker 综合断言归入 `SkillSpecializationBakerTests.cpp`（采纳 F-04）。
+  - v1.2：依第三批实现后独立审查报告做文档对齐（G-02/G-03/G-04）与门禁补强（G-01/G-06/G-07/G-08）。
+  - v1.3：依外部审查反馈将技能 9 冷却硬下限从步骤 4 后移至步骤 5 装备平减折叠的收尾处（R-01），并令 Python 门禁测试在 `.bin` 产物缺失时跳过而非误报失败（R-02）。
 - **计划范围**：
   - Phase 1：技能 7/8/9 Canonical 记录配置（11 条）与紧凑二进制生成
   - Phase 2：离线门禁体系扩展（`validate_skill_spec_modifiers.py`）与独立门禁测试（`SkillSpecBatch3GateTest.py`）
@@ -52,9 +54,9 @@
    - 清理步骤 2 中 700..703, 732, 800..801, 810, 975, 986 的手写纯数值计算；
    - 步骤 3 通用合成逻辑自动生效，直接消费 11 条增量，实现零堆分配、零运行期分支求值。
 
-4. **步骤 4 确定性终局覆盖与单源同步**：
+4. **步骤 4 确定性终局覆盖与单源同步，步骤 5 收尾施加冷却硬下限**：
    - 技能 8：854 巨阙与 830 侧刃互斥，若点亮巨阙强制锁定 `out_profile.delivery.sub_count = 0`，消除遍历顺序依赖；
-   - 技能 9：步骤 4 实施单向同步 `out_profile.delivery.trance.duration_sec = out_profile.delivery.duration`，彻底消除双重数据源；施加冷却保底 `out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown)`；彻底废除死字段 `del.trance.cooldown_flat_reduce`。
+   - 技能 9：步骤 4 实施单向同步 `out_profile.delivery.trance.duration_sec = out_profile.delivery.duration`，彻底消除双重数据源；冷却硬下限 `out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown)` 于步骤 5 装备平减折叠收尾处施加（否则装备 `flat_cooldown_delta` 会再次压穿底线）；彻底废除死字段 `del.trance.cooldown_flat_reduce`。
 
 5. **单一事实源治理与死键清理**：
    - 机制表 `skill_mechanics.json` 彻底删除 8 项已迁移键；
@@ -108,7 +110,12 @@ if (skill_id == 8) {
 } else if (skill_id == 9) {
   // 975 延命单源同步：统一 duration 与 trance.duration_sec
   out_profile.delivery.trance.duration_sec = out_profile.delivery.duration;
-  // 技能 9 全局冷却硬下限 1.0s（含 986 平减防穿透）
+}
+
+// ==================== 步骤 5 收尾: 装备折叠后的全局硬下限 ====================
+// 装备 flat_cooldown_delta 仅以 max(0.0f, ...) 收口，若下限置于步骤 4 会被再次压穿，
+// 故技能 9 的 1.0s 硬下限必须晚于装备折叠施加。
+if (skill_id == 9) {
   out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown);
 }
 ```
@@ -132,9 +139,10 @@ if (skill_id == 8) {
     - `2009860`: 986 (缩地成寸, `SKILL_COOLDOWN_FLAT`, -1.0, `add`, `skill.cooldown_flat`)
   - 严格填齐 `operation`、`target`、`stacks`、`conditions` 等全量字段。
 
-- [ ] **Task 2：编译紧凑二进制与同步运行时 JSON 资产**
-  - 执行 `python scripts/gen_modifier_runtime_v2.py` 生成二进制 blob 与 JSON；
-  - 验证 `gen_modifier_runtime_v2.py --check` 返回 0。
+- [ ] **Task 2：生成运行时 JSON 契约并编译紧凑二进制**
+  - 执行 `python scripts/gen_skill_spec_modifier_contract.py` 生成 `assets/data/modifier_v2/skill_spec_modifiers.json`（canonical → catalog JSON）；
+  - 执行 `python scripts/gen_modifier_runtime_v2.py` 读取 catalog 全量条目并编译紧凑二进制 blob；
+  - 验证 `python scripts/gen_skill_spec_modifier_contract.py --check` 与 `python scripts/gen_modifier_runtime_v2.py --check` 均返回 0。
 
 - [ ] **Task 3：机制表单一事实源退役与历史死键清理**
   - 在 [`assets/data/skill_mechanics.json`](file:///d:/PRJ/NoMoreDay/assets/data/skill_mechanics.json) 中删除 8 项迁移键：
@@ -170,7 +178,8 @@ if (skill_id == 8) {
   - 修改 [`SkillSpecializationBaker.cpp`](file:///d:/PRJ/NoMoreDay/src/game/systems/skill/SkillSpecializationBaker.cpp)：
     - 步骤 1：显式初始化技能 7 `area_radius`（60.0f）、技能 8 `duration`（0.0f）；
     - 步骤 2：清理 700..703, 732, 800..801, 810, 975, 986 的手写计算分支；
-    - 步骤 4：追加技能 8 巨阙 854 清空 `sub_count`（消除裸数字）；技能 9 终局单源同步 `trance.duration_sec = duration` 与全局冷却硬下限 1.0s。
+    - 步骤 4：追加技能 8 巨阙 854 清空 `sub_count`（消除裸数字）；技能 9 终局单源同步 `trance.duration_sec = duration`；
+    - 步骤 5 收尾：技能 9 全局冷却硬下限 1.0s，须置于装备平减折叠之后。
 
 - [ ] **Task 7：新增 C++ 单元测试与 Baker 综合断言**
   - 创建 [`tests/unit/SkillBatch3DeliveryOpTests.cpp`](file:///d:/PRJ/NoMoreDay/tests/unit/SkillBatch3DeliveryOpTests.cpp)，聚焦交付算子孤立求值：

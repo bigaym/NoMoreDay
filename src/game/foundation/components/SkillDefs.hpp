@@ -615,7 +615,6 @@ struct PhantomTranceParams {
   float enchant_pen_per_intent_pct = 0.0f; // 991 意念穿透: 每层剑意元素穿透
   float enchant_pen_cap_pct = 40.0f;       // 991 穿透上限
   bool enchant_refresh_on_kill = false;    // 992 灵气反哺: 对应异常击杀刷新附魔
-  float cooldown_flat_reduce = 0.0f;       // 986 缩地成寸: 基础冷却直接减免
 
   bool operator==(const PhantomTranceParams &) const = default;
 };

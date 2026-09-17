@@ -107,15 +107,17 @@ void SkillSpecializationBaker::Bake(
     // 引导时长由行为层经 skill_mechanics 技能7/0 的 max_channel_time 读取，交付层不再写入 duration
     del.sub_interval = 0.3f;
     // 射程基准外置于技能级键 base_range，交付层缺省回退同键同默认值。
-    // 703 心念映射会在该基准上按 range_pct_per_point 放大；若此处缺省，
-    // 703 将回落到公式中的 200 基线，导致点满反而比 0 点射程更短。
+    // 703 心念映射经 UMR RANGE_MULT 算子在该基准上放大；若此处缺省，
+    // 乘算将回落到结构体默认值，导致点满反而比 0 点射程更短。
     del.range = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_range", 350.0f);
+    // 范围半径基准显式化：为 702 的 SKILL_AREA_MULT 提供确定性乘法基准
+    out_profile.area_radius = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_radius", 60.0f);
     break;
   case 8: // 御剑·回旋
     // 飞行速度与最远距离以技能级 params 为唯一事实源，禁止在交付层硬编码 500/300
     del.speed = skillData->GetParam("speed", 400.0f);
     del.range = skillData->GetParam("max_distance", 300.0f);
-    // 滞空时长默认为 0（未点 810 立即折返），由 810 覆写为 0.8s
+    // 滞空时长默认为 0（未点 810 立即折返），点亮 810 后由 SKILL_DURATION_FLAT 累加
     del.duration = 0.0f;
     break;
   case 9: // 绝影绝剑：突进形态
@@ -251,6 +253,16 @@ void SkillSpecializationBaker::Bake(
           data::SkillMechanicsRegistry::Get().GetFloat(5, 533, "giant_radius", 70.0f);
       out_profile.area_radius = std::max(out_profile.area_radius, giantRad);
     }
+
+    if (skill_id == 8) {
+      // 854 巨阙覆盖 830 侧刃：巨阙禁用侧刃，锁定 sub_count=0，消除遍历顺序依赖
+      if ((out_profile.delivery.feature_flags & (1u << 20)) != 0) {
+        out_profile.delivery.sub_count = 0;
+      }
+    } else if (skill_id == 9) {
+      // 975 延命单源同步：del.duration 为唯一数据源，终局同步至绝影形态参数
+      out_profile.delivery.trance.duration_sec = out_profile.delivery.duration;
+    }
   }
 
   // 5. 装备修饰器烘焙 (Equipment Skill Modifiers)
@@ -298,6 +310,12 @@ void SkillSpecializationBaker::Bake(
   out_profile.effective_mana_cost *=
       EquipmentModifierAdapter::GetEquippedManaCostMultiplier(
           registry, caster, skill_id, skillData->tags);
+
+  // 技能 9 全局冷却硬下限 1.0s：必须晚于步骤 5 的装备平减折叠，
+  // 否则装备的 flat_cooldown_delta 会把 986 的防穿透底线再次压低。
+  if (skill_id == 9) {
+    out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown);
+  }
 }
 
 void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
@@ -766,23 +784,9 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
   }
 
   case 7: { // 心剑·无影
-    const auto &mech = data::SkillMechanicsRegistry::Get();
-    if (node_id == 700) { // 神识凝聚: 引导法耗 -10..40%
-      const float red =
-          mech.GetFloat(7, 700, "mana_reduction_pct_per_point", 0.10f) * static_cast<float>(points);
-      out_profile.effective_mana_cost *= std::max(0.0f, 1.0f - red);
-    } else if (node_id == 701) { // 无影无形: 基础物理伤害 +10..50%
-      out_profile.more_damage_mult *=
-          (1.0f + mech.GetFloat(7, 701, "phys_damage_pct_per_point", 0.10f) * static_cast<float>(points));
-    } else if (node_id == 702) { // 裂空: 基础范围半径 +10..40%
-      // 显式以技能级 base_radius 为基准重算，保证不依赖技能数据默认值且幂等
-      out_profile.area_radius =
-          mech.GetFloat(7, 0, "base_radius", 60.0f) *
-          (1.0f + mech.GetFloat(7, 702, "radius_pct_per_point", 0.10f) * static_cast<float>(points));
-    } else if (node_id == 703) { // 心念映射: 视野/追踪范围 +10..40%
-      del.range = (del.range > 0.0f ? del.range : 200.0f) *
-                  (1.0f + mech.GetFloat(7, 703, "range_pct_per_point", 0.10f) * static_cast<float>(points));
-    } else if (node_id == 710) { // 心流叠加: 叠层增伤由交付层按层数动态读取
+    // 节点 700/701/702/703 的数值交付（法耗平减/物理增伤/范围/射程）
+    // 已迁入 skill_spec UMR 交付算子（见 Bake 步骤 3），此处仅保留标志位节点。
+    if (node_id == 710) { // 心流叠加: 叠层增伤由交付层按层数动态读取
       del.feature_flags |= 1;
     } else if (node_id == 711) { // 碎空爆 (Keystone): 蓄力引爆
       del.feature_flags |= 2;
@@ -796,8 +800,7 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       del.feature_flags |= 32;
     } else if (node_id == 731) { // 千面阵: 额外追踪撕裂数量
       del.feature_flags |= 64;
-    } else if (node_id == 732) { // 步影随行 (Keystone): 微步移动 + 引导法耗提升
-      out_profile.effective_mana_cost *= (1.0f + mech.GetFloat(7, 732, "mana_penalty_pct", 0.50f));
+    } else if (node_id == 732) { // 步影随行 (Keystone): 微步移动，引导法耗惩罚经 UMR 交付
       del.feature_flags |= 128;
     } else if (node_id == 733) { // 御剑神游: 小撕裂半径与伤害
       del.feature_flags |= 256;
@@ -838,23 +841,16 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
   }
 
   case 8: { // 御剑·回旋 — 语义以设计 §3.8 为准，旧版 812/813/830-833 映射已废弃
-    const auto &mech8 = data::SkillMechanicsRegistry::Get();
-    if (node_id == 800) { // 轻巧: 基础法力消耗 -1/点，攻速 +4%/点由 stat_modifiers 承担
-      out_profile.effective_mana_cost =
-          std::max(0.0f, out_profile.effective_mana_cost - 1.0f * static_cast<float>(points));
+    if (node_id == 800) { // 轻巧: 法力平减迁入 UMR，攻速 +4%/点由 stat_modifiers 承担
       del.feature_flags |= 1u;
-    } else if (node_id == 801) { // 疾速: 飞行速度与最远距离同比例 +15%/点
-      const float mult = 1.0f + 0.15f * static_cast<float>(points);
-      del.speed *= mult;
-      del.range *= mult;
+    } else if (node_id == 801) { // 疾速: 飞行速度与最远距离缩放迁入 UMR
       del.feature_flags |= 2u;
     } else if (node_id == 802) { // 锋锐: 附加物理点伤与暴击率由 stat_modifiers 承担
       del.feature_flags |= 4u;
     } else if (node_id == 803) { // 回力感应: 折返伤害 +10%/点
       del.return_damage_mult = 1.0f + 0.10f * static_cast<float>(points);
       del.feature_flags |= 8u;
-    } else if (node_id == 810) { // 滞空切割: 顶点滞留时长
-      del.duration = mech8.GetFloat(8, 810, "hover_duration", 0.8f);
+    } else if (node_id == 810) { // 滞空切割: 顶点滞留时长迁入 UMR DURATION_FLAT
       del.feature_flags |= 16u;
     } else if (node_id == 811) { // 放血: 命中施加一层流血的概率 +25%/点
       del.bleed_chance = 0.25f * static_cast<float>(points);
@@ -974,10 +970,7 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
       del.trance.recovery_pct =
           mech9.GetFloat(9, 974, "recovery_per_point", 10.0f) * static_cast<float>(points);
       del.feature_flags |= 1u << 3;
-    } else if (node_id == 975) { // 延命: 延长绝影形态时长
-      del.trance.duration_sec =
-          mech9.GetFloat(9, 0, "form_duration", 3.0f) +
-          mech9.GetFloat(9, 975, "duration_per_point", 0.25f) * static_cast<float>(points);
+    } else if (node_id == 975) { // 延命: 形态时长经 UMR DURATION_FLAT 累加，终局同步
       del.feature_flags |= 1u << 0;
     } else if (node_id == 976) { // 气旋爆发: 结束爆发伤害/半径倍率
       del.trance.burst_damage_mult =
@@ -1019,11 +1012,7 @@ void SkillSpecializationBaker::ApplyNodeModifiersToProfile(
     } else if (node_id == 985) { // 破空一闪: 瞬移至光标再入形态
       del.trance.blink = true;
       del.feature_flags |= 1u << 15;
-    } else if (node_id == 986) { // 缩地成寸: 基础冷却直接减免
-      del.trance.cooldown_flat_reduce =
-          mech9.GetFloat(9, 986, "cd_per_point", 1.0f) * static_cast<float>(points);
-      out_profile.effective_cooldown = std::max(
-          1.0f, out_profile.effective_cooldown - del.trance.cooldown_flat_reduce);
+    } else if (node_id == 986) { // 缩地成寸: 基础冷却减免迁入 UMR 冷却算子
       del.feature_flags |= 1u << 16;
     } else if (node_id == 987) { // 意随神行: 每秒剑意
       del.trance.intent_per_sec = static_cast<int>(

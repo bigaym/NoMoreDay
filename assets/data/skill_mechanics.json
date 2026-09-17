@@ -563,18 +563,6 @@
       "base_radius": 60.0,
       "base_range": 350.0
     },
-    "700": {
-      "mana_reduction_pct_per_point": 0.10
-    },
-    "701": {
-      "phys_damage_pct_per_point": 0.10
-    },
-    "702": {
-      "radius_pct_per_point": 0.10
-    },
-    "703": {
-      "range_pct_per_point": 0.10
-    },
     "710": {
       "more_per_stack": 0.05,
       "stack_interval": 0.5,
@@ -609,8 +597,7 @@
       "secondary_count_per_point": 1
     },
     "732": {
-      "move_speed_scale": 0.30,
-      "mana_penalty_pct": 0.50
+      "move_speed_scale": 0.30
     },
     "733": {
       "secondary_radius_pct_per_point": 0.20,
@@ -684,10 +671,6 @@
     "802": {
       "added_physical_per_point": 5.0
     },
-    "810": {
-      "hover_duration": 0.8,
-      "hover_tick_interval": 0.2
-    },
     "811": {
       "magnitude": 10.0,
       "duration": 4.0
@@ -717,21 +700,16 @@
   "9": {
     "0": {
       "form_duration": 3.0,
-      "form_move_pct": 20.0,
       "burst_radius": 160.0,
       "burst_weapon_mult": 1.5,
       "enchant_duration": 4.0,
       "enchant_added_pct": 0.5,
       "ward_duration": 2.0,
-      "weaken_duration": 3.0,
       "spiral_interval": 0.5,
       "echo_chance": 0.4,
       "echo_effectiveness": 0.5,
       "echo_icd": 0.5,
       "storm_pulse_mult": 0.4
-    },
-    "975": {
-      "duration_per_point": 0.25
     },
     "976": {
       "burst_per_point": 0.15
@@ -769,9 +747,6 @@
     },
     "934": {
       "speed_per_point": 5
-    },
-    "986": {
-      "cd_per_point": 1
     },
     "987": {
       "intent_per_point": 1

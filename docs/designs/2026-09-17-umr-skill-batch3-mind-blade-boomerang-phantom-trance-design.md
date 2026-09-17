@@ -1,6 +1,6 @@
 # UMR 技能专精改造第三批（技能 7 心剑·无影、技能 8 御剑·回旋、技能 9 绝影绝剑）设计说明
 
-- **文档状态**：已批准待实施（v1.1：响应独立审查报告全面修订）
+- **文档状态**：已批准待实施（v1.2：依实施后独立审查报告做文档对齐与门禁补强）
 - **文档路径**：`docs/designs/2026-09-17-umr-skill-batch3-mind-blade-boomerang-phantom-trance-design.md`
 - **设计日期**：2026-09-17
 - **系统代号**：`UMR-SKILL-BATCH-3` (Unified Modifier Runtime - Skill Batch 3)
@@ -11,6 +11,8 @@
     - 澄清步骤 4 技能 9 冷却保底为“全局硬下限 1.0s（含 986 平减防穿透）”（解 F-03）；
     - 强化声明物理修改 `SkillDefs.hpp` 彻底剔除 `PhantomTranceParams::cooldown_flat_reduce` 死字段（解 F-01）；
     - 登记 `BeamChannelDeliverySystem.cpp:224` 历史三元回退表达式技术债（采纳 F-05）。
+  - v1.2：依第三批实现后独立审查报告做文档对齐（G-02/G-03/G-04）与门禁补强（G-01/G-06/G-07/G-08）。
+  - v1.3：依外部审查反馈将技能 9 冷却硬下限从步骤 4 后移至步骤 5 装备平减折叠之后（R-01），并令 Python 门禁测试在 `.bin` 产物缺失时跳过而非误报失败（R-02）。
 - **输入来源**：
   - `设计文档/统一修饰器运行时系统_UMR.md`
   - `设计文档/职业设计草案_剑修.md`（§3.7 心剑·无影、§3.8 御剑·回旋、§3.9 绝影绝剑）
@@ -81,7 +83,7 @@
 4. **烘焙基准显式化与单源终局同步（P0）**：
    - 技能 7 在 Baker 步骤 1 显式初始化 `out_profile.area_radius = data::SkillMechanicsRegistry::Get().GetFloat(7, 0, "base_radius", 60.0f)`，使 702 的 `SKILL_AREA_MULT` 具备确定性基准，杜绝步骤 2 破坏性重写；
    - 技能 8 在步骤 1 明确 `del.duration = 0.0f`（未点 810 立即折返），810 经 `SKILL_DURATION_FLAT` 自然累加为 0.8s；
-   - 技能 9 在步骤 4 实施单源同步：`del.trance.duration_sec = del.duration`，统一两字段数据源；步骤 4 保留保底冷却限制 `out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown)`，并废除死字段 `del.trance.cooldown_flat_reduce`。
+   - 技能 9 在步骤 4 实施单源同步：`del.trance.duration_sec = del.duration`，统一两字段数据源；冷却硬下限 `out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown)` 于步骤 4 之后的装备折叠收尾处统一施加，并废除死字段 `del.trance.cooldown_flat_reduce`。
 
 5. **离线门禁与全量测试闭环（P0）**：
    - 扩充 [`scripts/validate_skill_spec_modifiers.py`](file:///d:/PRJ/NoMoreDay/scripts/validate_skill_spec_modifiers.py) 的 6 项门禁，覆盖 11 条新增记录、等价性断言与死键隔离；
@@ -223,8 +225,19 @@ if (skill_id == 8) {
   // 975 延命单源同步：将步骤 3 合成完成的 del.duration 单向同步至 trance.duration_sec，
   // 彻底消除 del.duration 与 del.trance.duration_sec 双重计算与漂移
   out_profile.delivery.trance.duration_sec = out_profile.delivery.duration;
+}
+```
 
-  // 技能 9 全局冷却硬下限 1.0s（防止 986 平减算子过度缩减穿透底线）
+#### 步骤 5：装备折叠后的终局硬下限
+
+装备专精修饰器在 `Bake` 步骤 5 折叠，其 `flat_cooldown_delta` 仅以 `std::max(0.0f, ...)` 收口
+（`SkillSpecializationBaker.cpp` 步骤 5）。若把技能 9 的 1.0s 硬下限置于步骤 4，装备平减会在之后
+再次把冷却压到 1.0s 以下，使“全局硬下限”名不副实。因此该下限必须置于装备折叠之后、`Bake` 返回之前：
+
+```cpp
+// 步骤 5 装备折叠结束后（Bake 收尾）
+if (skill_id == 9) {
+  // 技能 9 全局冷却硬下限 1.0s：晚于装备平减折叠，防止 986/装备穿透底线
   out_profile.effective_cooldown = std::max(1.0f, out_profile.effective_cooldown);
 }
 ```
@@ -288,12 +301,14 @@ if (skill_id == 8) {
 - `(7, 732, "move_speed_scale")`: 步影随行 Keystone 微步移动速度系数（0.30f），由输入系统在移动中直接消费；
 - `(9, 0, "form_duration")`: 技能 9 步骤 1 绝影形态基础持续时长（3.0f）。
 
+> **注**：上述 5 项中，实测仅 `(7, 732, "move_speed_scale")` 是 `check_registry_reverse` 反向登记的必需项（缺省会报 `unregistered mechanics key under migrated node`）；其余 4 项位于非迁移节点（7/0、9/0），对反向登记无告警消除作用，登记目的是将这些仍被 `src/` 消费的单一事实源键显式声明为保留键。
+
 ---
 
 ## 5. 离线校验与自动化测试防线
 
 ### 5.1 门禁扩展（`scripts/validate_skill_spec_modifiers.py`）
-1. **MIGRATION_EQUIVALENCE 扩展**：追加上述 11 条记录，严格标定转换关系（700/701/702/703/810/975 为 raw，732/800/986 为 flat_negate，800/801 为 literal）；
+1. **MIGRATION_EQUIVALENCE 扩展**：追加上述 11 条记录，严格标定转换关系（700/701/702/703/810/975 为 raw，732/986 为 flat_negate，800/801 为 literal）；
 2. **DEAD_MECHANICS_KEYS 扩展**：追加 `(8, 810, "hover_tick_interval")`、`(9, 0, "form_move_pct")`、`(9, 0, "weaken_duration")`，断言不得回潮；
 3. **KEPT_MECHANICS_KEYS 扩展**：登记上述 5 项基准保留键，保障反向登记无告警。
 
@@ -326,7 +341,7 @@ if (skill_id == 8) {
 | 技能 7 范围半径基准不幂等 | Medium | 702 若直接乘以 60.0 会抹除装备范围修饰 | 在步骤 1 将 60.0 赋予 `out_profile.area_radius`，步骤 3 统一由乘法算子缩放 |
 | 技能 8 巨阙与回旋侧刃顺序依赖 | High | 若遍历先巨阙后侧刃，可能导致侧刃未被清空 | 步骤 4 终局覆盖强制检查 854 flag 并置 `sub_count = 0` |
 | 技能 9 延命双字段未同步 | High | 若只改 `del.duration`，`PhantomTrance` 读取 `trance.duration_sec` 会导致延命失效 | 步骤 4 强制执行单向赋值 `trance.duration_sec = duration` |
-| 技能 9 冷却缩减穿透下限 | Medium | 986 点满可能使冷却低于 1s 导致高频连放 | 步骤 4 显式施加 `std::max(1.0f, out_profile.effective_cooldown)` |
+| 技能 9 冷却缩减穿透下限 | Medium | 986 点满或装备平减可能使冷却低于 1s 导致高频连放 | 步骤 5 装备平减折叠之后统一施加 `std::max(1.0f, out_profile.effective_cooldown)` |
 | 历史死键回潮风险 | Low | 误将 `weaken_duration` 等键加回配置表 | 门禁 `DEAD_MECHANICS_KEYS` 严格防护并在 CI 中阻断 |
 
 ---
