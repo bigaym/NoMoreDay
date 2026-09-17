@@ -1605,11 +1605,6 @@
     ],
     [
       10,
-      1001,
-      "crit_chance_per_point"
-    ],
-    [
-      10,
       1002,
       "final_slash_damage_per_point"
     ],
@@ -1662,11 +1657,6 @@
       10,
       1013,
       "final_damage_mult"
-    ],
-    [
-      10,
-      1015,
-      "invulnerable_duration_per_point"
     ],
     [
       10,
@@ -1760,11 +1750,6 @@
     ],
     [
       11,
-      1101,
-      "field_radius_range_per_point"
-    ],
-    [
-      11,
       1102,
       "impact_damage_per_point_per_tier"
     ],
@@ -1797,11 +1782,6 @@
       11,
       1106,
       "slow_percent_per_point"
-    ],
-    [
-      11,
-      1107,
-      "field_radius_mult"
     ],
     [
       11,
@@ -1882,11 +1862,6 @@
       11,
       1118,
       "afflicted_damage_per_point"
-    ],
-    [
-      11,
-      1119,
-      "duration_per_point"
     ],
     [
       11,
@@ -2020,11 +1995,6 @@
     ],
     [
       12,
-      1201,
-      "damage_per_point"
-    ],
-    [
-      12,
       1202,
       "damage_per_point_per_bloodthirst"
     ],
@@ -2047,11 +2017,6 @@
       12,
       1206,
       "low_life_pressure_damage_per_point"
-    ],
-    [
-      12,
-      1207,
-      "damage_mult"
     ],
     [
       12,
@@ -2142,11 +2107,6 @@
       12,
       1218,
       "linked_pressure_per_point"
-    ],
-    [
-      12,
-      1219,
-      "duration_per_point"
     ],
     [
       12,

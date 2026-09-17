@@ -5,11 +5,11 @@
   2. SKILL_PROJECTILES_ADD 的 param_f32 必须为非负整数（整数算子静态截断与负值防护）；
   3. OpCode 30..42 仅允许出现在 debug_source == "skill_spec_node" 的记录上（SkillDelivery 类别防蔓延）；
   4. canonical ↔ skill_mechanics 迁移等价（按算子逐条给出期望关系，节点 201 为绝对平减不套用 /100；
-     Batch 1/2/3 合计 41 条 MIGRATION_EQUIVALENCE），并守护 canonical 数值不漂移；
-  5. 退役键不回潮：覆盖迁移退役键（Batch 1/2/3 全量）与无 canonical 记录的历史死键
-     （DEAD_MECHANICS_KEYS 8 项，独立于 MIGRATION_EQUIVALENCE）；
+     Batch 1/2/3/4 合计 50 条 MIGRATION_EQUIVALENCE），并守护 canonical 数值不漂移；
+  5. 退役键不回潮：覆盖迁移退役键（Batch 1/2/3/4 全量）与无 canonical 记录的历史死键
+     （DEAD_MECHANICS_KEYS 10 项，独立于 MIGRATION_EQUIVALENCE）；
   6. 反向登记：退役键必须有 canonical 替代记录，且已迁移节点下不得残留未登记键
-     （KEPT_MECHANICS_KEYS 16 项）。
+     （KEPT_MECHANICS_KEYS 25 项）。
 """
 
 from __future__ import annotations
@@ -99,6 +99,17 @@ MIGRATION_EQUIVALENCE = (
     (2008100, 8, 810, "hover_duration", "raw", 0.8),
     (2009750, 9, 975, "duration_per_point", "raw", 0.25),
     (2009860, 9, 986, "cd_per_point", "flat_negate", -1.0),
+    # Batch 4（技能 10/11/12，9 条）。relation 规格见设计 §5.1：
+    # 1107/1207 为 Baker 字面量迁移（mechanics_key 为 None，literal）；其余按原始数值迁移。
+    (2010010, 10, 1001, "crit_chance_per_point", "raw", 0.02),
+    (2010150, 10, 1015, "invulnerable_duration_per_point", "raw", 0.03),
+    (2011010, 11, 1101, "field_radius_range_per_point", "raw", 0.08),
+    (2011070, 11, 1107, None, "literal", -0.30),
+    (2011190, 11, 1119, "duration_per_point", "raw", 0.50),
+    (2012010, 12, 1201, "damage_per_point", "raw", 0.06),
+    (2012070, 12, 1207, None, "literal", 0.10),
+    (2012071, 12, 1207, None, "literal", -0.40),
+    (2012190, 12, 1219, "duration_per_point", "raw", 0.60),
 )
 
 # 已迁移节点下仍保留的 mechanics 键（非线性后处理或本批显式不迁移），用于反向登记校验。
@@ -125,6 +136,18 @@ KEPT_MECHANICS_KEYS = frozenset(
         (7, 0, "mana_cost_per_sec"),
         (7, 732, "move_speed_scale"),
         (9, 0, "form_duration"),
+        # Batch 4：已迁移节点/基准下仍作为单一事实源保留的键（设计 §5.1）。
+        # 仅 (11, 1107, "impact_damage_bonus") 参与 check_registry_reverse 反查；
+        # node 0 与 node 1200 条目为文档性登记，不参与反查。
+        (10, 0, "slash_count"),
+        (11, 0, "field_damage_per_tier"),
+        (11, 0, "base_resist_reduction"),
+        (11, 0, "field_pulse_base_damage"),
+        (11, 1107, "impact_damage_bonus"),
+        (12, 0, "low_life_threshold"),
+        (12, 0, "field_duration_per_bloodthirst"),
+        (12, 0, "field_radius_per_bloodthirst"),
+        (12, 1200, "radius_per_point"),
     }
 )
 
@@ -140,6 +163,9 @@ DEAD_MECHANICS_KEYS = (
     (8, 810, "hover_tick_interval"),
     (9, 0, "form_move_pct"),
     (9, 0, "weaken_duration"),
+    # Batch 4 彻底废弃键防回潮门禁（覆盖 literal 迁移键，确保独立拦截）。
+    (11, 1107, "field_radius_mult"),
+    (12, 1207, "damage_mult"),
 )
 
 FLOAT_TOLERANCE = 1e-6

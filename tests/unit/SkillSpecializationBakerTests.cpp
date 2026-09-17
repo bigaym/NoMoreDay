@@ -2290,5 +2290,159 @@ TEST_CASE("[Unit] SkillSpecializationBaker - SkillBatch3 MindBlade/Boomerang/Tra
   }
 }
 
+// UMR-SKILL-BATCH-4 迁移等价性快照：技能 10/11/12 的手写数值分支已删除，
+// 全部交付数值须由 canonical 交付算子按分配点数合成（设计 §6 / 计划 Phase 6）。
+TEST_CASE("[Unit] SkillSpecializationBaker - SkillBatch4 SevenStar/HeavenlySword/"
+          "BloodSea UMR Baking") {
+  TestSetupScope scope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // 技能 10/11/12 的基准半径与时长来自技能级 params；UMR 只在其上叠乘/加算。
+  REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
+      "assets/data/skill_mechanics.json"));
+  EnsureModifierRuntimeForSkillSpec();
+
+  // 源事实存在性守卫（评审 #3）：GetParam 在键缺失/改名时静默返回默认值，仅断言烘焙
+  // 数值无法发现 skills.json 漂移，故先校验技能级 params 键确实存在。
+  const auto *skill10 = SkillRegistry::Get().GetSkill(10);
+  REQUIRE(skill10 != nullptr);
+  REQUIRE(skill10->params.count("radius") == 1);
+  REQUIRE(skill10->params.count("invulnerable_duration") == 1);
+  const auto *skill11 = SkillRegistry::Get().GetSkill(11);
+  REQUIRE(skill11 != nullptr);
+  REQUIRE(skill11->params.count("field_radius") == 1);
+  REQUIRE(skill11->params.count("field_duration") == 1);
+  const auto *skill12 = SkillRegistry::Get().GetSkill(12);
+  REQUIRE(skill12 != nullptr);
+  REQUIRE(skill12->params.count("field_radius") == 1);
+  REQUIRE(skill12->params.count("field_duration") == 1);
+
+  entt::registry registry;
+  const auto player = registry.create();
+
+  // ---- 技能 10 七星斩 ----
+  // 0 点：范围 96.0、无敌时长 0.5、More 恒为 1.0（本批无 More 记录）。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 10;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 10, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(96.0f));
+    CHECK(profile.delivery.duration == doctest::Approx(0.5f));
+    CHECK(profile.more_damage_mult == doctest::Approx(1.0f));
+  }
+
+  // 1001 锋芒毕露：BONUS_CRIT 每点 +0.02，加性累加。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 10;
+    spec.allocated_points[1001] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 10, &spec, profile, nullptr);
+    CHECK(profile.delivery.bonus_crit == doctest::Approx(0.02f));
+  }
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 10;
+    spec.allocated_points[1001] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 10, &spec, profile, nullptr);
+    CHECK(profile.delivery.bonus_crit == doctest::Approx(0.08f));
+  }
+
+  // 1015 踏虚：DURATION_FLAT 每点 +0.03s，3 点（上限）-> 0.5 + 0.09 = 0.59。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 10;
+    spec.allocated_points[1015] = 3;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 10, &spec, profile, nullptr);
+    CHECK(profile.delivery.duration == doctest::Approx(0.59f));
+  }
+
+  // ---- 技能 11 天剑降临 ----
+  // 0 点：领域半径 140.0、领域时长 5.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 11;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 11, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(140.0f));
+    CHECK(profile.delivery.duration == doctest::Approx(5.0f));
+  }
+
+  // 1101 天域增幅：AREA_MULT 每点 +8%，4 点（上限）-> 140 * 1.32 = 184.8。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 11;
+    spec.allocated_points[1101] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 11, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(184.8f));
+  }
+
+  // 1107 天穹贯星：点亮即 AREA_MULT -30% -> 140 * 0.70 = 98.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 11;
+    spec.allocated_points[1107] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 11, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(98.0f));
+  }
+
+  // 1119 久驻天域：DURATION_FLAT 每点 +0.5s，3 点（上限）-> 5.0 + 1.5 = 6.5。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 11;
+    spec.allocated_points[1119] = 3;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 11, &spec, profile, nullptr);
+    CHECK(profile.delivery.duration == doctest::Approx(6.5f));
+  }
+
+  // ---- 技能 12 血海 ----
+  // 0 点：领域半径 120.0、领域时长 4.8、More 恒为 1.0。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 12;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 12, &spec, profile, nullptr);
+    CHECK(profile.area_radius == doctest::Approx(120.0f));
+    CHECK(profile.delivery.duration == doctest::Approx(4.8f));
+    CHECK(profile.more_damage_mult == doctest::Approx(1.0f));
+  }
+
+  // 1201 血压潮升：MORE_DAMAGE_MULT 每点 +6%，4 点（上限）-> 1 + 0.24 = 1.24。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 12;
+    spec.allocated_points[1201] = 4;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 12, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.24f));
+  }
+
+  // 1207 无间血狱：同节点双记录，More +10% 与范围 -40% 同时生效。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 12;
+    spec.allocated_points[1207] = 1;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 12, &spec, profile, nullptr);
+    CHECK(profile.more_damage_mult == doctest::Approx(1.10f));
+    CHECK(profile.area_radius == doctest::Approx(72.0f));
+  }
+
+  // 1219 久驻血雾：DURATION_FLAT 每点 +0.6s，3 点（上限）-> 4.8 + 1.8 = 6.6。
+  {
+    SpecializedSkill spec;
+    spec.skill_id = 12;
+    spec.allocated_points[1219] = 3;
+    BakedSkillProfile profile{};
+    SkillSpecializationBaker::Bake(registry, player, 12, &spec, profile, nullptr);
+    CHECK(profile.delivery.duration == doctest::Approx(6.6f));
+  }
+}
+
 } // namespace NoMoreDay
 

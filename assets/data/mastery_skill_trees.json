@@ -268,13 +268,7 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 17,
-              "mode": 0,
-              "value": 2.0
-            }
-          ],
+          "stat_modifiers": [],
           "x": -2.002000093460083,
           "y": -0.17499999701976776
         },
@@ -1073,13 +1067,7 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 25,
-              "mode": 1,
-              "value": 8.0
-            }
-          ],
+          "stat_modifiers": [],
           "x": 3.506999969482422,
           "y": -3.0869998931884766
         },
@@ -1207,13 +1195,7 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 25,
-              "mode": 1,
-              "value": -30.0
-            }
-          ],
+          "stat_modifiers": [],
           "damage_modifiers": [
             {
               "source_tag": 0,
@@ -1481,13 +1463,7 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 39,
-              "mode": 0,
-              "value": 1.0
-            }
-          ],
+          "stat_modifiers": [],
           "x": 2.9660000801086426,
           "y": -1.156999945640564
         },
@@ -1831,13 +1807,7 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 13,
-              "mode": 1,
-              "value": 10.0
-            }
-          ],
+          "stat_modifiers": [],
           "x": -1.8819999694824219,
           "y": 0.6290000081062317
         },
@@ -1942,7 +1912,7 @@
           "y": 2.7290000915527344
         },
         {
-          "desc_key": "血海范围缩小 40%，但伤害总增 (More) 30%。",
+          "desc_key": "血海范围缩小 40%，但伤害总增 (More) 10%。",
           "icon_id": 2757974670,
           "id": 1207,
           "max_points": 1,
@@ -1953,21 +1923,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": [
-            {
-              "type": 25,
-              "mode": 1,
-              "value": -40.0
-            }
-          ],
-          "damage_modifiers": [
-            {
-              "source_tag": 0,
-              "target_tag": 0,
-              "value": 30.0,
-              "type": 2
-            }
-          ],
+          "stat_modifiers": [],
+          "damage_modifiers": [],
           "x": -2.9709999561309814,
           "y": 1.128999948501587
         },

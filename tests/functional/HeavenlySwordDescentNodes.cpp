@@ -38,6 +38,10 @@ void EnsureSkillMechanics() {
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
       "assets/data/skill_mechanics.json"));
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // ModifierRuntimeRegistry 为进程级单例，前置用例可能注入合成 blob（LoadFromBytes
+  // 使 m_loadedPath 为空、EnsureLoaded 变为通配）；依赖真实生成数据的烘焙断言前强制
+  // 重载，避免同一测试二进制内的执行顺序造成跨用例污染。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   SkillBehaviorRegistry::Initialize();
 }
 
@@ -125,8 +129,9 @@ TEST_CASE("[Functional] Skill 11 - externalized mechanics match legacy literals"
   // 逐 key 断言外置值与迁移前字面量等价；技能级默认参数位于 node 0。
   CHECK(skills::GetMech(11, 1100, "impact_stability_per_point", -1.0f) ==
         doctest::Approx(0.10f));
+  // 1101 领域半径已迁移至 UMR 单源交付（记录 2011010），机制键退役。
   CHECK(skills::GetMech(11, 1101, "field_radius_range_per_point", -1.0f) ==
-        doctest::Approx(0.08f));
+        doctest::Approx(-1.0f));
   CHECK(skills::GetMech(11, 1102, "impact_damage_per_point_per_tier", -1.0f) ==
         doctest::Approx(0.04f));
   CHECK(skills::GetMech(11, 1103, "tick_interval_reduction_per_point", -1.0f) ==
@@ -141,8 +146,10 @@ TEST_CASE("[Functional] Skill 11 - externalized mechanics match legacy literals"
         doctest::Approx(2.0f));
   CHECK(skills::GetMech(11, 1106, "slow_percent_per_point", -1.0f) ==
         doctest::Approx(10.0f));
+  // 1107 缩圈惩罚已迁移至 UMR 单源交付（记录 2011070），机制键退役；
+  // impact_damage_bonus 仍由机制表承载（见下行）。
   CHECK(skills::GetMech(11, 1107, "field_radius_mult", -1.0f) ==
-        doctest::Approx(0.7f));
+        doctest::Approx(-1.0f));
   CHECK(skills::GetMech(11, 1107, "impact_damage_bonus", -1.0f) ==
         doctest::Approx(0.35f));
   CHECK(skills::GetMech(11, 1108, "scar_damage_per_point", -1.0f) ==
@@ -175,8 +182,9 @@ TEST_CASE("[Functional] Skill 11 - externalized mechanics match legacy literals"
         doctest::Approx(18.0f));
   CHECK(skills::GetMech(11, 1118, "afflicted_damage_per_point", -1.0f) ==
         doctest::Approx(0.10f));
+  // 1119 领域持续时间已迁移至 UMR 单源交付（记录 2011190），机制键退役。
   CHECK(skills::GetMech(11, 1119, "duration_per_point", -1.0f) ==
-        doctest::Approx(0.5f));
+        doctest::Approx(-1.0f));
   CHECK(skills::GetMech(11, 1121, "tick_interval_mult", -1.0f) ==
         doctest::Approx(1.2f));
   CHECK(skills::GetMech(11, 1121, "field_damage_mult", -1.0f) ==
@@ -252,7 +260,7 @@ TEST_CASE("[Functional] Skill 11 - externalized coefficients drive field on cast
 
     const auto *field = FindField(registry);
     REQUIRE(field != nullptr);
-    // 基础 5.0s + 每点 0.5s * 4 = 7.0s（技能11 / 1119 duration_per_point）。
+    // 基础 5.0s + 每点 0.5s * 4 = 7.0s（技能11 / 1119，数值由 UMR 2011190 单源交付）。
     CHECK(field->header.duration == doctest::Approx(7.0f));
   }
 

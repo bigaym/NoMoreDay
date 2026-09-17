@@ -7,6 +7,7 @@
 #include "game/foundation/components/EnemyComponent.hpp"
 #include "game/foundation/data/SkillRegistry.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
@@ -361,13 +362,15 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     const SevenStarSlashSpecState specState = ResolveSpecState(registry, owner);
 
+    // 交付档案单源解析：命中缓存时直接消费，未命中且无同 ID 专精槽时为 nullptr，
+    // 各消费点按技能级 params 回退（R-01）。
+    BakedSkillProfile localProfile;
+    const auto *profile = ResolveBakedProfile(registry, owner, kSkillId, localProfile);
+
     // 机制数值一次性读取：避免在斩击循环内重复查表（设计 §4.4）。
     const float targetLockRescuePerPoint = GetMech(
         seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::TargetLock,
         "rescue_radius_per_point", 0.15f);
-    const float critChancePerPoint =
-        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::CritChance,
-                "crit_chance_per_point", 0.02f);
     const float quickStarRefundPerPoint =
         GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::QuickStar,
                 "cooldown_refund_per_point", 0.04f);
@@ -377,9 +380,6 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
     const float endlessSevenFinalDamageMult =
         GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::EndlessSeven,
                 "final_damage_mult", 0.8f);
-    const float voidTreadDurationPerPoint =
-        GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::VoidTread,
-                "invulnerable_duration_per_point", 0.03f);
     const float starVeilBarrierCapRatio =
         GetMech(seven_star_shared::kSevenStarSlashSkillId, SevenStarSlashNodes::StarVeil,
                 "barrier_health_cap_ratio", 0.15f);
@@ -419,10 +419,12 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         skillData->GetParam("flow_bonus_per_stack", 0.06f);
     const float singleTargetExecuteBonus =
         skillData->GetParam("single_target_execute_bonus", 0.5f);
-    float invulnerableDuration =
-        skillData->GetParam("invulnerable_duration", 0.5f);
-    invulnerableDuration +=
-        voidTreadDurationPerPoint * static_cast<float>(specState.voidTreadPoints);
+    // 无敌时长单源消费：1015 的 DURATION_FLAT 已由 Bake 合成进交付 duration（基准 0.5s）。
+    // 按设计 §3.3 以 std::max(0.0f, ...) 夹取，避免脏数据把无敌帧写成负值。
+    const float invulnerableDuration =
+        std::max(0.0f, profile
+                           ? profile->delivery.duration
+                           : skillData->GetParam("invulnerable_duration", 0.5f));
 
     const int resourceToSpend = GetCurrentBladeResource(registry, owner);
     if (resourceToSpend > 0) {
@@ -549,8 +551,8 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
       for (const auto &candidate : slashTargets) {
         float slashDamage = baseSlashDamage;
-        // 暴击率统一为分数制：每点 +2% = 0.02
-        float critChanceBonus = critChancePerPoint * static_cast<float>(specState.critChancePoints);
+        // 暴击率单源消费：1001 的 BONUS_CRIT 已由 Bake 合成（分数制，每点 +0.02）；空档案回退 0。
+        const float critChanceBonus = profile ? profile->delivery.bonus_crit : 0.0f;
         float critDamageBonus = 0.0f;
 
         if (isFinalSlash) {

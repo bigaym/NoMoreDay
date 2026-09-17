@@ -16,6 +16,7 @@
 #include "game/contracts/CombatEvents.hpp"
 #include "game/contracts/DamageResolutionHooks.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
+#include "game/systems/skill/SkillProfileResolve.hpp"
 
 #include <algorithm>
 #include <string_view>
@@ -299,6 +300,11 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
                       SkillExecution &exec) {
   const BloodSeaCastSpec spec = ResolveBloodSeaCastSpec(registry, owner);
 
+  // 交付档案单源解析：命中缓存时直接消费，未命中且无同 ID 专精槽时为 nullptr，
+  // 各消费点按技能级 params 回退（R-01）。
+  BakedSkillProfile localProfile;
+  const auto *profile = ResolveBakedProfile(registry, owner, kSkillId, localProfile);
+
   // 机制系数：入口处一次性读取，node/key/default 与迁移前绑定表逐项一致。
   const float low_life_threshold =
       GetMech(kBloodSeaSkillId, 0u, "low_life_threshold", 0.35f);
@@ -309,8 +315,6 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   const float radius_per_point =
       GetMech(kBloodSeaSkillId, BloodSeaNodes::BloodCurtainOpening,
               "radius_per_point", 8.0f);
-  const float damage_per_point = GetMech(
-      kBloodSeaSkillId, BloodSeaNodes::PressureTideRise, "damage_per_point", 0.06f);
   const float damage_per_point_per_bloodthirst =
       GetMech(kBloodSeaSkillId, BloodSeaNodes::BloodthirstEdge,
               "damage_per_point_per_bloodthirst", 0.025f);
@@ -326,8 +330,6 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   const float low_life_pressure_damage_per_point =
       GetMech(kBloodSeaSkillId, BloodSeaNodes::DyingEdge,
               "low_life_pressure_damage_per_point", 0.18f);
-  const float bottomless_damage_mult = GetMech(
-      kBloodSeaSkillId, BloodSeaNodes::BottomlessPurgatory, "damage_mult", 1.1f);
   const float aftershock_damage_per_point =
       GetMech(kBloodSeaSkillId, BloodSeaNodes::SeveredVeinAftershock,
               "aftershock_damage_per_point", 0.05f);
@@ -367,9 +369,6 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   const float linked_pressure_per_point =
       GetMech(kBloodSeaSkillId, BloodSeaNodes::HuntingBloodPressure,
               "linked_pressure_per_point", 0.08f);
-  const float duration_per_point =
-      GetMech(kBloodSeaSkillId, BloodSeaNodes::LingeringBloodMist,
-              "duration_per_point", 0.6f);
   const float void_damage_mult = GetMech(
       kBloodSeaSkillId, BloodSeaNodes::VoidErosionMiasma, "damage_mult", 1.18f);
   const float void_resist_shred_bonus =
@@ -423,14 +422,27 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   registry.emplace<PersistentFieldTag>(field_entity); // 持久场原型标记：交付系统据此跳过自管理脉冲
   field.header.owner = owner;
   field.consumed_bloodthirst = effective_consumed;
+  // 领域时长单源消费：1219 的 DURATION_FLAT 已由 Bake 合成进交付 duration（基准 4.8s），
+  // 再叠加行为层「每点消耗血渴延长」的运行时项。
+  // 哨兵守卫：skillData 缺失时（Bake 早退 / 槽位缓存）档案只带 skill_id 与 1.0f 默认值，
+  // 非空却无意义，且 1.0f 为正无法用数值判别；而该情形下 skill 必为空指针，故以
+  // 「profile && skill」为判据，确保哨兵档案永不胜过技能级/常量回退。
   field.header.duration =
-      (skill ? skill->GetParam("field_duration", kFieldDurationDefault)
-             : kFieldDurationDefault) +
+      ((profile && skill != nullptr)
+           ? profile->delivery.duration
+           : (skill ? skill->GetParam("field_duration", kFieldDurationDefault)
+                    : kFieldDurationDefault)) +
       field_duration_per_bloodthirst * static_cast<float>(effective_consumed);
+  // 领域半径单源消费：1207 的 AREA_MULT 已由 Bake 合成进交付 area_radius（并折叠装备
+  // area_radius_mult，SkillSpecializationBaker.cpp:299-301），
+  // 再叠加「每点消耗血渴 + 1200 血幕初开」两个行为层加项。哨兵守卫同上。
   field.header.radius =
-      (skill ? skill->GetParam("field_radius", kFieldRadiusDefault)
-             : kFieldRadiusDefault) +
-      static_cast<float>(effective_consumed) * field_radius_per_bloodthirst;
+      ((profile && skill != nullptr)
+           ? profile->area_radius
+           : (skill ? skill->GetParam("field_radius", kFieldRadiusDefault)
+                    : kFieldRadiusDefault)) +
+      static_cast<float>(effective_consumed) * field_radius_per_bloodthirst +
+      static_cast<float>(spec.bloodCurtainOpeningPoints) * radius_per_point;
   field.header.tick_interval =
       skill ? skill->GetParam("field_tick", kFieldTickDefault)
             : kFieldTickDefault;
@@ -477,12 +489,9 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
   }
   const bool is_low_life = health_ratio <= low_life_threshold;
 
-  field.header.radius += static_cast<float>(spec.bloodCurtainOpeningPoints) *
-                         radius_per_point;
-  field.header.duration += static_cast<float>(spec.lingeringBloodMistPoints) *
-                           duration_per_point;
-  field.bonus_damage_mult *=
-      1.0f + static_cast<float>(spec.pressureTideRisePoints) * damage_per_point;
+  // 增伤单源消费：1201/1207 的 MORE_DAMAGE_MULT 已由 Bake 合成。按 R-05 记录的
+  // 确定性顺序，乘算置于 1202 平加之前（点出 1202 时产生 0.1*K*ring 的已接受偏差）。
+  field.bonus_damage_mult *= (profile ? profile->more_damage_mult : 1.0f);
   field.bonus_damage_mult += static_cast<float>(effective_consumed) *
                              static_cast<float>(spec.bloodthirstEdgePoints) *
                              damage_per_point_per_bloodthirst;
@@ -540,9 +549,6 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
     field.header.radius *= ring_radius_mult;
     field.leech_ratio += ring_leech_bonus;
     field.bonus_damage_mult *= ring_damage_mult;
-  }
-  if (spec.bottomlessPurgatory) {
-    field.bonus_damage_mult *= bottomless_damage_mult;
   }
   field.header.tick_interval *=
       std::max(tick_interval_floor,

@@ -127,6 +127,23 @@ void SkillSpecializationBaker::Bake(
     del.duration = data::SkillMechanicsRegistry::Get().GetFloat(9, 0, "form_duration", 3.0f);
     del.trance.duration_sec = del.duration;
     break;
+  case 10: // 七星斩
+    // 范围与短暂无敌时长以技能级 params 为唯一事实源（无敌时长即交付 duration，
+    // 由 1015 的 DURATION_FLAT 在步骤 3 加算）；不写入 range/sub_interval 以免死写。
+    // 注：技能 10 行为层不消费 area_radius，此处写入仅为交付基准一致性，非死写数值权威。
+    out_profile.area_radius = skillData->GetParam("radius", 96.0f);
+    del.duration = skillData->GetParam("invulnerable_duration", 0.5f);
+    break;
+  case 11: // 天剑降临
+    // 领域半径基准供 1101/1107 的 AREA_MULT 乘算，领域时长供 1119 的 DURATION_FLAT 加算。
+    out_profile.area_radius = skillData->GetParam("field_radius", 140.0f);
+    del.duration = skillData->GetParam("field_duration", 5.0f);
+    break;
+  case 12: // 血海
+    // 领域半径基准供 1207 的 AREA_MULT 乘算，领域时长供 1219 的 DURATION_FLAT 加算。
+    out_profile.area_radius = skillData->GetParam("field_radius", 120.0f);
+    del.duration = skillData->GetParam("field_duration", 4.8f);
+    break;
   default:
     break;
   }

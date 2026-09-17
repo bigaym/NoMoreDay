@@ -78,11 +78,12 @@ TEST_CASE("[Unit] SkillMechanicsRegistry - Loads Real Config And Reads Values") 
         doctest::Approx(0.20f));
   // 技能 7/8/9 的 0 号基础节点必须保留，运行时确有读取。
   CHECK(SkillMechanicsRegistry::Get().HasNode(7, 0));
-  // 技能 10（七星斩）已纳入必需技能并在数据中登记机制数值。
-  CHECK(SkillMechanicsRegistry::Get().HasNode(10, 1001));
+  // 技能 10（七星斩）节点 1001 的暴击数值已迁移至 UMR 单源交付（记录 2010010）；
+  // 机制表节点与键退役，加载器按缺失回退，防止旧键回流。
+  CHECK_FALSE(SkillMechanicsRegistry::Get().HasNode(10, 1001));
   CHECK(SkillMechanicsRegistry::Get().GetFloat(10, 1001,
                                                "crit_chance_per_point", -1.0f) ==
-        doctest::Approx(0.02f));
+        doctest::Approx(-1.0f));
   // 技能 11（天剑降临）已纳入必需技能；节点 0 为技能级默认参数。
   CHECK(SkillMechanicsRegistry::Get().HasNode(11, 0));
   CHECK(SkillMechanicsRegistry::Get().HasNode(11, 1102));

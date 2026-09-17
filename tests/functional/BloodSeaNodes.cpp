@@ -40,6 +40,10 @@ void EnsureSkillMechanics() {
   REQUIRE(data::SkillMechanicsRegistry::Get().LoadFromFile(
       "assets/data/skill_mechanics.json"));
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  // ModifierRuntimeRegistry 为进程级单例，前置用例可能注入合成 blob（LoadFromBytes
+  // 使 m_loadedPath 为空、EnsureLoaded 变为通配）；依赖真实生成数据的烘焙断言前强制
+  // 重载，避免同一测试二进制内的执行顺序造成跨用例污染。
+  REQUIRE(ReloadModifierRuntimeFromAsset());
   SkillBehaviorRegistry::Initialize();
 }
 
@@ -125,8 +129,9 @@ TEST_CASE("[Functional] Skill 12 - externalized mechanics match legacy literals"
   // 逐 key 断言外置值与迁移前字面量等价；技能级默认参数位于 node 0。
   CHECK(skills::GetMech(12, 1200, "radius_per_point", -1.0f) ==
         doctest::Approx(8.0f));
+  // 1201 持续增伤已迁移至 UMR 单源交付（记录 2012010），机制键退役。
   CHECK(skills::GetMech(12, 1201, "damage_per_point", -1.0f) ==
-        doctest::Approx(0.06f));
+        doctest::Approx(-1.0f));
   CHECK(skills::GetMech(12, 1202, "damage_per_point_per_bloodthirst", -1.0f) ==
         doctest::Approx(0.025f));
   CHECK(skills::GetMech(12, 1203, "move_speed_per_point", -1.0f) ==
@@ -137,8 +142,9 @@ TEST_CASE("[Functional] Skill 12 - externalized mechanics match legacy literals"
         doctest::Approx(0.08f));
   CHECK(skills::GetMech(12, 1206, "low_life_pressure_damage_per_point", -1.0f) ==
         doctest::Approx(0.18f));
+  // 1207 More 增伤已迁移至 UMR 单源交付（记录 2012070），机制键退役。
   CHECK(skills::GetMech(12, 1207, "damage_mult", -1.0f) ==
-        doctest::Approx(1.1f));
+        doctest::Approx(-1.0f));
   CHECK(skills::GetMech(12, 1208, "aftershock_damage_per_point", -1.0f) ==
         doctest::Approx(0.05f));
   CHECK(skills::GetMech(12, 1209, "leech_per_point_per_bloodthirst", -1.0f) ==
@@ -175,8 +181,9 @@ TEST_CASE("[Functional] Skill 12 - externalized mechanics match legacy literals"
         doctest::Approx(0.2f));
   CHECK(skills::GetMech(12, 1218, "linked_pressure_per_point", -1.0f) ==
         doctest::Approx(0.08f));
+  // 1219 延长持续时间已迁移至 UMR 单源交付（记录 2012190），机制键退役。
   CHECK(skills::GetMech(12, 1219, "duration_per_point", -1.0f) ==
-        doctest::Approx(0.6f));
+        doctest::Approx(-1.0f));
   CHECK(skills::GetMech(12, 1220, "damage_mult", -1.0f) ==
         doctest::Approx(1.18f));
   CHECK(skills::GetMech(12, 1220, "resist_shred_bonus", -1.0f) ==
